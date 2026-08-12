@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { adminApiClient } from '../api/client';
 import { useTranslation } from '../i18n/I18nProvider';
-import { Loader2, Search, Filter, Plus, Edit, X, RefreshCw } from 'lucide-react';
+import { Loader2, Search, Filter, Plus, Edit, X } from 'lucide-react';
 
 interface AcademicTaxonomyNode {
   nodeId: string;

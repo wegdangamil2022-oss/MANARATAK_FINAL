@@ -135,7 +135,9 @@ class InMemoryImportRepo {
     if (batch) {
       Object.assign(batch, stats);
       this.batches.set(id, batch);
+      return batch;
     }
+    throw new Error(`Import batch ${id} not found`);
   }
 
   async createRecord(data: any) {

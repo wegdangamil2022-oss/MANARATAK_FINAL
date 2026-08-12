@@ -47,7 +47,7 @@ Below is the definitive reference for environment variables in the MANARATAK 2.0
 | **`JWT_SECRET`** | Auth | Yes | Yes | `manaratak-local-development-jwt-secret-2026` | Token signing secret. Validation fails in non-test environments if length < 32 characters. |
 | **`ADMIN_AUTH_MODE`** | Security | No | Yes | `demo` | Controls admin auth modes: `demo` (development) or `strict` (production). |
 | **`ADMIN_BEARER_TOKEN`** | Security | No | Yes | `admin-demo-bearer-token-must-be-at-least-32-chars` | Bearer token for admin access. Strictly checked if mode is `strict`. |
-| **`DATABASE_URL`** | Database | No | Yes | `file:./dev.db` | Path or connection string for SQLite (dev) or PostgreSQL/Cloud SQL (prod). |
+| **`DATABASE_URL`** | Database | No | Yes | `postgresql://postgres:postgres@localhost:5432/manaratak_dev` | PostgreSQL connection string. Tests must use an isolated PostgreSQL test database. |
 | **`REDIS_URL`** | Queue | No | Yes | `redis://localhost:6379` | Queue and cache connection URL. |
 | **`VITE_ADMIN_URL`** | Routing | No | Yes | `http://localhost:3001` | Coordinates public frontend redirect to Admin Portal. |
 | **`VITE_API_URL`** | Routing | No | No | `/api/v1` | Public API endpoint override. |

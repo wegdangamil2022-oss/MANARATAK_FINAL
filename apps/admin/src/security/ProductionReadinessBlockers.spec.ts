@@ -8,6 +8,6 @@ describe('production readiness blockers', () => {
   });
 
   it('reports the active blocking count', () => {
-    expect(getBlockingReadinessCount()).toBeGreaterThanOrEqual(3);
+    expect(getBlockingReadinessCount()).toBe(2);
   });
 });

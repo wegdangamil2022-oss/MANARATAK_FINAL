@@ -21,17 +21,17 @@ describe('CLI Scripts', () => {
     expect(process.exitCode).toBe(1);
   });
   
-  it('runs import-masters-range successfully', async () => {
+  it('blocks import-masters-range when no development database is configured', async () => {
     process.exitCode = undefined;
     await import('../../../scripts/import/import-masters-range');
     await new Promise(r => setTimeout(r, 1000));
-    expect(process.exitCode).toBeUndefined();
+    expect(process.exitCode).toBe(1);
   });
   
-  it('runs verify_import successfully', async () => {
+  it('blocks verify_import when no development database is configured', async () => {
     process.exitCode = undefined;
     await import('../../../scripts/verify_import');
     await new Promise(r => setTimeout(r, 1000));
-    expect(process.exitCode).toBeUndefined();
+    expect(process.exitCode).toBe(1);
   });
 });

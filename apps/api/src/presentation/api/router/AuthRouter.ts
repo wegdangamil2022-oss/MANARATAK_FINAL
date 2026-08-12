@@ -9,7 +9,7 @@ export class AuthRouter {
   public static create(cradle: { 
     authService: IAuthService; 
     identityRepository: IIdentityRepository; 
-    securityService?: ISecurityService;
+    securityService: ISecurityService;
     roleAssignmentRepository?: IRoleAssignmentRepository;
     roleRepository?: IRoleRepository;
     tokenProvider?: any;
@@ -20,6 +20,13 @@ export class AuthRouter {
 
     // 0. GET /csrf-token
     router.get('/csrf-token', (req: Request, res: Response) => {
+      if (!securityService) {
+        res.status(503).json(responseFormatter.error({
+          code: 'SECURITY_SERVICE_UNAVAILABLE',
+          message: 'CSRF protection is unavailable'
+        }));
+        return;
+      }
       const configSecret = ConfigurationRegistry.isInitialized()
         ? ConfigurationRegistry.getOptionalInstance()?.getOptional<string>('SESSION_SECRET')
         : undefined;
@@ -28,7 +35,14 @@ export class AuthRouter {
         || configSecret
         || process.env.SESSION_SECRET
         || '';
-      const token = securityService ? securityService.generateCsrfToken(sessionSecret) : 'demo-token';
+      if (!sessionSecret) {
+        res.status(503).json(responseFormatter.error({
+          code: 'CSRF_SECRET_UNAVAILABLE',
+          message: 'CSRF protection is unavailable'
+        }));
+        return;
+      }
+      const token = securityService.generateCsrfToken(sessionSecret);
       res.setHeader('X-CSRF-Token', token);
       res.status(200).json(responseFormatter.success({
         csrfToken: token
@@ -70,8 +84,8 @@ export class AuthRouter {
         if (identityRepository) {
           const identity = await identityRepository.findById(principalId);
           if (identity) {
-            displayName = identity.displayName || principalId;
-            primaryEmail = identity.primaryEmail?.getValue() || '';
+            displayName = identity.user?.profile.props.displayName || principalId;
+            primaryEmail = identity.user?.contactRegistry.primaryEmail || '';
           }
         }
 

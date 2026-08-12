@@ -368,7 +368,7 @@ function VariantsTab({
   isRtl: boolean;
 }) {
   const [variants, setVariants] = useState<Variant[]>(initialVariants);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -558,7 +558,7 @@ function SectionsTab({
   isRtl: boolean;
 }) {
   const [sections, setSections] = useState<Section[]>(initialSections);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -1517,7 +1517,7 @@ function AvailabilityTab({
   isRtl: boolean;
 }) {
   const [availability, setAvailability] = useState<any>(initialAvailability || null);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -1724,7 +1724,7 @@ function PreparationMaterialsTab({
   isRtl: boolean;
 }) {
   const [materials, setMaterials] = useState<any[]>(initialMaterials);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -1941,7 +1941,7 @@ function EvidenceTab({
   isRtl: boolean;
 }) {
   const [evidence, setEvidence] = useState<any>(initialEvidence || null);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);

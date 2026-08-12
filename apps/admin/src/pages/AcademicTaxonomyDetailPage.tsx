@@ -13,7 +13,6 @@ import {
   Edit2,
   Globe,
   Tag,
-  Settings,
   Activity,
   CheckCircle,
   XCircle,

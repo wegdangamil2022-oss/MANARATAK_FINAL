@@ -29,11 +29,11 @@ describe('Production Security Guardrails & Boot Validation', () => {
   }
 
   describe('SecurityValidator', () => {
-    it('identifies real infrastructure rate limiter as production ready', () => {
+    it('identifies the process-local default limiter as not production ready', () => {
       const realRateLimiter = new DefaultRateLimiter();
-      expect(SecurityValidator.isRealRateLimiter(realRateLimiter)).toBe(true);
-      expect(realRateLimiter.isProductionReady).toBe(true);
-      expect(realRateLimiter.kind).toBe('real');
+      expect(SecurityValidator.isRealRateLimiter(realRateLimiter)).toBe(false);
+      expect(realRateLimiter.isProductionReady).toBe(false);
+      expect(realRateLimiter.kind).toBe('process-local');
     });
 
     it('identifies stub or demo rate limiters as non-production ready', () => {
@@ -84,7 +84,7 @@ describe('Production Security Guardrails & Boot Validation', () => {
 
     it('fails startup in production environment when CSRF service is missing or demo', () => {
       const prodEnv = { NODE_ENV: 'production' };
-      const realRateLimiter = new DefaultRateLimiter();
+      const realRateLimiter = { consume: async () => ({ allowed: true, remaining: 1, resetTime: Date.now() }), isProductionReady: true, kind: 'real' as const };
 
       expect(() => {
         SecurityValidator.assertProductionSecurity(prodEnv, null, realRateLimiter);
@@ -97,7 +97,7 @@ describe('Production Security Guardrails & Boot Validation', () => {
 
     it('passes production startup check when real rate limiter and CSRF service are provided', () => {
       const prodEnv = { NODE_ENV: 'production' };
-      const realRateLimiter = new DefaultRateLimiter();
+      const realRateLimiter = { consume: async () => ({ allowed: true, remaining: 1, resetTime: Date.now() }), isProductionReady: true, kind: 'real' as const };
       const realSecurityService = new SecurityService(realRateLimiter);
 
       expect(() => {
@@ -120,13 +120,9 @@ describe('Production Security Guardrails & Boot Validation', () => {
       SECURE_COOKIE: 'true',
     };
 
-    it('succeeds in production mode with default real security implementations', async () => {
-      const app = await createApiApp({
-        resetCache: true,
-        env: validProdEnv,
-      });
-
-      expect(app).toBeDefined();
+    it('fails production mode when only the process-local default limiter is available', async () => {
+      await expect(createApiApp({ resetCache: true, env: validProdEnv }))
+        .rejects.toThrow(/Rate limiting is missing or using a demo\/stub implementation/);
     });
 
     it('fails production app creation when demo CSRF service is supplied', async () => {
@@ -135,6 +131,7 @@ describe('Production Security Guardrails & Boot Validation', () => {
           resetCache: true,
           env: validProdEnv,
           securityService: new StubSecurityService(),
+          rateLimiter: { consume: async () => ({ allowed: true, remaining: 1, resetTime: Date.now() }), isProductionReady: true, kind: 'real' as const },
         })
       ).rejects.toThrow(/CSRF protection is missing or using a demo\/stub implementation/);
     });
@@ -242,7 +239,7 @@ describe('Production Security Guardrails & Boot Validation', () => {
       expect(SecurityMiddlewareFactory.resolveAdminAuthMode({ NODE_ENV: 'production', ADMIN_AUTH_MODE: 'strict' })).toBe('strict');
       expect(SecurityMiddlewareFactory.resolveAdminAuthMode({ NODE_ENV: 'development' })).toBe('strict');
       expect(SecurityMiddlewareFactory.resolveAdminAuthMode({ NODE_ENV: 'development', ADMIN_AUTH_MODE: 'strict' })).toBe('strict');
-      expect(() => SecurityMiddlewareFactory.resolveAdminAuthMode({ NODE_ENV: 'development', ADMIN_AUTH_MODE: 'demo' })).toThrow(/unsupported/i);
+      expect(() => SecurityMiddlewareFactory.resolveAdminAuthMode({ NODE_ENV: 'development', ADMIN_AUTH_MODE: 'demo' })).toThrow(/Only persisted-RBAC strict mode is supported/i);
     });
   });
 });

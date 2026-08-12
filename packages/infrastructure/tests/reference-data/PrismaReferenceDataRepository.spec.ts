@@ -92,6 +92,7 @@ describe('PrismaReferenceDataRepository', () => {
 
       expect(result).toEqual([
         {
+          id: 'country-1',
           iso2Code: 'EG',
           iso3Code: 'EGY',
           name: 'Egypt',
@@ -106,7 +107,7 @@ describe('PrismaReferenceDataRepository', () => {
           metadata: { population: 100000000 }
         }
       ]);
-      expect((result[0] as any).id).toBeUndefined();
+      expect((result[0] as any).id).toBe('country-1');
       expect((result[0] as any).createdAt).toBeUndefined();
     });
 
@@ -137,6 +138,7 @@ describe('PrismaReferenceDataRepository', () => {
         where: { iso2Code: 'EG' }
       });
       expect(result).toEqual({
+        id: 'country-1',
         iso2Code: 'EG',
         iso3Code: 'EGY',
         name: 'Egypt',
@@ -256,6 +258,7 @@ describe('PrismaReferenceDataRepository', () => {
 
       expect(result).toEqual([
         {
+          id: 'curr-1',
           isoCode: 'USD',
           numericCode: '840',
           name: 'US Dollar',
@@ -373,6 +376,7 @@ describe('PrismaReferenceDataRepository', () => {
 
       expect(result).toEqual([
         {
+          id: 'lang-1',
           isoCode: 'ar',
           name: 'Arabic',
           nativeName: 'العربية',

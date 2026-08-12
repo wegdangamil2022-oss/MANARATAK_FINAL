@@ -246,7 +246,7 @@ describe('WP1-C Foundations — Logging, Correlation & Configuration', () => {
 
       expect(loaded.NODE_ENV).toBe('development');
       expect(loaded.PORT).toBe(3000);
-      expect(loaded.DATABASE_URL).toBe('file:./dev.db');
+      expect(loaded.DATABASE_URL).toBe('postgresql://postgres:postgres@localhost:5432/manaratak_dev');
       expect(loaded.JWT_SECRET).toBeDefined();
       expect(loaded.JWT_SECRET?.length).toBeGreaterThanOrEqual(32);
     });

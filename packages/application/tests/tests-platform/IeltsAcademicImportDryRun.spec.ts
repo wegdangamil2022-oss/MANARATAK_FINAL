@@ -6,7 +6,8 @@ import {
   InternationalTestCompletenessStatus,
   InternationalTestValidationSeverity,
   InternationalTestStatus,
-  IInternationalTestRepository
+  IInternationalTestRepository,
+  IReferenceResolver
 } from '@manaratak/domain';
 import { 
   InternationalTestImportPromotionUseCase 
@@ -230,7 +231,14 @@ describe('Phase 09 P9J-3D: IELTS Academic Import Dry-Run Readiness', () => {
       addEvidence,
     } as unknown as IInternationalTestRepository;
 
-    const promotionUseCase = new InternationalTestImportPromotionUseCase(mockRepo);
+    const referenceResolver: IReferenceResolver = {
+      resolveCountry: vi.fn(async ({ id }) => ({ id: id!, type: 'COUNTRY', active: true })),
+      resolveRegion: vi.fn().mockResolvedValue(null),
+      resolveCity: vi.fn(async ({ id }) => ({ id: id!, type: 'CITY', active: true })),
+      resolveLanguage: vi.fn().mockResolvedValue(null),
+      resolveCurrency: vi.fn(async ({ standardCode }) => ({ id: standardCode!, standardCode, type: 'CURRENCY', active: true })),
+    };
+    const promotionUseCase = new InternationalTestImportPromotionUseCase(mockRepo, undefined, referenceResolver);
 
     const mockImportRecord = {
       id: 'record-ielts-dryrun-001',

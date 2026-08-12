@@ -1,19 +1,26 @@
-import { AcademicTaxonomyAdminPage } from '../../../../admin/src/pages/AcademicTaxonomyAdminPage';
-import { AcademicTaxonomyDetailPage } from '../../../../admin/src/pages/AcademicTaxonomyDetailPage';
-import { I18nProvider as AdminI18nProvider } from '../../../../admin/src/i18n/I18nProvider';
+import { Navigate, useLocation, useParams } from 'react-router-dom';
+
+const ADMIN_APP_URL = (import.meta.env.VITE_ADMIN_APP_URL || 'http://localhost:4174').replace(/\/$/, '');
+
+function AdminAppRedirect({ detail = false }: { detail?: boolean }) {
+  const location = useLocation();
+  const { nodeId } = useParams<{ nodeId: string }>();
+
+  if (detail && !nodeId) {
+    return <Navigate to="/admin/academic-taxonomy" replace />;
+  }
+
+  const path = detail
+    ? `/academic-taxonomy/${encodeURIComponent(nodeId!)}`
+    : '/academic-taxonomy';
+  window.location.replace(`${ADMIN_APP_URL}${path}${location.search}`);
+  return null;
+}
 
 export function AdminAcademicTaxonomyPage() {
-  return (
-    <AdminI18nProvider>
-      <AcademicTaxonomyAdminPage />
-    </AdminI18nProvider>
-  );
+  return <AdminAppRedirect />;
 }
 
 export function AdminAcademicTaxonomyDetailPage() {
-  return (
-    <AdminI18nProvider>
-      <AcademicTaxonomyDetailPage />
-    </AdminI18nProvider>
-  );
+  return <AdminAppRedirect detail />;
 }

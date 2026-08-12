@@ -33,16 +33,14 @@ describe('WP1-B.2 Composition Boundary Closure Regression Tests', () => {
     resolveSpy.mockRestore();
   });
 
-  it('lazy router resolves only once upon request and passes resolution failure to global error handling', async () => {
+  it('unavailable deferred route remains uncomposed and returns not found', async () => {
     const app = await createApiApp();
     const resolveSpy = vi.spyOn(container, 'resolve');
 
     // First request to a deferred endpoint whose stub throws "Not implemented: Phase stub"
     const res1 = await request(app).get('/api/v1/files');
     
-    // Resolution failure must flow to error handling (e.g. 500 status with error message from GlobalExceptionHandler)
-    expect(res1.status).toBe(500);
-    expect(res1.body.error.message).toContain('Not implemented: Phase stub');
+    expect(res1.status).toBe(404);
 
     // Verify container.resolve was called for fileManagementRouter
     const fileResolveCalls = resolveSpy.mock.calls.filter(call => call[0] === 'fileManagementRouter');

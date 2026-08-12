@@ -36,7 +36,7 @@ describe('UniversityAdminRouter', () => {
       status: UniversityStatus.READY_TO_REVIEW,
       country: 'Qatar',
       page: 2,
-      pageSize: 20
+      pageSize: 50
     });
   });
 

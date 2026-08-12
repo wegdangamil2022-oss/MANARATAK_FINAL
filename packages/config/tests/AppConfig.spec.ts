@@ -24,7 +24,7 @@ describe('AppConfig', () => {
       NODE_ENV: 'development',
     });
 
-    expect(config.DATABASE_URL).toBe('file:./dev.db');
+    expect(config.DATABASE_URL).toBe('postgresql://postgres:postgres@localhost:5432/manaratak_dev');
     expect(config.REDIS_URL).toBe('redis://localhost:6379');
     expect(config.JWT_SECRET).toContain('dev-secret');
     expect(config.ADMIN_AUTH_MODE).toBe('strict');
@@ -173,7 +173,7 @@ describe('AppConfig', () => {
       JWT_SECRET: 'this-is-a-very-long-secret-key-that-is-at-least-32-chars',
       OTEL_SERVICE_NAME: 'test-service',
       ADMIN_AUTH_MODE: 'demo'
-    })).toThrowError(/ADMIN_AUTH_MODE must be strict/);
+    })).toThrowError(/ADMIN_AUTH_MODE: Invalid input: expected "strict"/);
   });
 
   it('loads strict admin auth without a static bearer token', () => {

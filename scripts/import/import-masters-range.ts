@@ -8,6 +8,12 @@ const ImportRecordStatus = {
 } as const;
 
 async function importRange(startCode: number, endCode: number) {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl || databaseUrl.includes('postgres-host') || databaseUrl.includes('placeholder')) {
+    console.error('DATABASE IMPORT BLOCKED: configure an explicit development DATABASE_URL before running this script.');
+    process.exitCode = 1;
+    return;
+  }
   registerDependencies();
 
   const promotionUseCase = container.resolve('majorImportPromotionUseCase') as any;

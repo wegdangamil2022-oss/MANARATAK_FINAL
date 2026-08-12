@@ -75,7 +75,7 @@ describe('MajorImportPromotionUseCase', () => {
     expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({
       displayName: 'Computer Science',
       canonicalName: 'Computer Science',
-      canonicalDedupKey: 'computer-science|computing|unknown',
+      canonicalDedupKey: 'computer-science|taxonomy-computing|unknown',
       status: MajorStatus.IMPORTED,
       completenessStatus: MajorImportCompletenessState.COMPLETE,
       sourceImportRecordId: 'rec-1',

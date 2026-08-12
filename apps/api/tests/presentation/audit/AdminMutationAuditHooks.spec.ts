@@ -33,6 +33,10 @@ describe('Phase 05 Slice 2: Admin Mutation Audit Hooks', () => {
 
       app = express();
       app.use(express.json());
+      app.use((req, _res, next) => {
+        (req as any).user = { id: 'admin-user-123', type: 'IDENTITY' };
+        next();
+      });
       app.use('/api/v1/admin/auth', AuthorizationAdminRouter.create({
         manageRolesUseCase: mockManageRolesUseCase,
         assignRoleUseCase: mockAssignRoleUseCase,
@@ -43,7 +47,6 @@ describe('Phase 05 Slice 2: Admin Mutation Audit Hooks', () => {
     it('POST /roles creates audit record on success', async () => {
       const res = await request(app)
         .post('/api/v1/admin/auth/roles')
-        .set('x-actor-id', 'admin-user-123')
         .set('x-correlation-id', 'corr-roles-1')
         .send({ name: 'SUPER_ADMIN' });
 

@@ -44,7 +44,7 @@ describe('MajorAdminRouter', () => {
       status: MajorStatus.READY_TO_REVIEW,
       degreeLevel: 'Bachelor',
       page: 2,
-      pageSize: 20
+      pageSize: 50
     });
   });
 

@@ -10,12 +10,12 @@ export class InternationalTestAdminRouter {
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => Promise.resolve(fn(req, res, next)).catch(next);
 
     const querySchema = z.object({
-      status: z.string().optional(),
+      status: z.nativeEnum(InternationalTestStatus).optional(),
       completenessStatus: z.nativeEnum(InternationalTestCompletenessStatus).optional(),
-      testCategory: z.string().optional(),
+      testCategory: z.nativeEnum(InternationalTestCategory).optional(),
       providerName: z.string().optional(),
       page: z.string().optional().transform((value) => value ? parseInt(value, 10) : 1),
-      pageSize: z.string().optional().transform((value) => value ? Math.min(Math.max(parseInt(value, 10), 1), 100) : 50)
+      pageSize: z.string().optional().transform((value) => value ? Math.min(Math.max(parseInt(value, 10), 1), 100) : 20)
     });
 
     const importDraftSchema = z.object({
@@ -41,11 +41,11 @@ export class InternationalTestAdminRouter {
 
     router.get('/', asyncHandler(async (req: Request, res: Response) => {
       const parsed = querySchema.parse(req.query);
+      const { testCategory, completenessStatus, ...filters } = parsed;
       res.json(await internationalTestAdminUseCases.list({
-        ...parsed,
-        status: parsed.status,
-        completenessStatus: parsed.completenessStatus,
-        category: parsed.testCategory,
+        ...filters,
+        ...(completenessStatus ? { completenessStatus } : {}),
+        ...(testCategory ? { category: testCategory } : {}),
       }));
     }));
 

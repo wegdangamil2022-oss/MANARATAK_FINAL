@@ -28,7 +28,7 @@ export const AppConfigSchema = z.preprocess((input) => {
     return {
       ...env,
       NODE_ENV: nodeEnv,
-      DATABASE_URL: env.DATABASE_URL || 'file:./dev.db',
+      DATABASE_URL: env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/manaratak_dev',
       REDIS_URL: env.REDIS_URL || 'redis://localhost:6379',
       REDIS_NAMESPACE: env.REDIS_NAMESPACE || 'manaratak:',
       JWT_SECRET: env.JWT_SECRET || 'dev-secret-at-least-32-characters-long-manaratak-key-phrase',
