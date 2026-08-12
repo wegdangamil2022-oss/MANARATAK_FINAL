@@ -1,0 +1,44 @@
+name: Enterprise CI Pipeline
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+env:
+  NODE_ENV: development
+  JWT_SECRET: dev-secret-at-least-32-characters-long-manaratak-key-phrase
+  SESSION_SECRET: dev-session-secret-at-least-32-chars-long
+  CSRF_SECRET: dev-csrf-secret-at-least-32-chars-long
+  DATABASE_URL: postgresql://root:password@localhost:5432/manaratak?schema=public
+  REDIS_URL: redis://localhost:6379
+  CORS_ORIGIN: http://localhost:3000
+  ADMIN_AUTH_MODE: strict
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    - name: Install Dependencies
+      run: npm ci
+    - name: Typecheck Stage
+      run: npm run typecheck
+    - name: Lint Stage
+      run: npm run lint
+    - name: Build Stage
+      run: npm run build
+    - name: Test Stage (Unit & Integration)
+      run: npm run test
+    - name: Install Playwright Chromium Browser
+      run: npx playwright install chromium --with-deps
+    - name: Run E2E Tests Stage
+      run: npm run e2e
+    - name: Validate Docker Compose Config
+      run: docker compose config

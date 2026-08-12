@@ -1,0 +1,24 @@
+import { UseCase, Result, ResultFactory } from '@manaratak/core';
+import { IIdentityRepository } from '@manaratak/domain';
+import { IdentityDto } from './dtos';
+import { IdentityDtoMapper } from './mapper';
+
+export class ArchiveIdentityUseCase implements UseCase<{ identityId: string; reason?: string }, Result<IdentityDto>> {
+  constructor(private readonly identityRepository: IIdentityRepository) {}
+
+  public async execute(input: { identityId: string; reason?: string }): Promise<Result<IdentityDto>> {
+    try {
+      const identity = await this.identityRepository.findById(input.identityId);
+      if (!identity) {
+        return ResultFactory.failure(`Identity with ID ${input.identityId} not found.`);
+      }
+
+      identity.archive(input.reason);
+      await this.identityRepository.save(identity);
+
+      return ResultFactory.success(IdentityDtoMapper.toDto(identity));
+    } catch (error: any) {
+      return ResultFactory.failure(error.message);
+    }
+  }
+}

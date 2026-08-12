@@ -1,0 +1,4 @@
+export enum AIProviderType {
+  INTERNAL_MOCK = 'INTERNAL_MOCK',
+  EXTERNAL_LLM = 'EXTERNAL_LLM'
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@manaratak/application",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "private": true,
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@manaratak/core": "*",
+    "@manaratak/domain": "*",
+    "@types/uuid": "^10.0.0",
+    "uuid": "^14.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}

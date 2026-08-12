@@ -1,0 +1,38 @@
+import { describe, expect, it, vi } from 'vitest';
+import { IReferenceDataRepository } from '@manaratak/domain';
+import { ReferenceResolverService } from '../../src/reference-data/services/ReferenceResolverService';
+
+describe('ReferenceResolverService canonical contract', () => {
+  const repository: IReferenceDataRepository = {
+    listCountries: vi.fn(async () => [{ id: 'country-sa', iso2Code: 'SA', iso3Code: 'SAU', name: 'Saudi Arabia', isActive: true }]),
+    listRegions: vi.fn(async () => [{ id: 'region-riyadh', countryIso2Code: 'SA', regionCode: 'SA-01', name: 'Riyadh' }]),
+    listCities: vi.fn(async () => [{ id: 'city-riyadh', countryIso2Code: 'SA', name: 'Riyadh', isActive: true }]),
+    listLanguages: vi.fn(async () => [{ id: 'language-ar', isoCode: 'ar', name: 'Arabic', direction: 'RTL', isActive: true }]),
+    listCurrencies: vi.fn(async () => [{ id: 'currency-sar', isoCode: 'SAR', name: 'Saudi Riyal', isActive: true }]),
+    getCountry: vi.fn(),
+    getCurrency: vi.fn(),
+    getLanguage: vi.fn(),
+    getRegionById: vi.fn(),
+    upsertCountry: vi.fn(),
+    upsertCurrency: vi.fn(),
+    upsertLanguage: vi.fn(),
+    upsertCity: vi.fn(),
+  } as unknown as IReferenceDataRepository;
+  const resolver = new ReferenceResolverService(repository);
+
+  it('resolves Country and Region by stable standard code', async () => {
+    await expect(resolver.resolveCountry({ standardCode: 'sau' })).resolves.toMatchObject({ id: 'country-sa', type: 'COUNTRY', standardCode: 'SA', active: true });
+    await expect(resolver.resolveRegion({ standardCode: 'sa-01' })).resolves.toMatchObject({ id: 'region-riyadh', type: 'REGION', standardCode: 'SA-01' });
+  });
+
+  it('resolves City only by canonical identity', async () => {
+    await expect(resolver.resolveCity({ id: 'city-riyadh' })).resolves.toMatchObject({ id: 'city-riyadh', type: 'CITY', active: true });
+    await expect(resolver.resolveCity({ standardCode: 'Riyadh' })).resolves.toBeNull();
+  });
+
+  it('resolves Language and Currency case-insensitively without defaults', async () => {
+    await expect(resolver.resolveLanguage({ standardCode: 'AR' })).resolves.toMatchObject({ id: 'language-ar', type: 'LANGUAGE' });
+    await expect(resolver.resolveCurrency({ standardCode: 'sar' })).resolves.toMatchObject({ id: 'currency-sar', type: 'CURRENCY' });
+    await expect(resolver.resolveCurrency({ standardCode: 'USD' })).resolves.toBeNull();
+  });
+});

@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Cairo", system-ui, -apple-system, sans-serif;
+  --font-display: "Playfair Display", serif;
+  --color-primary: #0F4B3A;
+  --color-secondary: #C8A24A;
+}
+
+:root {
+  color-scheme: light;
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: var(--font-sans);
+}
+
+@media (max-width: 640px) {
+  body {
+    font-size: 17px;
+  }
+
+  input,
+  select,
+  textarea,
+  button,
+  a {
+    touch-action: manipulation;
+  }
+
+  input,
+  select,
+  textarea {
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  button,
+  [role='button'] {
+    min-height: 44px;
+  }
+
+  article {
+    border-radius: 1rem;
+  }
+}
