@@ -77,8 +77,11 @@ describe('AdminMajorUseCases', () => {
       canonicalName: 'Computer Science',
       canonicalDedupKey: 'computer-science',
       officialSourceUrl: 'https://example.edu/majors/computer-science',
-      academicFieldId: 'taxonomy-computing',
-      profiles: [{ degreeLevelId: 'degree-bachelor' }],
+      profiles: [{
+        id: 'profile-bachelor',
+        degreeLevelId: 'degree-bachelor',
+        academicFieldId: 'taxonomy-computing'
+      }],
       status: MajorStatus.READY_TO_REVIEW,
       completenessStatus: MajorImportCompletenessState.COMPLETE
     });

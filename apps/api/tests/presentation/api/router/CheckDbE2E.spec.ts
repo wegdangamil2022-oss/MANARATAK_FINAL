@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { container, registerDependencies } from '../../../../src/infrastructure/di/container';
 
-const databaseUrl = process.env.DATABASE_URL ?? '';
-const hasDatabase = databaseUrl.length > 0
-  && !databaseUrl.includes('placeholder')
-  && !databaseUrl.includes('postgres-host');
-const describeWithDatabase = hasDatabase ? describe : describe.skip;
+const describeWithDatabase = process.env.RUN_MAJOR_DATASET_INTEGRATION_TESTS === 'true'
+  ? describe
+  : describe.skip;
 
 describeWithDatabase('Check DB E2E', () => {
   it('print MAS-1116', async () => {

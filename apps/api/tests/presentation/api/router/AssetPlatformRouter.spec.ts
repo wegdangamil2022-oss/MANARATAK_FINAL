@@ -2,6 +2,7 @@ import express from 'express';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { AssetPlatformRouter } from '../../../../src/presentation/api/router/AssetPlatformRouter';
+import { SecurityMiddlewareFactory } from '../../../../src/presentation/security/SecurityMiddlewareFactory';
 
 describe('AssetPlatformRouter', () => {
   const createMockIngestUseCase = () => ({
@@ -280,7 +281,6 @@ describe('AssetPlatformRouter', () => {
 
   describe('Route Security Guards', () => {
     it('rejects unauthenticated requests in strict mode with 401', async () => {
-      const { SecurityMiddlewareFactory } = await import('../../../../src/presentation/security/SecurityMiddlewareFactory');
       const app = express();
       app.use(express.json());
       app.use('/admin/assets', SecurityMiddlewareFactory.createAdminGuard({ mode: 'strict' }));
@@ -293,10 +293,9 @@ describe('AssetPlatformRouter', () => {
       const res = await request(app).post('/admin/assets/upload-locator').send({});
       expect(res.status).toBe(401);
       expect(res.body.error.code).toBe('ADMIN_AUTH_REQUIRED');
-    }, 10_000);
+    });
 
     it('rejects requests when unauthenticated with 401', async () => {
-      const { SecurityMiddlewareFactory } = await import('../../../../src/presentation/security/SecurityMiddlewareFactory');
       const app = express();
       app.use(express.json());
       app.use('/admin/assets', SecurityMiddlewareFactory.createAdminPermissionGuard('admin:assets:manage'));
@@ -311,7 +310,6 @@ describe('AssetPlatformRouter', () => {
     });
 
     it('allows authenticated requests through admin guard and permission guard', async () => {
-      const { SecurityMiddlewareFactory } = await import('../../../../src/presentation/security/SecurityMiddlewareFactory');
       const ingestUseCase = createMockIngestUseCase();
       ingestUseCase.requestUploadLocator.mockResolvedValue({ assetId: 'ast_01' });
 

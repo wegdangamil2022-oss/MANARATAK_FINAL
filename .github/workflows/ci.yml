@@ -11,34 +11,91 @@ env:
   JWT_SECRET: dev-secret-at-least-32-characters-long-manaratak-key-phrase
   SESSION_SECRET: dev-session-secret-at-least-32-chars-long
   CSRF_SECRET: dev-csrf-secret-at-least-32-chars-long
-  DATABASE_URL: postgresql://root:password@localhost:5432/manaratak?schema=public
   REDIS_URL: redis://localhost:6379
   CORS_ORIGIN: http://localhost:3000
   ADMIN_AUTH_MODE: strict
 
 jobs:
-  build-and-test:
+  source-quality:
+    name: Source quality and unit tests
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Use Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20.x'
-        cache: 'npm'
-    - name: Install Dependencies
-      run: npm ci
-    - name: Typecheck Stage
-      run: npm run typecheck
-    - name: Lint Stage
-      run: npm run lint
-    - name: Build Stage
-      run: npm run build
-    - name: Test Stage (Unit & Integration)
-      run: npm run test
-    - name: Install Playwright Chromium Browser
-      run: npx playwright install chromium --with-deps
-    - name: Run E2E Tests Stage
-      run: npm run e2e
-    - name: Validate Docker Compose Config
-      run: docker compose config
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      - name: Unit and source integration tests
+        run: npm run test:unit
+
+  database-integration:
+    name: PostgreSQL integration tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: manaratak_ci
+          POSTGRES_PASSWORD: manaratak_ci_password
+          POSTGRES_DB: manaratak_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U manaratak_ci -d manaratak_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://manaratak_ci:manaratak_ci_password@localhost:5432/manaratak_ci?schema=public
+      RUN_DATABASE_INTEGRATION_TESTS: 'true'
+      DATABASE_MUTATIONS_ALLOWED: 'true'
+      DATABASE_ENVIRONMENT: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Apply reviewed migrations to disposable CI database
+        run: npx prisma migrate deploy --schema=packages/infrastructure/prisma/schema.prisma
+      - name: Run isolated database integration tests
+        run: npm run test:database
+
+  browser-e2e:
+    name: Browser E2E
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://placeholder:placeholder@127.0.0.1:65432/manaratak_placeholder?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+      - name: Run browser E2E tests
+        run: npm run e2e
+
+  configuration:
+    name: Deployment configuration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Docker Compose configuration
+        run: docker compose config

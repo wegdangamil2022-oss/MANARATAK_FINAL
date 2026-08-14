@@ -130,7 +130,7 @@ export function InternationalTestDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await adminApiClient.getInternationalTest(id);
+      const data = await adminApiClient.getInternationalTest<InternationalTestDetail>(id);
       setTest(data);
     } catch (err: any) {
       setError(err.message || (isRtl ? 'تعذر تحميل تفاصيل الاختبار الدولي' : 'Failed to load international test details.'));

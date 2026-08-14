@@ -19,7 +19,9 @@ function getDatabaseUrl(): string {
   return url;
 }
 
-const describeWithDatabase = getDatabaseUrl() ? describe : describe.skip;
+const describeWithDatabase = process.env.RUN_DATABASE_INTEGRATION_TESTS === 'true' && getDatabaseUrl()
+  ? describe
+  : describe.skip;
 
 describeWithDatabase('Real Database Integration Tests (Session & Credentials)', () => {
   let prisma: PrismaClient;
