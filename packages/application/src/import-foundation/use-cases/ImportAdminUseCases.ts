@@ -2,6 +2,7 @@ import { ImportRecordStatus } from '@manaratak/domain';
 import { v4 as uuidv4 } from 'uuid';
 import { IImportQueueGateway } from '../gateways/IImportQueueGateway';
 import { InlineDataParser } from '../parsers/InlineDataParser';
+import { ImportSourceIdentity } from '../services/ImportSourceIdentity';
 
 type ImportRepository = {
   createBatch(data: Record<string, unknown>): Promise<any>;
@@ -10,6 +11,7 @@ type ImportRepository = {
   updateBatchStats(id: string, data: Record<string, unknown>): Promise<any>;
   listBatches(filters?: Record<string, unknown>): Promise<any[]>;
   listRecords(filters?: Record<string, unknown>): Promise<any>;
+  findBySourceDedupKey?(sourceDedupKey: string): Promise<any | null>;
 };
 
 export interface StageImportRowsInput {
@@ -22,7 +24,7 @@ export interface StageImportRowsInput {
 export class ImportAdminUseCases {
   constructor(
     private readonly importRepository: ImportRepository,
-    private readonly importQueueGateway?: IImportQueueGateway
+    private readonly importQueueGateway?: IImportQueueGateway,
   ) {}
 
   async importData(input: { dataText: string; sourceSystem?: string; dataType?: string }) {
@@ -30,14 +32,16 @@ export class ImportAdminUseCases {
     const ownerDomain = this.resolveOwnerDomain(input.dataType);
     const maxLength = 90 * 1024;
     if (text.length > maxLength) {
-      throw new Error('Import payload is too large. Large imports must use the artifact import flow.');
+      throw new Error(
+        'Import payload is too large. Large imports must use the artifact import flow.',
+      );
     }
 
     const rows = await InlineDataParser.parse(text);
     return this.stageNormalizedRows({
       ownerDomain,
       sourceSystem: input.sourceSystem || 'ADMIN_CONSOLE',
-      rows: rows.map((row) => ({ ...row }))
+      rows: rows.map((row) => ({ ...row })),
     });
   }
 
@@ -52,41 +56,65 @@ export class ImportAdminUseCases {
       batchStatus: 'PROCESSING',
       totalRecords: input.rows.length,
       processedRecords: 0,
-      failedRecords: 0
+      failedRecords: 0,
     });
 
     let processedRecords = 0;
     let failedRecords = 0;
     let stagedRecords = 0;
+    let skippedDuplicates = 0;
+    const seenDedupKeys = new Set<string>();
     const recordsToReturn: any[] = [];
     const chunkSize = 500;
 
     try {
       for (let offset = 0; offset < input.rows.length; offset += chunkSize) {
         const chunk = input.rows.slice(offset, offset + chunkSize);
-        const records = chunk.map((payload, index) => {
+        const records = [];
+        for (let index = 0; index < chunk.length; index++) {
+          const payload = chunk[index];
           const sourceRowNumber = offset + index + 1;
           const issues = input.validationIssues?.[sourceRowNumber - 1] ?? [];
-          const validObject = payload !== null && typeof payload === 'object' && Object.keys(payload).length > 0;
-          const status = validObject && issues.length === 0
-            ? ImportRecordStatus.COMPLETE
-            : ImportRecordStatus.INCOMPLETE;
+          const validObject =
+            payload !== null && typeof payload === 'object' && Object.keys(payload).length > 0;
+          const status =
+            validObject && issues.length === 0
+              ? ImportRecordStatus.COMPLETE
+              : ImportRecordStatus.INCOMPLETE;
 
           if (status === ImportRecordStatus.COMPLETE) processedRecords++;
           else failedRecords++;
 
-          return {
+          const identity = ImportSourceIdentity.create({
+            sourceSystem: input.sourceSystem,
+            ownerDomain: input.ownerDomain,
+            payload,
+          });
+          const alreadyPersisted = this.importRepository.findBySourceDedupKey
+            ? await this.importRepository.findBySourceDedupKey(identity.sourceDedupKey)
+            : null;
+          if (seenDedupKeys.has(identity.sourceDedupKey) || alreadyPersisted) {
+            skippedDuplicates++;
+            continue;
+          }
+          seenDedupKeys.add(identity.sourceDedupKey);
+          records.push({
             id: `rec-${uuidv4().substring(0, 8)}`,
             batchId: batch.id,
             status,
-            rawPayload: { ...payload, _sourceRowNumber: sourceRowNumber },
-            validationErrors: issues.length > 0 ? issues : validObject ? null : ['EMPTY_NORMALIZED_PAYLOAD'],
+            rawPayload: {
+              ...payload,
+              _sourceRowNumber: sourceRowNumber,
+              _payloadFingerprint: identity.payloadFingerprint,
+            },
+            validationErrors:
+              issues.length > 0 ? issues : validObject ? null : ['EMPTY_NORMALIZED_PAYLOAD'],
             processingNotes: `Source row ${sourceRowNumber}`,
-            sourceDedupKey: `${input.sourceSystem}|${input.ownerDomain}|${sourceRowNumber}`.toLowerCase(),
+            sourceDedupKey: identity.sourceDedupKey,
             chunkIndex: Math.floor((sourceRowNumber - 1) / chunkSize),
-            sourceRowNumber
-          };
-        });
+            sourceRowNumber,
+          });
+        }
 
         if (records.length > 0) {
           if (this.importRepository.bulkCreateRecords) {
@@ -108,7 +136,7 @@ export class ImportAdminUseCases {
         totalRecords: input.rows.length,
         processedRecords,
         failedRecords,
-        batchStatus: 'COMPLETED'
+        batchStatus: 'COMPLETED',
       });
 
       return {
@@ -118,16 +146,16 @@ export class ImportAdminUseCases {
           processedRecords,
           failedRecords,
           stagedRecords,
-          skippedDuplicates: 0
+          skippedDuplicates,
         },
-        records: recordsToReturn
+        records: recordsToReturn,
       };
     } catch (error) {
       await this.importRepository.updateBatchStats(batch.id, {
         totalRecords: input.rows.length,
         processedRecords,
         failedRecords,
-        batchStatus: 'FAILED'
+        batchStatus: 'FAILED',
       });
       throw error;
     }

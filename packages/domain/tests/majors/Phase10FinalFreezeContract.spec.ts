@@ -49,4 +49,26 @@ describe('Phase 10 final source-freeze contracts', () => {
     expect(codes).toContain('MAJOR_CANONICAL_TAXONOMY_REFERENCE_MISSING');
     expect(codes).toContain('MAJOR_SOURCE_IDENTITY_MISSING');
   });
+
+  it('does not combine DegreeLevel from one profile with taxonomy from a different profile', () => {
+    const result = new MajorPublicationReadinessPolicy().evaluate({
+      id: 'major-1',
+      publicId: 'MJR-0001',
+      slug: 'computer-science',
+      canonicalName: 'Computer Science',
+      canonicalDedupKey: 'computer-science',
+      displayName: 'Computer Science',
+      status: MajorStatus.READY_TO_PUBLISH,
+      completenessStatus: MajorImportCompletenessState.COMPLETE,
+      officialSourceUrl: 'https://example.edu/majors/computer-science',
+      profiles: [
+        { id: 'profile-degree', level: 'BACHELOR', degreeLevelId: 'degree-bachelor' },
+        { id: 'profile-taxonomy', level: 'MASTER', academicFieldId: 'taxonomy-computing' },
+      ],
+    });
+
+    expect(result.blockingIssues.map(issue => issue.code)).toContain(
+      'MAJOR_PROFILE_SCOPED_PUBLICATION_REFERENCE_MISSING',
+    );
+  });
 });

@@ -71,6 +71,11 @@ model ImportBatch {
   totalRecords     Int      @default(0)
   processedRecords Int      @default(0)
   failedRecords    Int      @default(0)
+  attemptCount     Int      @default(0)
+  availableAt      DateTime @default(now())
+  claimedBy        String?
+  claimUntil       DateTime?
+  lastError        String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -79,6 +84,8 @@ model ImportBatch {
   @@index([batchStatus])
   @@index([dataType])
   @@index([batchStatus, dataType])
+  @@index([batchStatus, availableAt])
+  @@index([claimUntil])
 }
 
 model ImportRecord {
@@ -102,7 +109,7 @@ model ImportRecord {
   @@index([batchId])
   @@index([batchId, status])
   @@index([batchId, chunkIndex])
-  @@index([batchId, sourceDedupKey])
+  @@unique([batchId, sourceDedupKey])
   @@index([retentionExpiresAt])
 }
 
@@ -243,7 +250,7 @@ model UniversityAcademicProgram {
   sourceReferenceId String?
   sourceProgramName String
   normalizedName String
-  degreeLevelId String
+  degreeLevelId String?
   majorId String?
   majorMappingState String
   status String @default("DRAFT")
@@ -252,7 +259,7 @@ model UniversityAcademicProgram {
   updatedAt DateTime @updatedAt
   university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
   organizationUnit UniversityOrganizationUnit? @relation(fields: [organizationUnitId], references: [id], onDelete: SetNull)
-  degreeLevel DegreeLevel @relation(fields: [degreeLevelId], references: [id], onDelete: Restrict)
+  degreeLevel DegreeLevel? @relation(fields: [degreeLevelId], references: [id], onDelete: SetNull)
   major Major? @relation(fields: [majorId], references: [id], onDelete: SetNull)
   campuses UniversityProgramCampus[]
   admissionRequirements UniversityProgramAdmissionRequirement[]
@@ -304,6 +311,7 @@ model UniversityTuitionProfile {
   organizationUnitName String?
   amount Decimal? @db.Decimal(18, 2)
   currencyCode String?
+  currencyReferenceId String?
   officialSourceUrl String?
   effectiveFrom DateTime?
   effectiveTo DateTime?
@@ -311,8 +319,10 @@ model UniversityTuitionProfile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  currency ReferenceCurrency? @relation("UniversityTuitionCurrency", fields: [currencyReferenceId], references: [id], onDelete: SetNull)
   @@index([universityId])
   @@index([profileType])
+  @@index([currencyReferenceId])
 }
 
 model UniversityAccommodationProfile {
@@ -322,14 +332,20 @@ model UniversityAccommodationProfile {
   internationalEligible Boolean?
   typicalCost Decimal? @db.Decimal(18, 2)
   currencyCode String?
+  currencyReferenceId String?
   averageMonthlyLivingCost Decimal? @db.Decimal(18, 2)
   livingCostCurrencyCode String?
+  livingCostCurrencyReferenceId String?
   costVariationNote String?
   metadata Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  currency ReferenceCurrency? @relation("UniversityAccommodationCurrency", fields: [currencyReferenceId], references: [id], onDelete: SetNull)
+  livingCostCurrency ReferenceCurrency? @relation("UniversityAccommodationLivingCostCurrency", fields: [livingCostCurrencyReferenceId], references: [id], onDelete: SetNull)
   @@index([universityId])
+  @@index([currencyReferenceId])
+  @@index([livingCostCurrencyReferenceId])
 }
 
 model UniversityRanking {
@@ -1486,6 +1502,9 @@ model ReferenceCurrency {
   metadata    Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  universityTuitionProfiles UniversityTuitionProfile[] @relation("UniversityTuitionCurrency")
+  universityAccommodationProfiles UniversityAccommodationProfile[] @relation("UniversityAccommodationCurrency")
+  universityLivingCostProfiles UniversityAccommodationProfile[] @relation("UniversityAccommodationLivingCostCurrency")
 
   @@index([isActive])
   @@index([name])

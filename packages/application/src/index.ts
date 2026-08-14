@@ -120,6 +120,7 @@ export * from './scholarships';
 export * from './import-foundation/use-cases/ImportAdminUseCases';
 export * from './majors/use-cases/MajorImportStagingUseCase';
 export * from './import-foundation/use-cases/ProcessImportJobUseCase';
+export * from './import-foundation/use-cases/ImportWorkerProtocol';
 export * from './import-foundation/dtos/ImportQueueDtos';
 export * from './import-foundation/gateways/IImportQueueGateway';
 export * from './universities';
@@ -153,6 +154,7 @@ export * from './import-foundation/services/MergeProposalPreparationService';
 export * from './import-foundation/dtos/ImportOperationsDtos';
 export * from './import-foundation/contracts/IImportOperationsReadService';
 export * from './import-foundation/services/ImportOperationsReadService';
+export * from './import-foundation/services/ImportSourceIdentity';
 
 // Academic Taxonomy Exports
 export * from './academic-taxonomy';

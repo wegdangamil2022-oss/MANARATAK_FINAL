@@ -75,7 +75,9 @@ describe('PublicUniversityUseCases', () => {
       country: 'Qatar',
       institutionType: 'Public University',
       status: UniversityStatus.PUBLISHED,
-      optionalFields: { campuses: [{ name: 'Main Campus' }] },
+      completenessStatus: UniversityImportCompletenessState.COMPLETE,
+      campuses: [{ name: 'Main Campus' }],
+      optionalFields: {},
       updatedAt: new Date()
     });
 

@@ -32,10 +32,15 @@ export class PrismaAcademicTaxonomyRepository implements IAcademicTaxonomyReposi
       where.standardType = filters.standardType;
     }
     if (filters?.q) {
+      const normalizedQuery = this.normalizeAlias(filters.q);
+      const exactStandardQuery = filters.q.trim().toUpperCase();
       where.OR = [
         { canonicalName: { contains: filters.q, mode: 'insensitive' } },
         { canonicalCode: { contains: filters.q, mode: 'insensitive' } },
         { standardCode: { contains: filters.q, mode: 'insensitive' } },
+        { aliases: { some: { normalizedAlias: normalizedQuery } } },
+        { sourceMappings: { some: { targetStandard: exactStandardQuery } } },
+        { targetMappings: { some: { sourceStandard: exactStandardQuery } } },
       ];
     }
 
@@ -174,6 +179,15 @@ export class PrismaAcademicTaxonomyRepository implements IAcademicTaxonomyReposi
     return records.map((r: any) => this.toAliasDto(r));
   }
 
+  async listAliasesByNormalizedAlias(normalizedAlias: string): Promise<AcademicTaxonomyAliasDto[]> {
+    const records = await this.prisma.academicTaxonomyAlias.findMany({
+      where: { normalizedAlias: this.normalizeAlias(normalizedAlias) },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return records.map((r: any) => this.toAliasDto(r));
+  }
+
   async removeAlias(aliasId: string): Promise<void> {
     await this.prisma.academicTaxonomyAlias.delete({
       where: { id: aliasId },
@@ -181,7 +195,7 @@ export class PrismaAcademicTaxonomyRepository implements IAcademicTaxonomyReposi
   }
 
   async addAlias(data: UpsertAcademicTaxonomyAliasDto): Promise<AcademicTaxonomyAliasDto> {
-    const normalizedAlias = data.alias.trim().toLowerCase().replace(/\s+/g, ' ');
+    const normalizedAlias = this.normalizeAlias(data.alias);
 
     const record = await this.prisma.academicTaxonomyAlias.create({
       data: {
@@ -237,6 +251,10 @@ export class PrismaAcademicTaxonomyRepository implements IAcademicTaxonomyReposi
       isPrimary: record.isPrimary,
       createdAt: record.createdAt,
     };
+  }
+
+  private normalizeAlias(value: string): string {
+    return value.trim().toLowerCase().replace(/\s+/g, ' ');
   }
 
   private toAliasDto(record: any): AcademicTaxonomyAliasDto {

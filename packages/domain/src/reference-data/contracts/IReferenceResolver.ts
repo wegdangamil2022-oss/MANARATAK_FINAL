@@ -3,6 +3,10 @@ export type CanonicalReferenceType = 'COUNTRY' | 'REGION' | 'CITY' | 'LANGUAGE' 
 export interface ReferenceLookup {
   id?: string;
   standardCode?: string;
+  providerSystem?: string;
+  providerId?: string;
+  alias?: string;
+  normalizedAlias?: string;
 }
 
 export interface CanonicalReference {
@@ -10,6 +14,7 @@ export interface CanonicalReference {
   type: CanonicalReferenceType;
   standardCode?: string;
   active: boolean | null;
+  resolutionMethod?: 'EXACT_ID' | 'EXACT_STANDARD_CODE' | 'PROVIDER_MAPPING' | 'NORMALIZED_ALIAS';
 }
 
 export interface IReferenceResolver {

@@ -60,11 +60,21 @@ export class UniversityImportChangePlanner {
     const child = (entityType: UniversityImportPlannedChange['entityType'], key: string, state: Record<string, unknown>): Omit<UniversityImportPlannedChange, 'sequence'> => ({ sourceReferenceId, entityType, entityKey: `${sourceReferenceId}:${key}`, operation: 'UPSERT_CHILD', afterState: state });
     if (stage === 'STAGE_3') {
       const faculties = array(payload.faculties);
-      const programs = array(payload.keyMajors);
+      const programs = this.programRecords(payload);
       const tests = array(payload.acceptedLanguageTests);
       return [
         ...faculties.map(name => child('ORGANIZATION_UNIT', `faculty:${normalize(name)}`, { unitType: 'FACULTY', name, createsAcademicTaxonomyIdentity: false })),
-        ...programs.map(name => child('ACADEMIC_PROGRAM', `program:${normalize(name)}`, { sourceProgramName: name, majorMappingState: 'MAJOR_REVIEW_REQUIRED' })),
+        ...programs.map(program => child('ACADEMIC_PROGRAM', `program:${normalize(program.sourceProgramName)}`, {
+          sourceProgramName: program.sourceProgramName,
+          degreeLevelId: program.degreeLevelId,
+          majorId: program.majorId,
+          majorMappingState: program.majorId ? 'CANONICALLY_MAPPED' : 'MAJOR_REVIEW_REQUIRED',
+          status: program.degreeLevelId ? 'DRAFT' : 'REVIEW_REQUIRED',
+          metadata: {
+            degreeLevelMappingState: program.degreeLevelId ? 'CANONICALLY_MAPPED' : 'PROGRAM_DEGREE_REVIEW_REQUIRED',
+            degreeMappingSource: program.degreeLevelId ? program.degreeMappingSource : undefined,
+          },
+        })),
         ...tests.map(name => child('ADMISSION_REQUIREMENT', `test:${normalize(name)}`, { sourceTestName: name, resolution: 'INTERNATIONAL_TEST_REFERENCE_REQUIRED' })),
       ];
     }
@@ -73,6 +83,7 @@ export class UniversityImportChangePlanner {
         annualTuitionFee: payload.annualTuitionFee,
         graduateTuitionFee: payload.graduateTuitionFee,
         currencyCode: payload.tuitionCurrency,
+        currencyReferenceId: payload.tuitionCurrencyReferenceId,
         officialSourceUrl: payload.officialTuitionFeeUrl,
       })];
       result.push(child('ACCOMMODATION', 'general', {
@@ -80,8 +91,10 @@ export class UniversityImportChangePlanner {
         internationalEligible: payload.internationalStudentsEligibleForAccommodation,
         typicalCost: payload.typicalAccommodationCost,
         currencyCode: payload.accommodationCurrency,
+        currencyReferenceId: payload.accommodationCurrencyReferenceId,
         averageMonthlyLivingCost: payload.averageMonthlyLivingCost,
         livingCostCurrencyCode: payload.livingCostCurrency,
+        livingCostCurrencyReferenceId: payload.livingCostCurrencyReferenceId,
       }));
       return result;
     }
@@ -90,11 +103,33 @@ export class UniversityImportChangePlanner {
     }
     return [];
   }
+
+  private programRecords(payload: Record<string, unknown>): Array<{
+    sourceProgramName: string;
+    degreeLevelId?: string;
+    majorId?: string;
+    degreeMappingSource?: string;
+  }> {
+    const explicitPrograms = arrayOfRecords(payload.academicPrograms ?? payload.programs)
+      .flatMap(record => {
+        const sourceProgramName = text(record.sourceProgramName ?? record.programName ?? record.name);
+        if (!sourceProgramName) return [];
+        return [{
+          sourceProgramName,
+          degreeLevelId: text(record.degreeLevelId),
+          majorId: text(record.majorId),
+          degreeMappingSource: text(record.degreeMappingSource ?? record.sourceField),
+        }];
+      });
+    if (explicitPrograms.length > 0) return explicitPrograms;
+    return array(payload.keyMajors).map(sourceProgramName => ({ sourceProgramName }));
+  }
 }
 
 function array(value: unknown): string[] { return Array.isArray(value) ? value.map(String).map(item => item.trim()).filter(Boolean) : []; }
 function arrayOfRecords(value: unknown): Record<string, unknown>[] { return Array.isArray(value) ? value.filter(item => item && typeof item === 'object') as Record<string, unknown>[] : []; }
 function normalize(value: string): string { return value.trim().toLocaleLowerCase('en-US').replace(/\s+/g, '-'); }
+function text(value: unknown): string | undefined { return typeof value === 'string' && value.trim() ? value.trim() : undefined; }
 
 export interface UniversityImportChangeExecutorGateway {
   apply(plan: UniversityImportChangePlan, actorId: string): Promise<{ changeSetId: string; appliedChanges: number }>;

@@ -20,7 +20,10 @@ import {
   InternationalTestEvidenceDto,
   InternationalTestImportDraftRequestDto,
   InternationalTestImportDraftResultDto,
-  InternationalTestVersionDto
+  InternationalTestVersionDto,
+  UpsertInternationalTestAcademicTaxonomyRelationshipDto,
+  UpsertInternationalTestDegreeRelationshipReference,
+  UpsertInternationalTestReferenceRelationshipDto
 } from './contracts';
 import { InternationalTestStatus } from './enums';
 import { AtomicPersistenceContext } from '../event-foundation/outbox/TransactionalOutbox';
@@ -66,6 +69,10 @@ export interface IInternationalTestRepository {
 
   createImportDraftVersion?(testId: string, data: InternationalTestImportDraftRequestDto): Promise<InternationalTestImportDraftResultDto>;
   listImportVersions?(testId: string): Promise<InternationalTestVersionDto[]>;
+  upsertCountryRelationship?(testId: string, data: UpsertInternationalTestReferenceRelationshipDto): Promise<void>;
+  upsertLanguageRelationship?(testId: string, data: UpsertInternationalTestReferenceRelationshipDto): Promise<void>;
+  upsertAcademicTaxonomyRelationship?(testId: string, data: UpsertInternationalTestAcademicTaxonomyRelationshipDto): Promise<void>;
+  upsertDegreeRelationship?(testId: string, data: UpsertInternationalTestDegreeRelationshipReference): Promise<void>;
 }
 
 export interface ITransactionalInternationalTestRepository extends IInternationalTestRepository {

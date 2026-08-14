@@ -8149,7 +8149,8 @@ export function registerDependencies() {
     publicUniversityUseCases: asFunction(({ universityRepository }) => new PublicUniversityUseCases(universityRepository)).scoped(),
     adminMajorUseCases: asFunction(({ majorRepository, phase10CatalogRepository, atomicDomainMutationCoordinator }) =>
       new AdminMajorUseCases(majorRepository, phase10CatalogRepository, undefined, undefined, atomicDomainMutationCoordinator)).scoped(),
-    majorImportPromotionUseCase: asFunction(({ majorRepository }) => new MajorImportPromotionUseCase(majorRepository)).scoped(),
+    majorImportPromotionUseCase: asFunction(({ majorRepository, atomicDomainMutationCoordinator }) =>
+      new MajorImportPromotionUseCase(majorRepository, undefined, atomicDomainMutationCoordinator)).scoped(),
     fellowshipImportPromotionUseCase: asFunction(({ fellowshipDefinitionRepository }) => new FellowshipImportPromotionUseCase(fellowshipDefinitionRepository)).scoped(),
     publicMajorUseCases: asFunction(({ majorRepository }) => new PublicMajorUseCases(majorRepository)).scoped(),
     adminCourseUseCases: asFunction(({ courseRepository }) => new AdminCourseUseCases(courseRepository)).scoped(),
@@ -8183,8 +8184,8 @@ export function registerDependencies() {
         atomicDomainMutationCoordinator
       )
     ).scoped(),
-    internationalTestImportPromotionUseCase: asFunction(({ internationalTestRepository, referenceResolver }) =>
-      new InternationalTestImportPromotionUseCase(internationalTestRepository, undefined, referenceResolver)
+    internationalTestImportPromotionUseCase: asFunction(({ internationalTestRepository, referenceResolver, atomicDomainMutationCoordinator }) =>
+      new InternationalTestImportPromotionUseCase(internationalTestRepository, undefined, referenceResolver, atomicDomainMutationCoordinator)
     ).scoped(),
     internationalTestPublicUseCases: asFunction(({ internationalTestRepository }) => new InternationalTestPublicUseCases(internationalTestRepository)).scoped(),
     aiExecutionUseCases: asFunction(({ aiExecutionRepository, aiProviderGateway }) => new AIExecutionUseCases(aiExecutionRepository, aiProviderGateway)).scoped(),

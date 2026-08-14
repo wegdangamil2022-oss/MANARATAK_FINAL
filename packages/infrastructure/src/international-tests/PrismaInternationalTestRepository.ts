@@ -26,7 +26,10 @@ import {
   InternationalTestImportDraftResultDto,
   InternationalTestVersionDto,
   InternationalTestStatus,
-  InternationalTestDeliveryMode
+  InternationalTestDeliveryMode,
+  UpsertInternationalTestAcademicTaxonomyRelationshipDto,
+  UpsertInternationalTestDegreeRelationshipReference,
+  UpsertInternationalTestReferenceRelationshipDto
 } from '@manaratak/domain';
 
 const defaultInclude = {
@@ -38,7 +41,10 @@ const defaultInclude = {
   availability: true,
   preparationMaterials: true,
   evidence: true,
-  countryRelationships: true
+  countryRelationships: true,
+  languageRelationships: true,
+  academicTaxonomyRelationships: true,
+  degreeRelationships: true
 };
 
 type InternationalTestVersionRecord = {
@@ -730,6 +736,105 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
     });
 
     return records.map((record) => this.mapVersionToDto(record, testId));
+  }
+
+  async upsertCountryRelationship(testId: string, data: UpsertInternationalTestReferenceRelationshipDto): Promise<void> {
+    const countryIso2Code = data.referenceCode || data.canonicalReferenceId;
+    await this.prisma.internationalTestCountryRelationship.upsert({
+      where: {
+        testId_countryIso2Code_relationshipType: {
+          testId,
+          countryIso2Code,
+          relationshipType: data.relationshipType,
+        },
+      },
+      create: {
+        testId,
+        countryIso2Code,
+        relationshipType: data.relationshipType,
+        notes: data.notes,
+        metadata: data.metadata as Prisma.InputJsonObject | undefined,
+      },
+      update: {
+        notes: data.notes,
+        metadata: data.metadata as Prisma.InputJsonObject | undefined,
+      },
+    });
+  }
+
+  async upsertLanguageRelationship(testId: string, data: UpsertInternationalTestReferenceRelationshipDto): Promise<void> {
+    const languageIsoCode = data.referenceCode || data.canonicalReferenceId;
+    await this.prisma.internationalTestLanguageRelationship.upsert({
+      where: {
+        testId_languageIsoCode_relationshipType: {
+          testId,
+          languageIsoCode,
+          relationshipType: data.relationshipType,
+        },
+      },
+      create: {
+        testId,
+        languageIsoCode,
+        relationshipType: data.relationshipType,
+        notes: data.notes,
+        metadata: data.metadata as Prisma.InputJsonObject | undefined,
+      },
+      update: {
+        notes: data.notes,
+        metadata: data.metadata as Prisma.InputJsonObject | undefined,
+      },
+    });
+  }
+
+  async upsertAcademicTaxonomyRelationship(testId: string, data: UpsertInternationalTestAcademicTaxonomyRelationshipDto): Promise<void> {
+    await this.prisma.internationalTestAcademicTaxonomyRelationship.upsert({
+      where: {
+        testId_taxonomyNodeId_relationshipType: {
+          testId,
+          taxonomyNodeId: data.taxonomyNodeId,
+          relationshipType: data.relationshipType,
+        },
+      },
+      create: {
+        testId,
+        taxonomyNodeId: data.taxonomyNodeId,
+        relationshipType: data.relationshipType,
+        confidence: data.confidence,
+        notes: data.notes,
+        metadata: data.metadata as Prisma.InputJsonObject | undefined,
+      },
+      update: {
+        confidence: data.confidence,
+        notes: data.notes,
+        metadata: data.metadata as Prisma.InputJsonObject | undefined,
+      },
+    });
+  }
+
+  async upsertDegreeRelationship(testId: string, data: UpsertInternationalTestDegreeRelationshipReference): Promise<void> {
+    const degreeLevelCode = data.canonicalCode || data.degreeLevelId;
+    await this.prisma.internationalTestDegreeRelationship.upsert({
+      where: {
+        testId_degreeLevelCode_relationshipType: {
+          testId,
+          degreeLevelCode,
+          relationshipType: data.relationshipType,
+        },
+      },
+      create: {
+        testId,
+        degreeLevelCode,
+        degreeLevelId: data.degreeLevelId,
+        relationshipType: data.relationshipType,
+        notes: data.notes,
+        metadata: data.metadata as Prisma.InputJsonObject | undefined,
+      },
+      update: {
+        degreeLevelId: data.degreeLevelId,
+        notes: data.notes,
+        metadata: data.metadata as Prisma.InputJsonObject | undefined,
+      },
+    });
   }
 
   // --- Private Mapping Helpers ---

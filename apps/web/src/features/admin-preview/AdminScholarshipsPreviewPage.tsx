@@ -7,6 +7,7 @@ import {
   GraduationCap, Building2, Globe, Calendar, Layers
 } from 'lucide-react';
 import { ApiClient } from '../../api/client';
+import { localScholarshipPreviewEnabled, previewScholarshipFixture } from './previewScholarshipFixture';
 
 interface ScholarshipItem {
   id: string;
@@ -110,6 +111,9 @@ export function AdminScholarshipsPreviewPage() {
 
       const res = await ApiClient.getAdminScholarships(filters);
       let items: ScholarshipItem[] = res.data || [];
+      if (localScholarshipPreviewEnabled() && !items.some(item => item.id === previewScholarshipFixture.id)) {
+        items = [previewScholarshipFixture, ...items];
+      }
 
       // Apply client-side filters for all 10 filter parameters
       if (searchQuery.trim()) {
@@ -136,11 +140,18 @@ export function AdminScholarshipsPreviewPage() {
       }
 
       setScholarships(items);
-      setTotal(res.total || items.length);
+      setTotal(items.length);
       setTotalPages(res.totalPages || 1);
 
       fetchCounts();
     } catch (err: any) {
+      if (localScholarshipPreviewEnabled()) {
+        setScholarships([previewScholarshipFixture]);
+        setTotal(1);
+        setTotalPages(1);
+        setCounts({ all: 1, imported: 1, missingFields: 0, needsVerification: 0, needsTranslation: 0, readyToPublish: 0, published: 0, archived: 0 });
+        return;
+      }
       setError(isArabic
         ? 'تعذر تحميل بيانات المنح حاليًا. ستظهر السجلات بعد اتصال لوحة الإدارة بقاعدة البيانات.'
         : (err.message || 'Failed to load scholarships'));
@@ -152,7 +163,10 @@ export function AdminScholarshipsPreviewPage() {
   const fetchCounts = async () => {
     try {
       const allRes = await ApiClient.getAdminScholarships({ page: 1, pageSize: 200 });
-      const allData: ScholarshipItem[] = allRes.data || [];
+      let allData: ScholarshipItem[] = allRes.data || [];
+      if (localScholarshipPreviewEnabled() && !allData.some(item => item.id === previewScholarshipFixture.id)) {
+        allData = [previewScholarshipFixture, ...allData];
+      }
       setCounts({
         all: allData.length,
         imported: allData.filter(i => i.status === 'IMPORTED' || i.status === 'READY_TO_REVIEW').length,
@@ -164,7 +178,9 @@ export function AdminScholarshipsPreviewPage() {
         archived: allData.filter(i => i.status === 'ARCHIVED').length,
       });
     } catch (e) {
-      // ignore
+      if (localScholarshipPreviewEnabled()) {
+        setCounts({ all: 1, imported: 1, missingFields: 0, needsVerification: 0, needsTranslation: 0, readyToPublish: 0, published: 0, archived: 0 });
+      }
     }
   };
 

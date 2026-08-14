@@ -19,6 +19,31 @@ export interface ImportJobStatusDto {
   updatedAt: Date;
   lastError?: string;
   checkpoint?: Record<string, unknown>;
+  attemptCount?: number;
+  availableAt?: Date;
+  claimedBy?: string;
+  claimUntil?: Date;
+}
+
+export interface ClaimImportJobCommand {
+  workerId: string;
+  leaseDurationMs: number;
+  now?: Date;
+}
+
+export interface ImportJobLease {
+  batchId: string;
+  workerId: string;
+  attempt: number;
+  claimUntil: Date;
+}
+
+export interface FailImportJobCommand {
+  lease: ImportJobLease;
+  reason: string;
+  errorCode?: string;
+  retryPolicy: import('@manaratak/domain').ImportRetryPolicy;
+  now?: Date;
 }
 
 export interface PauseImportJobCommand {

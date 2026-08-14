@@ -10,6 +10,7 @@ import {
   MajorImportPayloadSchema,
   MajorNamingService,
   MajorStatus,
+  resolveMajorSourceIdentity,
 } from '@manaratak/domain';
 
 export type FellowshipPromotionResult =
@@ -63,7 +64,8 @@ export class FellowshipImportPromotionUseCase {
         return { type: 'UPDATED', existingId: updated.id };
       }
 
-      const publicId = `fel-${uuidv4().substring(0, 8)}`;
+      const publicId = resolveMajorSourceIdentity(payload.classificationCode, ['FEL'])
+        ?? `fel-${uuidv4().substring(0, 8)}`;
       const slugBase = canonicalName
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')

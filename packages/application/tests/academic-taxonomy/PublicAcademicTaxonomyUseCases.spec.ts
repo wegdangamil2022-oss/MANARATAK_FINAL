@@ -32,6 +32,7 @@ describe('PublicAcademicTaxonomyUseCases', () => {
     addEdge: vi.fn(),
     removeEdge: vi.fn(),
     listAliases: vi.fn().mockResolvedValue([]),
+    listAliasesByNormalizedAlias: vi.fn().mockResolvedValue([]),
     addAlias: vi.fn(),
     removeAlias: vi.fn(),
     listMappings: vi.fn().mockResolvedValue([]),

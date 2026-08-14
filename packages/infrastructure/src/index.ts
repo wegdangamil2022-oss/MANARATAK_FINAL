@@ -179,3 +179,4 @@ export * from './import-foundation/connectors/DocumentSourceConnector';
 export * from './import-foundation/connectors/BrowserAssistedSourceConnector';
 export * from './import-foundation/connectors/ManualUploadSourceConnector';
 export * from './degree-level';
+export * from './universities/PrismaUniversityImportChangeExecutorGateway';

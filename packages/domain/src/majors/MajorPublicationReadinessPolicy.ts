@@ -17,6 +17,19 @@ export class MajorPublicationReadinessPolicy implements PublicationReadinessPoli
       entity.profiles?.some(profile => profile.academicFieldId || profile.disciplineId) ||
       entity.classificationMappings?.some(mapping => mapping.taxonomyNodeId)
     );
+    const hasProfileScopedReadiness = Boolean(entity.profiles?.some(profile => {
+      if (!profile.degreeLevelId) return false;
+      const profileTaxonomy = Boolean(
+        profile.academicFieldId ||
+        profile.disciplineId ||
+        profile.classificationMappings?.some(mapping => mapping.taxonomyNodeId)
+      );
+      const rootMappingForProfile = Boolean(
+        profile.id &&
+        entity.classificationMappings?.some(mapping => mapping.profileId === profile.id && mapping.taxonomyNodeId)
+      );
+      return profileTaxonomy || rootMappingForProfile;
+    }));
     const hasSourceIdentity = Boolean(
       entity.sourceImportRecordId ||
       entity.officialSourceUrl ||
@@ -37,6 +50,13 @@ export class MajorPublicationReadinessPolicy implements PublicationReadinessPoli
     }
     if (!hasTaxonomyReference) {
       blockingIssues.push({ code: 'MAJOR_CANONICAL_TAXONOMY_REFERENCE_MISSING', message: 'A canonical taxonomy reference is required' });
+    }
+    if (!hasProfileScopedReadiness) {
+      blockingIssues.push({
+        code: 'MAJOR_PROFILE_SCOPED_PUBLICATION_REFERENCE_MISSING',
+        message: 'A publishable MajorLevelProfile must carry both canonical DegreeLevel and taxonomy references',
+        field: 'profiles',
+      });
     }
     if (!hasSourceIdentity) {
       blockingIssues.push({ code: 'MAJOR_SOURCE_IDENTITY_MISSING', message: 'An import or official source identity is required' });

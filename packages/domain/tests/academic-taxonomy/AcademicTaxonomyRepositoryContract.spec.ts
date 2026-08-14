@@ -116,6 +116,10 @@ describe('AcademicTaxonomyRepositoryContract', () => {
         return mockAliases.filter((a) => a.nodeId === nodeId);
       },
 
+      async listAliasesByNormalizedAlias(normalizedAlias: string): Promise<AcademicTaxonomyAliasDto[]> {
+        return mockAliases.filter((a) => a.normalizedAlias === normalizedAlias.trim().toLowerCase());
+      },
+
       async addAlias(data: UpsertAcademicTaxonomyAliasDto): Promise<AcademicTaxonomyAliasDto> {
         const alias: AcademicTaxonomyAliasDto = {
           aliasId: `alias_${Date.now()}`,

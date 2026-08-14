@@ -204,6 +204,17 @@ export interface MajorDto {
   updatedAt?: Date;
 }
 
+export type MajorSourceIdentityPrefix = 'MJR' | 'MAS' | 'DOC' | 'FEL';
+
+export function resolveMajorSourceIdentity(
+  classificationCode: string | null | undefined,
+  allowedPrefixes: readonly MajorSourceIdentityPrefix[],
+): string | undefined {
+  const normalized = classificationCode?.trim().toUpperCase();
+  if (!normalized || !/^(MJR|MAS|DOC|FEL)-\d+$/.test(normalized)) return undefined;
+  return allowedPrefixes.some(prefix => normalized.startsWith(`${prefix}-`)) ? normalized : undefined;
+}
+
 export interface FellowshipDefinitionDto {
   id: string;
   publicId: string;

@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { UniversityImportChangeExecutor, UniversityImportChangePlanner } from '../../src/universities/use-cases/UniversityImportChangePlan';
 
-const handoff = (dryRun = true) => ({
+const handoff = (dryRun = true, normalizedPayload: Record<string, unknown> = { sourceReferenceId: 'INS-DZA-0001', faculties: ['Medicine'] }) => ({
   handoffId: 'artifact:2', ownerDomain: 'PHASE_11_UNIVERSITY',
   artifact: { sourceId: 'UNIVERSITY_STAGE_3_XLSX', artifactId: 'artifact', rawArtifactReference: 'sample.xlsx#2' },
-  normalizedPayload: { sourceReferenceId: 'INS-DZA-0001', faculties: ['Medicine'] },
+  normalizedPayload,
   provenance: { sourceSystem: 'UNIVERSITY_STAGE_3_XLSX', acquiredAt: new Date(), sourceRowNumber: 2, contentHash: 'hash' },
   validation: { state: 'VALID', issues: [] },
   execution: { executionId: 'dry', dryRun, attempt: 1, idempotencyKey: 'artifact:2' },
@@ -23,6 +23,40 @@ describe('UniversityImportChangePlan', () => {
     expect(plan.validationIssues).toEqual([]);
     expect(plan.changes[0]).toMatchObject({ operation: 'UPDATE', entityKey: 'db-1' });
     expect(plan.changes[1]).toMatchObject({ entityType: 'ORGANIZATION_UNIT', afterState: { createsAcademicTaxonomyIdentity: false } });
+  });
+
+  it('keeps programs derived from general keyMajors in review until an explicit degree mapping exists', async () => {
+    const plan = await new UniversityImportChangePlanner({
+      findBySourceReferenceId: vi.fn().mockResolvedValue({ id: 'db-1', publicId: 'INS-DZA-0001' }),
+    }).plan('STAGE_3', [handoff(true, {
+      sourceReferenceId: 'INS-DZA-0001',
+      keyMajors: ['Computer Science'],
+      availableDegrees: ['Bachelor', 'Master'],
+    })]);
+
+    const program = plan.changes.find(change => change.entityType === 'ACADEMIC_PROGRAM');
+    expect(program?.afterState).toMatchObject({
+      sourceProgramName: 'Computer Science',
+      status: 'REVIEW_REQUIRED',
+      majorMappingState: 'MAJOR_REVIEW_REQUIRED',
+      metadata: expect.objectContaining({
+        degreeLevelMappingState: 'PROGRAM_DEGREE_REVIEW_REQUIRED',
+      }),
+    });
+    expect(program?.afterState.degreeLevelId).toBeUndefined();
+  });
+
+  it('uses only explicit program to DegreeLevel mappings for academic program degree references', async () => {
+    const plan = await new UniversityImportChangePlanner({
+      findBySourceReferenceId: vi.fn().mockResolvedValue({ id: 'db-1', publicId: 'INS-DZA-0001' }),
+    }).plan('STAGE_3', [handoff(true, {
+      sourceReferenceId: 'INS-DZA-0001',
+      academicPrograms: [{ sourceProgramName: 'Computer Science', degreeLevelId: 'degree-bachelor' }],
+      availableDegrees: ['Bachelor', 'Master'],
+    })]);
+
+    expect(plan.changes.find(change => change.entityType === 'ACADEMIC_PROGRAM')?.afterState)
+      .toMatchObject({ sourceProgramName: 'Computer Science', degreeLevelId: 'degree-bachelor', status: 'DRAFT' });
   });
 
   it('blocks commit and rollback without the recovery gate and explicit approval', async () => {

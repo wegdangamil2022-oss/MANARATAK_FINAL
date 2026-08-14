@@ -14,10 +14,20 @@ describe('InternationalTestImportPromotionUseCase', () => {
   let repository: IInternationalTestRepository;
   let useCase: InternationalTestImportPromotionUseCase;
   const referenceResolver: IReferenceResolver = {
-    resolveCountry: vi.fn(async ({ id }: { id?: string }) => id ? ({ id, type: 'COUNTRY', active: true }) : null),
+    resolveCountry: vi.fn(async ({ id, standardCode }: { id?: string; standardCode?: string }) => id ? ({
+      id,
+      type: 'COUNTRY',
+      standardCode: standardCode || id,
+      active: true
+    }) : null),
     resolveRegion: vi.fn(),
     resolveCity: vi.fn(async ({ id }: { id?: string }) => id ? ({ id, type: 'CITY', active: true }) : null),
-    resolveLanguage: vi.fn(),
+    resolveLanguage: vi.fn(async ({ standardCode }: { standardCode?: string }) => standardCode ? ({
+      id: `language-${standardCode}`,
+      type: 'LANGUAGE',
+      standardCode,
+      active: true
+    }) : null),
     resolveCurrency: vi.fn(async ({ standardCode }: { standardCode?: string }) => standardCode ? ({
       id: `currency-${standardCode}`,
       type: 'CURRENCY',
@@ -120,6 +130,11 @@ describe('InternationalTestImportPromotionUseCase', () => {
     const upsertAvailability = vi.fn().mockResolvedValue({});
     const upsertPreparationMaterial = vi.fn().mockResolvedValue({});
     const addEvidence = vi.fn().mockResolvedValue({});
+    const createImportDraftVersion = vi.fn().mockResolvedValue({});
+    const upsertCountryRelationship = vi.fn().mockResolvedValue(undefined);
+    const upsertLanguageRelationship = vi.fn().mockResolvedValue(undefined);
+    const upsertAcademicTaxonomyRelationship = vi.fn().mockResolvedValue(undefined);
+    const upsertDegreeRelationship = vi.fn().mockResolvedValue(undefined);
 
     const richRepo: IInternationalTestRepository = {
       ...repository,
@@ -131,6 +146,11 @@ describe('InternationalTestImportPromotionUseCase', () => {
       upsertAvailability,
       upsertPreparationMaterial,
       addEvidence,
+      createImportDraftVersion,
+      upsertCountryRelationship,
+      upsertLanguageRelationship,
+      upsertAcademicTaxonomyRelationship,
+      upsertDegreeRelationship,
     };
 
     const richUseCase = new InternationalTestImportPromotionUseCase(richRepo, undefined, referenceResolver);
@@ -147,6 +167,7 @@ describe('InternationalTestImportPromotionUseCase', () => {
         localizedNameAr: 'اختبار الآيلتس الأكاديمي',
         description: 'International English Language Testing System',
         useCases: ['University Admission'],
+        relatedLanguages: ['en'],
         variants: [
           { variantName: 'Computer-Delivered', deliveryMode: 'ONLINE', isActive: true }
         ],
@@ -169,6 +190,12 @@ describe('InternationalTestImportPromotionUseCase', () => {
           availableCountryIds: ['GB', 'SA'],
           onlineAvailabilityRegions: ['Global']
         },
+        academicTaxonomyRelationships: [
+          { taxonomyNodeId: 'taxonomy-language-studies', relationshipType: 'REQUIRED_FOR', confidence: 0.95 }
+        ],
+        degreeRelationships: [
+          { degreeLevelId: 'degree-bachelor', canonicalCode: 'BACHELOR', relationshipType: 'ACCEPTED_FOR' }
+        ],
         preparationMaterials: [
           { materialType: 'GUIDE', title: 'Official Guide', url: 'https://takeielts.britishcouncil.org/prepare', assetId: 'asset-1' }
         ],
@@ -205,6 +232,26 @@ describe('InternationalTestImportPromotionUseCase', () => {
     expect(upsertAvailability).toHaveBeenCalledWith('test-1', expect.objectContaining({ availableCountryIds: ['GB', 'SA'] }));
     expect(upsertPreparationMaterial).toHaveBeenCalledWith('test-1', expect.objectContaining({ title: 'Official Guide' }));
     expect(addEvidence).toHaveBeenCalledWith('test-1', expect.objectContaining({ sourceTrustLevel: 'OFFICIAL_PROVIDER', sourceUrl: 'https://www.ielts.org' }));
+    expect(createImportDraftVersion).toHaveBeenCalledWith('test-1', expect.objectContaining({
+      sourceImportRecordId: 'record-rich-1',
+      metadata: expect.objectContaining({ normalizedLifecycle: 'UNIVERSITY_READY_MINIMUM' })
+    }));
+    expect(upsertCountryRelationship).toHaveBeenCalledWith('test-1', expect.objectContaining({
+      referenceCode: 'GB',
+      relationshipType: 'AVAILABLE_IN'
+    }));
+    expect(upsertLanguageRelationship).toHaveBeenCalledWith('test-1', expect.objectContaining({
+      referenceCode: 'en',
+      relationshipType: 'RELATED_LANGUAGE'
+    }));
+    expect(upsertAcademicTaxonomyRelationship).toHaveBeenCalledWith('test-1', expect.objectContaining({
+      taxonomyNodeId: 'taxonomy-language-studies',
+      relationshipType: 'REQUIRED_FOR'
+    }));
+    expect(upsertDegreeRelationship).toHaveBeenCalledWith('test-1', expect.objectContaining({
+      degreeLevelId: 'degree-bachelor',
+      relationshipType: 'ACCEPTED_FOR'
+    }));
   });
 
   it('rejects promotion if raw payload includes payment execution or auto-publish flags', async () => {

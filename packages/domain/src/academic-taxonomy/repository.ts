@@ -35,6 +35,7 @@ export interface IAcademicTaxonomyRepository {
 
   // Alias methods
   listAliases(nodeId: string): Promise<AcademicTaxonomyAliasDto[]>;
+  listAliasesByNormalizedAlias(normalizedAlias: string): Promise<AcademicTaxonomyAliasDto[]>;
   addAlias(data: UpsertAcademicTaxonomyAliasDto): Promise<AcademicTaxonomyAliasDto>;
   removeAlias(aliasId: string): Promise<void>;
 

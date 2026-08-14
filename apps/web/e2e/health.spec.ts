@@ -1,10 +1,54 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-test('has title', async ({ page }) => {
-  // Just a placeholder structure that runs real tests if standard dev server is up
-  // We assume the e2e test will run against a deployed environment or localhost
-  // Since we are not actually running playwright in this task, the test structure is enough
-  // to satisfy the architecture requirement
-  // but we can make it point to a generic test case.
-  expect(true).toBe(true);
+test.describe('MANARATAK source-level runtime smoke checks', () => {
+  test('renders the public web application', async ({ page }) => {
+    const response = await page.goto('/');
+
+    expect(response?.ok()).toBeTruthy();
+    await expect(page.locator('body')).toBeVisible();
+    await expect(page.locator('body')).not.toBeEmpty();
+    await expect(page).toHaveTitle(/MANARATAK|منارتك/i);
+  });
+
+  test('reports API liveness from the running application', async ({ request }) => {
+    const response = await request.get('/api/v1/monitoring/health/liveness');
+
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body.status).toBe('UP');
+  });
+
+  test('reports readiness truthfully when dependencies are unavailable', async ({ request }) => {
+    const response = await request.get('/api/v1/monitoring/health/readiness');
+
+    expect([200, 503]).toContain(response.status());
+    const body = await response.json();
+    expect(['UP', 'DEGRADED', 'DOWN']).toContain(body.status);
+    expect(body).toHaveProperty('details');
+  });
+
+  test('serves a safe public API read', async ({ request }) => {
+    const response = await request.get('/api/v1/auth/csrf-token');
+
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body).toHaveProperty('data');
+  });
+
+  test('rejects unauthenticated admin reads and mutations', async ({ request }) => {
+    const readResponse = await request.get('/api/v1/admin/universities');
+    expect(readResponse.status()).toBe(401);
+    await expect(readResponse.json()).resolves.toMatchObject({ error: { code: 'ADMIN_AUTH_REQUIRED' } });
+
+    const mutationResponse = await request.post('/api/v1/admin/universities', {
+      data: { displayName: 'E2E must never create this university' },
+    });
+    expect([401, 423]).toContain(mutationResponse.status());
+    const mutationBody = await mutationResponse.json();
+    if (mutationResponse.status() === 401) {
+      expect(mutationBody).toMatchObject({ error: { code: 'ADMIN_AUTH_REQUIRED' } });
+    } else {
+      expect(mutationBody).toMatchObject({ error: 'READ_ONLY_PREVIEW' });
+    }
+  });
 });

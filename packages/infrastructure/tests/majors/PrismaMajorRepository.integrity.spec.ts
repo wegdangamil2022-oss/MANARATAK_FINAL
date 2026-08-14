@@ -38,6 +38,18 @@ describe('PrismaMajorRepository source integrity', () => {
     }
   });
 
+  it('keeps legacy optionalFields filter fallback behind an explicit compatibility mode', () => {
+    const canonicalOnly = new PrismaMajorRepository({} as any, false) as any;
+    const legacyEnabled = new PrismaMajorRepository({} as any, true) as any;
+    const canonical = { facultyName: { contains: 'Medicine', mode: 'insensitive' } };
+    const legacy = { optionalFields: { path: ['collegeOrFaculty'], string_contains: 'Medicine' } };
+
+    expect(canonicalOnly.withLegacyOptionalFallback(canonical, legacy)).toEqual(canonical);
+    expect(legacyEnabled.withLegacyOptionalFallback(canonical, legacy)).toEqual({
+      OR: [canonical, legacy],
+    });
+  });
+
   it('rejects ownerless, self, and duplicate semantic relationships', () => {
     expect(() => repository.assertRelationshipInvariants([{
       relationshipType: 'SIMILAR'

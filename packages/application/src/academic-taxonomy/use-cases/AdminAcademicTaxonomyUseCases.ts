@@ -99,7 +99,8 @@ export class AdminAcademicTaxonomyUseCases {
   }
 
   public async addAlias(data: UpsertAcademicTaxonomyAliasDto): Promise<AcademicTaxonomyAliasDto> {
-    const existingAliases = await this.repository.listAliases(data.nodeId);
+    const normalizedAlias = data.alias.trim().toLowerCase().replace(/\s+/g, ' ');
+    const existingAliases = await this.repository.listAliasesByNormalizedAlias(normalizedAlias);
 
     const issues = this.validationService.validateAlias({
       alias: data,

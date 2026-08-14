@@ -239,6 +239,32 @@ describe('PrismaAcademicTaxonomyRepository - Relations Operations (P8E-2)', () =
       expect(result.locale).toBe('en');
     });
 
+    it('listAliasesByNormalizedAlias queries aliases globally instead of only the current node', async () => {
+      const mockAliasRecord = {
+        id: 'alias_global_1',
+        nodeId: 'other_node',
+        locale: 'en',
+        alias: 'Computer Science',
+        normalizedAlias: 'computer science',
+        createdAt: new Date(),
+      };
+      mockPrisma.academicTaxonomyAlias.findMany.mockResolvedValue([mockAliasRecord]);
+
+      const aliases = await repository.listAliasesByNormalizedAlias(' Computer   Science ');
+
+      expect(mockPrisma.academicTaxonomyAlias.findMany).toHaveBeenCalledWith({
+        where: { normalizedAlias: 'computer science' },
+        orderBy: { createdAt: 'asc' },
+      });
+      expect(aliases).toEqual([
+        expect.objectContaining({
+          aliasId: 'alias_global_1',
+          nodeId: 'other_node',
+          normalizedAlias: 'computer science',
+        }),
+      ]);
+    });
+
     it('addAlias works when locale is omitted', async () => {
       const mockCreatedAlias = {
         id: 'alias_3',

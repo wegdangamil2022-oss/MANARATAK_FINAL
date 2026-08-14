@@ -53,6 +53,7 @@ describe('AdminAcademicTaxonomyUseCases', () => {
     aliasId: 'alias_01',
     nodeId: 'node_parent',
     alias: 'CompSci',
+    normalizedAlias: 'compsci',
     locale: 'en',
     createdAt: new Date(),
   };
@@ -84,6 +85,7 @@ describe('AdminAcademicTaxonomyUseCases', () => {
       addEdge: vi.fn().mockResolvedValue(mockEdge),
       removeEdge: vi.fn().mockResolvedValue(undefined),
       listAliases: vi.fn().mockResolvedValue([mockAlias]),
+      listAliasesByNormalizedAlias: vi.fn().mockResolvedValue([mockAlias]),
       addAlias: vi.fn().mockResolvedValue(mockAlias),
       removeAlias: vi.fn().mockResolvedValue(undefined),
       listMappings: vi.fn().mockResolvedValue([mockMapping]),
@@ -237,7 +239,7 @@ describe('AdminAcademicTaxonomyUseCases', () => {
     expect(mockRepo.removeEdge).toHaveBeenCalledWith('edge_01');
   });
 
-  it('addAlias fetches repository.listAliases and validates before addAlias', async () => {
+  it('addAlias fetches global normalized aliases and validates before addAlias', async () => {
     const useCases = new AdminAcademicTaxonomyUseCases(mockRepo, mockValidationService);
     const aliasInput = {
       nodeId: 'node_parent',
@@ -247,13 +249,32 @@ describe('AdminAcademicTaxonomyUseCases', () => {
 
     const result = await useCases.addAlias(aliasInput);
 
-    expect(mockRepo.listAliases).toHaveBeenCalledWith('node_parent');
+    expect(mockRepo.listAliasesByNormalizedAlias).toHaveBeenCalledWith('newalias');
     expect(mockValidationService.validateAlias).toHaveBeenCalledWith({
       alias: aliasInput,
       existingAliases: [mockAlias],
     });
     expect(mockRepo.addAlias).toHaveBeenCalledWith(aliasInput);
     expect(result).toEqual(mockAlias);
+  });
+
+  it('addAlias blocks a normalized alias already attached to another node', async () => {
+    vi.mocked(mockRepo.listAliasesByNormalizedAlias).mockResolvedValue([
+      {
+        ...mockAlias,
+        nodeId: 'different_node',
+        alias: 'Computer Science',
+        normalizedAlias: 'computer science',
+      },
+    ]);
+    const useCases = new AdminAcademicTaxonomyUseCases(mockRepo);
+
+    await expect(useCases.addAlias({
+      nodeId: 'node_parent',
+      alias: 'Computer Science',
+      locale: 'en',
+    })).rejects.toThrow('Alias validation failed: ALIAS_CONFLICT_OTHER_NODE');
+    expect(mockRepo.addAlias).not.toHaveBeenCalled();
   });
 
   it('addAlias throws and does not call repository.addAlias on ERROR', async () => {

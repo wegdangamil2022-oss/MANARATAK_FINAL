@@ -6,7 +6,10 @@ import {
   ResumeImportJobCommand,
   CancelImportJobCommand,
   ReplayImportJobCommand,
-  DeadLetterImportRecordDto
+  DeadLetterImportRecordDto,
+  ClaimImportJobCommand,
+  ImportJobLease,
+  FailImportJobCommand,
 } from '../dtos/ImportQueueDtos';
 
 export interface IImportQueueGateway {
@@ -21,4 +24,12 @@ export interface IImportQueueGateway {
   markJobRunning(batchId: string): Promise<boolean>;
   markJobCompleted(batchId: string): Promise<boolean>;
   markJobFailed(batchId: string, reason: string): Promise<boolean>;
+  claimNextJob(command: ClaimImportJobCommand): Promise<ImportJobLease | null>;
+  heartbeat(
+    lease: ImportJobLease,
+    leaseDurationMs: number,
+    now?: Date,
+  ): Promise<ImportJobLease | null>;
+  completeClaimedJob(lease: ImportJobLease): Promise<boolean>;
+  failClaimedJob(command: FailImportJobCommand): Promise<'RETRY_SCHEDULED' | 'DLQ' | 'LEASE_LOST'>;
 }

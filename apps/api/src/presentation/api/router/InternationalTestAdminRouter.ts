@@ -7,10 +7,11 @@ export class InternationalTestAdminRouter {
   public static create(cradle: { internationalTestAdminUseCases: InternationalTestAdminUseCases }): Router {
     const router = Router();
     const { internationalTestAdminUseCases } = cradle;
-    const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => Promise.resolve(fn(req, res, next)).catch(next);
+    type AsyncRouteHandler = (req: Request, res: Response, next: NextFunction) => Promise<unknown> | unknown;
+    const asyncHandler = (fn: AsyncRouteHandler) => (req: Request, res: Response, next: NextFunction) => Promise.resolve(fn(req, res, next)).catch(next);
     const mutationContext = (req: Request) => ({
-      actorId: (req as any).user?.id || (req as any).user?.identityId || 'SYSTEM',
-      actorType: (req as any).user?.type || 'IDENTITY',
+      actorId: req.authUserId || 'SYSTEM',
+      actorType: 'IDENTITY',
       correlationId: (req.headers['x-correlation-id'] as string | undefined) || (req.headers['x-request-id'] as string | undefined),
       source: 'admin-international-tests-api',
     });

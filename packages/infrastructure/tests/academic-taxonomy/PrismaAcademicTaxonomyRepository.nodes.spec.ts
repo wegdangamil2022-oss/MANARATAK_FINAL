@@ -21,6 +21,9 @@ describe('PrismaAcademicTaxonomyRepository - Node Operations', () => {
         findUnique: vi.fn(),
         upsert: vi.fn(),
       },
+      academicTaxonomyAlias: {
+        findMany: vi.fn(),
+      },
     };
     repository = new PrismaAcademicTaxonomyRepository(mockPrisma as unknown as PrismaClient);
   });
@@ -63,6 +66,9 @@ describe('PrismaAcademicTaxonomyRepository - Node Operations', () => {
             { canonicalName: { contains: 'Edu', mode: 'insensitive' } },
             { canonicalCode: { contains: 'Edu', mode: 'insensitive' } },
             { standardCode: { contains: 'Edu', mode: 'insensitive' } },
+            { aliases: { some: { normalizedAlias: 'edu' } } },
+            { sourceMappings: { some: { targetStandard: 'EDU' } } },
+            { targetMappings: { some: { sourceStandard: 'EDU' } } },
           ],
         },
         orderBy: { canonicalCode: 'asc' },

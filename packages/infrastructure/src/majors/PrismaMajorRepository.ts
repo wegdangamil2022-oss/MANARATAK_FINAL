@@ -50,12 +50,19 @@ interface MajorTransactionContext extends AtomicPersistenceContext {
 }
 
 export class PrismaMajorRepository implements ITransactionalMajorRepository {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly legacyOptionalFieldFiltersEnabled =
+      process.env.MANARATAK_MAJOR_LEGACY_OPTIONAL_FILTERS === 'true',
+  ) {}
 
   withTransaction(context: AtomicPersistenceContext): IMajorRepository {
     const transactionClient = (context as Partial<MajorTransactionContext>).transactionClient;
     if (!context.boundaryId || !transactionClient) throw new Error('MAJOR_ATOMIC_TRANSACTION_CONTEXT_REQUIRED');
-    return new PrismaMajorRepository(transactionClient as unknown as PrismaClient);
+    return new PrismaMajorRepository(
+      transactionClient as unknown as PrismaClient,
+      this.legacyOptionalFieldFiltersEnabled,
+    );
   }
 
   async findById(id: string): Promise<MajorDto | null> {
@@ -209,23 +216,27 @@ export class PrismaMajorRepository implements ITransactionalMajorRepository {
 
     const and: Prisma.MajorWhereInput[] = [];
     if (filters.degreeLevel) {
-      and.push({ OR: [
+      and.push(this.withLegacyOptionalFallback(
         { levelProfiles: { some: { degreeLevel: { is: { canonicalCode: filters.degreeLevel.toUpperCase() as any } } } } },
-        { optionalFields: { path: ['degreeLevel'], equals: filters.degreeLevel } }
-      ] });
+        { optionalFields: { path: ['degreeLevel'], equals: filters.degreeLevel } },
+      ));
     }
     if (filters.academicFieldOrDiscipline) {
-      and.push({ OR: [
-        { academicField: { is: { canonicalName: { contains: filters.academicFieldOrDiscipline, mode: 'insensitive' } } } },
-        { discipline: { is: { canonicalName: { contains: filters.academicFieldOrDiscipline, mode: 'insensitive' } } } },
-        { optionalFields: { path: ['academicFieldOrDiscipline'], string_contains: filters.academicFieldOrDiscipline } }
-      ] });
+      and.push(this.withLegacyOptionalFallback(
+        {
+          OR: [
+            { academicField: { is: { canonicalName: { contains: filters.academicFieldOrDiscipline, mode: 'insensitive' } } } },
+            { discipline: { is: { canonicalName: { contains: filters.academicFieldOrDiscipline, mode: 'insensitive' } } } },
+          ],
+        },
+        { optionalFields: { path: ['academicFieldOrDiscipline'], string_contains: filters.academicFieldOrDiscipline } },
+      ));
     }
     if (filters.collegeOrFaculty) {
-      and.push({ OR: [
+      and.push(this.withLegacyOptionalFallback(
         { facultyName: { contains: filters.collegeOrFaculty, mode: 'insensitive' } },
-        { optionalFields: { path: ['collegeOrFaculty'], string_contains: filters.collegeOrFaculty } }
-      ] });
+        { optionalFields: { path: ['collegeOrFaculty'], string_contains: filters.collegeOrFaculty } },
+      ));
     }
     if (and.length > 0) where.AND = and;
     
@@ -606,6 +617,13 @@ export class PrismaMajorRepository implements ITransactionalMajorRepository {
     return Object.fromEntries(
       Object.entries(this.asRecord(value)).filter(([key]) => !MAJOR_OPTIONAL_FIELDS_RESERVED_KEYS.has(key))
     );
+  }
+
+  private withLegacyOptionalFallback(
+    canonical: Prisma.MajorWhereInput,
+    legacy: Prisma.MajorWhereInput,
+  ): Prisma.MajorWhereInput {
+    return this.legacyOptionalFieldFiltersEnabled ? { OR: [canonical, legacy] } : canonical;
   }
 
   private assertHasOwner(majorId: string | undefined, profileId: string | undefined, subject: string): void {

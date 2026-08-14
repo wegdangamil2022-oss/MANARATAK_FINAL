@@ -3,6 +3,8 @@ import {
   PaginatedUniversityResult,
   PublicUniversityDto,
   PublicUniversityFilters,
+  sanitizeUniversityOptionalFields,
+  UniversityDto,
   UniversityStatus
 } from '@manaratak/domain';
 
@@ -28,7 +30,7 @@ export class PublicUniversityUseCases {
     return this.mapToPublicDto(university);
   }
 
-  private mapToPublicDto(university: any): PublicUniversityDto {
+  private mapToPublicDto(university: UniversityDto): PublicUniversityDto {
     const {
       id,
       canonicalDedupKey,
@@ -40,9 +42,6 @@ export class PublicUniversityUseCases {
       ...publicData
     } = university;
 
-    return {
-      ...publicData,
-      ...(optionalFields || {}),
-    };
+    return { ...sanitizeUniversityOptionalFields(optionalFields), ...publicData } as PublicUniversityDto;
   }
 }

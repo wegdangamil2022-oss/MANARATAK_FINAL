@@ -15,12 +15,15 @@ import {
   MajorImportPayload,
   MajorImportPayloadSchema,
   MajorNamingService,
-  MajorStatus
+  MajorStatus,
+  resolveMajorSourceIdentity,
+  ITransactionalMajorRepository,
 } from '@manaratak/domain';
 import {
   AcademicTaxonomyResolver,
   TaxonomyResolutionOutcome,
 } from '../services/AcademicTaxonomyResolver';
+import { AtomicDomainMutationCoordinator } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
 
 export type MajorPromotionResult =
   | { type: 'CREATED'; majorId: string }
@@ -32,17 +35,57 @@ export type MajorPromotionResult =
 export class MajorImportPromotionUseCase {
   constructor(
     private readonly repository: IMajorRepository,
-    private readonly taxonomyResolver: AcademicTaxonomyResolver = new AcademicTaxonomyResolver()
+    private readonly taxonomyResolver: AcademicTaxonomyResolver = new AcademicTaxonomyResolver(),
+    private readonly atomicMutations?: AtomicDomainMutationCoordinator,
   ) {}
 
   public async promote(record: ImportRecordDto): Promise<MajorPromotionResult> {
+    if (this.atomicMutations) {
+      const transactional = this.repository as Partial<ITransactionalMajorRepository>;
+      if (!transactional.withTransaction)
+        return { type: 'FAILED', error: 'MAJOR_TRANSACTIONAL_PERSISTENCE_REQUIRED' };
+      let noMutationResult:
+        Extract<MajorPromotionResult, { type: 'REJECTED' | 'DUPLICATE' }> | undefined;
+      try {
+        return await this.atomicMutations.execute(
+          {
+            domain: 'MAJORS',
+            aggregateType: 'IMPORT_RECORD',
+            aggregateId: String(record.id ?? 'UNPERSISTED_IMPORT_RECORD'),
+            action: 'MAJOR_IMPORT_PROMOTED',
+            context: { actorId: 'IMPORT_WORKER', actorType: 'SYSTEM', source: 'import-promotion' },
+          },
+          async (transaction) => {
+            const result = await new MajorImportPromotionUseCase(
+              transactional.withTransaction!(transaction),
+              this.taxonomyResolver,
+            ).promote(record);
+            if (result.type === 'FAILED') throw new Error(result.error);
+            if (result.type === 'REJECTED' || result.type === 'DUPLICATE') {
+              noMutationResult = result;
+              throw new Error('NO_MAJOR_PROMOTION_MUTATION');
+            }
+            return result;
+          },
+        );
+      } catch (error: unknown) {
+        if (noMutationResult) return noMutationResult;
+        return {
+          type: 'FAILED',
+          error: error instanceof Error ? error.message : 'Unknown error in atomic promotion',
+        };
+      }
+    }
     try {
       if (
         record.status !== ImportRecordStatus.VALID &&
         record.status !== ImportRecordStatus.COMPLETE &&
         record.status !== ImportRecordStatus.NEEDS_REVIEW
       ) {
-        return { type: 'REJECTED', reason: `ImportRecord status is ${record.status}, not VALID or NEEDS_REVIEW` };
+        return {
+          type: 'REJECTED',
+          reason: `ImportRecord status is ${record.status}, not VALID or NEEDS_REVIEW`,
+        };
       }
 
       const rawPayload = record.normalizedPayload || record.rawPayload;
@@ -74,16 +117,24 @@ export class MajorImportPromotionUseCase {
 
       const existing = await this.repository.findByDedupKey(dedupKey);
       if (existing) {
-        const versionNumber = await this.attachImportSnapshot(existing.id, record, rawPayload, payload);
+        const versionNumber = await this.attachImportSnapshot(
+          existing.id,
+          record,
+          rawPayload,
+          payload,
+        );
         return { type: 'VERSION_CREATED', existingId: existing.id, versionNumber };
       }
 
-      const publicId = `MJR-${uuidv4().substring(0, 8).toUpperCase()}`;
+      const publicId =
+        resolveMajorSourceIdentity(payload.classificationCode, ['MJR', 'MAS', 'DOC']) ??
+        `MJR-${uuidv4().substring(0, 8).toUpperCase()}`;
       const slug = `${MajorNamingService.normalizeForKey(payload.canonicalMajorName)}-${uuidv4().substring(0, 6)}`;
 
-      const majorStatus = (record.status === ImportRecordStatus.VALID || record.status === ImportRecordStatus.COMPLETE)
-        ? MajorStatus.IMPORTED
-        : MajorStatus.READY_TO_REVIEW;
+      const majorStatus =
+        record.status === ImportRecordStatus.VALID || record.status === ImportRecordStatus.COMPLETE
+          ? MajorStatus.IMPORTED
+          : MajorStatus.READY_TO_REVIEW;
 
       const created = await this.repository.create({
         publicId,
@@ -117,14 +168,16 @@ export class MajorImportPromotionUseCase {
       let sourceId: string | undefined;
 
       if (this.repository.createSource) {
-        const sourceName = typeof payload.metadata?.sourceFileName === 'string'
-          ? payload.metadata.sourceFileName
-          : 'import_promotion';
+        const sourceName =
+          typeof payload.metadata?.sourceFileName === 'string'
+            ? payload.metadata.sourceFileName
+            : 'import_promotion';
 
         const source = await this.repository.createSource({
           majorId: created.id,
           profileId: profile?.id,
-          sourceType: payload.sourceImportMode === 'DETAIL_DOSSIER' ? 'DETAIL_DOSSIER' : 'CATALOG_FILE',
+          sourceType:
+            payload.sourceImportMode === 'DETAIL_DOSSIER' ? 'DETAIL_DOSSIER' : 'CATALOG_FILE',
           sourceName,
           sourceUri: payload.sourceUrl || payload.officialSourceUrl,
           sourceHash: createHash('sha256').update(JSON.stringify(rawPayload)).digest('hex'),
@@ -143,9 +196,10 @@ export class MajorImportPromotionUseCase {
       await this.attachClassificationMappings(created.id, profile?.id, payload);
 
       if (this.repository.createVersion) {
-        const sourceName = typeof payload.metadata?.sourceFileName === 'string'
-          ? payload.metadata.sourceFileName
-          : 'import_promotion';
+        const sourceName =
+          typeof payload.metadata?.sourceFileName === 'string'
+            ? payload.metadata.sourceFileName
+            : 'import_promotion';
 
         const version = await this.repository.createVersion({
           majorId: created.id,
@@ -163,7 +217,9 @@ export class MajorImportPromotionUseCase {
             importStatus: record.status,
             profileKey: MajorDeduplicationService.generateProfileKey(payload),
             sourceImportMode: payload.sourceImportMode ?? 'CATALOG_IDENTITY_ONLY',
-            contentBlockCount: Array.isArray(payload.contentBlocks) ? payload.contentBlocks.length : 0,
+            contentBlockCount: Array.isArray(payload.contentBlocks)
+              ? payload.contentBlocks.length
+              : 0,
           },
         });
         await this.attachContentSections(profile?.id, version.id, payload);
@@ -179,19 +235,24 @@ export class MajorImportPromotionUseCase {
     majorId: string,
     record: ImportRecordDto,
     rawPayload: unknown,
-    payload: MajorImportPayload
+    payload: MajorImportPayload,
   ): Promise<number> {
     const profile = await this.ensureLevelProfile(majorId, payload);
-    const existingVersions = this.repository.listVersions ? await this.repository.listVersions(majorId) : [];
+    const existingVersions = this.repository.listVersions
+      ? await this.repository.listVersions(majorId)
+      : [];
     const previousVersion = existingVersions[existingVersions.length - 1];
-    const versionNumber = previousVersion ? (previousVersion.versionNumber || 0) + 1 : existingVersions.length + 1;
+    const versionNumber = previousVersion
+      ? (previousVersion.versionNumber || 0) + 1
+      : existingVersions.length + 1;
     const previousRawPayload = previousVersion?.rawContentBlocks;
     const promotionResult = existingVersions.length === 0 ? 'CREATED' : 'VERSION_CREATED';
 
     let sourceId: string | undefined;
-    const sourceName = typeof payload.metadata?.sourceFileName === 'string'
-      ? payload.metadata.sourceFileName
-      : 'import_promotion';
+    const sourceName =
+      typeof payload.metadata?.sourceFileName === 'string'
+        ? payload.metadata.sourceFileName
+        : 'import_promotion';
     const sourceUri = payload.sourceUrl || payload.officialSourceUrl;
     const sourceHash = createHash('sha256').update(JSON.stringify(rawPayload)).digest('hex');
 
@@ -199,7 +260,8 @@ export class MajorImportPromotionUseCase {
       const source = await this.repository.createSource({
         majorId,
         profileId: profile?.id,
-        sourceType: payload.sourceImportMode === 'DETAIL_DOSSIER' ? 'DETAIL_DOSSIER' : 'CATALOG_FILE',
+        sourceType:
+          payload.sourceImportMode === 'DETAIL_DOSSIER' ? 'DETAIL_DOSSIER' : 'CATALOG_FILE',
         sourceName,
         sourceUri,
         sourceHash,
@@ -235,7 +297,9 @@ export class MajorImportPromotionUseCase {
           promotionResult,
           profileKey: MajorDeduplicationService.generateProfileKey(payload),
           sourceImportMode: payload.sourceImportMode ?? 'CATALOG_IDENTITY_ONLY',
-          contentBlockCount: Array.isArray(payload.contentBlocks) ? payload.contentBlocks.length : 0,
+          contentBlockCount: Array.isArray(payload.contentBlocks)
+            ? payload.contentBlocks.length
+            : 0,
         },
       });
       await this.attachContentSections(profile?.id, version.id, payload);
@@ -247,7 +311,7 @@ export class MajorImportPromotionUseCase {
   private buildChangeSummary(
     payload: MajorImportPayload,
     previousRawPayload: unknown,
-    promotionResult: 'CREATED' | 'VERSION_CREATED'
+    promotionResult: 'CREATED' | 'VERSION_CREATED',
   ): Record<string, unknown> {
     const current = this.asRecord(payload);
     const previous = this.asRecord(previousRawPayload);
@@ -289,7 +353,10 @@ export class MajorImportPromotionUseCase {
     return typeof value === 'string' && value.trim() ? value.trim() : undefined;
   }
 
-  private async ensureLevelProfile(majorId: string, payload: MajorImportPayload): Promise<MajorLevelProfileDto | undefined> {
+  private async ensureLevelProfile(
+    majorId: string,
+    payload: MajorImportPayload,
+  ): Promise<MajorLevelProfileDto | undefined> {
     const level = this.normalizeLevel(payload.degreeLevel);
     if (!level || !this.repository.createLevelProfile) {
       return undefined;
@@ -333,7 +400,9 @@ export class MajorImportPromotionUseCase {
 
   private toStringArray(value: unknown): string[] {
     if (Array.isArray(value)) {
-      return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+      return value.filter(
+        (item): item is string => typeof item === 'string' && item.trim().length > 0,
+      );
     }
     if (typeof value === 'string' && value.trim()) {
       return [value.trim()];
@@ -341,7 +410,11 @@ export class MajorImportPromotionUseCase {
     return [];
   }
 
-  private async attachAliases(majorId: string, payload: MajorImportPayload, sourceId: string | undefined): Promise<void> {
+  private async attachAliases(
+    majorId: string,
+    payload: MajorImportPayload,
+    sourceId: string | undefined,
+  ): Promise<void> {
     if (!this.repository.createAliases) {
       return;
     }
@@ -353,7 +426,7 @@ export class MajorImportPromotionUseCase {
     const pushAlias = (
       alias: string | undefined,
       locale: string | undefined,
-      aliasType: NonNullable<MajorAliasDto['aliasType']>
+      aliasType: NonNullable<MajorAliasDto['aliasType']>,
     ) => {
       const trimmed = alias?.trim();
       if (!trimmed) return;
@@ -379,7 +452,7 @@ export class MajorImportPromotionUseCase {
   private async attachClassificationMappings(
     majorId: string,
     profileId: string | undefined,
-    payload: MajorImportPayload
+    payload: MajorImportPayload,
   ): Promise<void> {
     if (!this.repository.createClassificationMappings) {
       return;
@@ -389,7 +462,8 @@ export class MajorImportPromotionUseCase {
     const mappings: Array<Omit<MajorClassificationMappingDto, 'id'>> = [];
 
     if (taxonomyRes.outcome === TaxonomyResolutionOutcome.EXACT_MATCH) {
-      const targetNodeId = taxonomyRes.programAreaId || taxonomyRes.disciplineId || taxonomyRes.academicFieldId;
+      const targetNodeId =
+        taxonomyRes.programAreaId || taxonomyRes.disciplineId || taxonomyRes.academicFieldId;
       if (targetNodeId) {
         mappings.push({
           majorId,
@@ -406,7 +480,7 @@ export class MajorImportPromotionUseCase {
           },
         });
       }
-        } else {
+    } else {
       if (payload.academicFieldId) {
         mappings.push({
           majorId,
@@ -438,8 +512,16 @@ export class MajorImportPromotionUseCase {
     }
   }
 
-  private async attachContentSections(profileId: string | undefined, versionId: string | undefined, payload: MajorImportPayload): Promise<void> {
-    if (!this.repository.createContentSections || !versionId || !Array.isArray(payload.contentBlocks)) {
+  private async attachContentSections(
+    profileId: string | undefined,
+    versionId: string | undefined,
+    payload: MajorImportPayload,
+  ): Promise<void> {
+    if (
+      !this.repository.createContentSections ||
+      !versionId ||
+      !Array.isArray(payload.contentBlocks)
+    ) {
       return;
     }
 
@@ -454,7 +536,7 @@ export class MajorImportPromotionUseCase {
     block: Record<string, unknown>,
     index: number,
     profileId: string | undefined,
-    versionId: string
+    versionId: string,
   ): Omit<MajorContentSectionDto, 'id'> | undefined {
     const content = typeof block.content === 'string' ? block.content.trim() : '';
     if (!content) return undefined;
@@ -462,19 +544,32 @@ export class MajorImportPromotionUseCase {
     return {
       profileId,
       versionId,
-      sectionKey: typeof block.blockKey === 'string' && block.blockKey.trim()
-        ? block.blockKey.trim()
-        : `section-${String(index + 1).padStart(2, '0')}`,
+      sectionKey:
+        typeof block.blockKey === 'string' && block.blockKey.trim()
+          ? block.blockKey.trim()
+          : `section-${String(index + 1).padStart(2, '0')}`,
       title: typeof block.title === 'string' ? block.title : undefined,
-      locale: 'ar',
+      locale: this.resolveContentLocale(block),
       content,
-      sourceSectionPath: typeof block.sourceSectionPath === 'string' ? block.sourceSectionPath : undefined,
+      sourceSectionPath:
+        typeof block.sourceSectionPath === 'string' ? block.sourceSectionPath : undefined,
       reviewStatus: 'NEEDS_REVIEW',
       metadata: {
         sourceLevel: block.level,
         sourceReviewStatus: block.reviewStatus,
+        localeResolution: this.resolveContentLocale(block) ? 'SOURCE_DECLARED' : 'UNKNOWN_REVIEW_REQUIRED',
       },
     };
+  }
+
+  private resolveContentLocale(block: Record<string, unknown>): string | undefined {
+    const raw = block.locale ?? block.sourceLocale ?? block.language ?? block.contentLocale;
+    if (typeof raw !== 'string') return undefined;
+    const normalized = raw.trim().toLowerCase();
+    if (!normalized) return undefined;
+    if (['ar', 'ara', 'arabic', 'العربية', 'عربي'].includes(normalized)) return 'ar';
+    if (['en', 'eng', 'english', 'الإنجليزية', 'انجليزي', 'إنجليزي'].includes(normalized)) return 'en';
+    return normalized;
   }
 
   private asRecord(value: unknown): Record<string, unknown> {

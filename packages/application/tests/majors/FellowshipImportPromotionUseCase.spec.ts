@@ -40,6 +40,7 @@ describe('FellowshipImportPromotionUseCase', () => {
 
     expect(result.type).toBe('CREATED');
     expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({
+      publicId: 'FEL-0001',
       displayName: 'Clinical Cardiology Fellowship',
       canonicalDedupKey: 'clinical-cardiology-fellowship|clinical-fellowship|medicine',
       fellowshipType: 'Clinical Fellowship',

@@ -64,7 +64,8 @@ export class InternationalTestAdminUseCases {
       const errorMsg = report.issues.map(i => `${i.field}: ${i.message}`).join('; ');
       throw new Error(`Validation failed for international test creation: ${errorMsg}`);
     }
-    const identity = (data as UpsertInternationalTestDto & { id?: string; publicId?: string }).id || (data as any).publicId || data.slug;
+    const identityData = data as UpsertInternationalTestDto & { id?: string; publicId?: unknown };
+    const identity = identityData.id || (typeof identityData.publicId === 'string' ? identityData.publicId : undefined) || (typeof data.slug === 'string' ? data.slug : data.canonicalName);
     return this.mutate('INTERNATIONAL_TEST_CREATED', identity, context, repository => repository.create(data));
   }
 
@@ -90,7 +91,8 @@ export class InternationalTestAdminUseCases {
       throw new Error(`Validation failed for international test upsert: ${errorMsg}`);
     }
     const dataWithId = data as UpsertInternationalTestDto & { id?: string };
-    const identity = dataWithId.id || (data as any).publicId || data.slug;
+    const publicId = typeof data.publicId === 'string' ? data.publicId : undefined;
+    const identity = dataWithId.id || publicId || (typeof data.slug === 'string' ? data.slug : data.canonicalName);
     return this.mutate('INTERNATIONAL_TEST_UPSERTED', identity, context, repository => {
       if (repository.upsertTest) return repository.upsertTest(data);
       if (dataWithId.id) return repository.update(dataWithId.id, data);

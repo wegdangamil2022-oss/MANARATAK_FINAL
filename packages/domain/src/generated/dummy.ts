@@ -153,13 +153,6 @@ export interface StudentSavedItemDto { [key: string]: any }
 export enum StudentSavedItemType { COURSE = 'COURSE', SCHOLARSHIP = 'SCHOLARSHIP', UNIVERSITY = 'UNIVERSITY', MAJOR = 'MAJOR' }
 export interface StudentWorkspaceDto { [key: string]: any }
 export interface UpsertStudentWorkspaceDto { [key: string]: any }
-export interface IUniversityRepository { [key: string]: any }
-export interface UniversityDto { [key: string]: any }
-export interface UniversityFilters { [key: string]: any }
-export enum UniversityStatus { DUMMY = 'DUMMY', IMPORTED = 'IMPORTED', ARCHIVED = 'ARCHIVED', REJECTED = 'REJECTED', PUBLISHED = 'PUBLISHED', READY_TO_PUBLISH = 'READY_TO_PUBLISH', READY_TO_REVIEW = 'READY_TO_REVIEW' }
-export interface UpdateUniversityDto { [key: string]: any }
-export interface PublicUniversityDto { [key: string]: any }
-export interface PublicUniversityFilters { [key: string]: any }
 export class WorkflowReference { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export interface IWorkflowRepository { [key: string]: any }
 export class Workflow { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
@@ -229,8 +222,6 @@ export enum ComponentLifecycleState { DUMMY = 'DUMMY', ARCHIVED = 'ARCHIVED', DE
 export class ComponentLifecycleService { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class ComponentCompatibilityService { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class ComponentVersionPublishedEvent { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
-export interface PaginatedUniversityResult<T = any, _unused = T> { [key: string]: any }
-export enum UniversityImportCompletenessState { INCOMPLETE = 'INCOMPLETE', NEEDS_REVIEW = 'NEEDS_REVIEW', COMPLETE = 'COMPLETE' }
 export class WorkflowCreatedEvent { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class WorkflowActivatedEvent { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class WorkflowArchivedEvent { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
