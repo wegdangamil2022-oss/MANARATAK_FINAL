@@ -41,11 +41,12 @@ describe('InternationalTestAdminRouter', () => {
     useCases.list.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
     const app = createApp(useCases);
 
-    const res = await request(app).get('/admin/international-tests?status=IMPORTED&page=1');
+    const res = await request(app).get('/admin/international-tests?status=IMPORTED&countryIso2Code=sa&page=1');
 
     expect(res.status).toBe(200);
     expect(useCases.list).toHaveBeenCalledWith({
       status: InternationalTestStatus.IMPORTED,
+      countryIso2Code: 'SA',
       page: 1,
       pageSize: 20
     });
@@ -67,7 +68,7 @@ describe('InternationalTestAdminRouter', () => {
       canonicalName: 'TOEFL iBT',
       providerName: 'ETS',
       testCategory: 'LANGUAGE_PROFICIENCY'
-    });
+    }, expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-international-tests-api' }));
   });
 
   it('POST /admin/international-tests/upsert calls upsertTest', async () => {
@@ -107,7 +108,7 @@ describe('InternationalTestAdminRouter', () => {
       .send({ canonicalName: 'Updated IELTS' });
 
     expect(res.status).toBe(200);
-    expect(useCases.updateTest).toHaveBeenCalledWith('test-1', { canonicalName: 'Updated IELTS' });
+    expect(useCases.updateTest).toHaveBeenCalledWith('test-1', { canonicalName: 'Updated IELTS' }, expect.any(Object));
   });
 
   it('POST /admin/international-tests/:id/publish calls publish', async () => {
@@ -119,7 +120,7 @@ describe('InternationalTestAdminRouter', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ success: true });
-    expect(useCases.publish).toHaveBeenCalledWith('test-1');
+    expect(useCases.publish).toHaveBeenCalledWith('test-1', expect.any(Object));
   });
 
   it('GET and POST /admin/international-tests/:id/variants delegate to variant use cases', async () => {
@@ -136,7 +137,7 @@ describe('InternationalTestAdminRouter', () => {
       .post('/admin/international-tests/test-1/variants')
       .send({ variantName: 'Academic', deliveryMode: 'COMPUTER' });
     expect(postRes.status).toBe(200);
-    expect(useCases.upsertVariant).toHaveBeenCalledWith('test-1', { variantName: 'Academic', deliveryMode: 'COMPUTER' });
+    expect(useCases.upsertVariant).toHaveBeenCalledWith('test-1', { variantName: 'Academic', deliveryMode: 'COMPUTER' }, expect.any(Object));
   });
 
   it('GET and POST /admin/international-tests/:id/sections delegate to section use cases', async () => {
@@ -152,7 +153,7 @@ describe('InternationalTestAdminRouter', () => {
       .post('/admin/international-tests/test-1/sections')
       .send({ sectionName: 'Listening', sectionType: 'LISTENING', order: 1 });
     expect(postRes.status).toBe(200);
-    expect(useCases.upsertSection).toHaveBeenCalledWith('test-1', { sectionName: 'Listening', sectionType: 'LISTENING', order: 1 });
+    expect(useCases.upsertSection).toHaveBeenCalledWith('test-1', { sectionName: 'Listening', sectionType: 'LISTENING', order: 1 }, expect.any(Object));
   });
 
   it('POST /admin/international-tests/:id/score-scale calls upsertScoreScale', async () => {
@@ -165,7 +166,7 @@ describe('InternationalTestAdminRouter', () => {
       .send({ overallMinimum: 0, overallMaximum: 9 });
 
     expect(res.status).toBe(200);
-    expect(useCases.upsertScoreScale).toHaveBeenCalledWith('test-1', { overallMinimum: 0, overallMaximum: 9 });
+    expect(useCases.upsertScoreScale).toHaveBeenCalledWith('test-1', { overallMinimum: 0, overallMaximum: 9 }, expect.any(Object));
   });
 
   it('POST /admin/international-tests/:id/fees calls upsertFeeMetadata', async () => {
@@ -178,7 +179,7 @@ describe('InternationalTestAdminRouter', () => {
       .send({ feeType: 'REGISTRATION', amount: 200, currencyCode: 'USD', hasRegionalVariation: false });
 
     expect(res.status).toBe(200);
-    expect(useCases.upsertFeeMetadata).toHaveBeenCalledWith('test-1', { feeType: 'REGISTRATION', amount: 200, currencyCode: 'USD', hasRegionalVariation: false });
+    expect(useCases.upsertFeeMetadata).toHaveBeenCalledWith('test-1', { feeType: 'REGISTRATION', amount: 200, currencyCode: 'USD', hasRegionalVariation: false }, expect.any(Object));
   });
 
   it('POST /admin/international-tests/:id/official-links calls upsertOfficialLink', async () => {
@@ -191,7 +192,7 @@ describe('InternationalTestAdminRouter', () => {
       .send({ linkType: 'REGISTRATION', url: 'https://ielts.org' });
 
     expect(res.status).toBe(200);
-    expect(useCases.upsertOfficialLink).toHaveBeenCalledWith('test-1', { linkType: 'REGISTRATION', url: 'https://ielts.org' });
+    expect(useCases.upsertOfficialLink).toHaveBeenCalledWith('test-1', { linkType: 'REGISTRATION', url: 'https://ielts.org' }, expect.any(Object));
   });
 
   it('GET and POST /admin/international-tests/:id/availability delegate to availability use cases', async () => {
@@ -207,7 +208,7 @@ describe('InternationalTestAdminRouter', () => {
       .post('/admin/international-tests/test-1/availability')
       .send({ availableCountryIds: ['SA'] });
     expect(postRes.status).toBe(200);
-    expect(useCases.upsertAvailability).toHaveBeenCalledWith('test-1', { availableCountryIds: ['SA'] });
+    expect(useCases.upsertAvailability).toHaveBeenCalledWith('test-1', { availableCountryIds: ['SA'] }, expect.any(Object));
   });
 
   it('GET and POST /admin/international-tests/:id/preparation-materials delegate to prep materials use cases', async () => {
@@ -223,7 +224,7 @@ describe('InternationalTestAdminRouter', () => {
       .post('/admin/international-tests/test-1/preparation-materials')
       .send({ materialType: 'GUIDE', title: 'Prep Guide' });
     expect(postRes.status).toBe(200);
-    expect(useCases.upsertPreparationMaterial).toHaveBeenCalledWith('test-1', { materialType: 'GUIDE', title: 'Prep Guide' });
+    expect(useCases.upsertPreparationMaterial).toHaveBeenCalledWith('test-1', { materialType: 'GUIDE', title: 'Prep Guide' }, expect.any(Object));
   });
 
   it('GET and POST /admin/international-tests/:id/evidence delegate to evidence use cases', async () => {
@@ -239,7 +240,7 @@ describe('InternationalTestAdminRouter', () => {
       .post('/admin/international-tests/test-1/evidence')
       .send({ sourceUrl: 'https://example.com' });
     expect(postRes.status).toBe(200);
-    expect(useCases.addEvidence).toHaveBeenCalledWith('test-1', { sourceUrl: 'https://example.com' });
+    expect(useCases.addEvidence).toHaveBeenCalledWith('test-1', { sourceUrl: 'https://example.com' }, expect.any(Object));
   });
 
   it('returns 404 when test is not found', async () => {

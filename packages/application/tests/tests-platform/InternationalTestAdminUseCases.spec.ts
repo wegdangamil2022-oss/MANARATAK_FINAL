@@ -21,7 +21,7 @@ describe('InternationalTestAdminUseCases', () => {
       findByDedupKey: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
-      updateStatus: vi.fn(),
+      updateStatus: vi.fn().mockResolvedValue(undefined),
       upsertTest: vi.fn(),
       listVariants: vi.fn(),
       upsertVariant: vi.fn(),

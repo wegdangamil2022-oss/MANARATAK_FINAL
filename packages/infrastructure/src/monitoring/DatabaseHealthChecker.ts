@@ -51,12 +51,20 @@ export class DatabaseHealthChecker {
       };
     } catch (err: any) {
       const latencyMs = Date.now() - start;
+      const safeError = this.sanitize(err?.message || String(err));
       return {
         status: HealthStatus.DOWN,
         timestamp: checkedAt,
-        error: err?.message || String(err),
-        details: { database: 'disconnected', latencyMs, error: err?.message || String(err) }
+        error: safeError,
+        details: { database: 'disconnected', capabilityStatus: 'UNAVAILABLE', latencyMs }
       };
     }
+  }
+
+  private sanitize(message: string): string {
+    return message
+      .replace(/(postgres(?:ql)?:\/\/)([^@\s]+)@/gi, '$1***@')
+      .replace(/(password|token|secret)\s*[=:]\s*\S+/gi, '$1=[REDACTED]')
+      .slice(0, 500);
   }
 }

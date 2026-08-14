@@ -8,12 +8,19 @@ export class InternationalTestAdminRouter {
     const router = Router();
     const { internationalTestAdminUseCases } = cradle;
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => Promise.resolve(fn(req, res, next)).catch(next);
+    const mutationContext = (req: Request) => ({
+      actorId: (req as any).user?.id || (req as any).user?.identityId || 'SYSTEM',
+      actorType: (req as any).user?.type || 'IDENTITY',
+      correlationId: (req.headers['x-correlation-id'] as string | undefined) || (req.headers['x-request-id'] as string | undefined),
+      source: 'admin-international-tests-api',
+    });
 
     const querySchema = z.object({
       status: z.nativeEnum(InternationalTestStatus).optional(),
       completenessStatus: z.nativeEnum(InternationalTestCompletenessStatus).optional(),
       testCategory: z.nativeEnum(InternationalTestCategory).optional(),
       providerName: z.string().optional(),
+      countryIso2Code: z.string().length(2).transform(value => value.toUpperCase()).optional(),
       page: z.string().optional().transform((value) => value ? parseInt(value, 10) : 1),
       pageSize: z.string().optional().transform((value) => value ? Math.min(Math.max(parseInt(value, 10), 1), 100) : 20)
     });
@@ -50,16 +57,16 @@ export class InternationalTestAdminRouter {
     }));
 
     router.post('/', asyncHandler(async (req: Request, res: Response) => {
-      res.status(201).json(await internationalTestAdminUseCases.createTest(req.body));
+      res.status(201).json(await internationalTestAdminUseCases.createTest(req.body, mutationContext(req)));
     }));
 
     router.post('/upsert', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertTest(req.body));
+      res.json(await internationalTestAdminUseCases.upsertTest(req.body, mutationContext(req)));
     }));
 
     router.post('/:id/import-draft', asyncHandler(async (req: Request, res: Response) => {
       const parsed = importDraftSchema.parse(req.body);
-      res.status(201).json(await internationalTestAdminUseCases.createImportDraftVersion(req.params.id, parsed));
+      res.status(201).json(await internationalTestAdminUseCases.createImportDraftVersion(req.params.id, parsed, mutationContext(req)));
     }));
 
     router.get('/:id/import-versions', asyncHandler(async (req: Request, res: Response) => {
@@ -71,25 +78,25 @@ export class InternationalTestAdminRouter {
     }));
 
     router.patch('/:id', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.updateTest(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.updateTest(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.updateTest(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.updateTest(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.post('/:id/mark-publishable', asyncHandler(async (req: Request, res: Response) => {
-      await internationalTestAdminUseCases.markReadyToPublish(req.params.id);
+      await internationalTestAdminUseCases.markReadyToPublish(req.params.id, mutationContext(req));
       res.json({ success: true });
     }));
 
     router.post('/:id/publish', asyncHandler(async (req: Request, res: Response) => {
-      await internationalTestAdminUseCases.publish(req.params.id);
+      await internationalTestAdminUseCases.publish(req.params.id, mutationContext(req));
       res.json({ success: true });
     }));
 
     router.post('/:id/archive', asyncHandler(async (req: Request, res: Response) => {
-      await internationalTestAdminUseCases.archive(req.params.id);
+      await internationalTestAdminUseCases.archive(req.params.id, mutationContext(req));
       res.json({ success: true });
     }));
 
@@ -99,11 +106,11 @@ export class InternationalTestAdminRouter {
     }));
 
     router.post('/:id/variants', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertVariant(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.upsertVariant(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.put('/:id/variants', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertVariant(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.upsertVariant(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.get('/:id/sections', asyncHandler(async (req: Request, res: Response) => {
@@ -111,35 +118,35 @@ export class InternationalTestAdminRouter {
     }));
 
     router.post('/:id/sections', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertSection(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.upsertSection(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.put('/:id/sections', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertSection(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.upsertSection(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.post('/:id/score-scale', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertScoreScale(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.upsertScoreScale(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.put('/:id/score-scale', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertScoreScale(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.upsertScoreScale(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.post('/:id/fees', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertFeeMetadata(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.upsertFeeMetadata(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.put('/:id/fees', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertFeeMetadata(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.upsertFeeMetadata(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.post('/:id/official-links', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertOfficialLink(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.upsertOfficialLink(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.put('/:id/official-links', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertOfficialLink(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.upsertOfficialLink(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.get('/:id/availability', asyncHandler(async (req: Request, res: Response) => {
@@ -147,11 +154,11 @@ export class InternationalTestAdminRouter {
     }));
 
     router.post('/:id/availability', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertAvailability(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.upsertAvailability(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.put('/:id/availability', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertAvailability(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.upsertAvailability(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.get('/:id/preparation-materials', asyncHandler(async (req: Request, res: Response) => {
@@ -159,11 +166,11 @@ export class InternationalTestAdminRouter {
     }));
 
     router.post('/:id/preparation-materials', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertPreparationMaterial(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.upsertPreparationMaterial(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.put('/:id/preparation-materials', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertPreparationMaterial(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.upsertPreparationMaterial(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.get('/:id/evidence', asyncHandler(async (req: Request, res: Response) => {
@@ -171,7 +178,7 @@ export class InternationalTestAdminRouter {
     }));
 
     router.post('/:id/evidence', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.addEvidence(req.params.id, req.body));
+      res.json(await internationalTestAdminUseCases.addEvidence(req.params.id, req.body, mutationContext(req)));
     }));
 
     router.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

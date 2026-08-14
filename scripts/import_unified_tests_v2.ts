@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
 import { InternationalTestMarkdownParser } from '../packages/application/src/tests-platform/utils/InternationalTestMarkdownParser.js';
+import { requireDatabaseMutationGate } from './lib/require-database-mutation-gate';
 
 // Setup database URL safely
 const url = process.env.DATABASE_URL;
@@ -138,6 +139,7 @@ interface TestReport {
 }
 
 async function main() {
+  requireDatabaseMutationGate('import-unified-tests-v2');
   const args = process.argv.slice(2);
   const isDryRun = args.includes('--dry-run') || !args.includes('--execute');
 

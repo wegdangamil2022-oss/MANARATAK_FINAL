@@ -1,6 +1,8 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import {
   IMajorRepository,
+  ITransactionalMajorRepository,
+  AtomicPersistenceContext,
   MajorAliasDto,
   MajorClassificationMappingDto,
   MajorContentSectionDto,
@@ -18,6 +20,7 @@ import {
   UpdateMajorDto,
   AcademicTaxonomyNodeDto,
   DegreeLevelDto,
+  TaxonomyMappedMajorDto,
 } from '@manaratak/domain';
 
 const MAJOR_INCLUDE = {
@@ -42,8 +45,18 @@ export const MAJOR_OPTIONAL_FIELDS_RESERVED_KEYS = new Set([
   'versions', 'aliases', 'relationships', 'sources', 'createdAt', 'updatedAt'
 ]);
 
-export class PrismaMajorRepository implements IMajorRepository {
+interface MajorTransactionContext extends AtomicPersistenceContext {
+  readonly transactionClient: Prisma.TransactionClient;
+}
+
+export class PrismaMajorRepository implements ITransactionalMajorRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  withTransaction(context: AtomicPersistenceContext): IMajorRepository {
+    const transactionClient = (context as Partial<MajorTransactionContext>).transactionClient;
+    if (!context.boundaryId || !transactionClient) throw new Error('MAJOR_ATOMIC_TRANSACTION_CONTEXT_REQUIRED');
+    return new PrismaMajorRepository(transactionClient as unknown as PrismaClient);
+  }
 
   async findById(id: string): Promise<MajorDto | null> {
     let record = await this.prisma.major.findUnique({
@@ -337,6 +350,30 @@ export class PrismaMajorRepository implements IMajorRepository {
     });
 
     return records.map((record) => this.mapLevelProfileToDto(record));
+  }
+
+  async listByTaxonomyNode(taxonomyNodeId: string): Promise<TaxonomyMappedMajorDto[]> {
+    const records = await this.prisma.majorClassificationMapping.findMany({
+      where: { taxonomyNodeId },
+      include: {
+        major: { select: { id: true, canonicalName: true } },
+        profile: { select: { id: true, displayName: true, level: true } },
+      },
+      orderBy: [{ relationshipType: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    return records.map((record) => ({
+      id: record.id,
+      relationshipType: record.relationshipType as TaxonomyMappedMajorDto['relationshipType'],
+      major: record.major ?? undefined,
+      profile: record.profile
+        ? {
+            id: record.profile.id,
+            displayName: record.profile.displayName ?? record.profile.level,
+            level: record.profile.level as MajorLevel,
+          }
+        : undefined,
+    }));
   }
 
   async createContentSections(data: Array<Omit<MajorContentSectionDto, 'id'>>): Promise<{ count: number }> {

@@ -1,8 +1,10 @@
 import { PrismaClient } from '@prisma/client';
+import { requireDatabaseMutationGate } from './lib/require-database-mutation-gate';
 
 const prisma = new PrismaClient();
 
 async function run() {
+  requireDatabaseMutationGate('reconcile-major-sections');
   console.log('Starting data reconciliation...');
   
   // Clean up any sections that lack both profileId and versionId

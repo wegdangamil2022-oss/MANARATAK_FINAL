@@ -25,6 +25,17 @@ function expressApiPlugin(): Plugin {
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         if (req.url && (req.url === '/api' || req.url.startsWith('/api/') || req.url.startsWith('/api?'))) {
+          const method = (req.method || 'GET').toUpperCase();
+          const localReadOnly = process.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
+          if (localReadOnly && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+            res.statusCode = 423;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({
+              error: 'READ_ONLY_PREVIEW',
+              message: 'Database mutations are blocked in local admin preview mode.',
+            }));
+            return;
+          }
           try {
             if (!cachedApp) {
               const apiModule = await server.ssrLoadModule(path.resolve(__dirname, '../api/src/app.ts'));

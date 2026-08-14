@@ -26,3 +26,24 @@
 Phase 9 owns test definitions, variants, scoring, versions/cycles, providers, evidence, and test-level availability. University and AcademicProgram domains own acceptance, program requirements, and program-specific minimum scores.
 
 Routers already use Application use cases and contain no direct Prisma access. No content module, test identity, slug, or relationship data was modified.
+# Country Detail Runtime Wiring (2026-08-13)
+
+- The Country detail screen queries International Tests by canonical ISO2 through `InternationalTestCountryRelationship`.
+- The API and Prisma repository now accept `countryIso2Code`; matching is performed by the normalized relationship table, not by test/provider names.
+- Returned records expose their relationship type so the Admin screen does not collapse distinct semantics into a generic association.
+- Provider country is deliberately not treated as test availability or acceptance evidence.
+- The 56 Markdown source documents contain no structured country-relationship fields. Relationship population therefore remains a governed runtime/import task and no relationships were inferred from prose or filenames.
+- Database writes in this preparation: `0`.
+## Atomic Admin Mutation Adoption (2026-08-13)
+
+- Create, upsert, update, readiness transition, publish, archive, variants, sections, score scale, fees, official links, availability, preparation materials, evidence, and import-draft creation use one business/audit/Outbox transaction boundary.
+- `PrismaInternationalTestRepository.withTransaction` rejects missing Prisma transaction context.
+- Canonical country, city, language, currency, and DegreeLevel validation still runs before persistence; no IDs, slugs, or the 56 active + 3 archived source records were changed.
+- Runtime rollback proof remains pending the approved Development database recovery gate.
+
+## Stage 3 Source Closure (2026-08-13)
+
+- The repeatable source verifier confirms `56 active + 3 archived` identities with no duplicate IDs or slugs.
+- API promotion and the legacy direct import script are blocked until `WP1_RECOVERY_GATE=CLOSED` and `ALLOW_DATABASE_MUTATIONS=YES`.
+- No test content, identity, slug, relationship, or database row was changed.
+- Promotion, persistence counters, relationship integrity, and rollback evidence remain runtime-only closure items.

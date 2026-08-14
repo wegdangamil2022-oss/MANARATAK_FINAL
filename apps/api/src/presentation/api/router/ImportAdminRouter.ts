@@ -367,6 +367,15 @@ export class ImportAdminRouter {
     }));
 
     const promoteRecord = async (record: ImportRecordWithBatch) => {
+      if (process.env.WP1_RECOVERY_GATE !== 'CLOSED' || process.env.ALLOW_DATABASE_MUTATIONS !== 'YES') {
+        return {
+          statusCode: 423,
+          body: {
+            error: 'DATABASE_MUTATION_BLOCKED',
+            required: ['WP1_RECOVERY_GATE=CLOSED', 'ALLOW_DATABASE_MUTATIONS=YES'],
+          },
+        };
+      }
       const batch = record.batch || (record.batchId ? await importRepository?.getBatchById?.(record.batchId) : undefined);
       const targetDomain = record.targetDomain || batch?.dataType;
 

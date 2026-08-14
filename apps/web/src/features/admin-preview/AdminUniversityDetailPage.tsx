@@ -118,6 +118,13 @@ const DEMO_RECORD = {
   generalRequiredDocuments: [],
   graduateRequiredDocuments: [],
   requiredDocumentsUrl: '',
+
+  // Phase 5 fields
+  rankings: [
+    { provider: 'QS', year: '', globalRank: '', subjectRank: '', sourceUrl: '', verifiedAt: '' },
+    { provider: 'THE', year: '', globalRank: '', subjectRank: '', sourceUrl: '', verifiedAt: '' },
+    { provider: 'ARWU', year: '', globalRank: '', subjectRank: '', sourceUrl: '', verifiedAt: '' },
+  ],
 };
 
 const PHASE_0_FIELDS = [
@@ -194,7 +201,7 @@ const PHASE_1_FIELDS = [
     { key: 'importBatch', label: 'دفعة الاستيراد', type: 'text' },
     { key: 'importDate', label: 'تاريخ الاستيراد', type: 'date' },
     { key: 'lastVerificationDate', label: 'تاريخ آخر تحقق', type: 'date' },
-    { key: 'phase1CompletionStatus', label: 'حالة اكتمال المرحلة الأولى', type: 'select', options: ['Complete', 'Incomplete'] },
+    { key: 'phase1CompletionStatus', label: 'حالة اكتمال المرحلة الثانية', type: 'select', options: ['Complete', 'Incomplete'] },
     { key: 'reviewStatus', label: 'حالة المراجعة', type: 'select', options: ['READY_TO_REVIEW', 'READY_TO_PUBLISH', 'PUBLISHED', 'ARCHIVED'] },
     { key: 'duplicationStatus', label: 'حالة فحص التكرار', type: 'select', options: ['Clean', 'Duplicate', 'Possible Duplicate'] },
     { key: 'dataConfidence', label: 'درجة الثقة بالبيانات', type: 'select', options: ['High', 'Medium', 'Low'] },
@@ -266,6 +273,45 @@ const PHASE_4_SECTIONS = [
     { key: 'requiredDocumentsUrl', label: 'رابط الوثائق المطلوبة الرسمي', type: 'url' },
   ]}
 ];
+
+const PHASE_5_SECTIONS = [
+  { section: 'التصنيفات العالمية الثلاثة', fields: [
+    { key: 'rankings', label: 'QS وTHE وARWU (Shanghai)', type: 'global-rankings' },
+  ]},
+];
+
+const RANKING_LABELS: Record<string, string> = {
+  QS: 'QS World University Rankings',
+  THE: 'Times Higher Education (THE)',
+  ARWU: 'Academic Ranking of World Universities (Shanghai)',
+};
+
+const GlobalRankingsInput = ({ value = [], onChange, disabled = false }: any) => {
+  const providers = ['QS', 'THE', 'ARWU'];
+  const rows = providers.map((provider) => value.find((item: any) => item.provider === provider) ?? {
+    provider, year: '', globalRank: '', subjectRank: '', sourceUrl: '', verifiedAt: '',
+  });
+  const update = (provider: string, key: string, nextValue: string) => {
+    onChange(rows.map((row: any) => row.provider === provider ? { ...row, [key]: nextValue } : row));
+  };
+
+  return (
+    <div className="space-y-3">
+      {rows.map((row: any) => (
+        <div key={row.provider} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div className="mb-3 text-sm font-black text-slate-900">{RANKING_LABELS[row.provider]}</div>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-5">
+            <input disabled={disabled} type="number" min="2000" max="2100" value={row.year} onChange={(event) => update(row.provider, 'year', event.target.value)} placeholder="السنة" className="rounded-md border border-slate-300 p-2 text-sm" />
+            <input disabled={disabled} value={row.globalRank} onChange={(event) => update(row.provider, 'globalRank', event.target.value)} placeholder="الترتيب العالمي" className="rounded-md border border-slate-300 p-2 text-sm" />
+            <input disabled={disabled} value={row.subjectRank} onChange={(event) => update(row.provider, 'subjectRank', event.target.value)} placeholder="الترتيب حسب التخصص (اختياري)" className="rounded-md border border-slate-300 p-2 text-sm" />
+            <input disabled={disabled} type="url" value={row.sourceUrl} onChange={(event) => update(row.provider, 'sourceUrl', event.target.value)} placeholder="رابط المصدر الرسمي" className="rounded-md border border-slate-300 p-2 text-sm" />
+            <input disabled={disabled} type="date" value={row.verifiedAt} onChange={(event) => update(row.provider, 'verifiedAt', event.target.value)} aria-label="تاريخ التحقق" className="rounded-md border border-slate-300 p-2 text-sm" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 
 const TagInput = ({ value = [], onChange, max = Infinity, disabled = false }: any) => {
@@ -474,7 +520,7 @@ export function AdminUniversityDetailPage() {
   const [data, setData] = useState<any>(DEMO_RECORD);
   const [editData, setEditData] = useState<any>(null);
   
-  const [activeTab, setActiveTab] = useState<'phase0' | 'phase1' | 'phase3' | 'phase4'>('phase0');
+  const [activeTab, setActiveTab] = useState<'phase0' | 'phase1' | 'phase3' | 'phase4' | 'phase5'>('phase0');
   const [isEditing, setIsEditing] = useState(false);
   
   // Dialog states
@@ -697,6 +743,19 @@ export function AdminUniversityDetailPage() {
   const phase1Stats = calculateCompletion(PHASE_1_FIELDS);
   const phase3Stats = calculatePhase3Completion();
   const phase4Stats = calculatePhase4Completion();
+  const phase5Stats = (() => {
+    const rows = Array.isArray(data.rankings) ? data.rankings : [];
+    const completed = ['QS', 'THE', 'ARWU'].filter((provider) => {
+      const row = rows.find((item: any) => item.provider === provider);
+      return row?.year && row?.globalRank && row?.sourceUrl && row?.verifiedAt;
+    }).length;
+    return {
+      completed,
+      total: 3,
+      missing: 3 - completed,
+      status: completed === 3 ? 'مكتملة' : completed > 0 ? 'تحتاج مراجعة' : 'غير مكتملة',
+    };
+  })();
 
 
 
@@ -795,6 +854,31 @@ export function AdminUniversityDetailPage() {
         );
       }
 
+      if (field.type === 'global-rankings') {
+        const rows = Array.isArray(val) ? val : [];
+        return (
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+            {['QS', 'THE', 'ARWU'].map((provider) => {
+              const row = rows.find((item: any) => item.provider === provider);
+              return (
+                <div key={provider} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="text-sm font-black text-slate-900">{RANKING_LABELS[provider]}</div>
+                  {row?.globalRank ? (
+                    <div className="mt-2 space-y-1 text-xs text-slate-700">
+                      <div>السنة: <strong>{row.year || '-'}</strong></div>
+                      <div>الترتيب العالمي: <strong>{row.globalRank}</strong></div>
+                      {row.subjectRank && <div>حسب التخصص: <strong>{row.subjectRank}</strong></div>}
+                      <div>آخر تحقق: <strong>{row.verifiedAt || '-'}</strong></div>
+                      {row.sourceUrl && <a href={row.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-blue-700 hover:underline"><ExternalLink className="h-3 w-3" />المصدر الرسمي</a>}
+                    </div>
+                  ) : <div className="mt-2 text-xs italic text-slate-400">غير متوفر</div>}
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+
       return (
         <div className="flex flex-col h-full justify-center min-h-[42px]">
           {val ? (
@@ -856,6 +940,10 @@ export function AdminUniversityDetailPage() {
     
     if (field.type === 'scholarships') {
       return <ScholarshipsInput value={val} onChange={onChange} disabled={isDependsDisabled} />;
+    }
+
+    if (field.type === 'global-rankings') {
+      return <GlobalRankingsInput value={val} onChange={onChange} disabled={isDependsDisabled} />;
     }
 
     if (field.type === 'select') {
@@ -920,7 +1008,15 @@ export function AdminUniversityDetailPage() {
     ));
   };
 
-  const currentStats = activeTab === 'phase0' ? phase0Stats : activeTab === 'phase1' ? phase1Stats : activeTab === 'phase3' ? phase3Stats : phase4Stats;
+  const currentStats = activeTab === 'phase0'
+    ? phase0Stats
+    : activeTab === 'phase1'
+      ? phase1Stats
+      : activeTab === 'phase3'
+        ? phase3Stats
+        : activeTab === 'phase4'
+          ? phase4Stats
+          : phase5Stats;
 
   return (
     <div dir="rtl" className="min-h-screen bg-[#f7f8fa] text-slate-900 font-sans pb-20">
@@ -999,14 +1095,14 @@ export function AdminUniversityDetailPage() {
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         
         {/* Tabs */}
-        <div className="flex border-b border-slate-200 mb-6 gap-6">
+        <div className="flex overflow-x-auto border-b border-slate-200 mb-6 gap-6">
           <button
             onClick={() => setActiveTab('phase0')}
             className={`flex items-center gap-2 pb-3 px-1 border-b-2 transition-colors ${
               activeTab === 'phase0' ? 'border-[#0F4B3A] text-[#0F4B3A]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
             }`}
           >
-            <span className="font-bold text-sm">الاستيراد الأساسي</span>
+            <span className="font-bold text-sm">المرحلة الأولى: الاستيراد الأساسي</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${getStatusColor(phase0Stats.status)}`}>
               {phase0Stats.status}
             </span>
@@ -1018,7 +1114,7 @@ export function AdminUniversityDetailPage() {
               activeTab === 'phase1' ? 'border-[#0F4B3A] text-[#0F4B3A]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
             }`}
           >
-            <span className="font-bold text-sm">المرحلة الأولى</span>
+            <span className="font-bold text-sm">المرحلة الثانية: إثراء بيانات الجامعة</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${getStatusColor(phase1Stats.status)}`}>
               {phase1Stats.status}
             </span>
@@ -1034,7 +1130,7 @@ export function AdminUniversityDetailPage() {
               {phase3Stats.status}
             </span>
           </button>
-                  <button
+          <button
             onClick={() => setActiveTab('phase4')}
             className={`flex items-center gap-2 pb-3 px-1 border-b-2 transition-colors ${
               activeTab === 'phase4' ? 'border-[#0F4B3A] text-[#0F4B3A]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
@@ -1043,6 +1139,17 @@ export function AdminUniversityDetailPage() {
             <span className="font-bold text-sm">المرحلة الرابعة: الرسوم والسكن والوثائق</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${getStatusColor(phase4Stats.status)}`}>
               {phase4Stats.status}
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('phase5')}
+            className={`flex shrink-0 items-center gap-2 pb-3 px-1 border-b-2 transition-colors ${
+              activeTab === 'phase5' ? 'border-[#0F4B3A] text-[#0F4B3A]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            <span className="font-bold text-sm">المرحلة الخامسة: التصنيفات العالمية</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${getStatusColor(phase5Stats.status)}`}>
+              {phase5Stats.status}
             </span>
           </button>
         </div>
@@ -1055,7 +1162,7 @@ export function AdminUniversityDetailPage() {
             </div>
             <div>
               <p className="text-sm font-bold text-slate-800">
-                {activeTab === 'phase0' ? 'الاستيراد الأساسي' : activeTab === 'phase1' ? 'المرحلة الأولى: الهوية والموقع والمصادر الرسمية' : activeTab === 'phase3' ? 'المرحلة الثالثة: الدراسة والقبول واللغة والمنح' : 'المرحلة الرابعة: الرسوم والسكن والوثائق'}
+                {activeTab === 'phase0' ? 'المرحلة الأولى: الاستيراد الأساسي' : activeTab === 'phase1' ? 'المرحلة الثانية: الهوية والموقع والمصادر الرسمية (44 حقلًا)' : activeTab === 'phase3' ? 'المرحلة الثالثة: الدراسة والقبول واللغة والمنح' : activeTab === 'phase4' ? 'المرحلة الرابعة: الرسوم والسكن والوثائق' : 'المرحلة الخامسة: التصنيفات العالمية'}
               </p>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
                 {currentStats.completed} من {currentStats.total} حقلاً مكتملة
@@ -1071,7 +1178,7 @@ export function AdminUniversityDetailPage() {
 
         {/* Fields Sections */}
         <div className="space-y-6">
-          {activeTab === 'phase0' ? renderSections(PHASE_0_FIELDS) : activeTab === 'phase1' ? renderSections(PHASE_1_FIELDS) : activeTab === 'phase3' ? renderSections(PHASE_3_SECTIONS) : renderSections(PHASE_4_SECTIONS)}
+          {activeTab === 'phase0' ? renderSections(PHASE_0_FIELDS) : activeTab === 'phase1' ? renderSections(PHASE_1_FIELDS) : activeTab === 'phase3' ? renderSections(PHASE_3_SECTIONS) : activeTab === 'phase4' ? renderSections(PHASE_4_SECTIONS) : renderSections(PHASE_5_SECTIONS)}
         </div>
 
       </div>

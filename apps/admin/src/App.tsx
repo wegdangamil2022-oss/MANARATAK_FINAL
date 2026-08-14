@@ -30,10 +30,14 @@ import { AcademicTaxonomyDetailPage } from './pages/AcademicTaxonomyDetailPage';
 import { I18nProvider, useTranslation } from './i18n/I18nProvider';
 
 function AdminLayout() {
-  const [adminAccess, setAdminAccess] = useState<'loading' | 'authorized' | 'unauthorized'>('loading');
+  const localReadOnly = import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
+  const [adminAccess, setAdminAccess] = useState<'loading' | 'authorized' | 'unauthorized'>(
+    localReadOnly ? 'authorized' : 'loading',
+  );
   const { t, language, setLanguage } = useTranslation();
 
   useEffect(() => {
+    if (localReadOnly) return;
     let active = true;
     verifyAdminSession().then((authorized) => {
       if (active) setAdminAccess(authorized ? 'authorized' : 'unauthorized');
@@ -41,7 +45,7 @@ function AdminLayout() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [localReadOnly]);
 
   const lockAdmin = () => {
     clearAdminSession();
@@ -79,6 +83,15 @@ function AdminLayout() {
             </nav>
           )}
         </header>
+        {localReadOnly && (
+          <div className="border-b border-amber-300 bg-amber-50 px-6 py-3 text-center text-sm font-semibold text-amber-900">
+            {languageText(
+              language,
+              'Local admin preview: read-only. Saving and all database mutations are blocked.',
+              'معاينة الإدارة المحلية: للقراءة فقط. الحفظ وجميع التغييرات على قاعدة البيانات محظورة.',
+            )}
+          </div>
+        )}
         <main className="flex-1 p-6">
           {adminAccess === 'loading' ? (
             <div className="mx-auto mt-16 max-w-xl text-center text-sm text-gray-600">{t('loading')}</div>

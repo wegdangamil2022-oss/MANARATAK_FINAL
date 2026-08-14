@@ -1,6 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import {
-  IReferenceDataRepository,
+  AtomicPersistenceContext,
+  ITransactionalReferenceDataRepository,
   ReferenceCountryDto,
   ReferenceCurrencyDto,
   ReferenceLanguageDto,
@@ -72,7 +73,11 @@ interface DbCity {
   } | null;
 }
 
-export class PrismaReferenceDataRepository implements IReferenceDataRepository {
+interface PrismaReferenceDataPersistenceContext extends AtomicPersistenceContext {
+  readonly transactionClient: Prisma.TransactionClient;
+}
+
+export class PrismaReferenceDataRepository implements ITransactionalReferenceDataRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   public async listCountries(filters?: ReferenceDataFilters): Promise<ReferenceCountryDto[]> {
@@ -153,6 +158,10 @@ export class PrismaReferenceDataRepository implements IReferenceDataRepository {
     return this.mapToCountryDto(record as unknown as DbCountry);
   }
 
+  public upsertCountryInTransaction(data: UpsertReferenceCountryDto, context: AtomicPersistenceContext): Promise<ReferenceCountryDto> {
+    return this.transactionRepository(context).upsertCountry(data);
+  }
+
   public async listCurrencies(filters?: ReferenceDataFilters): Promise<ReferenceCurrencyDto[]> {
     const where: {
       isActive?: boolean;
@@ -217,6 +226,10 @@ export class PrismaReferenceDataRepository implements IReferenceDataRepository {
     return this.mapToCurrencyDto(record as unknown as DbCurrency);
   }
 
+  public upsertCurrencyInTransaction(data: UpsertReferenceCurrencyDto, context: AtomicPersistenceContext): Promise<ReferenceCurrencyDto> {
+    return this.transactionRepository(context).upsertCurrency(data);
+  }
+
   public async listLanguages(filters?: ReferenceDataFilters): Promise<ReferenceLanguageDto[]> {
     const where: {
       isActive?: boolean;
@@ -275,6 +288,10 @@ export class PrismaReferenceDataRepository implements IReferenceDataRepository {
     });
 
     return this.mapToLanguageDto(record as unknown as DbLanguage);
+  }
+
+  public upsertLanguageInTransaction(data: UpsertReferenceLanguageDto, context: AtomicPersistenceContext): Promise<ReferenceLanguageDto> {
+    return this.transactionRepository(context).upsertLanguage(data);
   }
 
   public async listCities(filters?: ReferenceDataFilters): Promise<ReferenceCityDto[]> {
@@ -402,6 +419,19 @@ export class PrismaReferenceDataRepository implements IReferenceDataRepository {
       });
       return this.mapToCityDto(record as unknown as DbCity);
     }
+  }
+
+
+  public upsertCityInTransaction(data: UpsertReferenceCityDto, context: AtomicPersistenceContext): Promise<ReferenceCityDto> {
+    return this.transactionRepository(context).upsertCity(data);
+  }
+
+  private transactionRepository(context: AtomicPersistenceContext): PrismaReferenceDataRepository {
+    const transactionClient = (context as Partial<PrismaReferenceDataPersistenceContext>).transactionClient;
+    if (!context.boundaryId || !transactionClient) {
+      throw new Error('REFERENCE_DATA_ATOMIC_TRANSACTION_CONTEXT_REQUIRED');
+    }
+    return new PrismaReferenceDataRepository(transactionClient as unknown as PrismaClient);
   }
 
   private mapToCountryDto(record: DbCountry): ReferenceCountryDto {

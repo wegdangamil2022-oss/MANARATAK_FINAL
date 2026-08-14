@@ -62,6 +62,8 @@ describe('AdminUniversityUseCases', () => {
   it('markReadyToPublish only allows COMPLETE universities', async () => {
     mockRepo.findById = vi.fn().mockResolvedValue({
       id: 'uni-1',
+      publicId: 'INS-QAT-0001',
+      countryReferenceId: 'ctry-QA',
       status: UniversityStatus.READY_TO_REVIEW,
       completenessStatus: UniversityImportCompletenessState.COMPLETE
     });
@@ -69,6 +71,22 @@ describe('AdminUniversityUseCases', () => {
     await useCases.markReadyToPublish('uni-1');
 
     expect(mockRepo.updateStatus).toHaveBeenCalledWith('uni-1', UniversityStatus.READY_TO_PUBLISH);
+  });
+
+  it('blocks publication readiness when canonical country and test references are missing', async () => {
+    mockRepo.findById = vi.fn().mockResolvedValue({
+      id: 'uni-1', publicId: 'INS-QAT-0001', status: UniversityStatus.READY_TO_REVIEW,
+      completenessStatus: UniversityImportCompletenessState.COMPLETE,
+      acceptedLanguageTests: ['IELTS'], admissionRequirements: [],
+    });
+
+    const result = await useCases.checkPublicationReadiness('uni-1');
+
+    expect(result.ready).toBe(false);
+    expect(result.blockingIssues.map(issue => issue.code)).toEqual(expect.arrayContaining([
+      'UNIVERSITY_CANONICAL_COUNTRY_REFERENCE_MISSING',
+      'UNIVERSITY_TEST_REFERENCES_NOT_CANONICAL',
+    ]));
   });
 
   it('publish only allows READY_TO_PUBLISH universities', async () => {

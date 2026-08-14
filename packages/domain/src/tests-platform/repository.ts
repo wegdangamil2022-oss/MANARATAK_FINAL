@@ -23,6 +23,7 @@ import {
   InternationalTestVersionDto
 } from './contracts';
 import { InternationalTestStatus } from './enums';
+import { AtomicPersistenceContext } from '../event-foundation/outbox/TransactionalOutbox';
 
 export interface IInternationalTestRepository {
   // Legacy / current application compatibility methods
@@ -65,4 +66,8 @@ export interface IInternationalTestRepository {
 
   createImportDraftVersion?(testId: string, data: InternationalTestImportDraftRequestDto): Promise<InternationalTestImportDraftResultDto>;
   listImportVersions?(testId: string): Promise<InternationalTestVersionDto[]>;
+}
+
+export interface ITransactionalInternationalTestRepository extends IInternationalTestRepository {
+  withTransaction(context: AtomicPersistenceContext): IInternationalTestRepository;
 }

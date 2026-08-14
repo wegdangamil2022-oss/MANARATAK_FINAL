@@ -13,7 +13,7 @@ import {
 import { ApiClient } from '../../api/client';
 
 export function AdminUniversitiesPreviewPage() {
-  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token'));
+  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token')) || import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
 
   const [universities, setUniversities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -164,29 +164,37 @@ export function AdminUniversitiesPreviewPage() {
   const availableCities = Array.from(new Set(universities.filter(u => (!selectedContinent || u.continent === selectedContinent) && (!selectedCountry || u.country === selectedCountry) && (!selectedRegion || u.region === selectedRegion)).map(u => u.city).filter(Boolean)));
 
   return (
-    <div dir="rtl" className="min-h-screen bg-[#f7f8fa] text-slate-900 font-sans p-4 sm:p-6 lg:p-8">
-      <div className="max-w-[1400px] mx-auto space-y-6">
+    <main dir="rtl" className="min-h-screen bg-[#f8fafc] px-4 py-8 text-slate-900 sm:px-6 lg:px-10">
+      <div className="mx-auto max-w-7xl space-y-6">
         
         {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-black text-slate-900">الجامعات</h1>
-            <span className="px-2.5 py-0.5 bg-slate-200 text-slate-700 text-xs font-bold rounded-full">
-              {totalUniversities}
-            </span>
+        <header className="flex flex-col gap-5 rounded-3xl bg-gradient-to-r from-[#0F4B3A] via-[#155e49] to-[#0a382b] p-6 text-white shadow-xl sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-xs font-bold text-emerald-300 sm:text-sm">
+              <Building2 className="h-4 w-4" />
+              <span>دليل المؤسسات التعليمية</span>
+            </div>
+            <h1 className="text-2xl font-black sm:text-4xl">الجامعات</h1>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-emerald-100/90">
+              إدارة الجامعات وبياناتها الأساسية وربطها بالموقع الجغرافي وحالة الاكتمال.
+            </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="min-w-[120px] rounded-2xl border border-white/20 bg-white/10 p-4 text-center backdrop-blur-md">
+              <span className="block text-2xl font-black text-amber-300 sm:text-3xl">{totalUniversities}</span>
+              <span className="text-[11px] font-bold text-emerald-100">إجمالي الجامعات</span>
+            </div>
             <button
               onClick={() => void loadData()}
               title="تحديث القائمة"
-              className="p-2.5 text-slate-500 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-800 rounded-lg transition-colors"
+              className="flex min-h-12 items-center justify-center rounded-2xl border border-white/20 bg-white/10 p-3 text-white transition-all hover:bg-white/20"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
             <span
               aria-disabled="true"
               title="University bulk import is blocked pending Google Studio"
-              className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm font-bold text-slate-400"
+              className="flex min-h-12 cursor-not-allowed items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-4 text-sm font-bold text-emerald-100/50"
             >
               <UploadCloud className="w-4 h-4" />
               <span>فتح مركز الاستيراد الموحد</span>
@@ -195,16 +203,16 @@ export function AdminUniversitiesPreviewPage() {
               type="button"
               disabled
               title="University creation is unavailable during readiness preparation"
-              className="flex cursor-not-allowed items-center gap-2 rounded-lg bg-slate-300 px-4 py-2.5 text-sm font-bold text-slate-500"
+              className="flex min-h-12 cursor-not-allowed items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-4 text-sm font-bold text-emerald-100/50"
             >
               <PlusCircle className="w-4 h-4" />
               <span>إضافة جامعة</span>
             </button>
           </div>
-        </div>
+        </header>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        <section className="grid grid-cols-2 gap-3 rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm md:grid-cols-3 lg:grid-cols-6">
           {STATS_CARDS.map(status => {
             const count = status === 'كل الجامعات' 
               ? totalUniversities 
@@ -214,7 +222,7 @@ export function AdminUniversitiesPreviewPage() {
               <button
                 key={status}
                 onClick={() => setSelectedStatus(status)}
-                className={`flex flex-col items-center justify-center p-3 rounded-lg border text-center transition-all ${
+                className={`flex min-h-20 flex-col items-center justify-center rounded-xl border p-3 text-center transition-all ${
                   isActive 
                     ? 'bg-[#0F4B3A] border-[#0F4B3A] text-white shadow-sm' 
                     : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
@@ -229,10 +237,10 @@ export function AdminUniversitiesPreviewPage() {
               </button>
             );
           })}
-        </div>
+        </section>
 
         {/* Search and Cascading Filters */}
-        <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-4 shadow-sm">
+        <section className="space-y-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
@@ -292,10 +300,10 @@ export function AdminUniversitiesPreviewPage() {
               {availableCities.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
-        </div>
+        </section>
 
         {/* Universities Table */}
-        <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+        <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
           {loading ? (
             <div className="p-20 text-center text-slate-500 flex flex-col items-center">
               <Loader2 className="w-8 h-8 animate-spin text-[#0F4B3A] mb-4" />
@@ -379,7 +387,7 @@ export function AdminUniversitiesPreviewPage() {
               </table>
             </div>
           )}
-        </div>
+        </section>
         <div className="flex items-center justify-between gap-3 text-sm">
           <button
             type="button"
@@ -400,6 +408,6 @@ export function AdminUniversitiesPreviewPage() {
           </button>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

@@ -91,6 +91,24 @@ describe('PrismaAuditRecordRepository', () => {
     expect(upsertArgs.create.contextMetadata.password).toBe('[REDACTED]');
   });
 
+  it('saves through the supplied transaction client for atomic mutations', async () => {
+    const transactionUpsert = vi.fn();
+    const record = createSampleAuditRecord();
+
+    await repository.saveInTransaction(record, {
+      boundaryId: 'boundary-1',
+      transactionClient: { auditRecord: { upsert: transactionUpsert } }
+    } as any);
+
+    expect(transactionUpsert).toHaveBeenCalledOnce();
+    expect(mockPrisma.auditRecord.upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects atomic save without a transaction client', async () => {
+    await expect(repository.saveInTransaction(createSampleAuditRecord(), { boundaryId: 'boundary-1' }))
+      .rejects.toThrow('AUDIT_ATOMIC_TRANSACTION_CONTEXT_REQUIRED');
+  });
+
   it('queries audit records via specification and maps Prisma rows to domain objects', async () => {
     const sampleRow: AuditRecordRow = {
       id: 'audit-record-1',

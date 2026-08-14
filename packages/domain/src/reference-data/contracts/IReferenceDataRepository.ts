@@ -10,6 +10,7 @@ import {
   ReferenceDataFilters,
   AdministrativeRegionDto
 } from '../dto/ReferenceDataContracts';
+import { AtomicPersistenceContext } from '../../event-foundation/outbox/TransactionalOutbox';
 
 export interface IReferenceDataRepository {
   listCountries(filters: ReferenceDataFilters): Promise<ReferenceCountryDto[]>;
@@ -27,4 +28,11 @@ export interface IReferenceDataRepository {
   upsertCurrency(data: UpsertReferenceCurrencyDto): Promise<ReferenceCurrencyDto>;
   upsertLanguage(data: UpsertReferenceLanguageDto): Promise<ReferenceLanguageDto>;
   upsertCity(data: UpsertReferenceCityDto): Promise<ReferenceCityDto>;
+}
+
+export interface ITransactionalReferenceDataRepository extends IReferenceDataRepository {
+  upsertCountryInTransaction(data: UpsertReferenceCountryDto, context: AtomicPersistenceContext): Promise<ReferenceCountryDto>;
+  upsertCurrencyInTransaction(data: UpsertReferenceCurrencyDto, context: AtomicPersistenceContext): Promise<ReferenceCurrencyDto>;
+  upsertLanguageInTransaction(data: UpsertReferenceLanguageDto, context: AtomicPersistenceContext): Promise<ReferenceLanguageDto>;
+  upsertCityInTransaction(data: UpsertReferenceCityDto, context: AtomicPersistenceContext): Promise<ReferenceCityDto>;
 }

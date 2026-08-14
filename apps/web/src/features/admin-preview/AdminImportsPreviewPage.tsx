@@ -53,7 +53,7 @@ export interface SourceConnector {
 export function AdminImportsPreviewPage() {
   const { t, dir } = useTranslation();
   const navigate = useNavigate();
-  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token'));
+  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token')) || import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
 
   const [loading, setLoading] = useState<boolean>(true);
   const [batches, setBatches] = useState<any[]>([]);

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CsrfClientManager } from '@manaratak/shared';
+import * as XLSX from 'xlsx';
+import { FileCheck2, Loader2, Upload } from 'lucide-react';
 
 const API_BASE = '/api/v1/reference-data';
 const ADMIN_API_BASE = '/api/v1/admin/reference-data';
@@ -85,6 +87,33 @@ function CountriesTab() {
   const { data, loading, error, refetch } = useFetchData('/countries');
   const [form, setForm] = useState({ iso2Code: '', iso3Code: '', name: '', region: '' });
   const [saveStatus, setSaveStatus] = useState<{loading: boolean, error?: string, success?: string}>({ loading: false });
+  const [preview, setPreview] = useState<any>(null);
+  const [previewStatus, setPreviewStatus] = useState<{ loading: boolean; error?: string }>({ loading: false });
+
+  const handlePreview = async (file?: File) => {
+    if (!file) return;
+    setPreview(null);
+    setPreviewStatus({ loading: true });
+    try {
+      const bytes = await file.arrayBuffer();
+      const workbook = XLSX.read(bytes, { type: 'array' });
+      const sheet = workbook.Sheets.Countries;
+      if (!sheet) throw new Error('The workbook must contain a Countries sheet.');
+      const records = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: null, raw: false });
+      const hash = await crypto.subtle.digest('SHA-256', bytes);
+      const sha256 = Array.from(new Uint8Array(hash)).map(value => value.toString(16).padStart(2, '0')).join('');
+      const response = await CsrfClientManager.getInstance().fetchWithCsrf(`${ADMIN_API_BASE}/countries/import-preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceName: file.name, sourceVersion: sha256.slice(0, 16), sha256, records }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      setPreview(await response.json());
+      setPreviewStatus({ loading: false });
+    } catch (err: any) {
+      setPreviewStatus({ loading: false, error: err.message });
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,6 +135,34 @@ function CountriesTab() {
 
   return (
     <div className="space-y-8">
+      <section className="border border-gray-200 bg-white p-4 rounded-lg space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h3 className="font-bold text-lg">Country source preview</h3>
+            <p className="text-sm text-gray-500">Validate the unified workbook before database promotion.</p>
+          </div>
+          <label className="inline-flex items-center justify-center gap-2 bg-black text-white px-4 py-2 rounded text-sm font-medium cursor-pointer hover:bg-gray-800">
+            <Upload className="h-4 w-4" /> Select workbook
+            <input type="file" accept=".xlsx" className="sr-only" onChange={event => handlePreview(event.target.files?.[0])} />
+          </label>
+        </div>
+        {previewStatus.loading && <div className="flex items-center gap-2 text-sm text-gray-600"><Loader2 className="h-4 w-4 animate-spin" /> Validating source...</div>}
+        {previewStatus.error && <p className="text-sm text-red-600">{previewStatus.error}</p>}
+        {preview && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <PreviewMetric label="Records" value={preview.totalRecords} />
+              <PreviewMetric label="Valid" value={preview.validRecords} />
+              <PreviewMetric label="Invalid" value={preview.invalidRecords} />
+              <PreviewMetric label="Needs review" value={preview.reviewRequiredRecords} />
+            </div>
+            <div className="flex items-start gap-2 border border-amber-200 bg-amber-50 text-amber-800 p-3 rounded text-sm">
+              <FileCheck2 className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>Dry run complete. Database writes: {preview.databaseWrites}. Promotion remains blocked until the database recovery gate and source review are closed.</span>
+            </div>
+          </div>
+        )}
+      </section>
       <form onSubmit={handleSave} className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-4">
         <h3 className="font-bold text-lg">Manual Upsert Country</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -152,6 +209,69 @@ function CountriesTab() {
   );
 }
 
+function PreviewMetric({ label, value }: { label: string; value: number }) {
+  return <div className="border border-gray-200 rounded p-3"><div className="text-xs text-gray-500">{label}</div><div className="text-xl font-bold mt-1">{value}</div></div>;
+}
+
+function DerivedReferencePreview({ kind }: { kind: 'currencies' | 'languages' }) {
+  const [result, setResult] = useState<any>(null);
+  const [status, setStatus] = useState<{ loading: boolean; error?: string }>({ loading: false });
+
+  const preview = async (file?: File) => {
+    if (!file) return;
+    setResult(null);
+    setStatus({ loading: true });
+    try {
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+      const sheet = workbook.Sheets.Countries;
+      if (!sheet) throw new Error('The workbook must contain a Countries sheet.');
+      const records = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: null, raw: false });
+      const response = await CsrfClientManager.getInstance().fetchWithCsrf(`${ADMIN_API_BASE}/countries/derived-reference-preview`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ records }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      setResult(await response.json());
+      setStatus({ loading: false });
+    } catch (err: any) {
+      setStatus({ loading: false, error: err.message });
+    }
+  };
+
+  const candidates = result?.[kind] ?? [];
+  return (
+    <section className="border border-gray-200 bg-white p-4 rounded-lg space-y-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h3 className="font-bold text-lg">{kind === 'currencies' ? 'Currency candidates' : 'Language candidates'}</h3>
+          <p className="text-sm text-gray-500">Extract source codes and usage evidence from the unified Country workbook.</p>
+        </div>
+        <label className="inline-flex items-center justify-center gap-2 border border-gray-300 px-4 py-2 rounded text-sm font-medium cursor-pointer hover:bg-gray-50">
+          <Upload className="h-4 w-4" /> Select workbook
+          <input type="file" accept=".xlsx" className="sr-only" onChange={event => preview(event.target.files?.[0])} />
+        </label>
+      </div>
+      {status.loading && <div className="flex items-center gap-2 text-sm text-gray-600"><Loader2 className="h-4 w-4 animate-spin" /> Extracting candidates...</div>}
+      {status.error && <p className="text-sm text-red-600">{status.error}</p>}
+      {result && (
+        <>
+          <div className="flex items-center justify-between border border-amber-200 bg-amber-50 text-amber-800 p-3 rounded text-sm">
+            <span>{candidates.length} source codes found. Authoritative enrichment is required before promotion.</span>
+            <span className="font-mono">writes: {result.databaseWrites}</span>
+          </div>
+          <div className="overflow-x-auto border border-gray-200 rounded-lg max-h-72">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-gray-50 text-gray-700 sticky top-0"><tr><th className="p-3">Code</th><th className="p-3">Suggested display</th><th className="p-3">Usage</th><th className="p-3">Countries</th></tr></thead>
+              <tbody className="divide-y divide-gray-200">
+                {candidates.map((candidate: any) => <tr key={candidate.code}><td className="p-3 font-mono">{candidate.code}</td><td className="p-3">{candidate.suggestedDisplayName || '-'}</td><td className="p-3">{candidate.usageCount}</td><td className="p-3">{candidate.countryIso2Codes.length}</td></tr>)}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function CurrenciesTab() {
   const { data, loading, error, refetch } = useFetchData('/currencies');
   const [form, setForm] = useState({ isoCode: '', name: '', symbol: '', numericCode: '' });
@@ -177,6 +297,7 @@ function CurrenciesTab() {
 
   return (
     <div className="space-y-8">
+      <DerivedReferencePreview kind="currencies" />
       <form onSubmit={handleSave} className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-4">
         <h3 className="font-bold text-lg">Manual Upsert Currency</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -248,6 +369,7 @@ function LanguagesTab() {
 
   return (
     <div className="space-y-8">
+      <DerivedReferencePreview kind="languages" />
       <form onSubmit={handleSave} className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-4">
         <h3 className="font-bold text-lg">Manual Upsert Language</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

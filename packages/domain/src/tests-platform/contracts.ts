@@ -649,6 +649,7 @@ export interface InternationalTestFilters {
   status?: InternationalTestStatus | InternationalTestStatus[];
   category?: InternationalTestCategory | InternationalTestCategory[];
   providerName?: string;
+  countryIso2Code?: string;
   completenessStatus?: InternationalTestCompletenessStatus | InternationalTestCompletenessStatus[];
   isPubliclyVisible?: boolean;
   page?: number;

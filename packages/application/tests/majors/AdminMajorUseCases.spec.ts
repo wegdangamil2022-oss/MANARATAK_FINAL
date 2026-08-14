@@ -34,6 +34,18 @@ describe('AdminMajorUseCases', () => {
     expect(mockRepo.list).toHaveBeenCalledWith(filters);
   });
 
+  it('lists reverse taxonomy mappings through the Major-owned repository contract', async () => {
+    const mappings = [{
+      id: 'mapping-1',
+      relationshipType: 'PRIMARY' as const,
+      major: { id: 'major-1', canonicalName: 'Computer Science' },
+    }];
+    mockRepo.listByTaxonomyNode = vi.fn().mockResolvedValue(mappings);
+
+    await expect(useCases.listByTaxonomyNode('taxonomy-1')).resolves.toEqual(mappings);
+    expect(mockRepo.listByTaxonomyNode).toHaveBeenCalledWith('taxonomy-1');
+  });
+
   it('updateMajor updates fields and recomputes completeness', async () => {
     mockRepo.findById = vi.fn().mockResolvedValue({
       id: 'major-1',

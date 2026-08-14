@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { AdminAcademicTaxonomyUseCases, DegreeLevelUseCases } from '@manaratak/application';
+import { AdminAcademicTaxonomyUseCases, AdminMajorUseCases, DegreeLevelUseCases } from '@manaratak/application';
 import {
   AcademicTaxonomyNodeType,
   AcademicTaxonomyStatus,
@@ -12,9 +12,10 @@ export class AcademicTaxonomyAdminRouter {
   public static create(cradle: {
     adminAcademicTaxonomyUseCases: AdminAcademicTaxonomyUseCases;
     degreeLevelUseCases: DegreeLevelUseCases;
+    adminMajorUseCases: AdminMajorUseCases;
   }): Router {
     const router = Router();
-    const { adminAcademicTaxonomyUseCases, degreeLevelUseCases } = cradle;
+    const { adminAcademicTaxonomyUseCases, adminMajorUseCases, degreeLevelUseCases } = cradle;
 
     const asyncHandler =
       (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
@@ -111,10 +112,7 @@ export class AcademicTaxonomyAdminRouter {
     }));
 
     router.get('/nodes/:nodeId/mapped-majors', asyncHandler(async (req: Request, res: Response) => {
-      res.status(501).json({
-        status: 'NOT_CONFIGURED',
-        error: 'Reverse Major display requires a Phase 10 owned read contract.'
-      });
+      res.json({ data: await adminMajorUseCases.listByTaxonomyNode(req.params.nodeId) });
     }));
 
     router.post(

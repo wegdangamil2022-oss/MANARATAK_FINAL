@@ -1,5 +1,6 @@
 import { 
   IScholarshipRepository, 
+  ITransactionalScholarshipRepository,
   ScholarshipDto, 
   UpdateScholarshipDto,
   ScholarshipStatus,
@@ -8,9 +9,10 @@ import {
   PaginatedResult,
   ScholarshipCompletenessClassifier
 } from '@manaratak/domain';
+import { AtomicDomainMutationCoordinator, AtomicMutationRequestContext } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
 
 export class AdminScholarshipUseCases {
-  constructor(private readonly repository: IScholarshipRepository) {}
+  constructor(private readonly repository: IScholarshipRepository, private readonly atomicMutations?: AtomicDomainMutationCoordinator) {}
 
   public async listScholarships(filters: ScholarshipFilters): Promise<PaginatedResult<ScholarshipDto>> {
     return this.repository.list(filters);
@@ -41,7 +43,7 @@ export class AdminScholarshipUseCases {
     fundingAmount?: string;
     currency?: string;
     duration?: string;
-  }): Promise<ScholarshipDto> {
+  }, context?: AtomicMutationRequestContext): Promise<ScholarshipDto> {
     const displayName = (input.displayName || '').trim();
     if (!displayName) {
       throw new Error('Scholarship name is required.');
@@ -105,10 +107,10 @@ export class AdminScholarshipUseCases {
       completenessStatus: classification.state,
     };
 
-    return this.repository.create(scholarshipData);
+    return this.mutate('SCHOLARSHIP_CREATED', publicId, context, repository => repository.create(scholarshipData));
   }
 
-  public async updateScholarship(id: string, updates: UpdateScholarshipDto): Promise<ScholarshipDto> {
+  public async updateScholarship(id: string, updates: UpdateScholarshipDto, context?: AtomicMutationRequestContext): Promise<ScholarshipDto> {
     const existing = await this.getScholarship(id);
     
     // Create a mock payload to run through classifier
@@ -132,52 +134,60 @@ export class AdminScholarshipUseCases {
       completenessStatus: classification.state
     };
     
-    return this.repository.update(id, dataToUpdate);
+    return this.mutate('SCHOLARSHIP_UPDATED', id, context, repository => repository.update(id, dataToUpdate));
   }
 
-  public async markReadyToReview(id: string): Promise<void> {
+  public async markReadyToReview(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getScholarship(id);
     if (existing.completenessStatus === ScholarshipCompletenessState.INCOMPLETE) {
       throw new Error('Cannot mark INCOMPLETE scholarship as READY_TO_REVIEW');
     }
     if (existing.status !== ScholarshipStatus.READY_TO_REVIEW) {
-      await this.repository.updateStatus(id, ScholarshipStatus.READY_TO_REVIEW);
+      await this.mutate('SCHOLARSHIP_MARKED_READY_TO_REVIEW', id, context, repository => repository.updateStatus(id, ScholarshipStatus.READY_TO_REVIEW));
     }
   }
 
-  public async markReadyToPublish(id: string): Promise<void> {
+  public async markReadyToPublish(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getScholarship(id);
     if (existing.completenessStatus !== ScholarshipCompletenessState.COMPLETE) {
       throw new Error('Only COMPLETE scholarships can be marked as READY_TO_PUBLISH');
     }
-    await this.repository.updateStatus(id, ScholarshipStatus.READY_TO_PUBLISH);
+    await this.mutate('SCHOLARSHIP_MARKED_READY_TO_PUBLISH', id, context, repository => repository.updateStatus(id, ScholarshipStatus.READY_TO_PUBLISH));
   }
 
-  public async publish(id: string): Promise<void> {
+  public async publish(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getScholarship(id);
     if (existing.status !== ScholarshipStatus.READY_TO_PUBLISH) {
       throw new Error('Only READY_TO_PUBLISH scholarships can be PUBLISHED');
     }
-    await this.repository.updateStatus(id, ScholarshipStatus.PUBLISHED);
+    await this.mutate('SCHOLARSHIP_PUBLISHED', id, context, repository => repository.updateStatus(id, ScholarshipStatus.PUBLISHED));
   }
 
-  public async unpublish(id: string): Promise<void> {
+  public async unpublish(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getScholarship(id);
     if (existing.status !== ScholarshipStatus.PUBLISHED) {
       throw new Error('Cannot unpublish a scholarship that is not PUBLISHED');
     }
-    await this.repository.updateStatus(id, ScholarshipStatus.READY_TO_REVIEW);
+    await this.mutate('SCHOLARSHIP_UNPUBLISHED', id, context, repository => repository.updateStatus(id, ScholarshipStatus.READY_TO_REVIEW));
   }
 
-  public async reject(id: string): Promise<void> {
+  public async reject(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getScholarship(id);
     if (existing.status === ScholarshipStatus.PUBLISHED) {
       throw new Error('Cannot reject a PUBLISHED scholarship. Unpublish first.');
     }
-    await this.repository.updateStatus(id, ScholarshipStatus.REJECTED);
+    await this.mutate('SCHOLARSHIP_REJECTED', id, context, repository => repository.updateStatus(id, ScholarshipStatus.REJECTED));
   }
 
-  public async archive(id: string): Promise<void> {
-    await this.repository.updateStatus(id, ScholarshipStatus.ARCHIVED);
+  public async archive(id: string, context?: AtomicMutationRequestContext): Promise<void> {
+    await this.mutate('SCHOLARSHIP_ARCHIVED', id, context, repository => repository.updateStatus(id, ScholarshipStatus.ARCHIVED));
+  }
+
+  private mutate<T>(action: string, id: string, context: AtomicMutationRequestContext | undefined, mutation: (repository: IScholarshipRepository) => Promise<T>): Promise<T> {
+    if (!this.atomicMutations) return mutation(this.repository);
+    const repository = this.repository as Partial<ITransactionalScholarshipRepository>;
+    if (!repository.withTransaction) throw new Error('SCHOLARSHIP_TRANSACTIONAL_PERSISTENCE_REQUIRED');
+    return this.atomicMutations.execute({ domain: 'SCHOLARSHIPS', aggregateType: 'SCHOLARSHIP', aggregateId: id, action, context },
+      transaction => mutation(repository.withTransaction!(transaction)));
   }
 }

@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-import { RoleAssignment, IRoleAssignmentRepository } from '@manaratak/domain';
+import { Prisma, PrismaClient } from '@prisma/client';
+import { AtomicPersistenceContext, RoleAssignment, IRoleAssignmentRepository, ITransactionalRoleAssignmentRepository } from '@manaratak/domain';
 import { ISpecification } from '@manaratak/core';
 
 export interface RoleAssignmentRecordRow {
@@ -24,8 +24,16 @@ export interface RoleAssignmentPrismaClient {
   roleAssignmentRecord: PrismaRoleAssignmentDelegate;
 }
 
-export class PrismaRoleAssignmentRepository implements IRoleAssignmentRepository {
+interface RoleAssignmentTransactionContext extends AtomicPersistenceContext { readonly transactionClient: Prisma.TransactionClient }
+
+export class PrismaRoleAssignmentRepository implements ITransactionalRoleAssignmentRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  withTransaction(context: AtomicPersistenceContext): IRoleAssignmentRepository {
+    const transactionClient = (context as Partial<RoleAssignmentTransactionContext>).transactionClient;
+    if (!context.boundaryId || !transactionClient) throw new Error('ROLE_ASSIGNMENT_ATOMIC_TRANSACTION_CONTEXT_REQUIRED');
+    return new PrismaRoleAssignmentRepository(transactionClient as unknown as PrismaClient);
+  }
 
   private get client(): RoleAssignmentPrismaClient {
     return this.prisma as unknown as RoleAssignmentPrismaClient;

@@ -1,5 +1,7 @@
 # WP1-F Transactional Outbox Source Design
 
+> Current implementation note (2026-08-13): this document's design-only baseline is retained as historical evidence. Current source includes the additive Prisma model and reviewed forward/rollback migration, transaction-only Prisma store, atomic unit of work, durable dispatcher state/retry behavior, and active adoption by Reference Data, International Tests, Majors, Universities, Scholarships, Role creation, and Role assignment. Current status is `SOURCE_IMPLEMENTED / DATABASE_RECOVERY_AND_RUNTIME_PROOF_PENDING`.
+
 ## Current-State Audit
 
 Status: `TRANSACTIONAL OUTBOX DESIGNED — IMPLEMENTATION BLOCKED BY EXTERNAL DATABASE RECOVERY GATE`

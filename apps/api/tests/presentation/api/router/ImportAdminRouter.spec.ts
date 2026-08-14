@@ -1,10 +1,19 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 import { ImportAdminRouter } from '../../../../src/presentation/api/router/ImportAdminRouter';
 import { ImportTargetDomain } from '@manaratak/domain';
 
 describe('ImportAdminRouter', () => {
+  beforeEach(() => {
+    process.env.WP1_RECOVERY_GATE = 'CLOSED';
+    process.env.ALLOW_DATABASE_MUTATIONS = 'YES';
+  });
+
+  afterEach(() => {
+    delete process.env.WP1_RECOVERY_GATE;
+    delete process.env.ALLOW_DATABASE_MUTATIONS;
+  });
   const createMockUseCases = () => ({
     importData: vi.fn(),
     getQueueJobStatus: vi.fn(),
@@ -156,6 +165,21 @@ describe('ImportAdminRouter', () => {
   });
 
   describe('POST /admin/imports/records/:id/promote', () => {
+    it('blocks promotion until the database recovery gate is explicitly closed', async () => {
+      delete process.env.WP1_RECOVERY_GATE;
+      delete process.env.ALLOW_DATABASE_MUTATIONS;
+      const useCases = createMockUseCases();
+      const repo = createMockRepository();
+      const promoteUseCase = createMockPromotionUseCase();
+      repo.getRecordById.mockResolvedValue({ id: 'rec-1', targetDomain: ImportTargetDomain.Tests });
+      const app = createApp(useCases, repo, promoteUseCase);
+
+      const res = await request(app).post('/admin/imports/records/rec-1/promote');
+
+      expect(res.status).toBe(423);
+      expect(res.body.error).toBe('DATABASE_MUTATION_BLOCKED');
+      expect(promoteUseCase.promote).not.toHaveBeenCalled();
+    });
     it('returns 422 for unsupported domains safely', async () => {
       const useCases = createMockUseCases();
       const repo = createMockRepository();

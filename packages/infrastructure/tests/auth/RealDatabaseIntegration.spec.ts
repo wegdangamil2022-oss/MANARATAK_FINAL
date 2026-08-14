@@ -19,7 +19,9 @@ function getDatabaseUrl(): string {
   return url;
 }
 
-describe('Real Database Integration Tests (Session & Credentials)', () => {
+const describeWithDatabase = getDatabaseUrl() ? describe : describe.skip;
+
+describeWithDatabase('Real Database Integration Tests (Session & Credentials)', () => {
   let prisma: PrismaClient;
   let sessionManager: PrismaSessionManager;
   let credentialVerifier: PrismaCredentialVerifier;

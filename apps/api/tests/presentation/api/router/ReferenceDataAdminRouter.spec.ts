@@ -9,6 +9,10 @@ describe('ReferenceDataAdminRouter', () => {
     upsertCurrency: vi.fn(),
     upsertLanguage: vi.fn(),
     upsertCity: vi.fn(),
+    previewCountryImport: vi.fn(),
+    previewCountryDerivedReferences: vi.fn(),
+    listRegions: vi.fn(),
+    listCities: vi.fn(),
   });
 
   const createApp = (useCases: ReturnType<typeof createUseCases>) => {
@@ -17,6 +21,52 @@ describe('ReferenceDataAdminRouter', () => {
     app.use('/admin/reference-data', ReferenceDataAdminRouter.create({ referenceDataUseCases: useCases as any }));
     return app;
   };
+
+  it('POST /admin/reference-data/countries/import-preview validates and delegates without applying', async () => {
+    const useCases = createUseCases();
+    useCases.previewCountryImport.mockReturnValue({ mode: 'DRY_RUN', databaseWrites: 0, totalRecords: 1 });
+    const app = createApp(useCases);
+    const input = {
+      sourceName: 'countries.xlsx', sourceVersion: 'test',
+      records: [{ name_en: 'Egypt', iso_alpha2: 'EG', iso_alpha3: 'EGY' }],
+    };
+
+    const res = await request(app).post('/admin/reference-data/countries/import-preview').send(input);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ mode: 'DRY_RUN', databaseWrites: 0, totalRecords: 1 });
+    expect(useCases.previewCountryImport).toHaveBeenCalledWith(input);
+  });
+
+  it('POST /admin/reference-data/countries/derived-reference-preview delegates source candidates', async () => {
+    const useCases = createUseCases();
+    useCases.previewCountryDerivedReferences.mockReturnValue({ mode: 'DRY_RUN', currencies: [], languages: [], databaseWrites: 0 });
+    const app = createApp(useCases);
+    const records = [{ iso_alpha2: 'EG', default_currency: 'EGP', default_language: 'ar' }];
+
+    const res = await request(app).post('/admin/reference-data/countries/derived-reference-preview').send({ records });
+
+    expect(res.status).toBe(200);
+    expect(res.body.databaseWrites).toBe(0);
+    expect(useCases.previewCountryDerivedReferences).toHaveBeenCalledWith(records);
+  });
+
+  it('GET /admin/reference-data/regions and cities scope records by country', async () => {
+    const useCases = createUseCases();
+    useCases.listRegions.mockResolvedValue([{ id: 'r1', countryIso2Code: 'EG', name: 'Cairo' }]);
+    useCases.listCities.mockResolvedValue([{ id: 'c1', countryIso2Code: 'EG', name: 'Cairo' }]);
+    const app = createApp(useCases);
+
+    const [regions, cities] = await Promise.all([
+      request(app).get('/admin/reference-data/regions?countryIso2Code=EG'),
+      request(app).get('/admin/reference-data/cities?countryIso2Code=EG'),
+    ]);
+
+    expect(regions.status).toBe(200);
+    expect(cities.status).toBe(200);
+    expect(useCases.listRegions).toHaveBeenCalledWith({ countryIso2Code: 'EG' });
+    expect(useCases.listCities).toHaveBeenCalledWith({ countryIso2Code: 'EG' });
+  });
 
   it('PUT /admin/reference-data/countries/:iso2Code validates and delegates', async () => {
     const useCases = createUseCases();
@@ -30,7 +80,10 @@ describe('ReferenceDataAdminRouter', () => {
       
     expect(res.status).toBe(200);
     expect(res.body.iso2Code).toBe('EG');
-    expect(useCases.upsertCountry).toHaveBeenCalledWith({ iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt' });
+    expect(useCases.upsertCountry).toHaveBeenCalledWith(
+      { iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt' },
+      expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-reference-data-api' }),
+    );
   });
 
   it('PUT /admin/reference-data/countries/:iso2Code returns 400 on invalid body', async () => {
@@ -59,7 +112,10 @@ describe('ReferenceDataAdminRouter', () => {
       
     expect(res.status).toBe(200);
     expect(res.body.isoCode).toBe('EGP');
-    expect(useCases.upsertCurrency).toHaveBeenCalledWith({ isoCode: 'EGP', name: 'Egyptian Pound' });
+    expect(useCases.upsertCurrency).toHaveBeenCalledWith(
+      { isoCode: 'EGP', name: 'Egyptian Pound' },
+      expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-reference-data-api' }),
+    );
   });
   
   it('PUT /admin/reference-data/currencies/:isoCode returns 400 on invalid body', async () => {
@@ -87,7 +143,10 @@ describe('ReferenceDataAdminRouter', () => {
       
     expect(res.status).toBe(200);
     expect(res.body.isoCode).toBe('ar');
-    expect(useCases.upsertLanguage).toHaveBeenCalledWith({ isoCode: 'ar', name: 'Arabic', direction: 'RTL' });
+    expect(useCases.upsertLanguage).toHaveBeenCalledWith(
+      { isoCode: 'ar', name: 'Arabic', direction: 'RTL' },
+      expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-reference-data-api' }),
+    );
   });
 
   it('PUT /admin/reference-data/cities validates and delegates', async () => {
@@ -102,7 +161,10 @@ describe('ReferenceDataAdminRouter', () => {
       
     expect(res.status).toBe(200);
     expect(res.body.name).toBe('Cairo');
-    expect(useCases.upsertCity).toHaveBeenCalledWith({ countryIso2Code: 'EG', name: 'Cairo' });
+    expect(useCases.upsertCity).toHaveBeenCalledWith(
+      { countryIso2Code: 'EG', name: 'Cairo' },
+      expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-reference-data-api' }),
+    );
   });
   
   it('PUT /admin/reference-data/cities returns 400 on invalid body', async () => {

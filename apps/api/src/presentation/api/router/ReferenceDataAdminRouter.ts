@@ -11,6 +11,13 @@ export class ReferenceDataAdminRouter {
       Promise.resolve(fn(req, res, next)).catch(next);
     };
 
+    const mutationContext = (req: Request) => ({
+      actorId: (req as any).user?.id || (req as any).user?.identityId || 'SYSTEM',
+      actorType: (req as any).user?.type || 'IDENTITY',
+      correlationId: (req.headers['x-correlation-id'] as string | undefined) || (req.headers['x-request-id'] as string | undefined),
+      source: 'admin-reference-data-api',
+    });
+
     const countrySchema = z.object({
       iso2Code: z.string().length(2),
       iso3Code: z.string().length(3),
@@ -64,9 +71,26 @@ export class ReferenceDataAdminRouter {
       activeOnly: z.coerce.boolean().optional(),
     });
 
+    const countryImportPreviewSchema = z.object({
+      sourceName: z.string().min(1).max(200),
+      sourceVersion: z.string().min(1).max(100),
+      sha256: z.string().regex(/^[a-fA-F0-9]{64}$/).optional(),
+      records: z.array(z.record(z.string(), z.unknown())).min(1).max(500),
+    });
+
     router.get('/countries', asyncHandler(async (req: Request, res: Response) => {
       const filters = querySchema.parse(req.query);
       res.json({ data: await referenceDataUseCases.listCountries(filters) });
+    }));
+
+    router.post('/countries/import-preview', asyncHandler(async (req: Request, res: Response) => {
+      const input = countryImportPreviewSchema.parse(req.body);
+      res.json(referenceDataUseCases.previewCountryImport(input));
+    }));
+
+    router.post('/countries/derived-reference-preview', asyncHandler(async (req: Request, res: Response) => {
+      const input = z.object({ records: z.array(z.record(z.string(), z.unknown())).min(1).max(500) }).parse(req.body);
+      res.json(referenceDataUseCases.previewCountryDerivedReferences(input.records));
     }));
 
     router.get('/countries/:iso2Code', asyncHandler(async (req: Request, res: Response) => {
@@ -75,24 +99,34 @@ export class ReferenceDataAdminRouter {
       res.json(country);
     }));
 
+    router.get('/regions', asyncHandler(async (req: Request, res: Response) => {
+      const filters = querySchema.parse(req.query);
+      res.json({ data: await referenceDataUseCases.listRegions(filters) });
+    }));
+
+    router.get('/cities', asyncHandler(async (req: Request, res: Response) => {
+      const filters = querySchema.parse(req.query);
+      res.json({ data: await referenceDataUseCases.listCities(filters) });
+    }));
+
     router.put('/countries/:iso2Code', asyncHandler(async (req: Request, res: Response) => {
       const body = countrySchema.parse({ ...req.body, iso2Code: req.params.iso2Code });
-      res.json(await referenceDataUseCases.upsertCountry(body));
+      res.json(await referenceDataUseCases.upsertCountry(body, mutationContext(req)));
     }));
 
     router.put('/currencies/:isoCode', asyncHandler(async (req: Request, res: Response) => {
       const body = currencySchema.parse({ ...req.body, isoCode: req.params.isoCode });
-      res.json(await referenceDataUseCases.upsertCurrency(body));
+      res.json(await referenceDataUseCases.upsertCurrency(body, mutationContext(req)));
     }));
 
     router.put('/languages/:isoCode', asyncHandler(async (req: Request, res: Response) => {
       const body = languageSchema.parse({ ...req.body, isoCode: req.params.isoCode });
-      res.json(await referenceDataUseCases.upsertLanguage(body));
+      res.json(await referenceDataUseCases.upsertLanguage(body, mutationContext(req)));
     }));
 
     router.put('/cities', asyncHandler(async (req: Request, res: Response) => {
       const body = citySchema.parse(req.body);
-      res.json(await referenceDataUseCases.upsertCity(body));
+      res.json(await referenceDataUseCases.upsertCity(body, mutationContext(req)));
     }));
 
     router.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

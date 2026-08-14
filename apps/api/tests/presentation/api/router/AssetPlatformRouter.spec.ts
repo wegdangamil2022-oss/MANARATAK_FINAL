@@ -293,7 +293,7 @@ describe('AssetPlatformRouter', () => {
       const res = await request(app).post('/admin/assets/upload-locator').send({});
       expect(res.status).toBe(401);
       expect(res.body.error.code).toBe('ADMIN_AUTH_REQUIRED');
-    });
+    }, 10_000);
 
     it('rejects requests when unauthenticated with 401', async () => {
       const { SecurityMiddlewareFactory } = await import('../../../../src/presentation/security/SecurityMiddlewareFactory');

@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
+import { requireDatabaseMutationGate } from './lib/require-database-mutation-gate';
 
 // Replicate MajorNamingService logic for standalone stability
 function normalizeArabic(value: string): string {
@@ -64,6 +65,7 @@ function slugify(name: string): string {
 }
 
 async function main() {
+  requireDatabaseMutationGate('import-bachelors-phase10');
   console.log('Initializing dependency container and registering dependencies...');
   registerDependencies();
   const prisma = container.resolve<PrismaClient>('prisma');

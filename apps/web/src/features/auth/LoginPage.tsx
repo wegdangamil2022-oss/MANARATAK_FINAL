@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Lock, LogIn, Mail, ShieldAlert } from 'lucide-react';
 import { CsrfClientManager } from '@manaratak/shared';
 
@@ -31,10 +31,15 @@ const hasAdminPermission = (permissions: string[] = []): boolean =>
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const isLocalAdminReadOnly = import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  if (isLocalAdminReadOnly) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

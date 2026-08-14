@@ -1,5 +1,7 @@
 # WP8 Google Studio Closure Master Register
 
+Governance update (2026-08-13): the historical 96 groups are now classified in [WP8_96_GROUP_RECLASSIFICATION_REGISTER.md](./WP8_96_GROUP_RECLASSIFICATION_REGISTER.md). Google Studio is the final evidence/runtime environment, not the owner of unfinished product implementation. University Stage 2+ and Scholarships are tracked separately in [EXPANSION_CLOSURE_REGISTER.md](../EXPANSION_CLOSURE_REGISTER.md).
+
 Status date: 2026-08-12
 
 This is the central index for external database/runtime closure. Original WP registers remain authoritative for item-level ownership and evidence. Nothing in this register authorizes a database mutation before backup and an approved migration gate.
@@ -21,7 +23,15 @@ This is the central index for external database/runtime closure. Original WP reg
 
 Central tracked closure groups: **96**. This is a planning count of grouped rows/evidence gates, not a database counter. The linked original registers govern detailed counts and owners.
 
+## 2026-08-13 Local Runtime Update
+
+Local dependencies are now available in Codex. Typecheck, the non-database test suite, and production builds for Web and Admin have executable local evidence. These results are recorded in [CODEX_LOCAL_CLOSURE_RECLASSIFICATION.md](./CODEX_LOCAL_CLOSURE_RECLASSIFICATION.md).
+
+This update does not close database-backed tests, deployed-runtime smoke tests, network measurements, Recovery Gate evidence, migrations, imports, backfills, or rollback verification. Those items remain assigned to their original owner gates.
+
 ## Migration Gate
+
+The source-controlled entry point is `scripts/db-remediation-gate.ts`. Planning, checksums, status, baseline counters, dry-run sequencing, and rollback inventory are prepared in Codex. Deployment is programmatically blocked until `WP1_RECOVERY_GATE=CLOSED` and a separate `ALLOW_DATABASE_MUTATIONS=YES` authorization are both present. Rollback is never automatic.
 
 No stage is `COMPLETE` in the current environment.
 

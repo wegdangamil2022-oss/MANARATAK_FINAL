@@ -1,7 +1,9 @@
 import { container, registerDependencies } from '../apps/api/src/infrastructure/di/container.js';
 import { PrismaClient } from '@prisma/client';
+import { requireDatabaseMutationGate } from './lib/require-database-mutation-gate';
 
 async function run() {
+  requireDatabaseMutationGate('unpublish-majors');
   await registerDependencies();
   const prisma = container.resolve<PrismaClient>('prisma');
   

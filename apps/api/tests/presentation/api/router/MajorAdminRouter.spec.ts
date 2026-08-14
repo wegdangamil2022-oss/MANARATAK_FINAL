@@ -66,11 +66,11 @@ describe('MajorAdminRouter', () => {
     expect(useCases.updateMajor).toHaveBeenCalledWith('major-1', expect.objectContaining({
       displayName: 'Updated Computer Science',
       degreeLevel: 'Bachelor'
-    }));
+    }), expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-major-api' }));
     expect(useCases.updateMajor).toHaveBeenCalledWith('major-1', expect.not.objectContaining({
       id: 'injected',
       publicId: 'injected-public'
-    }));
+    }), expect.any(Object));
   });
 
   it('POST /admin/majors/:id/publish calls publish', async () => {
@@ -81,7 +81,7 @@ describe('MajorAdminRouter', () => {
     const res = await request(app).post('/admin/majors/major-1/publish');
 
     expect(res.status).toBe(200);
-    expect(useCases.publish).toHaveBeenCalledWith('major-1');
+    expect(useCases.publish).toHaveBeenCalledWith('major-1', expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-major-api' }));
   });
 
   it('GET /admin/majors/:id/versions returns import versions', async () => {

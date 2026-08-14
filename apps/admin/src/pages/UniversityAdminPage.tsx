@@ -56,11 +56,12 @@ export function UniversityAdminPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="mx-auto max-w-7xl space-y-6">
+      <header className="flex flex-col gap-5 rounded-3xl bg-gradient-to-r from-[#0F4B3A] via-[#155e49] to-[#0a382b] p-6 text-white shadow-xl sm:p-8 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-2xl font-bold">{t('admin_universities') || 'Universities'}</h2>
-          <p className="text-sm text-gray-500 mt-1">{t('admin_universities_subtitle')}</p>
+          <div className="mb-2 flex items-center gap-2 text-sm font-bold text-emerald-300"><School className="h-4 w-4" />Institution directory</div>
+          <h2 className="text-3xl font-black sm:text-4xl">{t('admin_universities') || 'Universities'}</h2>
+          <p className="mt-2 max-w-2xl text-sm font-medium text-emerald-100/90">{t('admin_universities_subtitle')}</p>
         </div>
 
         <div className="flex flex-wrap gap-3">
@@ -68,7 +69,7 @@ export function UniversityAdminPage() {
             <select 
               value={statusFilter} 
               onChange={handleFilterChange} 
-              className="appearance-none bg-white border border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-black"
+              className="min-h-11 appearance-none rounded-xl border border-white/20 bg-white/10 py-2 pl-3 pr-10 text-sm font-semibold text-white outline-none"
             >
               <option value="">{t('all_statuses') || 'All Statuses'}</option>
               <option value="IMPORTED">{t('imported') || 'Imported'}</option>
@@ -78,7 +79,7 @@ export function UniversityAdminPage() {
             <Filter className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
           </div>
         </div>
-      </div>
+      </header>
 
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>}
 
@@ -87,7 +88,7 @@ export function UniversityAdminPage() {
           <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
@@ -115,7 +116,7 @@ export function UniversityAdminPage() {
                     <tr key={uni.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="font-semibold text-gray-900 flex items-center gap-2">
-                          <School className="w-4 h-4 text-purple-600 shrink-0" />
+                          <School className="w-4 h-4 text-emerald-700 shrink-0" />
                           <span>{uni.displayName}</span>
                         </div>
                       </td>

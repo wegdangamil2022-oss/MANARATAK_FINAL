@@ -1,8 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import { DegreeLevelRepository } from '../packages/infrastructure/src/degree-level';
 import { DegreeLevelSeedService } from '../packages/application/src/degree-level';
+import { requireDatabaseMutationGate } from './lib/require-database-mutation-gate';
 
 async function main() {
+  requireDatabaseMutationGate('seed-degree-levels');
   const prisma = new PrismaClient();
   const repo = new DegreeLevelRepository(prisma);
   const service = new DegreeLevelSeedService(repo);

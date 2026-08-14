@@ -30,6 +30,7 @@ import {
   PrismaInternationalTestRepository,
   PrismaImportRepository,
   InMemoryImportQueueGateway,
+  PrismaImportQueueGateway,
   PrismaAssetRecordRepository,
   LocalAssetStorageGateway,
   NoopAssetMalwareScannerGateway,
@@ -40,7 +41,10 @@ import {
   PrismaRoleRepository,
   PrismaPolicyRepository,
   PrismaRoleAssignmentRepository,
+  AdminBootstrapVerifier,
   PrismaAuditRecordRepository,
+  PrismaTransactionalOutboxStore,
+  PrismaAtomicPersistenceUnitOfWork,
   PrismaAcademicTaxonomyRepository,
   DegreeLevelRepository
 , PrismaSessionManager, PrismaCredentialVerifier} from '@manaratak/infrastructure';
@@ -96,6 +100,8 @@ import {
   StudentToolRegistryUseCases,
   StudentToolExecutionUseCases,
   ReferenceDataUseCases,
+  AtomicAuditedOutboxMutationExecutor,
+  AtomicDomainMutationCoordinator,
   ReferenceResolverService,
   DegreeLevelUseCases,
   AdminServiceCatalogUseCases,
@@ -8066,7 +8072,9 @@ export function registerDependencies() {
     academicTaxonomyRepository: asFunction(({ prisma }) => new PrismaAcademicTaxonomyRepository(prisma)).singleton(),
     degreeLevelRepository: asFunction(({ prisma }) => new DegreeLevelRepository(prisma)).singleton(),
     degreeLevelUseCases: asFunction(({ degreeLevelRepository }) => new DegreeLevelUseCases(degreeLevelRepository)).scoped(),
-    importQueueGateway: asClass(InMemoryImportQueueGateway).singleton(),
+    importQueueGateway: asFunction(({ prisma }) => isPrisma
+      ? new PrismaImportQueueGateway(prisma)
+      : new InMemoryImportQueueGateway()).singleton(),
     assetRecordRepository: asFunction(({ prisma }) => new PrismaAssetRecordRepository(prisma)).singleton(),
     assetStorageGateway: asClass(LocalAssetStorageGateway).singleton(),
     assetMalwareScannerGateway: asClass(NoopAssetMalwareScannerGateway).singleton(),
@@ -8092,6 +8100,12 @@ export function registerDependencies() {
     notificationIntentRepo: asFunction(() => createUnavailableCapability('notificationIntentPersistence')).singleton(),
     notificationTemplateRepo: asFunction(() => createUnavailableCapability('notificationTemplatePersistence')).singleton(),
     auditRecordRepo: asFunction(({ prisma }) => new PrismaAuditRecordRepository(prisma)).singleton(),
+    transactionalOutboxStore: asFunction(({ prisma }) => new PrismaTransactionalOutboxStore(prisma)).singleton(),
+    atomicPersistenceUnitOfWork: asFunction(({ prisma }) => new PrismaAtomicPersistenceUnitOfWork(prisma)).singleton(),
+    atomicAuditedOutboxMutationExecutor: asFunction(({ atomicPersistenceUnitOfWork, auditRecordRepo, transactionalOutboxStore }) =>
+      new AtomicAuditedOutboxMutationExecutor(atomicPersistenceUnitOfWork, auditRecordRepo, transactionalOutboxStore)).singleton(),
+    atomicDomainMutationCoordinator: asFunction(({ atomicAuditedOutboxMutationExecutor }) =>
+      new AtomicDomainMutationCoordinator(atomicAuditedOutboxMutationExecutor)).singleton(),
     searchRequestRepo: asFunction(() => createUnavailableCapability('searchRequestPersistence')).singleton(),
     cacheEntryRepo: asFunction(() => createUnavailableCapability('cachePersistence')).singleton(),
     bgJobRepo: asFunction(() => createUnavailableCapability('backgroundJobPersistence')).singleton(),
@@ -8127,11 +8141,14 @@ export function registerDependencies() {
     fileIntegrityValidationService: asClass(FileIntegrityValidationService).singleton(),
 
     // --- UseCases ---
-    adminScholarshipUseCases: asFunction(({ scholarshipRepository }) => new AdminScholarshipUseCases(scholarshipRepository)).scoped(),
+    adminScholarshipUseCases: asFunction(({ scholarshipRepository, atomicDomainMutationCoordinator }) =>
+      new AdminScholarshipUseCases(scholarshipRepository, atomicDomainMutationCoordinator)).scoped(),
     publicScholarshipUseCases: asFunction(({ scholarshipRepository }) => new PublicScholarshipUseCases(scholarshipRepository)).scoped(),
-    adminUniversityUseCases: asFunction(({ universityRepository }) => new AdminUniversityUseCases(universityRepository)).scoped(),
+    adminUniversityUseCases: asFunction(({ universityRepository, atomicDomainMutationCoordinator }) =>
+      new AdminUniversityUseCases(universityRepository, atomicDomainMutationCoordinator)).scoped(),
     publicUniversityUseCases: asFunction(({ universityRepository }) => new PublicUniversityUseCases(universityRepository)).scoped(),
-    adminMajorUseCases: asFunction(({ majorRepository, phase10CatalogRepository }) => new AdminMajorUseCases(majorRepository, phase10CatalogRepository)).scoped(),
+    adminMajorUseCases: asFunction(({ majorRepository, phase10CatalogRepository, atomicDomainMutationCoordinator }) =>
+      new AdminMajorUseCases(majorRepository, phase10CatalogRepository, undefined, undefined, atomicDomainMutationCoordinator)).scoped(),
     majorImportPromotionUseCase: asFunction(({ majorRepository }) => new MajorImportPromotionUseCase(majorRepository)).scoped(),
     fellowshipImportPromotionUseCase: asFunction(({ fellowshipDefinitionRepository }) => new FellowshipImportPromotionUseCase(fellowshipDefinitionRepository)).scoped(),
     publicMajorUseCases: asFunction(({ majorRepository }) => new PublicMajorUseCases(majorRepository)).scoped(),
@@ -8146,7 +8163,8 @@ export function registerDependencies() {
     publicCmsUseCases: asFunction(({ cmsRepository }) => new PublicCmsUseCases(cmsRepository)).scoped(),
     studentToolRegistryUseCases: asFunction(({ studentToolRegistryRepository }) => new StudentToolRegistryUseCases(studentToolRegistryRepository)).scoped(),
     studentToolExecutionUseCases: asFunction(({ studentToolRegistryRepository, aiExecutionUseCases }) => new StudentToolExecutionUseCases(studentToolRegistryRepository, aiExecutionUseCases)).scoped(),
-    referenceDataUseCases: asFunction(({ referenceDataRepository }) => new ReferenceDataUseCases(referenceDataRepository)).scoped(),
+    referenceDataUseCases: asFunction(({ referenceDataRepository, atomicAuditedOutboxMutationExecutor }) =>
+      new ReferenceDataUseCases(referenceDataRepository, undefined, undefined, atomicAuditedOutboxMutationExecutor)).scoped(),
     referenceResolver: asFunction(({ referenceDataRepository }) => new ReferenceResolverService(referenceDataRepository)).scoped(),
     adminServiceCatalogUseCases: asFunction(({ serviceCatalogRepository }) => new AdminServiceCatalogUseCases(serviceCatalogRepository)).scoped(),
     publicServiceCatalogUseCases: asFunction(({ serviceCatalogRepository }) => new PublicServiceCatalogUseCases(serviceCatalogRepository)).scoped(),
@@ -8154,14 +8172,15 @@ export function registerDependencies() {
     financeStudentUseCases: asFunction(({ financeRepository }) => new FinanceStudentUseCases(financeRepository)).scoped(),
     careerAdminUseCases: asFunction(({ careerRepository }) => new CareerAdminUseCases(careerRepository)).scoped(),
     careerPublicUseCases: asFunction(({ careerRepository }) => new CareerPublicUseCases(careerRepository)).scoped(),
-    internationalTestAdminUseCases: asFunction(({ internationalTestRepository, referenceResolver, degreeLevelRepository }) =>
+    internationalTestAdminUseCases: asFunction(({ internationalTestRepository, referenceResolver, degreeLevelRepository, atomicDomainMutationCoordinator }) =>
       new InternationalTestAdminUseCases(
         internationalTestRepository,
         undefined,
         undefined,
         undefined,
         referenceResolver,
-        degreeLevelRepository
+        degreeLevelRepository,
+        atomicDomainMutationCoordinator
       )
     ).scoped(),
     internationalTestImportPromotionUseCase: asFunction(({ internationalTestRepository, referenceResolver }) =>
@@ -8187,9 +8206,12 @@ export function registerDependencies() {
     listIdentitiesUseCase: asFunction(({ identityRepository }) => new ListIdentitiesUseCase(identityRepository)).scoped(),
 
     // Authorization
-    manageRolesUseCase: asFunction(({ roleRepository }) => new ManageRolesUseCase(roleRepository)).scoped(),
-    assignRoleUseCase: asFunction(({ roleAssignmentRepository }) => new AssignRoleUseCase(roleAssignmentRepository)).scoped(),
+    manageRolesUseCase: asFunction(({ roleRepository, atomicDomainMutationCoordinator }) =>
+      new ManageRolesUseCase(roleRepository, atomicDomainMutationCoordinator)).scoped(),
+    assignRoleUseCase: asFunction(({ roleAssignmentRepository, atomicDomainMutationCoordinator }) =>
+      new AssignRoleUseCase(roleAssignmentRepository, atomicDomainMutationCoordinator)).scoped(),
     evaluateAccessUseCase: asFunction(({ authEvaluatorService }) => new EvaluateAccessUseCase(authEvaluatorService)).scoped(),
+    adminBootstrapVerifier: asFunction(({ prisma }) => new AdminBootstrapVerifier(prisma)).scoped(),
 
     // Settings
     manageSettingsUseCase: asFunction(({ settingDefinitionRepo, settingAssignmentRepo, configurationValidationService }) => new ManageSettingsUseCase(settingDefinitionRepo, settingAssignmentRepo, configurationValidationService)).scoped(),

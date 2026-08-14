@@ -44,19 +44,23 @@ describe('Phase 05 Slice 2: Admin Mutation Audit Hooks', () => {
       }));
     });
 
-    it('POST /roles creates audit record on success', async () => {
+    it('POST /roles delegates the success audit context to the atomic Application boundary', async () => {
       const res = await request(app)
         .post('/api/v1/admin/auth/roles')
         .set('x-correlation-id', 'corr-roles-1')
         .send({ name: 'SUPER_ADMIN' });
 
       expect(res.status).toBe(201);
-      const records = getRecords();
-      expect(records.length).toBe(1);
-      expect(records[0].getAction().getValue()).toBe('CREATE_ROLE');
-      expect(records[0].getActor().getActorId()).toBe('admin-user-123');
-      expect(records[0].getCorrelationReference()?.getValue()).toBe('corr-roles-1');
-      expect(records[0].getContextMetadata().getData().result).toBe('SUCCESS');
+      expect(mockManageRolesUseCase.createRole).toHaveBeenCalledWith(
+        { name: 'SUPER_ADMIN' },
+        expect.objectContaining({
+          actorId: 'admin-user-123',
+          actorType: 'IDENTITY',
+          correlationId: 'corr-roles-1',
+          source: 'admin-authorization-api'
+        })
+      );
+      expect(getRecords()).toHaveLength(0);
     });
 
     it('GET /roles/:id does NOT create audit record', async () => {
@@ -68,17 +72,22 @@ describe('Phase 05 Slice 2: Admin Mutation Audit Hooks', () => {
       expect(records.length).toBe(0);
     });
 
-    it('POST /assignments creates audit record on success', async () => {
+    it('POST /assignments delegates the success audit context to the atomic Application boundary', async () => {
       const res = await request(app)
         .post('/api/v1/admin/auth/assignments')
         .set('x-actor-id', 'admin-user-123')
         .send({ roleId: 'role-1', identityId: 'identity-1' });
 
       expect(res.status).toBe(201);
-      const records = getRecords();
-      expect(records.length).toBe(1);
-      expect(records[0].getAction().getValue()).toBe('ASSIGN_ROLE');
-      expect(records[0].getContextMetadata().getData().result).toBe('SUCCESS');
+      expect(mockAssignRoleUseCase.execute).toHaveBeenCalledWith(
+        { roleId: 'role-1', identityId: 'identity-1' },
+        expect.objectContaining({
+          actorId: 'admin-user-123',
+          actorType: 'IDENTITY',
+          source: 'admin-authorization-api'
+        })
+      );
+      expect(getRecords()).toHaveLength(0);
     });
   });
 

@@ -15,6 +15,12 @@ export class UniversityAdminRouter {
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
     };
+    const mutationContext = (req: Request) => ({
+      actorId: (req as any).user?.id || (req as any).user?.identityId || 'SYSTEM',
+      actorType: (req as any).user?.type || 'IDENTITY',
+      correlationId: (req.headers['x-correlation-id'] as string | undefined) || (req.headers['x-request-id'] as string | undefined),
+      source: 'admin-university-api',
+    });
 
     const listQuerySchema = z.object({
       status: z.nativeEnum(UniversityStatus).optional(),
@@ -95,37 +101,41 @@ export class UniversityAdminRouter {
         dataToUpdate.optionalFields = optionalFields;
       }
 
-      const university = await adminUniversityUseCases.updateUniversity(req.params.id, dataToUpdate);
+      const university = await adminUniversityUseCases.updateUniversity(req.params.id, dataToUpdate, mutationContext(req));
       res.json(university);
     }));
 
     router.post('/:id/mark-ready', asyncHandler(async (req: Request, res: Response) => {
-      await adminUniversityUseCases.markReadyToReview(req.params.id);
+      await adminUniversityUseCases.markReadyToReview(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 
     router.post('/:id/mark-publishable', asyncHandler(async (req: Request, res: Response) => {
-      await adminUniversityUseCases.markReadyToPublish(req.params.id);
+      await adminUniversityUseCases.markReadyToPublish(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 
+    router.get('/:id/publication-readiness', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await adminUniversityUseCases.checkPublicationReadiness(req.params.id));
+    }));
+
     router.post('/:id/publish', asyncHandler(async (req: Request, res: Response) => {
-      await adminUniversityUseCases.publish(req.params.id);
+      await adminUniversityUseCases.publish(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 
     router.post('/:id/unpublish', asyncHandler(async (req: Request, res: Response) => {
-      await adminUniversityUseCases.unpublish(req.params.id);
+      await adminUniversityUseCases.unpublish(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 
     router.post('/:id/reject', asyncHandler(async (req: Request, res: Response) => {
-      await adminUniversityUseCases.reject(req.params.id);
+      await adminUniversityUseCases.reject(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 
     router.post('/:id/archive', asyncHandler(async (req: Request, res: Response) => {
-      await adminUniversityUseCases.archive(req.params.id);
+      await adminUniversityUseCases.archive(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 

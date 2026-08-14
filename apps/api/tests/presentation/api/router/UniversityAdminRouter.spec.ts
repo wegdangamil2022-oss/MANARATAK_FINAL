@@ -58,11 +58,11 @@ describe('UniversityAdminRouter', () => {
     expect(useCases.updateUniversity).toHaveBeenCalledWith('uni-1', expect.objectContaining({
       displayName: 'Updated Qatar University',
       officialWebsite: 'https://www.qu.edu.qa'
-    }));
+    }), expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-university-api' }));
     expect(useCases.updateUniversity).toHaveBeenCalledWith('uni-1', expect.not.objectContaining({
       id: 'injected',
       publicId: 'injected-public'
-    }));
+    }), expect.any(Object));
   });
 
   it('POST /admin/universities/:id/publish calls publish', async () => {
@@ -73,7 +73,7 @@ describe('UniversityAdminRouter', () => {
     const res = await request(app).post('/admin/universities/uni-1/publish');
 
     expect(res.status).toBe(200);
-    expect(useCases.publish).toHaveBeenCalledWith('uni-1');
+    expect(useCases.publish).toHaveBeenCalledWith('uni-1', expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-university-api' }));
   });
 
   it('returns 400 on use case errors', async () => {

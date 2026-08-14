@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { adminApiClient } from '../api/client';
+import {
+  AcademicTaxonomyDeterministicKey,
+  iscedFBaselineEdges,
+  iscedFBaselineNodes,
+} from '@manaratak/domain';
 import { useTranslation } from '../i18n/I18nProvider';
 import {
   Loader2,
@@ -81,6 +86,7 @@ export function AcademicTaxonomyDetailPage() {
   const { nodeId } = useParams<{ nodeId: string }>();
   const { language } = useTranslation();
   const isAr = language === 'ar';
+  const localReadOnly = import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
 
   const [node, setNode] = useState<AcademicTaxonomyNode | null>(null);
   const [children, setChildren] = useState<AcademicTaxonomyNode[]>([]);
@@ -143,15 +149,51 @@ export function AcademicTaxonomyDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const [nodeRes, childrenRes, parentsRes, aliasesRes, mappingsRes, majorsRes, allNodesRes] = await Promise.all([
-        adminApiClient.request<AcademicTaxonomyNode>(`/admin/academic-taxonomy/nodes/${nodeId}`),
-        adminApiClient.request<{ data: AcademicTaxonomyNode[] }>(`/admin/academic-taxonomy/nodes/${nodeId}/children`),
-        adminApiClient.request<{ data: AcademicTaxonomyNode[] }>(`/admin/academic-taxonomy/nodes/${nodeId}/parents`),
-        adminApiClient.request<{ data: AliasDto[] }>(`/admin/academic-taxonomy/nodes/${nodeId}/aliases`),
-        adminApiClient.request<{ data: MappingDto[] }>(`/admin/academic-taxonomy/nodes/${nodeId}/mappings`),
-        adminApiClient.request<{ data: MappedMajorDto[] }>(`/admin/academic-taxonomy/nodes/${nodeId}/mapped-majors`),
-        adminApiClient.request<{ data: AcademicTaxonomyNode[] }>('/admin/academic-taxonomy/nodes?page=1&pageSize=100'),
+      if (localReadOnly) {
+        const previewNodes: AcademicTaxonomyNode[] = iscedFBaselineNodes.map((item) => ({
+          ...item,
+          nodeId: AcademicTaxonomyDeterministicKey.create(item),
+        }));
+        const previewNode = previewNodes.find((item) => item.nodeId === nodeId);
+        if (!previewNode) throw new Error('Academic taxonomy node not found');
+        const byId = new Map(previewNodes.map((item) => [item.nodeId, item]));
+        setNode(previewNode);
+        setChildren(iscedFBaselineEdges.flatMap((edge) => edge.parent === nodeId && byId.has(edge.child) ? [byId.get(edge.child)!] : []));
+        setParents(iscedFBaselineEdges.flatMap((edge) => edge.child === nodeId && byId.has(edge.parent) ? [byId.get(edge.parent)!] : []));
+        setAliases([]);
+        setMappings([]);
+        setMappedMajors([]);
+        setAllNodes(previewNodes);
+        setNodeFormData({
+          canonicalName: previewNode.canonicalName,
+          description: previewNode.description || '',
+          status: previewNode.status,
+          standardType: previewNode.standardType || 'CUSTOM_NATIONAL',
+          standardCode: previewNode.standardCode || '',
+          nameAr: previewNode.localizedNames?.ar || '',
+          nameEn: previewNode.localizedNames?.en || '',
+        });
+        return;
+      }
+      const basePath = localReadOnly ? '/academic-taxonomy' : '/admin/academic-taxonomy';
+      const [nodeRes, childrenRes, parentsRes] = await Promise.all([
+        adminApiClient.request<AcademicTaxonomyNode>(`${basePath}/nodes/${nodeId}`),
+        adminApiClient.request<{ data: AcademicTaxonomyNode[] }>(`${basePath}/nodes/${nodeId}/children`),
+        adminApiClient.request<{ data: AcademicTaxonomyNode[] }>(`${basePath}/nodes/${nodeId}/parents`),
       ]);
+      const [aliasesRes, mappingsRes, majorsRes, allNodesRes] = localReadOnly
+        ? [
+            { data: [] as AliasDto[] },
+            { data: [] as MappingDto[] },
+            { data: [] as MappedMajorDto[] },
+            { data: [] as AcademicTaxonomyNode[] },
+          ]
+        : await Promise.all([
+            adminApiClient.request<{ data: AliasDto[] }>(`${basePath}/nodes/${nodeId}/aliases`),
+            adminApiClient.request<{ data: MappingDto[] }>(`${basePath}/nodes/${nodeId}/mappings`),
+            adminApiClient.request<{ data: MappedMajorDto[] }>(`${basePath}/nodes/${nodeId}/mapped-majors`),
+            adminApiClient.request<{ data: AcademicTaxonomyNode[] }>(`${basePath}/nodes?page=1&pageSize=100`),
+          ]);
 
       setNode(nodeRes);
       setChildren(childrenRes.data || []);

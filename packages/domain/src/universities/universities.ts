@@ -1,5 +1,11 @@
 import { z } from 'zod';
 import { UniversityImportCompletenessState } from '../generated/dummy';
+import { IUniversityRepository } from '../generated/dummy';
+import { AtomicPersistenceContext } from '../event-foundation/outbox/TransactionalOutbox';
+
+export interface ITransactionalUniversityRepository extends IUniversityRepository {
+  withTransaction(context: AtomicPersistenceContext): IUniversityRepository;
+}
 
 export const UniversityImportPayloadSchema = z.object({
   universityName: z.string(),
@@ -191,4 +197,3 @@ export class UniversityIntegrationContract {
     };
   }
 }
-

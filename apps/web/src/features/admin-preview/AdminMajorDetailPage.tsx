@@ -134,7 +134,7 @@ function FieldCard({ label, value }: { label: string; value?: string | number })
 
 export function AdminMajorDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token'));
+  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token')) || import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
   const [activeTab, setActiveTab] = useState<DetailTab>('basic');
   const [major, setMajor] = useState<MajorDetailState | null>(null);
   const [profiles, setProfiles] = useState<MajorProfileLike[]>([]);

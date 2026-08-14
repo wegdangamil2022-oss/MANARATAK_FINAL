@@ -403,6 +403,13 @@ export interface UpdateMajorDto {
   optionalFields?: Record<string, unknown>;
 }
 
+export interface TaxonomyMappedMajorDto {
+  id: string;
+  relationshipType: MajorClassificationMappingDto['relationshipType'];
+  major?: Pick<MajorDto, 'id' | 'canonicalName'>;
+  profile?: Pick<MajorLevelProfileDto, 'id' | 'displayName' | 'level'>;
+}
+
 export interface IMajorRepository {
   create(data: Omit<MajorDto, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<MajorDto, 'id' | 'createdAt' | 'updatedAt'>>): Promise<MajorDto>;
   update(id: string, updates: UpdateMajorDto): Promise<MajorDto>;
@@ -429,6 +436,11 @@ export interface IMajorRepository {
   listClassificationMappings?(majorId: string): Promise<MajorClassificationMappingDto[]>;
   createSource?(data: Omit<MajorSourceDto, 'id' | 'createdAt' | 'updatedAt'>): Promise<MajorSourceDto>;
   listSources?(majorId: string): Promise<MajorSourceDto[]>;
+  listByTaxonomyNode?(taxonomyNodeId: string): Promise<TaxonomyMappedMajorDto[]>;
+}
+
+export interface ITransactionalMajorRepository extends IMajorRepository {
+  withTransaction(context: import('../event-foundation/outbox/TransactionalOutbox').AtomicPersistenceContext): IMajorRepository;
 }
 
 export interface IFellowshipDefinitionRepository {

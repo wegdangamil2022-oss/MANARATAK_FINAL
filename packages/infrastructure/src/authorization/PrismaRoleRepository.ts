@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-import { Role, PermissionReference, IRoleRepository } from '@manaratak/domain';
+import { Prisma, PrismaClient } from '@prisma/client';
+import { AtomicPersistenceContext, Role, PermissionReference, IRoleRepository, ITransactionalRoleRepository } from '@manaratak/domain';
 import { ISpecification } from '@manaratak/core';
 
 export interface RoleRecordRow {
@@ -27,8 +27,16 @@ export interface RolePrismaClient {
   roleRecord: PrismaRoleDelegate;
 }
 
-export class PrismaRoleRepository implements IRoleRepository {
+interface RoleTransactionContext extends AtomicPersistenceContext { readonly transactionClient: Prisma.TransactionClient }
+
+export class PrismaRoleRepository implements ITransactionalRoleRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  withTransaction(context: AtomicPersistenceContext): IRoleRepository {
+    const transactionClient = (context as Partial<RoleTransactionContext>).transactionClient;
+    if (!context.boundaryId || !transactionClient) throw new Error('ROLE_ATOMIC_TRANSACTION_CONTEXT_REQUIRED');
+    return new PrismaRoleRepository(transactionClient as unknown as PrismaClient);
+  }
 
   private get client(): RolePrismaClient {
     return this.prisma as unknown as RolePrismaClient;

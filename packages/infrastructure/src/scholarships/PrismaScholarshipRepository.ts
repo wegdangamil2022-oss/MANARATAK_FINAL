@@ -1,7 +1,16 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
+import { AtomicPersistenceContext, IScholarshipRepository, ITransactionalScholarshipRepository } from '@manaratak/domain';
 
-export class PrismaScholarshipRepository {
+interface ScholarshipTransactionContext extends AtomicPersistenceContext { readonly transactionClient: Prisma.TransactionClient }
+
+export class PrismaScholarshipRepository implements ITransactionalScholarshipRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  withTransaction(context: AtomicPersistenceContext): IScholarshipRepository {
+    const transactionClient = (context as Partial<ScholarshipTransactionContext>).transactionClient;
+    if (!context.boundaryId || !transactionClient) throw new Error('SCHOLARSHIP_ATOMIC_TRANSACTION_CONTEXT_REQUIRED');
+    return new PrismaScholarshipRepository(transactionClient as unknown as PrismaClient);
+  }
 
   async findById(id: string): Promise<any | null> {
     const record = await this.prisma.scholarship.findUnique({ where: { id } });

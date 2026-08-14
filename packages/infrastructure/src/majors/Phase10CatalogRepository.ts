@@ -27,6 +27,7 @@ export interface CatalogItemDto {
 
 export class Phase10CatalogRepository {
   private static cachedCatalog: { items: CatalogItemDto[], mtimeMs: number } | null = null;
+  private static cachedDetails: Map<string, { sections: any[]; sourceFileName: string; collegeOrFaculty?: string }> | null = null;
 
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -134,7 +135,11 @@ export class Phase10CatalogRepository {
     const page = Math.max(1, filters.page || 1);
     const pageSize = Math.min(100, Math.max(1, filters.pageSize || 50));
     const start = (page - 1) * pageSize;
-    const sourcePage = filtered.slice(start, start + pageSize);
+    const details = this.loadDetails();
+    const sourcePage = filtered.slice(start, start + pageSize).map(item => {
+      const detail = details.get(item.code);
+      return detail ? { ...item, collegeOrField: detail.collegeOrFaculty || item.collegeOrField, collegeOrFaculty: detail.collegeOrFaculty || item.collegeOrFaculty, sectionCount: detail.sections.length, sourceType: 'DETAIL_DOSSIER', sourceFileName: detail.sourceFileName } : item;
+    });
     const pageCodes = sourcePage.map((item) => item.code);
 
     let dbProfiles: any[] = [];
@@ -188,4 +193,84 @@ export class Phase10CatalogRepository {
       totalPages: Math.ceil(filtered.length / pageSize),
     };
   }
+
+  public getCatalogItem(id: string): CatalogItemDto | null {
+    const code = id.replace(/^cat-/, '');
+    const item = this.loadCatalog().find(candidate => candidate.id === id || candidate.code === code);
+    if (!item) return null;
+    const detail = this.loadDetails().get(item.code);
+    return {
+      ...item,
+      collegeOrField: detail?.collegeOrFaculty || item.collegeOrField,
+      collegeOrFaculty: detail?.collegeOrFaculty || item.collegeOrFaculty,
+      sectionCount: detail?.sections.length ?? item.sectionCount ?? 0,
+      sourceType: detail ? 'DETAIL_DOSSIER' : item.sourceType,
+      sourceFileName: detail?.sourceFileName || item.sourceFileName,
+      hasDbDetails: false,
+    };
+  }
+
+  public getCatalogContentSections(id: string): any[] {
+    const code = id.replace(/^cat-/, '');
+    return this.loadDetails().get(code)?.sections ?? [];
+  }
+
+  public getCatalogSource(id: string): any[] {
+    const item = this.getCatalogItem(id);
+    if (!item) return [];
+    return [{ sourceType: item.sourceType, sourceName: item.sourceFileName, sourceUri: `workspace/phase-10-major-detail-dossiers/${item.sourceFileName}` }];
+  }
+
+  public listCollegeFacets(degreeLevel?: string) {
+    const target = degreeLevel?.toUpperCase();
+    const groups = new Map<string, { name: string; degrees: Set<string>; majorCount: number }>();
+    for (const base of this.loadCatalog()) {
+      const detail = this.loadDetails().get(base.code);
+      const item = detail ? { ...base, collegeOrField: detail.collegeOrFaculty || base.collegeOrField, collegeOrFaculty: detail.collegeOrFaculty || base.collegeOrFaculty } : base;
+      const degree = item.degreeLevel || item.catalogKind;
+      if (target && degree.toUpperCase() !== target) continue;
+      const name = item.collegeOrFaculty || item.collegeOrField || item.academicFieldOrDiscipline;
+      if (!name?.trim()) continue;
+      const current = groups.get(name) ?? { name, degrees: new Set<string>(), majorCount: 0 };
+      current.degrees.add(degree);
+      current.majorCount += 1;
+      groups.set(name, current);
+    }
+    return [...groups.values()].map(group => ({ name: group.name, supportedDegrees: [...group.degrees].sort(), majorCount: group.majorCount })).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+  }
+
+  private loadDetails() {
+    if (Phase10CatalogRepository.cachedDetails) return Phase10CatalogRepository.cachedDetails;
+    const result = new Map<string, { sections: any[]; sourceFileName: string; collegeOrFaculty?: string }>();
+    const roots = this.findWorkspaceRoots().map(root => path.join(root, 'phase-10-major-detail-dossiers')).filter(root => fs.existsSync(root));
+    for (const root of roots.slice(0, 1)) {
+      for (const filePath of this.walkMarkdown(root)) {
+        const content = fs.readFileSync(filePath, 'utf8');
+        const recordPattern = /^#\s+\d+\.\s+.+?(?=^#\s+\d+\.|(?![\s\S]))/gms;
+        for (const match of content.matchAll(recordPattern)) {
+          const record = match[0];
+          const code = record.match(/\b(?:MJR|MAS|DOC|FEL)-\d{4}\b/)?.[0];
+          if (!code) continue;
+          const collegeOrFaculty = record.match(/^\|\s*(?:الكلية|المجال الأكاديمي|المجال المهني)\s*\|\s*([^|]+)\|/m)?.[1]?.trim();
+          const headings = [...record.matchAll(/^##\s+(.+)$/gm)];
+          const sections = headings.map((heading, index) => {
+            const start = (heading.index ?? 0) + heading[0].length;
+            const end = headings[index + 1]?.index ?? record.length;
+            return { id: `${code}-${index + 1}`, sectionKey: `${String(index + 1).padStart(2, '0')}-${heading[1].trim()}`, title: heading[1].replace(/^\d+(?:\.\d+)*[).:-]?\s*/, '').trim(), content: record.slice(start, end).trim(), reviewStatus: 'NEEDS_REVIEW' };
+          }).filter(section => section.content);
+          result.set(code, { sections, sourceFileName: path.basename(filePath), collegeOrFaculty });
+        }
+      }
+    }
+    Phase10CatalogRepository.cachedDetails = result;
+    return result;
+  }
+
+  private findWorkspaceRoots() {
+    const roots: string[] = [];
+    let current = process.cwd();
+    for (let i = 0; i < 7; i++) { roots.push(path.join(current, 'workspace')); const parent = path.dirname(current); if (parent === current) break; current = parent; }
+    return roots;
+  }
+  private walkMarkdown(root: string): string[] { return fs.readdirSync(root, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? this.walkMarkdown(path.join(root, entry.name)) : entry.name.toLowerCase().endsWith('.md') ? [path.join(root, entry.name)] : []); }
 }

@@ -17,7 +17,13 @@ export interface ReferenceDataImportHandoffCommand {
   sourceName: string;
   sourceVersion: string;
   entityType: 'COUNTRY' | 'CURRENCY' | 'LANGUAGE' | 'CITY';
-  records: Array<Record<string, unknown>>;
+  records: Array<
+    | Record<string, unknown>
+    | UpsertReferenceCountryDto
+    | UpsertReferenceCurrencyDto
+    | UpsertReferenceLanguageDto
+    | UpsertReferenceCityDto
+  >;
 }
 
 export class ReferenceDataImportHandoffService {
@@ -27,23 +33,24 @@ export class ReferenceDataImportHandoffService {
 
   public prepareSeedBatch(command: ReferenceDataImportHandoffCommand): ReferenceDataSeedBatch {
     const seedRecords: ReferenceDataSeedRecord[] = command.records.map((rawRecord) => {
+      const record = rawRecord as Record<string, unknown>;
       let deterministicKey: string | undefined;
 
       switch (command.entityType) {
         case 'COUNTRY':
-          if (rawRecord.iso2Code) {
-            deterministicKey = String(rawRecord.iso2Code).trim();
+          if (record.iso2Code) {
+            deterministicKey = String(record.iso2Code).trim();
           }
           break;
         case 'CURRENCY':
         case 'LANGUAGE':
-          if (rawRecord.isoCode) {
-            deterministicKey = String(rawRecord.isoCode).trim();
+          if (record.isoCode) {
+            deterministicKey = String(record.isoCode).trim();
           }
           break;
         case 'CITY':
-          if (rawRecord.countryIso2Code && rawRecord.name) {
-            deterministicKey = `${String(rawRecord.countryIso2Code).trim()}:${String(rawRecord.name).trim()}`;
+          if (record.countryIso2Code && record.name) {
+            deterministicKey = `${String(record.countryIso2Code).trim()}:${String(record.name).trim()}`;
           }
           break;
       }

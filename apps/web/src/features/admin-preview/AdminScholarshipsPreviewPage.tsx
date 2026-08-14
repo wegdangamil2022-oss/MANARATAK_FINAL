@@ -39,7 +39,12 @@ interface ScholarshipItem {
 export function AdminScholarshipsPreviewPage() {
   const { t, dir } = useTranslation();
   const navigate = useNavigate();
-  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token'));
+  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token')) || import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
+  const isArabic = dir === 'rtl';
+  const ui = (key: string, arabic: string, english: string) => {
+    const translated = t(key as any);
+    return translated && translated !== key ? translated : (isArabic ? arabic : english);
+  };
 
   const [scholarships, setScholarships] = useState<ScholarshipItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -136,7 +141,9 @@ export function AdminScholarshipsPreviewPage() {
 
       fetchCounts();
     } catch (err: any) {
-      setError(err.message || 'Failed to load scholarships');
+      setError(isArabic
+        ? 'تعذر تحميل بيانات المنح حاليًا. ستظهر السجلات بعد اتصال لوحة الإدارة بقاعدة البيانات.'
+        : (err.message || 'Failed to load scholarships'));
     } finally {
       setLoading(false);
     }
@@ -185,7 +192,7 @@ export function AdminScholarshipsPreviewPage() {
         status: 'READY_TO_REVIEW',
         completenessStatus: 'complete'
       });
-      setSuccessMsg('Scholarship successfully created and added to review workspace.');
+      setSuccessMsg(isArabic ? 'تمت إضافة المنحة إلى مساحة المراجعة بنجاح.' : 'Scholarship successfully created and added to review workspace.');
       setShowAddModal(false);
       setFormData({
         displayName: '',
@@ -211,39 +218,44 @@ export function AdminScholarshipsPreviewPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <main dir={dir} className="min-h-screen bg-[#f8fafc] px-4 py-8 text-slate-900 sm:px-6 lg:px-10">
+      <div className="mx-auto max-w-7xl space-y-6">
       {/* Header & Primary Actions */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <header className="flex flex-col gap-5 rounded-3xl bg-gradient-to-r from-[#0F4B3A] via-[#155e49] to-[#0a382b] p-6 text-white shadow-xl sm:p-8 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold text-[#0F4B3A] bg-emerald-50/60 px-2.5 py-1 rounded-lg w-fit border border-[#0F4B3A]/10 mb-1">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
-            <span>{t('phase_23_admin_workspace') || 'Phase 23 Enterprise Scholarship Admin Workspace'}</span>
+          <div className="mb-2 flex w-fit items-center gap-2 text-xs font-bold text-emerald-300 sm:text-sm">
+            <ShieldCheck className="h-4 w-4" />
+            <span>{ui('phase_23_admin_workspace', 'مساحة إدارة المنح الدراسية', 'Scholarship administration workspace')}</span>
           </div>
-          <h1 className="text-2xl font-black text-slate-900">{t('scholarships_admin_title') || 'Scholarship Lifecycle & Review Management'}</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {t('scholarships_admin_desc') || 'Manage scholarship review, editing, completeness classification, safe merging, and manual publication control.'}
+          <h1 className="text-2xl font-black sm:text-4xl">{ui('scholarships_admin_title', 'إدارة المنح الدراسية', 'Scholarship Management')}</h1>
+          <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-emerald-100/90">
+            {ui('scholarships_admin_desc', 'إدارة بيانات المنح ومراجعة الاكتمال والتحقق ودورة النشر.', 'Manage scholarship data, completeness, verification, and publication lifecycle.')}
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-[120px] rounded-2xl border border-white/20 bg-white/10 p-4 text-center backdrop-blur-md">
+            <span className="block text-2xl font-black text-amber-300 sm:text-3xl">{total}</span>
+            <span className="text-[11px] font-bold text-emerald-100">{ui('all_scholarships', 'إجمالي المنح', 'All Scholarships')}</span>
+          </div>
           {/* Rule 4: Import button routes to /admin/imports/scholarships */}
           <Link
             to="/admin/imports/scholarships"
-            className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 shadow-sm transition-all inline-flex items-center gap-2"
+            className="inline-flex min-h-12 items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-4 text-xs font-bold text-white transition-all hover:bg-white/20"
           >
-            <UploadCloud className="w-4 h-4 text-[#0F4B3A]" />
-            <span>{t('scholarship_import_center') || 'Scholarship Import Center'}</span>
+            <UploadCloud className="h-4 w-4" />
+            <span>{ui('scholarship_import_center', 'مركز استيراد المنح', 'Scholarship Import Center')}</span>
           </Link>
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="px-4 py-2.5 bg-[#0F4B3A] hover:bg-[#0b382b] text-white rounded-xl text-xs font-bold shadow-sm transition-all inline-flex items-center gap-2"
+            className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-white px-4 text-xs font-bold text-[#0F4B3A] shadow-sm transition-all hover:bg-emerald-50"
           >
             <PlusCircle className="w-4 h-4" />
-            <span>{t('add_scholarship') || 'Add Scholarship'}</span>
+            <span>{ui('add_scholarship', 'إضافة منحة', 'Add Scholarship')}</span>
           </button>
         </div>
-      </div>
+      </header>
 
       {successMsg && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs rounded-xl flex items-center justify-between">
@@ -266,34 +278,34 @@ export function AdminScholarshipsPreviewPage() {
       )}
 
       {/* TOP STATISTICS (8 COUNTERS) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+      <section className="grid grid-cols-2 gap-3 rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm md:grid-cols-4">
         {[
-          { label: t('all_scholarships') || 'All Scholarships', count: counts.all, filter: '', color: 'border-slate-100 bg-white text-slate-900 shadow-sm' },
-          { label: t('imported_awaiting_review') || 'Imported / Review', count: counts.imported, filter: 'IMPORTED', color: 'border-blue-100 bg-blue-50/25 text-blue-900 shadow-sm' },
-          { label: t('missing_required_fields') || 'Missing Fields', count: counts.missingFields, filter: 'INCOMPLETE', color: 'border-amber-100 bg-amber-50/25 text-amber-900 shadow-sm' },
-          { label: t('needs_source_verification') || 'Needs Verification', count: counts.needsVerification, filter: '', color: 'border-indigo-100 bg-indigo-50/25 text-indigo-900 shadow-sm' },
-          { label: t('needs_translation') || 'Needs Translation', count: counts.needsTranslation, filter: '', color: 'border-purple-100 bg-purple-50/25 text-purple-900 shadow-sm' },
-          { label: t('ready_to_publish') || 'Ready to Publish', count: counts.readyToPublish, filter: 'READY_TO_PUBLISH', color: 'border-cyan-100 bg-cyan-50/25 text-cyan-900 shadow-sm' },
-          { label: t('published') || 'Published', count: counts.published, filter: 'PUBLISHED', color: 'border-emerald-100 bg-emerald-50/25 text-emerald-900 shadow-sm' },
-          { label: t('archived') || 'Archived', count: counts.archived, filter: 'ARCHIVED', color: 'border-slate-200 bg-slate-100/50 text-slate-700 shadow-xs' },
+          { label: ui('all_scholarships', 'جميع المنح', 'All Scholarships'), count: counts.all, filter: '', color: 'border-emerald-800 bg-white text-slate-900 shadow-sm' },
+          { label: ui('imported_awaiting_review', 'بانتظار المراجعة', 'Imported / Review'), count: counts.imported, filter: 'IMPORTED', color: 'border-blue-200 bg-blue-50/30 text-blue-900 shadow-sm' },
+          { label: ui('missing_required_fields', 'حقول مطلوبة ناقصة', 'Missing Fields'), count: counts.missingFields, filter: 'INCOMPLETE', color: 'border-amber-200 bg-amber-50/30 text-amber-900 shadow-sm' },
+          { label: ui('needs_source_verification', 'تحتاج تحققًا من المصدر', 'Needs Verification'), count: counts.needsVerification, filter: '', color: 'border-indigo-200 bg-indigo-50/30 text-indigo-900 shadow-sm' },
+          { label: ui('needs_translation', 'تحتاج ترجمة', 'Needs Translation'), count: counts.needsTranslation, filter: '', color: 'border-violet-200 bg-violet-50/30 text-violet-900 shadow-sm' },
+          { label: ui('ready_to_publish', 'جاهزة للنشر', 'Ready to Publish'), count: counts.readyToPublish, filter: 'READY_TO_PUBLISH', color: 'border-cyan-200 bg-cyan-50/30 text-cyan-900 shadow-sm' },
+          { label: ui('published', 'منشورة', 'Published'), count: counts.published, filter: 'PUBLISHED', color: 'border-emerald-200 bg-emerald-50/30 text-emerald-900 shadow-sm' },
+          { label: ui('archived', 'مؤرشفة', 'Archived'), count: counts.archived, filter: 'ARCHIVED', color: 'border-slate-200 bg-slate-50 text-slate-700 shadow-sm' },
         ].map((stat, idx) => (
           <div 
             key={idx} 
             onClick={() => setStatusFilter(stat.filter)}
-            className={`p-3.5 rounded-2xl border cursor-pointer hover:shadow-xs transition-all ${stat.color} ${statusFilter === stat.filter ? 'ring-2 ring-[#0F4B3A] border-transparent' : ''}`}
+            className={`flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-xl border p-3 text-center transition-all hover:shadow-sm ${stat.color} ${statusFilter === stat.filter ? 'ring-2 ring-[#0F4B3A] ring-offset-1' : ''}`}
           >
-            <span className="text-[10px] font-bold uppercase tracking-wider block opacity-75">{stat.label}</span>
-            <span className="text-xl font-black mt-1 block">{stat.count}</span>
+            <span className="block text-xs font-bold leading-5 opacity-80">{stat.label}</span>
+            <span className="mt-1 block text-2xl font-black">{stat.count}</span>
           </div>
         ))}
-      </div>
+      </section>
 
       {/* FILTER BAR (10 FILTER TYPES) */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-3">
+      <div className="space-y-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-            <Filter className="w-4 h-4 text-blue-600" />
-            <span>{t('advanced_filters') || 'Advanced Scholarship Filters'}</span>
+          <div className="flex items-center gap-2 text-sm font-extrabold text-slate-700">
+            <Filter className="w-4 h-4 text-emerald-700" />
+            <span>{ui('advanced_filters', 'تصفية المنح الدراسية', 'Scholarship Filters')}</span>
           </div>
           {(statusFilter || completenessFilter || countryFilter || degreeFilter || fundingFilter || sourceFilter || searchQuery) && (
             <button
@@ -308,21 +320,21 @@ export function AdminScholarshipsPreviewPage() {
               }}
               className="text-xs text-blue-600 hover:text-blue-800 font-semibold underline"
             >
-              {t('clear_all_filters') || 'Clear all filters'}
+              {ui('clear_all_filters', 'مسح جميع الفلاتر', 'Clear all filters')}
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+        <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
           {/* Search Box */}
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
             <input
               type="text"
-              placeholder={t('search_scholarships_placeholder') || 'Search name, sponsor, country...'}
+              placeholder={ui('search_scholarships_placeholder', 'ابحث باسم المنحة أو الجهة الراعية أو الدولة', 'Search name, sponsor, or country')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-1 focus:ring-[#0F4B3A] focus:border-[#0F4B3A] focus:outline-none bg-slate-50/50 hover:bg-white transition-colors"
+              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2 pl-9 pr-3 outline-none transition-colors hover:bg-white focus:border-[#0F4B3A] focus:ring-2 focus:ring-emerald-100 rtl:pl-3 rtl:pr-9"
             />
           </div>
 
@@ -330,60 +342,60 @@ export function AdminScholarshipsPreviewPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="p-2 border border-slate-200 rounded-xl bg-white text-slate-700 focus:ring-1 focus:ring-[#0F4B3A] focus:border-[#0F4B3A] focus:outline-none hover:bg-slate-50/50 transition-colors"
+            className="min-h-11 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-slate-700 outline-none transition-colors hover:bg-white focus:border-[#0F4B3A] focus:ring-2 focus:ring-emerald-100"
           >
-            <option value="">{t('all_lifecycle_statuses') || 'All Lifecycle Statuses'}</option>
-            <option value="IMPORTED">Imported</option>
-            <option value="READY_TO_REVIEW">Ready to Review</option>
-            <option value="READY_TO_PUBLISH">Ready to Publish</option>
-            <option value="PUBLISHED">Published</option>
-            <option value="ARCHIVED">Archived</option>
+            <option value="">جميع حالات دورة النشر</option>
+            <option value="IMPORTED">مستوردة</option>
+            <option value="READY_TO_REVIEW">جاهزة للمراجعة</option>
+            <option value="READY_TO_PUBLISH">جاهزة للنشر</option>
+            <option value="PUBLISHED">منشورة</option>
+            <option value="ARCHIVED">مؤرشفة</option>
           </select>
 
           {/* Completeness Status Filter */}
           <select
             value={completenessFilter}
             onChange={(e) => setCompletenessFilter(e.target.value)}
-            className="p-2 border border-slate-200 rounded-xl bg-white text-slate-700 focus:ring-1 focus:ring-[#0F4B3A] focus:border-[#0F4B3A] focus:outline-none hover:bg-slate-50/50 transition-colors"
+            className="min-h-11 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-slate-700 outline-none transition-colors hover:bg-white focus:border-[#0F4B3A] focus:ring-2 focus:ring-emerald-100"
           >
-            <option value="">{t('all_completeness_statuses') || 'All Completeness Statuses'}</option>
-            <option value="complete">Complete</option>
-            <option value="incomplete">Incomplete / Missing Fields</option>
+            <option value="">جميع حالات الاكتمال</option>
+            <option value="complete">مكتملة</option>
+            <option value="incomplete">غير مكتملة أو بها حقول ناقصة</option>
           </select>
 
           {/* Academic Degree Filter */}
           <select
             value={degreeFilter}
             onChange={(e) => setDegreeFilter(e.target.value)}
-            className="p-2 border border-slate-200 rounded-xl bg-white text-slate-700 focus:ring-1 focus:ring-[#0F4B3A] focus:border-[#0F4B3A] focus:outline-none hover:bg-slate-50/50 transition-colors"
+            className="min-h-11 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-slate-700 outline-none transition-colors hover:bg-white focus:border-[#0F4B3A] focus:ring-2 focus:ring-emerald-100"
           >
-            <option value="">{t('all_degrees') || 'All Degrees'}</option>
-            <option value="Bachelor">Bachelor</option>
-            <option value="Master">Master</option>
-            <option value="PhD">PhD</option>
-            <option value="Diploma">Diploma</option>
+            <option value="">جميع الدرجات العلمية</option>
+            <option value="Bachelor">البكالوريوس</option>
+            <option value="Master">الماجستير</option>
+            <option value="PhD">الدكتوراه</option>
+            <option value="Diploma">الدبلوم</option>
           </select>
 
           {/* Funding Coverage Filter */}
           <select
             value={fundingFilter}
             onChange={(e) => setFundingFilter(e.target.value)}
-            className="p-2 border border-slate-200 rounded-xl bg-white text-slate-700 focus:ring-1 focus:ring-[#0F4B3A] focus:border-[#0F4B3A] focus:outline-none hover:bg-slate-50/50 transition-colors"
+            className="min-h-11 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-slate-700 outline-none transition-colors hover:bg-white focus:border-[#0F4B3A] focus:ring-2 focus:ring-emerald-100"
           >
-            <option value="">{t('all_funding_types') || 'All Funding Types'}</option>
-            <option value="Fully Funded">Fully Funded</option>
-            <option value="Partial Coverage">Partial Coverage</option>
-            <option value="Tuition Waiver">Tuition Waiver</option>
+            <option value="">جميع أنواع التمويل</option>
+            <option value="Fully Funded">تمويل كامل</option>
+            <option value="Partial Coverage">تمويل جزئي</option>
+            <option value="Tuition Waiver">إعفاء من الرسوم</option>
           </select>
         </div>
       </div>
 
       {/* SCHOLARSHIPS VERTICAL LIST / TABLE LAYOUT (Rule 1) */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
         {loading ? (
           <div className="p-16 text-center text-slate-500">
             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-blue-600" />
-            <p className="text-xs">{t('loading_scholarships') || 'Loading scholarship records...'}</p>
+            <p className="text-sm font-medium">جاري تحميل بيانات المنح...</p>
           </div>
         ) : scholarships.length === 0 ? (
           /* Rule 10: Scholarship list empty state */
@@ -392,35 +404,35 @@ export function AdminScholarshipsPreviewPage() {
               <GraduationCap className="w-7 h-7" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-800">{t('no_scholarships_found') || 'No scholarships found'}</h3>
-              <p className="text-xs text-slate-500 mt-1">{t('no_scholarships_desc') || 'Get started by adding a scholarship record or importing a batch from trusted sources.'}</p>
+              <h3 className="text-base font-bold text-slate-800">لا توجد منح دراسية</h3>
+              <p className="mt-1 text-sm text-slate-500">يمكن إضافة منحة جديدة أو استيراد مجموعة من مصدر موثوق.</p>
             </div>
             <div className="flex items-center justify-center gap-3 pt-2">
               <button
                 onClick={() => setShowAddModal(true)}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
               >
-                {t('add_scholarship') || 'Add Scholarship'}
+                إضافة منحة
               </button>
               <Link
                 to="/admin/imports/scholarships"
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-300 transition-all"
               >
-                {t('open_scholarship_import_center') || 'Open Scholarship Import Center'}
+                فتح مركز استيراد المنح
               </Link>
             </div>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full border-collapse text-right text-sm">
               <thead>
-                <tr className="bg-slate-50/75 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
-                  <th className="p-4">{t('scholarship_name_sponsor') || 'Cleaned Scholarship Name & Sponsor'}</th>
-                  <th className="p-4">{t('degree_funding') || 'Degree & Funding'}</th>
-                  <th className="p-4">{t('country_deadline') || 'Country & Deadline'}</th>
-                  <th className="p-4">{t('completeness_status') || 'Completeness'}</th>
-                  <th className="p-4">{t('lifecycle_status') || 'Lifecycle Status'}</th>
-                  <th className="p-4 text-right">{t('actions') || 'Action'}</th>
+                <tr className="border-b border-slate-200 bg-slate-50 text-sm font-bold text-slate-600">
+                  <th className="p-4">اسم المنحة والجهة الراعية</th>
+                  <th className="p-4">الدرجة والتمويل</th>
+                  <th className="p-4">الدولة والموعد النهائي</th>
+                  <th className="p-4">حالة الاكتمال</th>
+                  <th className="p-4">حالة النشر</th>
+                  <th className="p-4 text-left">التفاصيل</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -431,7 +443,7 @@ export function AdminScholarshipsPreviewPage() {
                       <div className="font-bold text-slate-900 text-sm">{sch.displayName}</div>
                       <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                         <Building2 className="w-3 h-3 text-slate-400" />
-                        <span>{sch.sponsorName || 'Unknown Sponsor'}</span>
+                        <span>{sch.sponsorName || 'جهة راعية غير محددة'}</span>
                       </div>
                     </td>
 
@@ -461,7 +473,7 @@ export function AdminScholarshipsPreviewPage() {
                         sch.completenessStatus === 'complete' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                       }`}>
                         {sch.completenessStatus === 'complete' ? <Check className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                        <span>{sch.completenessStatus === 'complete' ? 'Complete' : 'Needs Review'}</span>
+                        <span>{sch.completenessStatus === 'complete' ? 'مكتملة' : 'تحتاج مراجعة'}</span>
                       </span>
                     </td>
 
@@ -483,7 +495,7 @@ export function AdminScholarshipsPreviewPage() {
                         to={`/admin/scholarships/${sch.id}`}
                         className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1"
                       >
-                        <span>{t('view_details') || 'View Details'}</span>
+                        <span>عرض التفاصيل</span>
                       </Link>
                     </td>
                   </tr>
@@ -492,7 +504,7 @@ export function AdminScholarshipsPreviewPage() {
             </table>
           </div>
         )}
-      </div>
+      </section>
 
       {/* ADD SCHOLARSHIP MODAL */}
       {showAddModal && (
@@ -501,7 +513,7 @@ export function AdminScholarshipsPreviewPage() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <GraduationCap className="w-5 h-5 text-blue-600" />
-                <span>{t('add_new_scholarship') || 'Add New Scholarship Record'}</span>
+                <span>إضافة منحة دراسية جديدة</span>
               </h3>
               <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
             </div>
@@ -516,7 +528,7 @@ export function AdminScholarshipsPreviewPage() {
             <form onSubmit={handleCreateScholarship} className="space-y-4 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Scholarship Title / Cleaned Title *</label>
+                  <label className="font-bold text-slate-700 block mb-1">اسم المنحة *</label>
                   <input
                     type="text"
                     required
@@ -527,7 +539,7 @@ export function AdminScholarshipsPreviewPage() {
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Sponsor / Provider Name *</label>
+                  <label className="font-bold text-slate-700 block mb-1">الجهة الراعية أو المانحة *</label>
                   <input
                     type="text"
                     required
@@ -541,32 +553,32 @@ export function AdminScholarshipsPreviewPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Degree Level</label>
+                  <label className="font-bold text-slate-700 block mb-1">الدرجة العلمية</label>
                   <select
                     value={formData.degreeLevel}
                     onChange={(e) => setFormData({ ...formData, degreeLevel: e.target.value })}
                     className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none"
                   >
-                    <option value="Bachelor">Bachelor</option>
-                    <option value="Master">Master</option>
-                    <option value="PhD">PhD</option>
-                    <option value="Diploma">Diploma</option>
+                    <option value="Bachelor">البكالوريوس</option>
+                    <option value="Master">الماجستير</option>
+                    <option value="PhD">الدكتوراه</option>
+                    <option value="Diploma">الدبلوم</option>
                   </select>
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Funding Coverage</label>
+                  <label className="font-bold text-slate-700 block mb-1">نوع التمويل</label>
                   <select
                     value={formData.fundingCoverage}
                     onChange={(e) => setFormData({ ...formData, fundingCoverage: e.target.value })}
                     className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none"
                   >
-                    <option value="Fully Funded">Fully Funded</option>
-                    <option value="Partial Coverage">Partial Coverage</option>
-                    <option value="Tuition Waiver">Tuition Waiver</option>
+                    <option value="Fully Funded">تمويل كامل</option>
+                    <option value="Partial Coverage">تمويل جزئي</option>
+                    <option value="Tuition Waiver">إعفاء من الرسوم</option>
                   </select>
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Study Country</label>
+                  <label className="font-bold text-slate-700 block mb-1">دولة الدراسة</label>
                   <input
                     type="text"
                     placeholder="e.g. Qatar, Saudi Arabia"
@@ -579,7 +591,7 @@ export function AdminScholarshipsPreviewPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Application Deadline</label>
+                  <label className="font-bold text-slate-700 block mb-1">آخر موعد للتقديم</label>
                   <input
                     type="date"
                     value={formData.applicationDeadline}
@@ -588,7 +600,7 @@ export function AdminScholarshipsPreviewPage() {
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Application URL</label>
+                  <label className="font-bold text-slate-700 block mb-1">رابط التقديم</label>
                   <input
                     type="url"
                     placeholder="https://..."
@@ -600,7 +612,7 @@ export function AdminScholarshipsPreviewPage() {
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Eligible Majors & Fields</label>
+                <label className="font-bold text-slate-700 block mb-1">التخصصات والمجالات المؤهلة</label>
                 <input
                   type="text"
                   placeholder="Engineering, Computer Science, Business"
@@ -611,7 +623,7 @@ export function AdminScholarshipsPreviewPage() {
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Scholarship Benefits & Coverage Details</label>
+                <label className="font-bold text-slate-700 block mb-1">مزايا المنحة وتفاصيل التغطية</label>
                 <textarea
                   rows={3}
                   placeholder="Full tuition waiver, monthly allowance, housing..."
@@ -627,7 +639,7 @@ export function AdminScholarshipsPreviewPage() {
                   onClick={() => setShowAddModal(false)}
                   className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl font-medium hover:bg-slate-50"
                 >
-                  Cancel
+                  إلغاء
                 </button>
                 <button
                   type="submit"
@@ -635,13 +647,14 @@ export function AdminScholarshipsPreviewPage() {
                   className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-sm transition-all inline-flex items-center gap-2"
                 >
                   {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  <span>Save Scholarship Record</span>
+                  <span>حفظ المنحة</span>
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </main>
   );
 }

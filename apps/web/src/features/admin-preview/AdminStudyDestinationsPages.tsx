@@ -70,12 +70,36 @@ export interface ExtendedCountryMetadata {
   lastVerifiedAt?: string;
   adminDivisions?: string[];
   linkedCities?: string[];
+  localName?: string;
+  sourceRegion?: string;
+  capital?: string;
+  officialCurrencies?: string[];
+  localLanguages?: string[];
+  flag?: string;
+  referenceReviewStatus?: string;
+  sourceAuditDate?: string;
+  referenceSources?: string[];
+  notes?: string;
+  sourceCreatedAt?: string;
+  sourceUpdatedAt?: string;
 }
 
 export function getExtendedMetadata(country: ReferenceCountryDto): ExtendedCountryMetadata {
   const meta = country.metadata;
   if (!meta || typeof meta !== 'object') return {};
-  return meta as ExtendedCountryMetadata;
+  const source = meta as ExtendedCountryMetadata;
+  return {
+    ...source,
+    nativeName: source.nativeName ?? source.localName,
+    continent: source.continent ?? country.region ?? undefined,
+    capitalCity: source.capitalCity ?? source.capital,
+    legalTenderCurrencies: source.legalTenderCurrencies ?? source.officialCurrencies,
+    spokenLanguages: source.spokenLanguages ?? source.localLanguages,
+    flagEmoji: source.flagEmoji ?? source.flag,
+    destinationReviewStatus: source.destinationReviewStatus ?? source.referenceReviewStatus,
+    lastVerifiedAt: source.lastVerifiedAt ?? source.sourceAuditDate,
+    source: source.source ?? source.referenceSources?.join(' | '),
+  };
 }
 
 export const CONTINENTS = [

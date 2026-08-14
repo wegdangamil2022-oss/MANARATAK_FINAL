@@ -12,10 +12,17 @@ export class ScholarshipAdminRouter {
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
     };
+    const mutationContext = (req: Request) => ({
+      actorId: (req as any).user?.id || (req as any).user?.identityId || 'SYSTEM',
+      actorType: (req as any).user?.type || 'IDENTITY',
+      correlationId: (req.headers['x-correlation-id'] as string | undefined) || (req.headers['x-request-id'] as string | undefined),
+      source: 'admin-scholarship-api',
+    });
 
     const listQuerySchema = z.object({
       status: z.nativeEnum(ScholarshipStatus).optional(),
       completenessStatus: z.nativeEnum(ScholarshipCompletenessState).optional(),
+      country: z.string().min(1).optional(),
       page: z.string().optional().transform(val => val ? parseInt(val, 10) : 1),
       pageSize: z.string().optional().transform(val => val ? parseInt(val, 10) : 20),
     });
@@ -98,7 +105,7 @@ export class ScholarshipAdminRouter {
         fundingAmount: payload.fundingAmount,
         currency: payload.currency,
         duration: payload.duration,
-      });
+      }, mutationContext(req));
 
       res.status(201).json(scholarship);
     }));
@@ -166,38 +173,38 @@ export class ScholarshipAdminRouter {
         dataToUpdate.optionalFields = optionalFields;
       }
 
-      const scholarship = await adminScholarshipUseCases.updateScholarship(req.params.id, dataToUpdate);
+      const scholarship = await adminScholarshipUseCases.updateScholarship(req.params.id, dataToUpdate, mutationContext(req));
       res.json(scholarship);
     }));
 
     // Commands
     router.post('/:id/mark-ready', asyncHandler(async (req: Request, res: Response) => {
-      await adminScholarshipUseCases.markReadyToReview(req.params.id);
+      await adminScholarshipUseCases.markReadyToReview(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 
     router.post('/:id/mark-publishable', asyncHandler(async (req: Request, res: Response) => {
-      await adminScholarshipUseCases.markReadyToPublish(req.params.id);
+      await adminScholarshipUseCases.markReadyToPublish(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 
     router.post('/:id/publish', asyncHandler(async (req: Request, res: Response) => {
-      await adminScholarshipUseCases.publish(req.params.id);
+      await adminScholarshipUseCases.publish(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 
     router.post('/:id/unpublish', asyncHandler(async (req: Request, res: Response) => {
-      await adminScholarshipUseCases.unpublish(req.params.id);
+      await adminScholarshipUseCases.unpublish(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 
     router.post('/:id/reject', asyncHandler(async (req: Request, res: Response) => {
-      await adminScholarshipUseCases.reject(req.params.id);
+      await adminScholarshipUseCases.reject(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 
     router.post('/:id/archive', asyncHandler(async (req: Request, res: Response) => {
-      await adminScholarshipUseCases.archive(req.params.id);
+      await adminScholarshipUseCases.archive(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 

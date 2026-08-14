@@ -1,16 +1,26 @@
 import {
   IUniversityRepository,
+  ITransactionalUniversityRepository,
   PaginatedUniversityResult,
   UniversityCompletenessClassifier,
   UniversityDto,
   UniversityFilters,
   UniversityImportCompletenessState,
   UniversityStatus,
-  UpdateUniversityDto
+  UpdateUniversityDto,
+  PublicationReadinessEngine,
+  PublicationReadinessResult,
+  UniversityPublicationReadinessPolicy
 } from '@manaratak/domain';
+import { AtomicDomainMutationCoordinator, AtomicMutationRequestContext } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
 
 export class AdminUniversityUseCases {
-  constructor(private readonly repository: IUniversityRepository) {}
+  constructor(
+    private readonly repository: IUniversityRepository,
+    private readonly atomicMutations?: AtomicDomainMutationCoordinator,
+    private readonly publicationReadiness = new PublicationReadinessEngine(),
+    private readonly publicationPolicy = new UniversityPublicationReadinessPolicy(),
+  ) {}
 
   public async listUniversities(filters: UniversityFilters): Promise<PaginatedUniversityResult<UniversityDto>> {
     return this.repository.list(filters);
@@ -24,7 +34,7 @@ export class AdminUniversityUseCases {
     return university;
   }
 
-  public async updateUniversity(id: string, updates: UpdateUniversityDto): Promise<UniversityDto> {
+  public async updateUniversity(id: string, updates: UpdateUniversityDto, context?: AtomicMutationRequestContext): Promise<UniversityDto> {
     const existing = await this.getUniversity(id);
 
     const payloadForClassification = {
@@ -39,55 +49,70 @@ export class AdminUniversityUseCases {
 
     const classification = UniversityCompletenessClassifier.classify(payloadForClassification);
 
-    return this.repository.update(id, {
+    return this.mutate('UNIVERSITY_UPDATED', id, context, repository => repository.update(id, {
       ...updates,
       completenessStatus: classification.state
-    });
+    }));
   }
 
-  public async markReadyToReview(id: string): Promise<void> {
+  public async markReadyToReview(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getUniversity(id);
     if (existing.completenessStatus === UniversityImportCompletenessState.INCOMPLETE) {
       throw new Error('Cannot mark INCOMPLETE university as READY_TO_REVIEW');
     }
     if (existing.status !== UniversityStatus.READY_TO_REVIEW) {
-      await this.repository.updateStatus(id, UniversityStatus.READY_TO_REVIEW);
+      await this.mutate('UNIVERSITY_MARKED_READY_TO_REVIEW', id, context, repository => repository.updateStatus(id, UniversityStatus.READY_TO_REVIEW));
     }
   }
 
-  public async markReadyToPublish(id: string): Promise<void> {
+  public async markReadyToPublish(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getUniversity(id);
     if (existing.completenessStatus !== UniversityImportCompletenessState.COMPLETE) {
       throw new Error('Only COMPLETE universities can be marked as READY_TO_PUBLISH');
     }
-    await this.repository.updateStatus(id, UniversityStatus.READY_TO_PUBLISH);
+    this.publicationReadiness.assertReady(id, { ...existing, status: UniversityStatus.READY_TO_PUBLISH }, this.publicationPolicy);
+    await this.mutate('UNIVERSITY_MARKED_READY_TO_PUBLISH', id, context, repository => repository.updateStatus(id, UniversityStatus.READY_TO_PUBLISH));
   }
 
-  public async publish(id: string): Promise<void> {
+  public async checkPublicationReadiness(id: string): Promise<PublicationReadinessResult> {
+    const existing = await this.getUniversity(id);
+    return this.publicationReadiness.evaluate(id, { ...existing, status: UniversityStatus.READY_TO_PUBLISH }, this.publicationPolicy);
+  }
+
+  public async publish(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getUniversity(id);
     if (existing.status !== UniversityStatus.READY_TO_PUBLISH) {
       throw new Error('Only READY_TO_PUBLISH universities can be PUBLISHED');
     }
-    await this.repository.updateStatus(id, UniversityStatus.PUBLISHED);
+    this.publicationReadiness.assertReady(id, existing, this.publicationPolicy);
+    await this.mutate('UNIVERSITY_PUBLISHED', id, context, repository => repository.updateStatus(id, UniversityStatus.PUBLISHED));
   }
 
-  public async unpublish(id: string): Promise<void> {
+  public async unpublish(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getUniversity(id);
     if (existing.status !== UniversityStatus.PUBLISHED) {
       throw new Error('Cannot unpublish a university that is not PUBLISHED');
     }
-    await this.repository.updateStatus(id, UniversityStatus.READY_TO_REVIEW);
+    await this.mutate('UNIVERSITY_UNPUBLISHED', id, context, repository => repository.updateStatus(id, UniversityStatus.READY_TO_REVIEW));
   }
 
-  public async reject(id: string): Promise<void> {
+  public async reject(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getUniversity(id);
     if (existing.status === UniversityStatus.PUBLISHED) {
       throw new Error('Cannot reject a PUBLISHED university. Unpublish first.');
     }
-    await this.repository.updateStatus(id, UniversityStatus.REJECTED);
+    await this.mutate('UNIVERSITY_REJECTED', id, context, repository => repository.updateStatus(id, UniversityStatus.REJECTED));
   }
 
-  public async archive(id: string): Promise<void> {
-    await this.repository.updateStatus(id, UniversityStatus.ARCHIVED);
+  public async archive(id: string, context?: AtomicMutationRequestContext): Promise<void> {
+    await this.mutate('UNIVERSITY_ARCHIVED', id, context, repository => repository.updateStatus(id, UniversityStatus.ARCHIVED));
+  }
+
+  private mutate<T>(action: string, id: string, context: AtomicMutationRequestContext | undefined, mutation: (repository: IUniversityRepository) => Promise<T>): Promise<T> {
+    if (!this.atomicMutations) return mutation(this.repository);
+    const repository = this.repository as Partial<ITransactionalUniversityRepository>;
+    if (!repository.withTransaction) throw new Error('UNIVERSITY_TRANSACTIONAL_PERSISTENCE_REQUIRED');
+    return this.atomicMutations.execute({ domain: 'UNIVERSITIES', aggregateType: 'UNIVERSITY', aggregateId: id, action, context },
+      transaction => mutation(repository.withTransaction!(transaction)));
   }
 }

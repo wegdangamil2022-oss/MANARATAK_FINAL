@@ -271,6 +271,7 @@ export * from './value-objects/Profile';
 export * from './value-objects/TechnicalMetadata';export * from './generated/dummy';
 export * from './universities/universities';
 export * from './universities/UniversityReadinessContracts';
+export * from './universities/UniversityPublicationReadinessPolicy';
 export * from './scholarships/scholarships';
 export * from './majors/enums';
 export * from './majors/majors';

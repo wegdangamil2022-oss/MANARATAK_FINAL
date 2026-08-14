@@ -106,6 +106,36 @@ model ImportRecord {
   @@index([retentionExpiresAt])
 }
 
+// --- Transactional Outbox ---
+
+model TransactionalOutboxRecord {
+  id            String   @id
+  eventType     String
+  domain        String
+  aggregateType String?
+  aggregateId   String?
+  payload       Json
+  metadata      Json
+  correlationId String?
+  causationId   String?
+  state         String   @default("PENDING")
+  attempts      Int      @default(0)
+  availableAt   DateTime @default(now())
+  claimedBy     String?
+  claimUntil    DateTime?
+  processedAt   DateTime?
+  lastErrorCode String?
+  lastErrorText String?
+  lastFailedAt  DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([state, availableAt])
+  @@index([claimUntil])
+  @@index([domain, aggregateType, aggregateId])
+  @@index([correlationId])
+}
+
 // --- Universities ---
 
 model University {
@@ -127,9 +157,248 @@ model University {
   foundedYear          Int?
   sourceImportRecordId String?
   optionalFields       Json?
+  countryReferenceId   String?
+  regionReferenceId    String?
+  cityReferenceId      String?
+  institutionalOwnership String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  countryReference  ReferenceCountry?     @relation(fields: [countryReferenceId], references: [id], onDelete: Restrict)
+  regionReference   AdministrativeRegion? @relation(fields: [regionReferenceId], references: [id], onDelete: SetNull)
+  cityReference     ReferenceCity?         @relation(fields: [cityReferenceId], references: [id], onDelete: SetNull)
+  campuses          UniversityCampus[]
+  organizationUnits UniversityOrganizationUnit[]
+  academicPrograms  UniversityAcademicProgram[]
+  tuitionProfiles   UniversityTuitionProfile[]
+  accommodationProfiles UniversityAccommodationProfile[]
+  rankings          UniversityRanking[]
+  sourceRecords     UniversitySourceRecord[]
+  importChanges     UniversityImportChange[]
+
+  @@index([countryReferenceId])
+  @@index([regionReferenceId])
+  @@index([cityReferenceId])
+}
+
+model UniversityCampus {
+  id String @id @default(uuid())
+  universityId String
+  sourceReferenceId String?
+  name String
+  campusType String?
+  status String @default("ACTIVE")
+  address String?
+  countryReferenceId String?
+  regionReferenceId String?
+  cityReferenceId String?
+  latitude Float?
+  longitude Float?
+  coordinateSource String?
+  metadata Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  countryReference ReferenceCountry? @relation(fields: [countryReferenceId], references: [id], onDelete: Restrict)
+  regionReference AdministrativeRegion? @relation(fields: [regionReferenceId], references: [id], onDelete: SetNull)
+  cityReference ReferenceCity? @relation(fields: [cityReferenceId], references: [id], onDelete: SetNull)
+  organizationUnits UniversityOrganizationUnit[]
+  programLinks UniversityProgramCampus[]
+  @@unique([universityId, sourceReferenceId])
+  @@index([universityId])
+  @@index([countryReferenceId])
+  @@index([regionReferenceId])
+  @@index([cityReferenceId])
+}
+
+model UniversityOrganizationUnit {
+  id String @id @default(uuid())
+  universityId String
+  campusId String?
+  parentOrganizationUnitId String?
+  sourceReferenceId String?
+  unitType String
+  name String
+  normalizedName String
+  status String @default("ACTIVE")
+  metadata Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  campus UniversityCampus? @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  parent UniversityOrganizationUnit? @relation("UniversityOrganizationHierarchy", fields: [parentOrganizationUnitId], references: [id], onDelete: SetNull)
+  children UniversityOrganizationUnit[] @relation("UniversityOrganizationHierarchy")
+  programs UniversityAcademicProgram[]
+  @@unique([universityId, unitType, normalizedName, parentOrganizationUnitId])
+  @@index([universityId])
+  @@index([campusId])
+  @@index([parentOrganizationUnitId])
+}
+
+model UniversityAcademicProgram {
+  id String @id @default(uuid())
+  universityId String
+  organizationUnitId String?
+  sourceReferenceId String?
+  sourceProgramName String
+  normalizedName String
+  degreeLevelId String
+  majorId String?
+  majorMappingState String
+  status String @default("DRAFT")
+  metadata Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  organizationUnit UniversityOrganizationUnit? @relation(fields: [organizationUnitId], references: [id], onDelete: SetNull)
+  degreeLevel DegreeLevel @relation(fields: [degreeLevelId], references: [id], onDelete: Restrict)
+  major Major? @relation(fields: [majorId], references: [id], onDelete: SetNull)
+  campuses UniversityProgramCampus[]
+  admissionRequirements UniversityProgramAdmissionRequirement[]
+  @@unique([universityId, sourceReferenceId])
+  @@index([universityId])
+  @@index([organizationUnitId])
+  @@index([degreeLevelId])
+  @@index([majorId])
+  @@index([majorMappingState])
+}
+
+model UniversityProgramCampus {
+  academicProgramId String
+  campusId String
+  createdAt DateTime @default(now())
+  academicProgram UniversityAcademicProgram @relation(fields: [academicProgramId], references: [id], onDelete: Cascade)
+  campus UniversityCampus @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  @@id([academicProgramId, campusId])
+  @@index([campusId])
+}
+
+model UniversityProgramAdmissionRequirement {
+  id String @id @default(uuid())
+  academicProgramId String
+  internationalTestId String
+  testVariantId String?
+  testVersionId String?
+  minimumScore Float?
+  sectionScores Json?
+  validityMetadata Json?
+  restrictionMetadata Json?
+  status String @default("REVIEW_REQUIRED")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  academicProgram UniversityAcademicProgram @relation(fields: [academicProgramId], references: [id], onDelete: Cascade)
+  internationalTest InternationalTest @relation(fields: [internationalTestId], references: [id], onDelete: Restrict)
+  testVariant InternationalTestVariant? @relation(fields: [testVariantId], references: [id], onDelete: SetNull)
+  testVersion InternationalTestVersion? @relation(fields: [testVersionId], references: [id], onDelete: SetNull)
+  @@unique([academicProgramId, internationalTestId, testVariantId, testVersionId])
+  @@index([internationalTestId])
+  @@index([testVariantId])
+  @@index([testVersionId])
+}
+
+model UniversityTuitionProfile {
+  id String @id @default(uuid())
+  universityId String
+  profileType String
+  organizationUnitName String?
+  amount Decimal? @db.Decimal(18, 2)
+  currencyCode String?
+  officialSourceUrl String?
+  effectiveFrom DateTime?
+  effectiveTo DateTime?
+  metadata Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  @@index([universityId])
+  @@index([profileType])
+}
+
+model UniversityAccommodationProfile {
+  id String @id @default(uuid())
+  universityId String
+  accommodationAvailable Boolean?
+  internationalEligible Boolean?
+  typicalCost Decimal? @db.Decimal(18, 2)
+  currencyCode String?
+  averageMonthlyLivingCost Decimal? @db.Decimal(18, 2)
+  livingCostCurrencyCode String?
+  costVariationNote String?
+  metadata Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  @@index([universityId])
+}
+
+model UniversityRanking {
+  id String @id @default(uuid())
+  universityId String
+  provider String
+  rankingYear Int
+  rank String
+  scope String
+  scopeLabel String?
+  note String?
+  officialSourceUrl String
+  verifiedAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  @@unique([universityId, provider, rankingYear, scope])
+  @@index([provider, rankingYear, scope])
+}
+
+model UniversitySourceRecord {
+  id String @id @default(uuid())
+  universityId String
+  importRecordId String?
+  stage String
+  sourceArtifactId String
+  sourceRowNumber Int?
+  sourceHash String
+  sourceUri String?
+  importedAt DateTime?
+  metadata Json?
+  createdAt DateTime @default(now())
+  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  @@unique([stage, sourceArtifactId, sourceRowNumber])
+  @@index([universityId])
+  @@index([sourceHash])
+}
+
+model UniversityImportChangeSet {
+  id String @id
+  importBatchId String?
+  sourceArtifactId String
+  stage String
+  state String @default("PLANNED")
+  approvedBy String?
+  appliedAt DateTime?
+  rolledBackAt DateTime?
+  createdAt DateTime @default(now())
+  changes UniversityImportChange[]
+  @@index([state])
+  @@index([sourceArtifactId])
+}
+
+model UniversityImportChange {
+  id String @id @default(uuid())
+  changeSetId String
+  universityId String?
+  entityType String
+  entityId String
+  operation String
+  beforeState Json?
+  afterState Json?
+  sequence Int
+  createdAt DateTime @default(now())
+  changeSet UniversityImportChangeSet @relation(fields: [changeSetId], references: [id], onDelete: Cascade)
+  university University? @relation(fields: [universityId], references: [id], onDelete: SetNull)
+  @@unique([changeSetId, sequence])
+  @@index([universityId])
+  @@index([entityType, entityId])
 }
 
 // --- Scholarships ---
@@ -187,6 +456,7 @@ model Major {
   classificationMappings  MajorClassificationMapping[]
   sources                 MajorSource[]
   fellowships             FellowshipDefinition[]       @relation("FellowshipLinkedMajor")
+  universityPrograms      UniversityAcademicProgram[]
 
   @@index([status])
   @@index([completenessStatus])
@@ -471,6 +741,7 @@ model InternationalTest {
   academicTaxonomyRelationships InternationalTestAcademicTaxonomyRelationship[]
   degreeRelationships           InternationalTestDegreeRelationship[]
   equivalencyMappings           InternationalTestEquivalencyMapping[]
+  universityAdmissionRequirements UniversityProgramAdmissionRequirement[]
 
   @@index([status])
   @@index([testCategory])
@@ -554,6 +825,7 @@ model InternationalTestVersion {
   requirements    InternationalTestRequirement[]
   policies        InternationalTestPolicy[]
   contentBlocks   InternationalTestContentBlock[]
+  universityAdmissionRequirements UniversityProgramAdmissionRequirement[]
 
   @@unique([testId, versionNumber])
   @@index([testId])
@@ -596,6 +868,7 @@ model InternationalTestVariant {
   updatedAt DateTime @updatedAt
 
   test InternationalTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  universityAdmissionRequirements UniversityProgramAdmissionRequirement[]
 
   @@index([testId])
   @@index([deliveryMode])
@@ -1194,6 +1467,8 @@ model ReferenceCountry {
   metadata            Json?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+  universities        University[]
+  universityCampuses  UniversityCampus[]
 
   @@index([region])
   @@index([isActive])
@@ -1246,6 +1521,8 @@ model ReferenceCity {
   administrativeRegion   AdministrativeRegion? @relation(fields: [administrativeRegionId], references: [id])
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
+  universities           University[]
+  universityCampuses     UniversityCampus[]
 
   @@index([countryIso2Code])
   @@index([countryIso2Code, name])
@@ -1269,6 +1546,8 @@ model AdministrativeRegion {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
   cities             ReferenceCity[]
+  universities       University[]
+  universityCampuses UniversityCampus[]
 
   @@unique([countryIso2Code, regionCode])
   @@index([countryIso2Code])
@@ -1291,6 +1570,7 @@ model DegreeLevel {
 
   majorProfiles                        MajorLevelProfile[]
   internationalTestDegreeRelationships InternationalTestDegreeRelationship[]
+  universityPrograms                   UniversityAcademicProgram[]
 }
 
 // --- Academic Taxonomy Foundation (Phase 08) ---

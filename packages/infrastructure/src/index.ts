@@ -12,6 +12,8 @@ export class InMemoryCacheExecutionGateway {}
 export class InMemoryIntegrationExecutionGateway {}
 export class InMemorySearchEngineGateway {}
 export * from './event-foundation/InMemoryEventPublishingGateway';
+export * from './event-foundation/PrismaTransactionalOutboxStore';
+export * from './event-foundation/PrismaAtomicPersistenceUnitOfWork';
 export class InMemoryWorkflowExecutionGateway {}
 export * from './universities/PrismaUniversityRepository';
 export * from './scholarships/PrismaScholarshipRepository';
@@ -21,6 +23,7 @@ export * from './majors/Phase10CatalogRepository';
 export * from './international-tests/PrismaInternationalTestRepository';
 export * from './import-foundation/PrismaImportRepository';
 export * from './import-foundation/InMemoryImportQueueGateway';
+export * from './import-foundation/PrismaImportQueueGateway';
 export * from './settings/PrismaSettingDefinitionRepository';
 export * from './settings/PrismaSettingAssignmentRepository';
 
@@ -53,6 +56,7 @@ export class BcryptPasswordHashingService {}
 export * from './authorization/PrismaRoleRepository';
 export * from './authorization/PrismaPolicyRepository';
 export * from './authorization/PrismaRoleAssignmentRepository';
+export * from './authorization/AdminBootstrapVerifier';
 export class MemoryFileRepository {}
 export class S3FileRepository {}
 export class PostgresFileRepository {}

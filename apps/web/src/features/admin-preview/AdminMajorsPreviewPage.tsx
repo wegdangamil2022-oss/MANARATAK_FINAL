@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import {
   BookOpen,
   CheckCircle2,
@@ -155,7 +155,8 @@ function DetailBadge({ count, sourceType, hasDetails }: { count?: number; source
 }
 
 export function AdminMajorsPreviewPage() {
-  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token'));
+  const [searchParams] = useSearchParams();
+  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token')) || import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
   const [majors, setMajors] = useState<MajorListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -169,6 +170,12 @@ export function AdminMajorsPreviewPage() {
   const [totalMajors, setTotalMajors] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const ITEMS_PER_PAGE = 50;
+
+  useEffect(() => {
+    setFieldFilter(searchParams.get('field') ?? '');
+    const requestedDegree = searchParams.get('degree') ?? '';
+    if (degreeOptions.some(option => option.value === requestedDegree)) setDegree(requestedDegree);
+  }, [searchParams]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -415,7 +422,7 @@ export function AdminMajorsPreviewPage() {
                       <div className="mt-4 grid grid-cols-2 gap-2 text-[12px]">
                         <div className="rounded-xl bg-slate-50 p-3">
                           <span className="block font-bold text-slate-400">المجال/الكلية</span>
-                          <span className="mt-1 block font-extrabold text-slate-800">{major.collegeOrField ?? 'غير محدد'}</span>
+                          <span className="mt-1 block font-extrabold text-slate-800">{major.collegeOrField || major.collegeOrFaculty || major.academicFieldOrDiscipline || 'غير موثق في المصدر'}</span>
                         </div>
                         <div className="rounded-xl bg-slate-50 p-3">
                           <span className="block font-bold text-slate-400">اكتمال البيانات</span>

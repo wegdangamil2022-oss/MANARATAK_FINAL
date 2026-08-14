@@ -60,7 +60,7 @@ export function AdminGenericPreviewPage({
   defaultStatus = 'Preview only'
 }: AdminGenericPreviewPageProps) {
   const { t, dir, language } = useTranslation();
-  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token'));
+  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token')) || import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
   
   // Interactive preview state for buttons
   const [activeToast, setActiveToast] = useState<{ show: boolean; msg: string; type: 'success' | 'info' | 'warning' }>({

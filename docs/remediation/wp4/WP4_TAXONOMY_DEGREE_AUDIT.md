@@ -3,7 +3,15 @@
 | Area | Before | After | Remaining limitation |
 |---|---|---|---|
 | Phase 8 to Phase 10 | Taxonomy Admin Router queried `majorClassificationMapping` directly | No Phase 8 source imports or persistence reads from Majors | Reverse display awaits a Phase 10-owned query contract |
-| Reverse mapped-majors display | Phase 8 owned a Major persistence query | Endpoint reports `NOT_CONFIGURED` with HTTP 501 | UI display unavailable until correct contract exists |
+| Reverse mapped-majors display | Phase 8 owned a Major persistence query | Phase 10 Major repository owns a read-only taxonomy reverse lookup consumed through Application | Runtime DB result verification pending |
+
+## Reverse Major Lookup Closure (2026-08-14)
+
+- `IMajorRepository.listByTaxonomyNode` is the Phase 10-owned read contract.
+- `PrismaMajorRepository` reads `MajorClassificationMapping` with its Major/Profile display owners.
+- `AdminMajorUseCases` exposes the query to the Admin API boundary.
+- The Taxonomy Admin endpoint now returns mapped majors and no longer reports `501 NOT_CONFIGURED`.
+- Application and router tests cover delegation and response shape. No schema or database mutation was required.
 | Taxonomy mutation boundary | Router queried Prisma for edge then called a use case | Router delegates lookup and deletion to `removeEdgeByNodes` | Runtime DB/audit verification pending |
 | DegreeLevel mutation boundary | Router called repository directly | `DegreeLevelUseCases` owns list/get/update behavior | Runtime DB/audit verification pending |
 | Degree SSoT | Canonical model existed but local Major union was independently declared | Seven-code canonical type is defined in Phase 8; Major union is a typed subset | Legacy strings remain compatibility inputs |

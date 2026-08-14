@@ -1173,6 +1173,14 @@ export class ApiClient {
     return res.json();
   }
 
+  static async getAdminMajorCollegeFacets(degreeLevel?: string): Promise<{ data: Array<{ name: string; supportedDegrees: string[]; majorCount: number }> }> {
+    const params = new URLSearchParams();
+    if (degreeLevel) params.set('degreeLevel', degreeLevel);
+    const res = await apiFetch(`${API_BASE_URL}/admin/majors/facets/colleges?${params.toString()}`, { headers: getAdminHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch documented college contexts');
+    return res.json();
+  }
+
   static async getAdminMajorProfiles(id: string): Promise<{ data: any[] }> {
     const res = await apiFetch(`${API_BASE_URL}/admin/majors/${encodeURIComponent(id)}/profiles`, {
       headers: getAdminHeaders(),

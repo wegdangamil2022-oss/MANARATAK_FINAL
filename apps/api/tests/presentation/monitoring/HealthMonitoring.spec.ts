@@ -23,6 +23,13 @@ describe('Problem P02 - Health and Readiness Checks', () => {
   });
 
   describe('MonitoringService & Health Indicators', () => {
+    it('returns DOWN and NOT_CONFIGURED when readiness has no indicators', async () => {
+      const readiness = await monitoringService.getReadiness();
+      expect(readiness.status).toBe(HealthStatus.DOWN);
+      expect(readiness.error).toBe('READINESS_NOT_CONFIGURED');
+      expect(readiness.details?.capabilityStatus).toBe('NOT_CONFIGURED');
+    });
+
     it('returns UP for liveness by default', async () => {
       const result = await monitoringService.getLiveness();
       expect(result.status).toBe(HealthStatus.UP);
@@ -114,6 +121,15 @@ describe('Problem P02 - Health and Readiness Checks', () => {
       expect(result.details?.database).toBe('disconnected');
     });
 
+    it('redacts credentials from database errors', async () => {
+      const checker = new DatabaseHealthChecker({
+        $queryRaw: vi.fn().mockRejectedValue(new Error('failed postgresql://user:password@db.internal/app'))
+      });
+      const result = await checker.checkHealth();
+      expect(result.error).not.toContain('user:password');
+      expect(result.error).toContain('postgresql://***@');
+    });
+
     it('returns DOWN when database client is not initialized', async () => {
       const checker = new DatabaseHealthChecker(null);
       const result = await checker.checkHealth();
@@ -162,6 +178,13 @@ describe('Problem P02 - Health and Readiness Checks', () => {
 
       expect(result.status).toBe(HealthStatus.DEGRADED);
       expect(result.error).toContain('Redis cluster down');
+    });
+
+    it('does not report UP when Redis ping response is not PONG', async () => {
+      const checker = new RedisHealthChecker({ ping: vi.fn().mockResolvedValue('OK') });
+      const result = await checker.checkHealth();
+      expect(result.status).toBe(HealthStatus.DEGRADED);
+      expect(result.error).toContain('unexpected response');
     });
   });
 

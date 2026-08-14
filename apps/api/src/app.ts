@@ -222,7 +222,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
         
         monitoringService.registerIndicator({
           name: 'redis',
-          isOptional: currentEnv.NODE_ENV !== 'production',
+          isOptional: !isProductionOrStaging,
           checkHealth: async () => {
             return await redisHealthChecker.checkHealth();
           }

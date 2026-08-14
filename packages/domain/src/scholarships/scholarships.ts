@@ -1,5 +1,11 @@
 import { z } from 'zod';
 import { ScholarshipCompletenessState } from '../generated/dummy';
+import { IScholarshipRepository } from '../generated/dummy';
+import { AtomicPersistenceContext } from '../event-foundation/outbox/TransactionalOutbox';
+
+export interface ITransactionalScholarshipRepository extends IScholarshipRepository {
+  withTransaction(context: AtomicPersistenceContext): IScholarshipRepository;
+}
 
 export const ScholarshipImportPayloadSchema = z.object({
   scholarshipName: z.string(),

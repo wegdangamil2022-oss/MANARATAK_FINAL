@@ -21,3 +21,18 @@ No item in this register was executed locally. Every operation requires the orig
 ## Gate
 
 Do not run migrations, backfills, cleanup, completeness recalculation, or linkage writes until `WP-1 DATABASE RECOVERY GATE` is closed against the original Development Database.
+
+## Atomic Major Admin Mutations (2026-08-13)
+
+- Major update, ready-to-review, ready-to-publish, publish, unpublish, reject, and archive operations now share one business/audit/Outbox transaction boundary.
+- `PrismaMajorRepository.withTransaction` rejects a missing Prisma transaction context.
+- Publication readiness remains evaluated by the Major-owned policy before entering the write boundary.
+- Import promotion continues under the separately governed durable import pipeline; no import, backfill, ID regeneration, or database write occurred here.
+- Runtime rollback proof remains pending the Development database recovery gate.
+
+## Stage 3 Source Closure (2026-08-13)
+
+- Source verification confirms all 3,402 identities: MJR 843, MAS 1,116, DOC 1,114, and FEL 329.
+- No duplicate, malformed, missing-sequence, or catalog-index mismatch was found.
+- Direct import, taxonomy linkage, publication, unpublication, and reconciliation scripts now require the Recovery Gate plus explicit mutation approval.
+- API import promotion is protected by the same gate. Database linkage, orphan, persistence, and rollback evidence remain pending.

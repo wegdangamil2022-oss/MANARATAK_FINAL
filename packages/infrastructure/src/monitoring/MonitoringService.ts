@@ -51,6 +51,14 @@ export class MonitoringService implements IMonitoringService {
 
   async getReadiness(): Promise<HealthCheckResult> {
     const timestamp = new Date().toISOString();
+    if (this.indicators.size === 0) {
+      return {
+        status: HealthStatus.DOWN,
+        timestamp,
+        error: 'READINESS_NOT_CONFIGURED',
+        details: { capabilityStatus: 'NOT_CONFIGURED', indicators: 0 }
+      };
+    }
     const details: Record<string, unknown> = {};
     let overallStatus: HealthStatus = HealthStatus.UP;
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createBrowserRouter, RouterProvider, Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AppShell, Container } from '@manaratak/ui';
 import { CsrfClientManager } from '@manaratak/shared';
 import { Seo, RelatedPublicLinks, Logo } from '../components';
@@ -110,12 +110,13 @@ const RootLayout = () => {
   const location = useLocation();
 
   const isAdminPath = location.pathname.startsWith('/admin') || location.pathname.startsWith('/study-destinations');
+  const isLocalAdminReadOnly = import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
 
   const userEmail = localStorage.getItem('manaratak_user_email');
   const token = localStorage.getItem('manaratak_access_token');
   const isLoggedIn = !!userEmail || !!token;
 
-  if (isAdminPath) {
+  if (isAdminPath && !isLocalAdminReadOnly) {
     return <CanonicalAdminRedirect legacyPath={location.pathname} />;
   }
 
@@ -131,6 +132,28 @@ const RootLayout = () => {
     { to: '/certificates/verify', label: t('nav_verify') },
     { to: '/student/demo-student', label: t('nav_workspace') },
   ];
+  const localAdminLinks = [
+    ['/admin/dashboard', 'الرئيسية'],
+    ['/admin/review-queue', 'المراجعة'],
+    ['/admin/imports', 'الاستيراد'],
+    ['/admin/study-destinations', 'الدول'],
+    ['/admin/academic-taxonomy', 'التصنيف الأكاديمي'],
+    ['/admin/universities', 'الجامعات'],
+    ['/admin/faculties', 'الكليات'],
+    ['/admin/majors', 'التخصصات'],
+    ['/admin/international-tests', 'الاختبارات'],
+    ['/admin/scholarships', 'المنح'],
+    ['/admin/courses', 'الدورات'],
+    ['/admin/services', 'الخدمات'],
+    ['/admin/cms', 'المحتوى'],
+    ['/admin/student-tools', 'أدوات الطلاب'],
+    ['/admin/certificates', 'الشهادات'],
+    ['/admin/finance', 'المالية'],
+    ['/admin/careers', 'الوظائف'],
+    ['/admin/ai-governance', 'حوكمة AI'],
+    ['/admin/health', 'صحة النظام'],
+    ['/admin/settings', 'الإعدادات'],
+  ] as const;
 
   const handleLogout = () => {
     localStorage.removeItem('manaratak_demo_email');
@@ -289,6 +312,28 @@ const RootLayout = () => {
       }
     >
       <Container className="px-4 py-6 sm:py-10 max-w-7xl mx-auto">
+        {isAdminPath && isLocalAdminReadOnly && (
+          <>
+            <div className="mb-3 border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-bold text-amber-900" role="status">
+              معاينة محلية للقراءة فقط. الحفظ والاستيراد والنشر وجميع تعديلات قاعدة البيانات محظورة.
+            </div>
+            <nav aria-label="التنقل الإداري المحلي" className="mb-5 flex min-h-12 items-center gap-1 overflow-x-auto border-y border-slate-200 bg-white px-2 py-2">
+              {localAdminLinks.map(([path, label]) => (
+                <Link
+                  key={path}
+                  to={path}
+                  className={`flex min-h-9 shrink-0 items-center px-3 text-xs font-bold transition-colors ${
+                    location.pathname === path || (path !== '/admin/dashboard' && location.pathname.startsWith(`${path}/`))
+                      ? 'bg-[#0F4B3A] text-white'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-[#0F4B3A]'
+                  }`}
+                >
+                  {label}
+                </Link>
+              ))}
+            </nav>
+          </>
+        )}
         <React.Suspense fallback={<PageLoadingFallback />}>
           <Outlet />
         </React.Suspense>
@@ -844,6 +889,7 @@ const router = createBrowserRouter([
 
 function AdminAccessBridgePage() {
   const { t } = useTranslation();
+  const isLocalAdminReadOnly = import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
   const [loading, setLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
 
@@ -889,6 +935,10 @@ function AdminAccessBridgePage() {
     checkAdminAuth();
     return () => { active = false; };
   }, []);
+
+  if (isLocalAdminReadOnly) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
 
   if (loading) {
     return <PageLoadingFallback />;

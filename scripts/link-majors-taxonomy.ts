@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
+import { requireDatabaseMutationGate } from './lib/require-database-mutation-gate';
 import {
   AcademicTaxonomyResolver,
   TaxonomyResolutionOutcome,
@@ -34,6 +35,7 @@ interface DegreeLevelStats {
 }
 
 async function runLinkage() {
+  requireDatabaseMutationGate('link-majors-taxonomy');
   const args = process.argv.slice(2);
   const isDryRun = args.includes('--dry-run') || !args.includes('--execute');
 

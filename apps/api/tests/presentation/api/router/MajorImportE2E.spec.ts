@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { container, registerDependencies } from '../../../../src/infrastructure/di/container';
 
-describe('Major Import Promotion DB Tests (MAS-0501 to MAS-1116)', () => {
+const databaseUrl = process.env.DATABASE_URL ?? '';
+const hasDatabase = databaseUrl.length > 0
+  && !databaseUrl.includes('placeholder')
+  && !databaseUrl.includes('postgres-host');
+const describeWithDatabase = hasDatabase ? describe : describe.skip;
+
+describeWithDatabase('Major Import Promotion DB Tests (MAS-0501 to MAS-1116)', () => {
   it('MAS-0501 does not return MAS-0001 content', async () => {
     registerDependencies();
     const prisma = container.resolve('prisma') as any;

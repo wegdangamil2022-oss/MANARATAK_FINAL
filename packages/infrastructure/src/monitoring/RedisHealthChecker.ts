@@ -36,13 +36,16 @@ export class RedisHealthChecker {
         throw new Error('Redis client lacks ping capability');
       }
 
-      await Promise.race([queryPromise, timeoutPromise]);
+      const response = await Promise.race([queryPromise, timeoutPromise]);
+      if (typeof this.client.ping === 'function' && response !== 'PONG') {
+        throw new Error('Redis ping returned an unexpected response');
+      }
       const latencyMs = Date.now() - start;
 
       return {
         status: HealthStatus.UP,
         timestamp: checkedAt,
-        details: { redis: 'connected', latencyMs }
+        details: { redis: 'connected', capabilityStatus: 'AVAILABLE', latencyMs }
       };
     } catch (err: any) {
       const latencyMs = Date.now() - start;
@@ -53,7 +56,7 @@ export class RedisHealthChecker {
         status: HealthStatus.DEGRADED,
         timestamp: checkedAt,
         error: safeErrorMsg,
-        details: { redis: 'disconnected', latencyMs, optional: true }
+        details: { redis: 'disconnected', capabilityStatus: 'UNAVAILABLE', latencyMs, optional: true }
       };
     }
   }

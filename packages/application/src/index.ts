@@ -42,6 +42,7 @@ export * from './notification/use-cases/ManageNotificationTemplatesUseCase';
 // Audit Use Cases
 export * from './audit/dtos/AuditDtos';
 export * from './audit/use-cases/ManageAuditRecordsUseCase';
+export * from './audit/use-cases/AtomicAuditedMutationExecutor';
 
 // Search Use Cases
 export * from './search/dtos/SearchDtos';
@@ -63,7 +64,11 @@ export * from './background-jobs/use-cases/ManageBackgroundJobsUseCase';
 // Event Foundation Use Cases
 export * from './event-foundation/dtos/EventFoundationDtos';
 export * from './event-foundation/gateways/IEventPublishingGateway';
+export * from './event-foundation/gateways/IAtomicPersistenceUnitOfWork';
 export * from './event-foundation/use-cases/ManageEnterpriseEventsUseCase';
+export * from './event-foundation/use-cases/TransactionalOutboxDispatcher';
+export * from './event-foundation/use-cases/AtomicAuditedOutboxMutationExecutor';
+export * from './event-foundation/use-cases/AtomicDomainMutationCoordinator';
 
 
 // Workflow

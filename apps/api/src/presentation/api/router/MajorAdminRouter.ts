@@ -16,6 +16,12 @@ export class MajorAdminRouter {
     const asyncHandler = (fn: RouteHandler) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
     };
+    const mutationContext = (req: Request) => ({
+      actorId: (req as any).user?.id || (req as any).user?.identityId || 'SYSTEM',
+      actorType: (req as any).user?.type || 'IDENTITY',
+      correlationId: (req.headers['x-correlation-id'] as string | undefined) || (req.headers['x-request-id'] as string | undefined),
+      source: 'admin-major-api',
+    });
 
     const listQuerySchema = z.object({
       status: z.nativeEnum(MajorStatus).optional(),
@@ -61,6 +67,11 @@ export class MajorAdminRouter {
       const result = await adminMajorUseCases.listMajors(filters);
       console.log("[MajorAdminRouter GET /]", "has catalogRepository?", !!adminMajorUseCases["catalogRepository"], "filters:", filters, "total:", result.total);
       res.json(result);
+    }));
+
+    router.get('/facets/colleges', asyncHandler(async (req: Request, res: Response) => {
+      const degreeLevel = typeof req.query.degreeLevel === 'string' ? req.query.degreeLevel : undefined;
+      res.json({ data: adminMajorUseCases.listCollegeFacets(degreeLevel) });
     }));
 
     router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
@@ -137,37 +148,37 @@ export class MajorAdminRouter {
         dataToUpdate.optionalFields = optionalFields;
       }
 
-      const major = await adminMajorUseCases.updateMajor(req.params.id, dataToUpdate);
+      const major = await adminMajorUseCases.updateMajor(req.params.id, dataToUpdate, mutationContext(req));
       res.json(major);
     }));
 
     router.post('/:id/mark-ready', asyncHandler(async (req: Request, res: Response) => {
-      await adminMajorUseCases.markReadyToReview(req.params.id);
+      await adminMajorUseCases.markReadyToReview(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 
     router.post('/:id/mark-publishable', asyncHandler(async (req: Request, res: Response) => {
-      await adminMajorUseCases.markReadyToPublish(req.params.id);
+      await adminMajorUseCases.markReadyToPublish(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 
     router.post('/:id/publish', asyncHandler(async (req: Request, res: Response) => {
-      await adminMajorUseCases.publish(req.params.id);
+      await adminMajorUseCases.publish(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 
     router.post('/:id/unpublish', asyncHandler(async (req: Request, res: Response) => {
-      await adminMajorUseCases.unpublish(req.params.id);
+      await adminMajorUseCases.unpublish(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 
     router.post('/:id/reject', asyncHandler(async (req: Request, res: Response) => {
-      await adminMajorUseCases.reject(req.params.id);
+      await adminMajorUseCases.reject(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 
     router.post('/:id/archive', asyncHandler(async (req: Request, res: Response) => {
-      await adminMajorUseCases.archive(req.params.id);
+      await adminMajorUseCases.archive(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 

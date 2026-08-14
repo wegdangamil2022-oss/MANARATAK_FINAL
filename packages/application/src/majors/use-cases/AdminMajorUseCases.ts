@@ -1,5 +1,6 @@
 import {
   IMajorRepository,
+  ITransactionalMajorRepository,
   MajorAliasDto,
   MajorClassificationMappingDto,
   MajorContentSectionDto,
@@ -16,15 +17,18 @@ import {
   PaginatedMajorResult,
   PublicationReadinessEngine,
   PublicationReadinessResult,
+  TaxonomyMappedMajorDto,
   UpdateMajorDto
 } from '@manaratak/domain';
+import { AtomicDomainMutationCoordinator, AtomicMutationRequestContext } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
 
 export class AdminMajorUseCases {
   constructor(
     private readonly repository: IMajorRepository,
-    private readonly catalogRepository?: { listCatalog: (filters: any) => Promise<any> },
+    private readonly catalogRepository?: { listCatalog: (filters: any) => Promise<any>; getCatalogItem?: (id: string) => any; getCatalogContentSections?: (id: string) => any[]; getCatalogSource?: (id: string) => any[]; listCollegeFacets?: (degreeLevel?: string) => any[] },
     private readonly publicationReadiness = new PublicationReadinessEngine(),
-    private readonly publicationPolicy = new MajorPublicationReadinessPolicy()
+    private readonly publicationPolicy = new MajorPublicationReadinessPolicy(),
+    private readonly atomicMutations?: AtomicDomainMutationCoordinator,
   ) {}
 
   public async listMajors(filters: MajorFilters & { catalog?: string }): Promise<PaginatedMajorResult<any>> {
@@ -35,7 +39,15 @@ export class AdminMajorUseCases {
   }
 
   public async getMajor(id: string): Promise<MajorDto> {
+    if (id.startsWith('cat-') && this.catalogRepository?.getCatalogItem) {
+      const catalog = this.catalogRepository.getCatalogItem(id);
+      if (catalog) return { ...catalog, publicId: catalog.code, canonicalName: catalog.nameEn || catalog.displayName, canonicalDedupKey: catalog.code } as MajorDto;
+    }
     const major = await this.repository.findById(id);
+    if (!major && this.catalogRepository?.getCatalogItem) {
+      const catalog = this.catalogRepository.getCatalogItem(id);
+      if (catalog) return { ...catalog, publicId: catalog.code, canonicalName: catalog.nameEn || catalog.displayName, canonicalDedupKey: catalog.code } as MajorDto;
+    }
     if (!major) {
       throw new Error(`Major with id ${id} not found`);
     }
@@ -43,16 +55,24 @@ export class AdminMajorUseCases {
   }
 
   public async listVersions(id: string): Promise<MajorVersionDto[]> {
+    if (id.startsWith('cat-')) return [];
     await this.getMajor(id);
     return this.repository.listVersions ? this.repository.listVersions(id) : [];
   }
 
   public async listLevelProfiles(id: string): Promise<MajorLevelProfileDto[]> {
+    if (id.startsWith('cat-')) {
+      const item = this.catalogRepository?.getCatalogItem?.(id);
+      return item ? [{ id: item.id, code: item.code, level: item.catalogKind, displayName: item.displayName, localizedNameAr: item.nameAr, localizedNameEn: item.nameEn, collegeContext: item.collegeOrFaculty || item.collegeOrField }] as MajorLevelProfileDto[] : [];
+    }
     await this.getMajor(id);
     return this.repository.listLevelProfiles ? this.repository.listLevelProfiles(id) : [];
   }
 
   public async listContentSections(id: string): Promise<MajorContentSectionDto[]> {
+    if (id.startsWith('cat-') && this.catalogRepository?.getCatalogContentSections) return this.catalogRepository.getCatalogContentSections(id) as MajorContentSectionDto[];
+    const major = await this.repository.findById(id);
+    if (!major && this.catalogRepository?.getCatalogContentSections) return this.catalogRepository.getCatalogContentSections(id) as MajorContentSectionDto[];
     await this.getMajor(id);
     return this.repository.listContentSections ? this.repository.listContentSections(id) : [];
   }
@@ -73,11 +93,23 @@ export class AdminMajorUseCases {
   }
 
   public async listSources(id: string): Promise<MajorSourceDto[]> {
+    if (id.startsWith('cat-') && this.catalogRepository?.getCatalogSource) return this.catalogRepository.getCatalogSource(id) as MajorSourceDto[];
+    const major = await this.repository.findById(id);
+    if (!major && this.catalogRepository?.getCatalogSource) return this.catalogRepository.getCatalogSource(id) as MajorSourceDto[];
     await this.getMajor(id);
     return this.repository.listSources ? this.repository.listSources(id) : [];
   }
 
-  public async updateMajor(id: string, updates: UpdateMajorDto): Promise<MajorDto> {
+  public listCollegeFacets(degreeLevel?: string) { return this.catalogRepository?.listCollegeFacets?.(degreeLevel) ?? []; }
+
+  public async listByTaxonomyNode(taxonomyNodeId: string): Promise<TaxonomyMappedMajorDto[]> {
+    if (!this.repository.listByTaxonomyNode) {
+      throw new Error('MAJOR_TAXONOMY_REVERSE_LOOKUP_UNAVAILABLE');
+    }
+    return this.repository.listByTaxonomyNode(taxonomyNodeId);
+  }
+
+  public async updateMajor(id: string, updates: UpdateMajorDto, context?: AtomicMutationRequestContext): Promise<MajorDto> {
     const existing = await this.getMajor(id);
 
     const payloadForClassification = {
@@ -95,30 +127,30 @@ export class AdminMajorUseCases {
 
     const classification = MajorCompletenessClassifier.classify(payloadForClassification);
 
-    return this.repository.update(id, {
+    return this.mutate('MAJOR_UPDATED', id, context, repository => repository.update(id, {
       ...updates,
       completenessStatus: classification.state
-    });
+    }));
   }
 
-  public async markReadyToReview(id: string): Promise<void> {
+  public async markReadyToReview(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getMajor(id);
     if (existing.completenessStatus === MajorImportCompletenessState.INCOMPLETE) {
       throw new Error('Cannot mark INCOMPLETE major as READY_TO_REVIEW');
     }
     if (existing.status !== MajorStatus.READY_TO_REVIEW) {
-      await this.repository.updateStatus(id, MajorStatus.READY_TO_REVIEW);
+      await this.mutate('MAJOR_MARKED_READY_TO_REVIEW', id, context, repository => repository.updateStatus(id, MajorStatus.READY_TO_REVIEW));
     }
   }
 
-  public async markReadyToPublish(id: string): Promise<void> {
+  public async markReadyToPublish(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getMajor(id);
     this.publicationReadiness.assertReady(
       id,
       { ...existing, status: MajorStatus.READY_TO_PUBLISH },
       this.publicationPolicy
     );
-    await this.repository.updateStatus(id, MajorStatus.READY_TO_PUBLISH);
+    await this.mutate('MAJOR_MARKED_READY_TO_PUBLISH', id, context, repository => repository.updateStatus(id, MajorStatus.READY_TO_PUBLISH));
   }
 
   public async checkPublicationReadiness(id: string): Promise<PublicationReadinessResult> {
@@ -126,29 +158,37 @@ export class AdminMajorUseCases {
     return this.publicationReadiness.evaluate(id, existing, this.publicationPolicy);
   }
 
-  public async publish(id: string): Promise<void> {
+  public async publish(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getMajor(id);
     this.publicationReadiness.assertReady(id, existing, this.publicationPolicy);
-    await this.repository.updateStatus(id, MajorStatus.PUBLISHED);
+    await this.mutate('MAJOR_PUBLISHED', id, context, repository => repository.updateStatus(id, MajorStatus.PUBLISHED));
   }
 
-  public async unpublish(id: string): Promise<void> {
+  public async unpublish(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getMajor(id);
     if (existing.status !== MajorStatus.PUBLISHED) {
       throw new Error('Cannot unpublish a major that is not PUBLISHED');
     }
-    await this.repository.updateStatus(id, MajorStatus.READY_TO_REVIEW);
+    await this.mutate('MAJOR_UNPUBLISHED', id, context, repository => repository.updateStatus(id, MajorStatus.READY_TO_REVIEW));
   }
 
-  public async reject(id: string): Promise<void> {
+  public async reject(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getMajor(id);
     if (existing.status === MajorStatus.PUBLISHED) {
       throw new Error('Cannot reject a PUBLISHED major. Unpublish first.');
     }
-    await this.repository.updateStatus(id, MajorStatus.REJECTED);
+    await this.mutate('MAJOR_REJECTED', id, context, repository => repository.updateStatus(id, MajorStatus.REJECTED));
   }
 
-  public async archive(id: string): Promise<void> {
-    await this.repository.updateStatus(id, MajorStatus.ARCHIVED);
+  public async archive(id: string, context?: AtomicMutationRequestContext): Promise<void> {
+    await this.mutate('MAJOR_ARCHIVED', id, context, repository => repository.updateStatus(id, MajorStatus.ARCHIVED));
+  }
+
+  private mutate<T>(action: string, id: string, context: AtomicMutationRequestContext | undefined, mutation: (repository: IMajorRepository) => Promise<T>): Promise<T> {
+    if (!this.atomicMutations) return mutation(this.repository);
+    const repository = this.repository as Partial<ITransactionalMajorRepository>;
+    if (!repository.withTransaction) throw new Error('MAJOR_TRANSACTIONAL_PERSISTENCE_REQUIRED');
+    return this.atomicMutations.execute({ domain: 'MAJORS', aggregateType: 'MAJOR', aggregateId: id, action, context },
+      transaction => mutation(repository.withTransaction!(transaction)));
   }
 }

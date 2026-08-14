@@ -57,7 +57,9 @@ export class MutationAuditMiddleware {
         auditEvent: 'MUTATION_INTENT',
         requestedMethod: req.method,
         requestedPath: req.originalUrl.split('?')[0],
-        classification
+        classification,
+        atomicity: 'REQUEST_OUTCOME_ONLY',
+        atomicBusinessAuditRequired: classification === 'CRITICAL_AUDIT_REQUIRED'
       };
 
       try {

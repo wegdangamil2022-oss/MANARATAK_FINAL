@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { container, registerDependencies } from '../../../../src/infrastructure/di/container';
 
-describe('Check DB E2E', () => {
+const databaseUrl = process.env.DATABASE_URL ?? '';
+const hasDatabase = databaseUrl.length > 0
+  && !databaseUrl.includes('placeholder')
+  && !databaseUrl.includes('postgres-host');
+const describeWithDatabase = hasDatabase ? describe : describe.skip;
+
+describeWithDatabase('Check DB E2E', () => {
   it('print MAS-1116', async () => {
     registerDependencies();
     const prisma = container.resolve('prisma') as any;

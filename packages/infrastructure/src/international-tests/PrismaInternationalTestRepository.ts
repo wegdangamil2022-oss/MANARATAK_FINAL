@@ -1,6 +1,8 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import { 
   IInternationalTestRepository,
+  ITransactionalInternationalTestRepository,
+  AtomicPersistenceContext,
   InternationalTestDto, 
   UpsertInternationalTestDto,
   InternationalTestFilters,
@@ -35,7 +37,8 @@ const defaultInclude = {
   officialLinks: true,
   availability: true,
   preparationMaterials: true,
-  evidence: true
+  evidence: true,
+  countryRelationships: true
 };
 
 type InternationalTestVersionRecord = {
@@ -80,8 +83,18 @@ type InternationalTestContentBlockCreateInput = {
   metadata?: Record<string, unknown>;
 };
 
-export class PrismaInternationalTestRepository implements IInternationalTestRepository {
+interface InternationalTestTransactionContext extends AtomicPersistenceContext {
+  readonly transactionClient: Prisma.TransactionClient;
+}
+
+export class PrismaInternationalTestRepository implements ITransactionalInternationalTestRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  withTransaction(context: AtomicPersistenceContext): IInternationalTestRepository {
+    const transactionClient = (context as Partial<InternationalTestTransactionContext>).transactionClient;
+    if (!context.boundaryId || !transactionClient) throw new Error('INTERNATIONAL_TEST_ATOMIC_TRANSACTION_CONTEXT_REQUIRED');
+    return new PrismaInternationalTestRepository(transactionClient as unknown as PrismaClient);
+  }
 
   // --- Legacy & Core Methods ---
 
@@ -254,6 +267,12 @@ export class PrismaInternationalTestRepository implements IInternationalTestRepo
 
     if (filters?.providerName) {
       where.providerName = filters.providerName;
+    }
+
+    if (filters?.countryIso2Code) {
+      where.countryRelationships = {
+        some: { countryIso2Code: filters.countryIso2Code.toUpperCase() }
+      };
     }
 
     if (filters?.completenessStatus) {

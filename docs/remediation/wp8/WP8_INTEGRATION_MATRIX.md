@@ -22,3 +22,10 @@ This matrix records source contracts. Runtime, persistence, and data evidence re
 - Phase 8 owns DegreeLevel and academic taxonomy semantics and does not depend on Phase 10 persistence.
 - Presentation and Admin depend on application contracts, not Prisma.
 - No University import is authorized or implemented by WP8.
+# Country Detail Scholarship Wiring (2026-08-13)
+
+- The Country detail screen queries the Scholarship owner API using the existing `studyCountry` filter.
+- The Admin Scholarship route now passes this filter to the repository instead of silently dropping it.
+- No scholarship source directory currently exists under `workspace/import-sources`; consequently no scholarship-country records were invented or imported.
+- `targetUniversities` and `targetAcademicPrograms` remain optional free-text arrays in the current persistence contract. They are not presented as canonical University/Major relationships.
+- Database writes in this preparation: `0`.

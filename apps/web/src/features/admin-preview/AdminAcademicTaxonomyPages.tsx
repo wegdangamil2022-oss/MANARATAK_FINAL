@@ -1,6 +1,6 @@
 import { Navigate, useLocation, useParams } from 'react-router-dom';
 
-const ADMIN_APP_URL = (import.meta.env.VITE_ADMIN_APP_URL || 'http://localhost:4174').replace(/\/$/, '');
+const ADMIN_APP_URL = (import.meta.env.VITE_ADMIN_APP_URL || 'http://127.0.0.1:3001').replace(/\/$/, '');
 
 function AdminAppRedirect({ detail = false }: { detail?: boolean }) {
   const location = useLocation();

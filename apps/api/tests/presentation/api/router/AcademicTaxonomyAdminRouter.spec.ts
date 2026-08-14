@@ -69,16 +69,40 @@ describe('AcademicTaxonomyAdminRouter', () => {
       update: vi.fn().mockResolvedValue(null),
     };
     const app = express();
+    const adminMajorUseCases = {
+      listByTaxonomyNode: vi.fn().mockResolvedValue([]),
+    };
     app.use(express.json());
     app.use(
       '/admin/academic-taxonomy',
       AcademicTaxonomyAdminRouter.create({
         adminAcademicTaxonomyUseCases: useCases as any,
+        adminMajorUseCases: adminMajorUseCases as any,
         degreeLevelUseCases: degreeLevelUseCases as any,
       })
     );
     return app;
   };
+
+  it('GET /admin/academic-taxonomy/nodes/:nodeId/mapped-majors returns Major-owned mappings', async () => {
+    const useCases = createUseCases();
+    const degreeLevelUseCases = { list: vi.fn(), getById: vi.fn(), update: vi.fn() };
+    const adminMajorUseCases = {
+      listByTaxonomyNode: vi.fn().mockResolvedValue([{ id: 'mapping-1', relationshipType: 'PRIMARY' }]),
+    };
+    const app = express();
+    app.use('/admin/academic-taxonomy', AcademicTaxonomyAdminRouter.create({
+      adminAcademicTaxonomyUseCases: useCases as any,
+      adminMajorUseCases: adminMajorUseCases as any,
+      degreeLevelUseCases: degreeLevelUseCases as any,
+    }));
+
+    const res = await request(app).get('/admin/academic-taxonomy/nodes/taxonomy-1/mapped-majors');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual([{ id: 'mapping-1', relationshipType: 'PRIMARY' }]);
+    expect(adminMajorUseCases.listByTaxonomyNode).toHaveBeenCalledWith('taxonomy-1');
+  });
 
   it('POST /admin/academic-taxonomy/nodes/validate calls validateNode and returns report', async () => {
     const useCases = createUseCases();

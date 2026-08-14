@@ -1,7 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { ISpecification } from '@manaratak/core';
 import {
-  IAuditRecordRepository,
+  ITransactionalAuditRecordRepository,
+  AtomicPersistenceContext,
   AuditRecord,
   AuditId,
   AuditReference,
@@ -21,6 +22,7 @@ import {
   AuditLifecycleState
 } from '@manaratak/domain';
 import { AuditSecretSanitizer } from './AuditSecretSanitizer';
+import type { PrismaAtomicPersistenceContext } from '../event-foundation/PrismaTransactionalOutboxStore';
 
 export interface AuditRecordRow {
   id: string;
@@ -60,7 +62,7 @@ export interface AuditPrismaClient {
   auditRecord: PrismaAuditRecordDelegate;
 }
 
-export class PrismaAuditRecordRepository implements IAuditRecordRepository {
+export class PrismaAuditRecordRepository implements ITransactionalAuditRecordRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   private get client(): AuditPrismaClient {
@@ -131,6 +133,17 @@ export class PrismaAuditRecordRepository implements IAuditRecordRepository {
   }
 
   async save(record: AuditRecord): Promise<void> {
+    await this.saveWithClient(record, this.client);
+  }
+
+  async saveInTransaction(record: AuditRecord, context: AtomicPersistenceContext): Promise<void> {
+    const transactionClient = (context as Partial<PrismaAtomicPersistenceContext>).transactionClient;
+    const client = (transactionClient as unknown as Partial<AuditPrismaClient> | undefined)?.auditRecord;
+    if (!context.boundaryId || !client) throw new Error('AUDIT_ATOMIC_TRANSACTION_CONTEXT_REQUIRED');
+    await this.saveWithClient(record, { auditRecord: client });
+  }
+
+  private async saveWithClient(record: AuditRecord, client: AuditPrismaClient): Promise<void> {
     const sanitizedContext = AuditSecretSanitizer.sanitize(record.getContextMetadata().getData());
 
     const data = {
@@ -155,7 +168,7 @@ export class PrismaAuditRecordRepository implements IAuditRecordRepository {
       lifecycleState: record.getLifecycleState(),
     };
 
-    await this.client.auditRecord.upsert({
+    await client.auditRecord.upsert({
       where: { id: data.id },
       update: data,
       create: data,

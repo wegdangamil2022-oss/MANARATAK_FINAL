@@ -67,17 +67,18 @@ export function ScholarshipListPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="mx-auto max-w-7xl space-y-6">
+      <header className="flex flex-col gap-5 rounded-3xl bg-gradient-to-r from-[#0F4B3A] via-[#155e49] to-[#0a382b] p-6 text-white shadow-xl sm:p-8 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-2xl font-bold">{t('imported_scholarships')}</h2>
-          <p className="text-xs text-slate-500 mt-1">{t('scholarship_imported_not_show_here_helper') || "Imported records do not appear here until promoted into scholarship catalog records."}</p>
+          <div className="mb-2 text-sm font-bold text-emerald-300">Scholarship catalog</div>
+          <h2 className="text-3xl font-black sm:text-4xl">{t('imported_scholarships')}</h2>
+          <p className="mt-2 max-w-2xl text-sm font-medium text-emerald-100/90">{t('scholarship_imported_not_show_here_helper') || "Imported records do not appear here until promoted into scholarship catalog records."}</p>
         </div>
         
         <div className="flex flex-wrap gap-3">
           <button
             onClick={() => navigate('/admin/imports?dataType=SCHOLARSHIPS')}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-bold transition-all"
+            className="min-h-11 rounded-xl border border-white/20 bg-white/10 px-4 text-xs font-bold text-white transition-all hover:bg-white/20"
           >
             {t('view_imported_records') || "View Imported Records"}
           </button>
@@ -86,7 +87,7 @@ export function ScholarshipListPage() {
             <select 
               value={statusFilter} 
               onChange={handleStatusChange}
-              className="appearance-none bg-white border border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-black"
+              className="min-h-11 appearance-none rounded-xl border border-white/20 bg-white/10 py-2 pl-3 pr-10 text-sm font-semibold text-white outline-none"
             >
               <option value="">{t('all_statuses')}</option>
               <option value="IMPORTED">{t('imported')}</option>
@@ -103,7 +104,7 @@ export function ScholarshipListPage() {
             <select 
               value={completenessFilter} 
               onChange={handleCompletenessChange}
-              className="appearance-none bg-white border border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-black"
+              className="min-h-11 appearance-none rounded-xl border border-white/20 bg-white/10 py-2 pl-3 pr-10 text-sm font-semibold text-white outline-none"
             >
               <option value="">{t('all_completeness')}</option>
               <option value="COMPLETE">{t('complete')}</option>
@@ -113,7 +114,7 @@ export function ScholarshipListPage() {
             <Filter className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Transfer Flow Diagram Alert */}
       <div className="bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-4 flex flex-col md:flex-row gap-3 items-start md:items-center justify-between shadow-sm">
@@ -136,7 +137,7 @@ export function ScholarshipListPage() {
           <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>

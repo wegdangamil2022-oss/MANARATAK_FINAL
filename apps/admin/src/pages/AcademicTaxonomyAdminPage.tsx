@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { adminApiClient } from '../api/client';
 import { useTranslation } from '../i18n/I18nProvider';
 import { Loader2, Search, Filter, Plus, Edit, X } from 'lucide-react';
+import { AcademicTaxonomyDeterministicKey, iscedFBaselineNodes } from '@manaratak/domain';
 
 interface AcademicTaxonomyNode {
   nodeId: string;
@@ -27,6 +28,7 @@ interface DegreeLevel {
 export function AcademicTaxonomyAdminPage() {
   const { language } = useTranslation();
   const isAr = language === 'ar';
+  const localReadOnly = import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
 
   const [activeMainTab, setActiveMainTab] = useState<'taxonomy' | 'degrees'>('taxonomy');
 
@@ -77,6 +79,20 @@ export function AcademicTaxonomyAdminPage() {
     setLoadingNodes(true);
     setNodesError(null);
     try {
+      if (localReadOnly) {
+        const query = searchQuery.trim().toLocaleLowerCase();
+        const previewNodes = iscedFBaselineNodes
+          .filter((node) => filters.nodeType === 'all' || node.nodeType === filters.nodeType)
+          .filter((node) => filters.standardType === 'all' || node.standardType === filters.standardType)
+          .filter((node) => filters.status === 'all' || node.status === filters.status)
+          .filter((node) => !query || node.canonicalCode.toLocaleLowerCase().includes(query) || node.canonicalName.toLocaleLowerCase().includes(query))
+          .map((node) => ({
+            ...node,
+            nodeId: AcademicTaxonomyDeterministicKey.create(node),
+          }));
+        setNodes(previewNodes);
+        return;
+      }
       const params = new URLSearchParams();
       params.set('page', '1');
       params.set('pageSize', '50');
@@ -86,7 +102,7 @@ export function AcademicTaxonomyAdminPage() {
       if (filters.status !== 'all') params.append('status', filters.status);
 
       // Using the authorized admin endpoint
-      const endpoint = `/admin/academic-taxonomy/nodes?${params.toString()}`;
+      const endpoint = `${localReadOnly ? '/academic-taxonomy' : '/admin/academic-taxonomy'}/nodes?${params.toString()}`;
       const response = await adminApiClient.request<{ data: AcademicTaxonomyNode[] }>(endpoint);
       setNodes(response.data || []);
     } catch (err) {
@@ -103,6 +119,14 @@ export function AcademicTaxonomyAdminPage() {
   const fetchDegreeLevels = async () => {
     setLoadingDegrees(true);
     setDegreesError(null);
+    if (localReadOnly) {
+      setDegreeLevels([]);
+      setDegreesError(isAr
+        ? 'الدرجات العلمية متاحة من لوحة الإدارة بعد الاتصال بقاعدة البيانات.'
+        : 'Degree levels are available in the admin console after the database is connected.');
+      setLoadingDegrees(false);
+      return;
+    }
     try {
       const response = await adminApiClient.request<{ data: DegreeLevel[] }>('/admin/academic-taxonomy/degree-levels');
       setDegreeLevels(response.data || []);
@@ -249,7 +273,7 @@ export function AcademicTaxonomyAdminPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {activeMainTab === 'taxonomy' && (
+          {activeMainTab === 'taxonomy' && !localReadOnly && (
             <button
               onClick={() => setShowAddNodeModal(true)}
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-2 text-xs"
@@ -477,6 +501,7 @@ export function AcademicTaxonomyAdminPage() {
                         <td className={`px-6 py-4 ${isAr ? 'text-left' : 'text-right'}`}>
                           <button
                             onClick={() => openEditDegreeModal(degree)}
+                            disabled={localReadOnly}
                             className="text-slate-700 hover:text-slate-900 font-bold bg-slate-100 hover:bg-slate-200/80 border border-slate-200 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-[11px] inline-flex"
                           >
                             <Edit className="h-3 w-3" />

@@ -133,6 +133,133 @@ export interface UniversityImportDryRunResult {
   databaseWrites: 0;
 }
 
+export interface UniversityStage2EnrichmentPayload {
+  sourceReferenceId: UniversitySourceReferenceId;
+  originalImportedName?: string;
+  countryName: string;
+  countryIso3: string;
+  originalCity?: string;
+  originalInstitutionType?: string;
+  originalOwnership?: string;
+  originalWebsiteUrl?: string;
+  originalSourceUrl?: string;
+  officialEnglishName: string;
+  officialLocalName?: string;
+  officialAbbreviation?: string;
+  verifiedInstitutionType: string;
+  verifiedOwnership: string;
+  foundedYear?: number;
+  shortDescription?: string;
+  continent: string;
+  regionName?: string;
+  verifiedCity?: string;
+  mainCampusAddress?: string;
+  mapUrl?: string;
+  officialWebsiteUrl?: string;
+  officialWebsiteStatus?: string;
+  officialWebsiteSource?: string;
+  officialApplicationPortalUrl?: string;
+  governmentRegistryUrl?: string;
+  governmentAuthorityName?: string;
+  universitySystemUrl?: string;
+  centralAdmissionsPortalUrl?: string;
+  trustedInternationalDirectoryUrl?: string;
+  externalInstitutionId?: string;
+  primarySourceType?: string;
+  primarySourceUrl?: string;
+  officialPhone?: string;
+  mainOfficialSocialMediaUrl?: string;
+  importContinentFile?: string;
+  importBatch?: string;
+  importDate?: string;
+  lastVerifiedDate?: string;
+  phaseCompletionStatus?: string;
+  reviewStatus?: string;
+  duplicateCheckStatus?: string;
+  dataConfidence?: string;
+  reviewNotes?: string;
+}
+
+export type UniversityStage2Readiness =
+  | 'SOURCE_INVALID'
+  | 'DATABASE_IDENTITY_CHECK_REQUIRED'
+  | 'STAGE_1_IDENTITY_NOT_FOUND'
+  | 'READY_TO_UPDATE';
+
+export interface UniversityStage3Payload {
+  sourceReferenceId: UniversitySourceReferenceId;
+  availableDegrees: readonly string[];
+  faculties: readonly string[];
+  languagesOfInstruction: readonly string[];
+  studyModes: readonly string[];
+  officialProgramCatalogUrl?: string;
+  keyMajors: readonly string[];
+  acceptsInternationalStudents?: boolean;
+  undergraduateAdmissionUrl?: string;
+  graduateAdmissionUrl?: string;
+  internationalStudentAdmissionUrl?: string;
+  officialApplicationPortalUrl?: string;
+  hasLanguageRequirements?: boolean;
+  requiredLanguages: readonly string[];
+  acceptedLanguageTests: readonly string[];
+  officialLanguageRequirementsUrl?: string;
+  hasInternationalScholarships?: boolean;
+  internationalScholarships: ReadonlyArray<{ name: string; officialUrl: string }>;
+}
+
+export interface UniversityStage4Payload {
+  sourceReferenceId: UniversitySourceReferenceId;
+  annualTuitionFee?: number;
+  undergraduateMedicineFee?: number;
+  engineeringUndergraduateFees: ReadonlyArray<{ faculty: string; amount: number }>;
+  graduateTuitionFee?: number;
+  tuitionCurrency?: string;
+  officialTuitionFeeUrl?: string;
+  accommodationAvailable?: boolean;
+  internationalStudentsEligibleForAccommodation?: boolean;
+  typicalAccommodationCost?: number;
+  accommodationCurrency?: string;
+  averageMonthlyLivingCost?: number;
+  livingCostCurrency?: string;
+  costVariationNote?: string;
+  generalRequiredDocuments: readonly string[];
+  additionalGraduateRequirements: readonly string[];
+  officialRequiredDocumentsUrl?: string;
+}
+
+export type UniversityRankingProvider = 'QS' | 'THE' | 'ARWU';
+export type UniversityRankingScope =
+  | 'GLOBAL'
+  | 'ARAB_REGION'
+  | 'SOUTHERN_ASIA'
+  | 'ASIA'
+  | 'AFRICA'
+  | 'EUROPE'
+  | 'LATIN_AMERICA'
+  | 'OTHER_REGIONAL';
+
+export interface UniversityRankingEntry {
+  provider: UniversityRankingProvider;
+  rank: string;
+  scope: UniversityRankingScope;
+  scopeLabel?: string;
+  note?: string;
+  officialSourceUrl: string;
+  verifiedAt: string;
+}
+
+export interface UniversityGlobalRankingsPayload {
+  sourceReferenceId: UniversitySourceReferenceId;
+  universityName?: string;
+  rankings: readonly UniversityRankingEntry[];
+}
+
+export type UniversityLaterStageReadiness =
+  | 'SOURCE_INVALID'
+  | 'DATABASE_IDENTITY_CHECK_REQUIRED'
+  | 'UNIVERSITY_IDENTITY_NOT_FOUND'
+  | 'READY_TO_UPDATE';
+
 export class UniversityImportReadinessPolicy {
   static validateRequest(request: UniversityImportRequestContract): readonly string[] {
     const issues: string[] = [];

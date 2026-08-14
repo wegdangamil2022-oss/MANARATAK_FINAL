@@ -6,6 +6,9 @@ import {
   iscedFBaselineAliases,
   iscedFBaselineMappings,
 } from '../packages/domain/src/academic-taxonomy/isced-f-baseline';
+import { requireDatabaseMutationGate } from './lib/require-database-mutation-gate';
+
+requireDatabaseMutationGate('seed-taxonomy');
 
 let url = process.env.DATABASE_URL;
 if (!url || url.includes('postgres-host') || url.includes('placeholder')) {
@@ -32,8 +35,7 @@ async function seedTaxonomy() {
     // Check db connection first
     await prisma.$queryRaw`SELECT 1`;
   } catch (e) {
-    console.error('[SeedTaxonomy] Database connection failed. Skipping live database insertion, but code baseline is verified.');
-    return;
+    throw new Error('[SeedTaxonomy] Database connection failed; no taxonomy data was written.', { cause: e });
   }
 
   const idMap = new Map<string, string>();

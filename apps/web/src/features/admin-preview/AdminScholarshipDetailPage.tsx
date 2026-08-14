@@ -11,7 +11,7 @@ export function AdminScholarshipDetailPage() {
   const { t, dir } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token'));
+  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token')) || import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
 
   const [scholarship, setScholarship] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
