@@ -85,11 +85,7 @@ function AdminLayout() {
         </header>
         {localReadOnly && (
           <div className="border-b border-amber-300 bg-amber-50 px-6 py-3 text-center text-sm font-semibold text-amber-900">
-            {languageText(
-              language,
-              'Local admin preview: read-only. Saving and all database mutations are blocked.',
-              'معاينة الإدارة المحلية: للقراءة فقط. الحفظ وجميع التغييرات على قاعدة البيانات محظورة.',
-            )}
+            {t('admin_local_readonly_notice')}
           </div>
         )}
         <main className="flex-1 p-6">
@@ -139,7 +135,7 @@ function AdminLayout() {
 }
 
 function AdminAccessGate({ onUnlock }: { onUnlock: () => void }) {
-  const { language } = useTranslation();
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -149,7 +145,7 @@ function AdminAccessGate({ onUnlock }: { onUnlock: () => void }) {
     event.preventDefault();
     setError(null);
     if (!email.trim() || !password) {
-      setError(languageText(language, 'Enter your email and password.', 'أدخل البريد الإلكتروني وكلمة المرور.'));
+      setError(t('admin_login_missing_credentials'));
       return;
     }
 
@@ -171,13 +167,13 @@ function AdminAccessGate({ onUnlock }: { onUnlock: () => void }) {
 
       if (!(await verifyAdminSession())) {
         clearAdminSession();
-        setError(languageText(language, 'This account does not have administrative permission.', 'هذا الحساب لا يملك صلاحية إدارية.'));
+        setError(t('admin_login_no_permission'));
         return;
       }
       onUnlock();
     } catch {
       clearAdminSession();
-      setError(languageText(language, 'Sign-in or permission verification failed.', 'فشل تسجيل الدخول أو التحقق من الصلاحيات.'));
+      setError(t('admin_login_verification_failed'));
     } finally {
       setLoading(false);
     }
@@ -186,12 +182,12 @@ function AdminAccessGate({ onUnlock }: { onUnlock: () => void }) {
   return (
     <div className="max-w-3xl mx-auto mt-16 bg-white border rounded-3xl shadow-sm overflow-hidden">
       <div className="bg-slate-900 text-white p-8">
-        <p className="text-sm uppercase tracking-wide text-indigo-200 mb-2">{languageText(language, 'Admin access', 'دخول الإدارة')}</p>
-        <h2 className="text-3xl font-bold mb-3">{languageText(language, 'Protected admin portal', 'بوابة الإدارة المحمية')}</h2>
-        <p className="text-slate-200">{languageText(language, 'Sign in with an authorized administrative account.', 'سجّل الدخول بحساب إداري مخول.')}</p>
+        <p className="text-sm uppercase tracking-wide text-indigo-200 mb-2">{t('admin_login_access_label')}</p>
+        <h2 className="text-3xl font-bold mb-3">{t('admin_login_portal_title')}</h2>
+        <p className="text-slate-200">{t('admin_login_portal_desc')}</p>
       </div>
       <form onSubmit={submit} className="p-8 space-y-4">
-        <label className="block text-sm font-medium" htmlFor="admin-email">{languageText(language, 'Email', 'البريد الإلكتروني')}</label>
+        <label className="block text-sm font-medium" htmlFor="admin-email">{t('admin_login_email')}</label>
         <input
           id="admin-email"
           value={email}
@@ -200,7 +196,7 @@ function AdminAccessGate({ onUnlock }: { onUnlock: () => void }) {
           autoComplete="username"
           className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-500"
         />
-        <label className="block text-sm font-medium" htmlFor="admin-password">{languageText(language, 'Password', 'كلمة المرور')}</label>
+        <label className="block text-sm font-medium" htmlFor="admin-password">{t('admin_login_password')}</label>
         <input
           id="admin-password"
           value={password}
@@ -211,7 +207,7 @@ function AdminAccessGate({ onUnlock }: { onUnlock: () => void }) {
         />
         {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">{error}</div>}
         <button disabled={loading} type="submit" className="w-full bg-black text-white rounded-lg px-4 py-2 font-medium hover:bg-gray-800 disabled:opacity-60">
-          {loading ? languageText(language, 'Verifying...', 'جارٍ التحقق...') : languageText(language, 'Sign in', 'تسجيل الدخول')}
+          {loading ? t('admin_login_verifying') : t('admin_login_submit')}
         </button>
       </form>
     </div>
@@ -242,14 +238,6 @@ async function verifyAdminSession(): Promise<boolean> {
     clearAdminSession();
     return false;
   }
-}
-
-function languageText(
-  language: string,
-  english: string,
-  arabic: string,
-): string {
-  return language === 'ar' ? arabic : english;
 }
 
 export default function App() {

@@ -4,12 +4,15 @@ import { AppShell, Container } from '@manaratak/ui';
 import { CsrfClientManager } from '@manaratak/shared';
 import { Seo, RelatedPublicLinks, Logo } from '../components';
 import { useTranslation } from '../i18n/I18nProvider';
-const PageLoadingFallback = () => (
-  <div className="py-20 text-center text-slate-500 font-medium animate-pulse flex items-center justify-center gap-2">
-    <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-    <span>Loading...</span>
-  </div>
-);
+const PageLoadingFallback = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="py-20 text-center text-slate-500 font-medium animate-pulse flex items-center justify-center gap-2">
+      <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+      <span>{t('loading')}</span>
+    </div>
+  );
+};
 
 // Public pages lazy loading
 const ScholarshipList = React.lazy(() => import('../features/scholarships/ScholarshipList').then(m => ({ default: m.ScholarshipList })));
@@ -133,26 +136,26 @@ const RootLayout = () => {
     { to: '/student/demo-student', label: t('nav_workspace') },
   ];
   const localAdminLinks = [
-    ['/admin/dashboard', 'الرئيسية'],
-    ['/admin/review-queue', 'المراجعة'],
-    ['/admin/imports', 'الاستيراد'],
-    ['/admin/study-destinations', 'الدول'],
-    ['/admin/academic-taxonomy', 'التصنيف الأكاديمي'],
-    ['/admin/universities', 'الجامعات'],
-    ['/admin/faculties', 'الكليات'],
-    ['/admin/majors', 'التخصصات'],
-    ['/admin/international-tests', 'الاختبارات'],
-    ['/admin/scholarships', 'المنح'],
-    ['/admin/courses', 'الدورات'],
-    ['/admin/services', 'الخدمات'],
-    ['/admin/cms', 'المحتوى'],
-    ['/admin/student-tools', 'أدوات الطلاب'],
-    ['/admin/certificates', 'الشهادات'],
-    ['/admin/finance', 'المالية'],
-    ['/admin/careers', 'الوظائف'],
-    ['/admin/ai-governance', 'حوكمة AI'],
-    ['/admin/health', 'صحة النظام'],
-    ['/admin/settings', 'الإعدادات'],
+    ['/admin/dashboard', t('local_admin_nav_dashboard')],
+    ['/admin/review-queue', t('local_admin_nav_review')],
+    ['/admin/imports', t('local_admin_nav_imports')],
+    ['/admin/study-destinations', t('local_admin_nav_countries')],
+    ['/admin/academic-taxonomy', t('local_admin_nav_taxonomy')],
+    ['/admin/universities', t('local_admin_nav_universities')],
+    ['/admin/faculties', t('local_admin_nav_faculties')],
+    ['/admin/majors', t('local_admin_nav_majors')],
+    ['/admin/international-tests', t('local_admin_nav_tests')],
+    ['/admin/scholarships', t('local_admin_nav_scholarships')],
+    ['/admin/courses', t('local_admin_nav_courses')],
+    ['/admin/services', t('local_admin_nav_services')],
+    ['/admin/cms', t('local_admin_nav_cms')],
+    ['/admin/student-tools', t('local_admin_nav_tools')],
+    ['/admin/certificates', t('local_admin_nav_certificates')],
+    ['/admin/finance', t('local_admin_nav_finance')],
+    ['/admin/careers', t('local_admin_nav_careers')],
+    ['/admin/ai-governance', t('local_admin_nav_ai')],
+    ['/admin/health', t('local_admin_nav_health')],
+    ['/admin/settings', t('local_admin_nav_settings')],
   ] as const;
 
   const handleLogout = () => {
@@ -188,8 +191,8 @@ const RootLayout = () => {
                   className="text-[#0F4B3A] hover:bg-emerald-50 font-bold border border-[#0F4B3A]/10 text-xs md:text-sm rounded-lg md:rounded-xl px-2.5 py-1.5 md:px-4 md:py-2 flex items-center gap-1.5 transition-all cursor-pointer min-h-[40px]"
                 >
                   <Globe className="w-4 h-4 text-emerald-700" />
-                  <span className="hidden sm:inline">{language === 'en' ? 'عربي' : 'English'}</span>
-                  <span className="sm:hidden">{language === 'en' ? 'عربي' : 'EN'}</span>
+                  <span className="hidden sm:inline">{language === 'en' ? t('language_switch_to_ar') : t('language_switch_to_en')}</span>
+                  <span className="sm:hidden">{language === 'en' ? 'AR' : 'EN'}</span>
                 </button>
 
                 {/* Interaction Buttons (الدخول / الحساب / خروج) - styled with spec dimensions */}
@@ -206,13 +209,13 @@ const RootLayout = () => {
                       to={getWorkspaceUrl()} 
                       className="bg-[#C8A24A] text-white hover:bg-[#b08d3e] font-bold text-xs md:text-sm rounded-lg md:rounded-xl px-3 py-1.5 md:px-5 md:py-2.5 flex items-center justify-center transition-all min-h-[40px] shadow-sm"
                     >
-                      {language === 'ar' ? 'الحساب' : 'Account'}
+                      {t('nav_account')}
                     </Link>
                     <button 
                       onClick={handleLogout} 
                       className="bg-rose-50 text-rose-700 border border-rose-100 hover:bg-rose-100 font-bold text-xs md:text-sm rounded-lg md:rounded-xl px-2.5 py-1.5 md:px-4 md:py-2 flex items-center justify-center transition-all min-h-[40px] cursor-pointer"
                     >
-                      {language === 'ar' ? 'خروج' : 'Logout'}
+                      {t('nav_logout')}
                     </button>
                   </>
                 )}
@@ -223,7 +226,7 @@ const RootLayout = () => {
                   onClick={() => setMenuOpen((open) => !open)}
                   className="lg:hidden min-h-[40px] h-10 w-10 flex items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all active:scale-95 cursor-pointer"
                   aria-expanded={menuOpen}
-                  aria-label="Toggle navigation menu"
+                  aria-label={t('nav_menu_toggle')}
                 >
                   {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                 </button>
@@ -315,9 +318,9 @@ const RootLayout = () => {
         {isAdminPath && isLocalAdminReadOnly && (
           <>
             <div className="mb-3 border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-bold text-amber-900" role="status">
-              معاينة محلية للقراءة فقط. الحفظ والاستيراد والنشر وجميع تعديلات قاعدة البيانات محظورة.
+              {t('local_admin_readonly_notice')}
             </div>
-            <nav aria-label="التنقل الإداري المحلي" className="mb-5 flex min-h-12 items-center gap-1 overflow-x-auto border-y border-slate-200 bg-white px-2 py-2">
+            <nav aria-label={t('local_admin_navigation_aria')} className="mb-5 flex min-h-12 items-center gap-1 overflow-x-auto border-y border-slate-200 bg-white px-2 py-2">
               {localAdminLinks.map(([path, label]) => (
                 <Link
                   key={path}
@@ -353,27 +356,15 @@ const HomePage = () => {
     }
   };
 
-  const heroTitle = language === 'ar' 
-    ? <>مستقبلك الأكاديمي يبدأ من <span className="text-amber-400 font-black relative inline-block">هنا<span className="absolute bottom-1 left-0 w-full h-[6px] bg-amber-500/30 rounded-full"></span></span></>
-    : <>Your academic future starts <span className="text-amber-400 font-black relative inline-block">here<span className="absolute bottom-1 left-0 w-full h-[6px] bg-amber-500/30 rounded-full"></span></span></>;
+  const heroTitle = <>{t('home_premium_hero_prefix')} <span className="text-amber-400 font-black relative inline-block">{t('home_premium_hero_emphasis')}<span className="absolute bottom-1 left-0 w-full h-[6px] bg-amber-500/30 rounded-full"></span></span></>;
+  const heroDesc = t('home_premium_hero_description');
 
-  const heroDesc = language === 'ar'
-    ? "المنصة العربية الأكبر لإدارة واكتشاف المنح الدراسية العالمية. صممت بمعايير هندسية متقدمة لخدمة طموحاتك."
-    : "The largest Arabic platform for managing and discovering global scholarships. Architected with advanced engineering standards to serve your aspirations.";
-
-  const quickTags = language === 'ar'
-    ? [
-        { label: '✦ منح ممولة بالكامل', link: '/scholarships' },
-        { label: '✦ جامعات النخبة', link: '/universities' },
-        { label: '✦ كورسات لغة مجانية', link: '/courses' },
-        { label: '✦ اختبارات تجريبية', link: '/international-tests' }
-      ]
-    : [
-        { label: '✦ Fully Funded', link: '/scholarships' },
-        { label: '✦ Elite Universities', link: '/universities' },
-        { label: '✦ Free Language Courses', link: '/courses' },
-        { label: '✦ Practice Tests', link: '/international-tests' }
-      ];
+  const quickTags = [
+    { label: t('home_quick_fully_funded'), link: '/scholarships' },
+    { label: t('home_quick_elite_universities'), link: '/universities' },
+    { label: t('home_quick_free_language_courses'), link: '/courses' },
+    { label: t('home_quick_practice_tests'), link: '/international-tests' },
+  ];
 
   const domains = [
     { 
@@ -382,7 +373,7 @@ const HomePage = () => {
       description: t('card_scholarships_desc'),
       icon: GraduationCap,
       color: "from-emerald-500 to-teal-600",
-      badge: language === 'ar' ? "ممول" : "Funded"
+      badge: t('home_domain_badge_funded')
     },
     { 
       to: "/universities", 
@@ -390,7 +381,7 @@ const HomePage = () => {
       description: t('card_universities_desc'),
       icon: School,
       color: "from-blue-500 to-indigo-600",
-      badge: language === 'ar' ? "اعتمادات" : "Accredited"
+      badge: t('home_domain_badge_accredited')
     },
     { 
       to: "/majors", 
@@ -398,7 +389,7 @@ const HomePage = () => {
       description: t('card_majors_desc'),
       icon: Compass,
       color: "from-amber-500 to-orange-600",
-      badge: language === 'ar' ? "مستقبل" : "Future"
+      badge: t('home_domain_badge_future')
     },
     { 
       to: "/courses", 
@@ -406,7 +397,7 @@ const HomePage = () => {
       description: t('card_courses_desc'),
       icon: BookOpen,
       color: "from-rose-500 to-pink-600",
-      badge: language === 'ar' ? "مهارات" : "Skills"
+      badge: t('home_domain_badge_skills')
     },
     { 
       to: "/international-tests", 
@@ -414,7 +405,7 @@ const HomePage = () => {
       description: t('card_tests_desc'),
       icon: FileText,
       color: "from-violet-500 to-purple-600",
-      badge: language === 'ar' ? "قبول" : "Admission"
+      badge: t('home_domain_badge_admission')
     },
     { 
       to: "/tools", 
@@ -422,7 +413,7 @@ const HomePage = () => {
       description: t('card_tools_desc'),
       icon: Wrench,
       color: "from-cyan-500 to-blue-600",
-      badge: language === 'ar' ? "مجاني" : "Free Tools"
+      badge: t('home_domain_badge_free_tools')
     },
     { 
       to: "/search", 
@@ -430,7 +421,7 @@ const HomePage = () => {
       description: t('card_search_desc'),
       icon: Search,
       color: "from-teal-500 to-emerald-600",
-      badge: language === 'ar' ? "ذكي" : "Smart Search"
+      badge: t('home_domain_badge_smart_search')
     },
     { 
       to: "/compare", 
@@ -438,7 +429,7 @@ const HomePage = () => {
       description: t('card_compare_desc'),
       icon: TrendingUp,
       color: "from-fuchsia-500 to-pink-600",
-      badge: language === 'ar' ? "مقارنة" : "Compare"
+      badge: t('home_domain_badge_compare')
     }
   ];
 
@@ -470,7 +461,7 @@ const HomePage = () => {
           {/* Accent Badge */}
           <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-900/50 border border-emerald-700/50 text-amber-300 text-xs font-bold tracking-wide shadow-inner">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>{language === 'ar' ? 'البوابة الأكاديمية الشاملة للطلاب' : 'The Ultimate Academic Portal'}</span>
+            <span>{t('home_academic_portal_badge')}</span>
           </div>
 
           {/* Main Hero Headline */}
@@ -489,7 +480,7 @@ const HomePage = () => {
               <Search className="w-5 h-5 text-emerald-200 mx-3" />
               <input 
                 type="text" 
-                placeholder={language === 'ar' ? 'ابحث عن المنح والجامعات والتخصصات...' : 'Search scholarships, universities, courses...'} 
+                placeholder={t('home_search_placeholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-transparent text-white border-none outline-none placeholder-emerald-200/60 text-sm py-2 px-1 focus:ring-0 min-h-[44px]"
@@ -498,7 +489,7 @@ const HomePage = () => {
                 type="submit" 
                 className="bg-amber-500 hover:bg-amber-400 text-[#022c22] font-black text-xs px-5 py-3 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
               >
-                <span>{language === 'ar' ? 'بحث' : 'Search'}</span>
+                <span>{t('home_search_button')}</span>
               </button>
             </div>
           </form>
@@ -522,12 +513,10 @@ const HomePage = () => {
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto">
           <h2 className="text-2xl font-extrabold sm:text-3xl text-slate-900 tracking-tight">
-            {language === 'ar' ? 'ابدأ رحلتك الأكاديمية الآن' : 'Start Your Academic Journey'}
+            {t('home_domain_section_title')}
           </h2>
           <p className="mt-2 text-sm sm:text-base text-slate-500 font-medium">
-            {language === 'ar' 
-              ? 'اختر وجهتك المفضلة من بين بوابات منارتك المتكاملة لتكتشف الفرص الحقيقية.' 
-              : 'Explore our integrated directories to find trusted pathways, metrics, and application requirements.'}
+            {t('home_domain_section_desc')}
           </p>
         </div>
 
@@ -550,16 +539,16 @@ const HomePage = () => {
       <section className="rounded-3xl border border-slate-100 bg-white p-6 sm:p-10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.02)]">
         <div className="grid gap-6 md:grid-cols-3 text-center divide-y md:divide-y-0 md:divide-x md:divide-slate-100">
           <div className="py-4 md:py-0 px-4">
-            <h4 className="text-3xl font-black text-[#064E3B]">+١٠,٠٠٠</h4>
-            <p className="mt-1 text-xs font-bold text-slate-500 uppercase tracking-wider">{language === 'ar' ? 'طالب مستفيد' : 'Benefited Students'}</p>
+            <h4 className="text-3xl font-black text-[#064E3B]">{t('home_stat_students_value')}</h4>
+            <p className="mt-1 text-xs font-bold text-slate-500 uppercase tracking-wider">{t('home_stat_students_label')}</p>
           </div>
           <div className="py-4 md:py-0 px-4">
-            <h4 className="text-3xl font-black text-[#D97706]">+٥٠٠</h4>
-            <p className="mt-1 text-xs font-bold text-slate-500 uppercase tracking-wider">{language === 'ar' ? 'منحة نشطة ومحدثة' : 'Active Scholarships'}</p>
+            <h4 className="text-3xl font-black text-[#D97706]">{t('home_stat_scholarships_value')}</h4>
+            <p className="mt-1 text-xs font-bold text-slate-500 uppercase tracking-wider">{t('home_stat_scholarships_label')}</p>
           </div>
           <div className="py-4 md:py-0 px-4">
-            <h4 className="text-3xl font-black text-[#064E3B]">%١٠٠</h4>
-            <p className="mt-1 text-xs font-bold text-slate-500 uppercase tracking-wider">{language === 'ar' ? 'روابط تقديم مباشرة وموثوقة' : 'Direct Verified Links'}</p>
+            <h4 className="text-3xl font-black text-[#064E3B]">{t('home_stat_verified_links_value')}</h4>
+            <p className="mt-1 text-xs font-bold text-slate-500 uppercase tracking-wider">{t('home_stat_verified_links_label')}</p>
           </div>
         </div>
       </section>
@@ -948,16 +937,16 @@ function AdminAccessBridgePage() {
     return (
       <div className="max-w-2xl mx-auto py-12 text-center">
         <div className="bg-white border rounded-3xl p-10 shadow-sm space-y-4">
-          <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
+          <h1 className="text-2xl font-bold text-red-600">{t('admin_access_denied_title')}</h1>
           <p className="text-gray-600">
-            You must be logged in with administrative permissions to view the Admin Control Plane.
+            {t('admin_access_denied_desc')}
           </p>
           <div className="flex items-center justify-center gap-3 pt-2">
             <Link to="/login" className="px-6 py-3 bg-[#0F4B3A] text-white rounded-xl font-bold hover:bg-[#0c3e30]">
-              Go to Login
+              {t('admin_go_to_login')}
             </Link>
             <Link to="/student/demo-student" className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200">
-              Student Workspace
+              {t('admin_student_workspace')}
             </Link>
           </div>
         </div>
@@ -1016,11 +1005,12 @@ function CanonicalAdminRedirect({ legacyPath }: { legacyPath: string }) {
 }
 
 function CanonicalAdminUnavailable() {
+  const { t } = useTranslation();
   return (
     <div className="mx-auto max-w-2xl py-12 text-center">
       <div className="rounded-lg border bg-white p-8">
-        <h1 className="text-xl font-bold">Admin Control Plane unavailable</h1>
-        <p className="mt-3 text-sm text-gray-600">Configure VITE_ADMIN_URL to reach the canonical apps/admin deployment.</p>
+        <h1 className="text-xl font-bold">{t('admin_unavailable_title')}</h1>
+        <p className="mt-3 text-sm text-gray-600">{t('admin_unavailable_desc')}</p>
       </div>
     </div>
   );
@@ -1086,7 +1076,7 @@ function HomeCard({
 
       {/* Button link inside card */}
       <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-emerald-700 group-hover:text-amber-600 transition-colors">
-        <span>{t('card_open') || 'Explore'}</span>
+        <span>{t('card_open')}</span>
         <ChevronRight className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform" />
       </div>
     </Link>
