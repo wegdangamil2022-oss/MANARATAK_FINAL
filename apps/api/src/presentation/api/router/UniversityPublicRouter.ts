@@ -1,11 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { PublicUniversityUseCases } from '@manaratak/application';
+import { LocalizedPublicUniversityUseCases } from '@manaratak/application';
+import { IUniversityRepository } from '@manaratak/domain';
+import { localeQuerySchema, parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract';
 
 export class UniversityPublicRouter {
-  public static create(cradle: { publicUniversityUseCases: PublicUniversityUseCases }): Router {
+  public static create(cradle: { universityRepository: IUniversityRepository }): Router {
     const router = Router();
-    const { publicUniversityUseCases } = cradle;
+    const localized = new LocalizedPublicUniversityUseCases(cradle.universityRepository);
 
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
@@ -16,37 +18,27 @@ export class UniversityPublicRouter {
       institutionType: z.string().optional(),
       city: z.string().optional(),
       page: z.string().optional().transform((val) => val ? parseInt(val, 10) : 1),
-      pageSize: z.string().optional().transform((val) => {
-        const parsed = val ? parseInt(val, 10) : 20;
-        return Math.min(parsed, 50);
-      }),
-    });
+      pageSize: z.string().optional().transform((val) => Math.min(val ? parseInt(val, 10) : 20, 50)),
+    }).merge(localeQuerySchema);
 
     router.get('/', asyncHandler(async (req: Request, res: Response) => {
-      const filters = listQuerySchema.parse(req.query);
-      const result = await publicUniversityUseCases.listUniversities(filters);
-      res.json(result);
+      const { locale, ...filters } = listQuerySchema.parse(req.query);
+      res.json(await localized.listUniversities(filters, locale));
     }));
 
     router.get('/:slug', asyncHandler(async (req: Request, res: Response) => {
       try {
-        const university = await publicUniversityUseCases.getUniversity(req.params.slug);
-        res.json(university);
+        res.json(await localized.getUniversity(req.params.slug, parseRequestLocale(req.query)));
       } catch (err: any) {
-        if (err.message === 'University not found') {
-          return res.status(404).json({ error: 'Not found' });
-        }
+        if (err.message === 'University not found') return res.status(404).json({ error: 'Not found' });
         throw err;
       }
     }));
 
-    router.use((err: any, req: Request, res: Response, next: NextFunction) => {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ error: 'Validation Error', details: err.issues });
-      }
+    router.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      if (err instanceof z.ZodError) return res.status(400).json(toApiValidationErrorPayload(err));
       res.status(500).json({ error: 'Internal Server Error' });
     });
-
     return router;
   }
 }

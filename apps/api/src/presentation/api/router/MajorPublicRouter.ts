@@ -1,52 +1,41 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { PublicMajorUseCases } from '@manaratak/application';
+import { LocalizedPublicMajorUseCases } from '@manaratak/application';
+import { IMajorRepository } from '@manaratak/domain';
+import { localeQuerySchema, parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract';
 
 export class MajorPublicRouter {
-  public static create(cradle: { publicMajorUseCases: PublicMajorUseCases }): Router {
+  public static create(cradle: { majorRepository: IMajorRepository }): Router {
     const router = Router();
-    const { publicMajorUseCases } = cradle;
-
-    const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
-      Promise.resolve(fn(req, res, next)).catch(next);
-    };
+    const localized = new LocalizedPublicMajorUseCases(cradle.majorRepository);
+    const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => Promise.resolve(fn(req, res, next)).catch(next);
 
     const listQuerySchema = z.object({
       degreeLevel: z.string().optional(),
       academicFieldOrDiscipline: z.string().optional(),
       collegeOrFaculty: z.string().optional(),
       page: z.string().optional().transform((val) => val ? parseInt(val, 10) : 1),
-      pageSize: z.string().optional().transform((val) => {
-        const parsed = val ? parseInt(val, 10) : 20;
-        return Math.min(parsed, 50);
-      }),
-    });
+      pageSize: z.string().optional().transform((val) => Math.min(val ? parseInt(val, 10) : 20, 50)),
+    }).merge(localeQuerySchema);
 
     router.get('/', asyncHandler(async (req: Request, res: Response) => {
-      const filters = listQuerySchema.parse(req.query);
-      const result = await publicMajorUseCases.listMajors(filters);
-      res.json(result);
+      const { locale, ...filters } = listQuerySchema.parse(req.query);
+      res.json(await localized.listMajors(filters, locale));
     }));
 
     router.get('/:slug', asyncHandler(async (req: Request, res: Response) => {
       try {
-        const major = await publicMajorUseCases.getMajor(req.params.slug);
-        res.json(major);
+        res.json(await localized.getMajor(req.params.slug, parseRequestLocale(req.query)));
       } catch (err: any) {
-        if (err.message === 'Major not found') {
-          return res.status(404).json({ error: 'Not found' });
-        }
+        if (err.message === 'Major not found') return res.status(404).json({ error: 'Not found' });
         throw err;
       }
     }));
 
-    router.use((err: any, req: Request, res: Response, next: NextFunction) => {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ error: 'Validation Error', details: err.issues });
-      }
+    router.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      if (err instanceof z.ZodError) return res.status(400).json(toApiValidationErrorPayload(err));
       res.status(500).json({ error: 'Internal Server Error' });
     });
-
     return router;
   }
 }

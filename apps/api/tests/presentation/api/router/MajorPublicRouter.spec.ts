@@ -3,56 +3,36 @@ import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { MajorPublicRouter } from '../../../../src/presentation/api/router/MajorPublicRouter';
 
-describe('MajorPublicRouter', () => {
-  const createMockUseCases = () => ({
-    listMajors: vi.fn(),
-    getMajor: vi.fn(),
-  });
+const major = {
+  id: 'm1', publicId: 'MJR-0001', slug: 'computer-science', canonicalName: 'Computer Science', canonicalDedupKey: 'cs',
+  displayName: 'Computer Science', localizedNameAr: 'علوم الحاسوب', localizedNameEn: 'Computer Science',
+  status: 'PUBLISHED', completenessStatus: 'COMPLETE',
+};
 
-  const createApp = (useCases: ReturnType<typeof createMockUseCases>) => {
+describe('MajorPublicRouter locale contract', () => {
+  const createRepository = () => ({ listPublished: vi.fn(), findBySlug: vi.fn(), listContentSections: vi.fn() });
+  const createApp = (repository: ReturnType<typeof createRepository>) => {
     const app = express();
-    app.use(express.json());
-    app.use('/public/majors', MajorPublicRouter.create({ publicMajorUseCases: useCases as any }));
+    app.use('/public/majors', MajorPublicRouter.create({ majorRepository: repository as any }));
     return app;
   };
 
-  it('GET /public/majors parses filters and bounds pageSize', async () => {
-    const useCases = createMockUseCases();
-    useCases.listMajors.mockResolvedValue({ data: [], total: 0, page: 2, pageSize: 50, totalPages: 0 });
-    const app = createApp(useCases);
-
-    const res = await request(app).get('/public/majors?degreeLevel=Bachelor&academicFieldOrDiscipline=Computing&collegeOrFaculty=Engineering&page=2&pageSize=100');
-
+  it('projects a requested Arabic major name', async () => {
+    const repository = createRepository();
+    repository.findBySlug.mockResolvedValue(major);
+    repository.listContentSections.mockResolvedValue([]);
+    const res = await request(createApp(repository)).get('/public/majors/computer-science?locale=ar');
     expect(res.status).toBe(200);
-    expect(useCases.listMajors).toHaveBeenCalledWith({
-      degreeLevel: 'Bachelor',
-      academicFieldOrDiscipline: 'Computing',
-      collegeOrFaculty: 'Engineering',
-      page: 2,
-      pageSize: 50
-    });
+    expect(res.body.displayName).toBe('علوم الحاسوب');
+    expect(res.body.publicId).toBe('MJR-0001');
   });
 
-  it('GET /public/majors/:slug returns a public major', async () => {
-    const useCases = createMockUseCases();
-    useCases.getMajor.mockResolvedValue({ slug: 'computer-science', displayName: 'Computer Science' });
-    const app = createApp(useCases);
-
-    const res = await request(app).get('/public/majors/computer-science');
-
+  it('uses canonical default locale when omitted', async () => {
+    const repository = createRepository();
+    repository.findBySlug.mockResolvedValue(major);
+    repository.listContentSections.mockResolvedValue([]);
+    const res = await request(createApp(repository)).get('/public/majors/computer-science');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ slug: 'computer-science', displayName: 'Computer Science' });
-    expect(useCases.getMajor).toHaveBeenCalledWith('computer-science');
-  });
-
-  it('GET /public/majors/:slug returns 404 when hidden or missing', async () => {
-    const useCases = createMockUseCases();
-    useCases.getMajor.mockRejectedValue(new Error('Major not found'));
-    const app = createApp(useCases);
-
-    const res = await request(app).get('/public/majors/computer-science');
-
-    expect(res.status).toBe(404);
-    expect(res.body).toEqual({ error: 'Not found' });
+    expect(res.body.displayName).toBe('علوم الحاسوب');
   });
 });

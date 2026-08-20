@@ -1,55 +1,51 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { ReferenceDataUseCases } from '@manaratak/application';
+import { LocalizedReferenceDataQueries } from '@manaratak/application';
+import { IReferenceDataRepository } from '@manaratak/domain';
+import { localeQuerySchema, parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract';
 
 export class ReferenceDataPublicRouter {
-  public static create(cradle: { referenceDataUseCases: ReferenceDataUseCases }): Router {
+  public static create(cradle: { referenceDataRepository: IReferenceDataRepository }): Router {
     const router = Router();
-    const { referenceDataUseCases } = cradle;
-
-    const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
-      Promise.resolve(fn(req, res, next)).catch(next);
-    };
+    const localized = new LocalizedReferenceDataQueries(cradle.referenceDataRepository);
+    const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => Promise.resolve(fn(req, res, next)).catch(next);
 
     const querySchema = z.object({
       region: z.string().optional(),
       countryIso2Code: z.string().optional(),
       q: z.string().optional(),
       page: z.coerce.number().int().min(1).optional(),
-      pageSize: z.coerce.number().int().min(1).max(100).optional()
-    });
+      pageSize: z.coerce.number().int().min(1).max(100).optional(),
+    }).merge(localeQuerySchema);
 
     router.get('/countries', asyncHandler(async (req: Request, res: Response) => {
-      const filters = querySchema.parse(req.query);
-      res.json({ data: await referenceDataUseCases.listCountries(filters) });
+      const { locale, ...filters } = querySchema.parse(req.query);
+      res.json({ data: await localized.listCountries(filters, locale) });
     }));
-
     router.get('/countries/:iso2Code', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await referenceDataUseCases.getCountry(req.params.iso2Code));
+      res.json(await localized.getCountry(req.params.iso2Code, parseRequestLocale(req.query)));
     }));
-
     router.get('/currencies', asyncHandler(async (req: Request, res: Response) => {
-      const filters = querySchema.parse(req.query);
-      res.json({ data: await referenceDataUseCases.listCurrencies(filters) });
+      const { locale, ...filters } = querySchema.parse(req.query);
+      res.json({ data: await localized.listCurrencies(filters, locale) });
     }));
-
     router.get('/languages', asyncHandler(async (req: Request, res: Response) => {
-      const filters = querySchema.parse(req.query);
-      res.json({ data: await referenceDataUseCases.listLanguages(filters) });
+      const { locale, ...filters } = querySchema.parse(req.query);
+      res.json({ data: await localized.listLanguages(filters, locale) });
     }));
-
+    router.get('/regions', asyncHandler(async (req: Request, res: Response) => {
+      const { locale, ...filters } = querySchema.parse(req.query);
+      res.json({ data: await localized.listRegions(filters, locale) });
+    }));
     router.get('/cities', asyncHandler(async (req: Request, res: Response) => {
-      const filters = querySchema.parse(req.query);
-      res.json({ data: await referenceDataUseCases.listCities(filters) });
+      const { locale, ...filters } = querySchema.parse(req.query);
+      res.json({ data: await localized.listCities(filters, locale) });
     }));
 
-    router.use((err: any, req: Request, res: Response, next: NextFunction) => {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ error: 'Validation Error', details: err.issues });
-      }
+    router.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      if (err instanceof z.ZodError) return res.status(400).json(toApiValidationErrorPayload(err));
       res.status(400).json({ error: err.message || 'An error occurred' });
     });
-
     return router;
   }
 }
