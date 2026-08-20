@@ -99,7 +99,8 @@ jobs:
     name: Browser E2E
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: postgresql://placeholder:placeholder@127.0.0.1:65432/manaratak_placeholder?schema=public
+      DATABASE_MUTATIONS_ALLOWED: 'false'
+      DATABASE_ENVIRONMENT: source
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js

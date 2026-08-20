@@ -43,10 +43,14 @@ test.describe('MANARATAK source-level runtime smoke checks', () => {
     const mutationResponse = await request.post('/api/v1/admin/universities', {
       data: { displayName: 'E2E must never create this university' },
     });
-    expect([401, 423]).toContain(mutationResponse.status());
+    // CSRF protection runs before the admin guard for JSON mutations, so a
+    // source-only unauthenticated request may safely be rejected with 403.
+    expect([401, 403, 423]).toContain(mutationResponse.status());
     const mutationBody = await mutationResponse.json();
     if (mutationResponse.status() === 401) {
       expect(mutationBody).toMatchObject({ error: { code: 'ADMIN_AUTH_REQUIRED' } });
+    } else if (mutationResponse.status() === 403) {
+      expect(mutationBody).toMatchObject({ error: { code: 'CSRF_TOKEN_INVALID' } });
     } else {
       expect(mutationBody).toMatchObject({ error: 'READ_ONLY_PREVIEW' });
     }
