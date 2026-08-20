@@ -17,6 +17,7 @@ export * from './event-foundation/PrismaAtomicPersistenceUnitOfWork';
 export class InMemoryWorkflowExecutionGateway {}
 export * from './universities/PrismaUniversityRepository';
 export * from './scholarships/PrismaScholarshipRepository';
+export * from './scholarships/PrismaScholarshipCanonicalLookupGateway';
 export * from './majors/PrismaMajorRepository';
 export * from './majors/PrismaFellowshipDefinitionRepository';
 export * from './majors/Phase10CatalogRepository';
