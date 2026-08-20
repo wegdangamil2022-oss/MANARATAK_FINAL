@@ -13,7 +13,8 @@
     "@manaratak/core": "*",
     "@manaratak/domain": "*",
     "@types/uuid": "^10.0.0",
-    "uuid": "^14.0.1"
+    "uuid": "^14.0.1",
+    "@manaratak/shared": "*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0"

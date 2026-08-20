@@ -5,3 +5,4 @@ export * from './UniversityStage2EnrichmentDryRunUseCase';
 export * from './UniversityLaterStagesDryRunUseCase';
 export * from './AdminUniversityUseCases';
 export * from './PublicUniversityUseCases';
+export * from './LocalizedPublicUniversityUseCases';
