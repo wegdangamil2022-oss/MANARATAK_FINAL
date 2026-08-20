@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { createBrowserRouter, RouterProvider, Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Link, Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AppShell, Container } from '@manaratak/ui';
-import { CsrfClientManager } from '@manaratak/shared';
+import { CsrfClientManager, isSupportedLocale } from '@manaratak/shared';
 import { Seo, RelatedPublicLinks, Logo } from '../components';
 import { useTranslation } from '../i18n/I18nProvider';
+import { localizeLocation, localizePathname, resolveLegacyPublicLocale } from '../i18n/localeRouting';
 const PageLoadingFallback = () => {
   const { t } = useTranslation();
   return (
@@ -111,6 +112,18 @@ const RootLayout = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const { t, language, setLanguage } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { locale } = useParams<{ locale?: string }>();
+  const routeLocale = isSupportedLocale(locale) ? locale : null;
+
+  useEffect(() => {
+    if (routeLocale && routeLocale !== language) setLanguage(routeLocale);
+  }, [language, routeLocale, setLanguage]);
+
+  if (!routeLocale) {
+    const targetLocale = resolveLegacyPublicLocale(localStorage.getItem('manaratak_lang'));
+    return <Navigate replace to={localizeLocation(location, targetLocale)} />;
+  }
 
   const isAdminPath = location.pathname.startsWith('/admin') || location.pathname.startsWith('/study-destinations');
   const isLocalAdminReadOnly = import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
@@ -124,16 +137,16 @@ const RootLayout = () => {
   }
 
   const navItems = [
-    { to: '/scholarships', label: t('nav_scholarships') },
-    { to: '/universities', label: t('nav_universities') },
-    { to: '/majors', label: t('nav_majors') },
-    { to: '/courses', label: t('nav_courses') },
-    { to: '/international-tests', label: t('nav_tests') },
-    { to: '/services', label: t('nav_services') },
-    { to: '/tools', label: t('nav_tools') },
-    { to: '/articles', label: t('nav_guides') },
-    { to: '/certificates/verify', label: t('nav_verify') },
-    { to: '/student/demo-student', label: t('nav_workspace') },
+    { to: localizePathname('/scholarships', language), label: t('nav_scholarships') },
+    { to: localizePathname('/universities', language), label: t('nav_universities') },
+    { to: localizePathname('/majors', language), label: t('nav_majors') },
+    { to: localizePathname('/courses', language), label: t('nav_courses') },
+    { to: localizePathname('/international-tests', language), label: t('nav_tests') },
+    { to: localizePathname('/services', language), label: t('nav_services') },
+    { to: localizePathname('/tools', language), label: t('nav_tools') },
+    { to: localizePathname('/articles', language), label: t('nav_guides') },
+    { to: localizePathname('/certificates/verify', language), label: t('nav_verify') },
+    { to: localizePathname('/student/demo-student', language), label: t('nav_workspace') },
   ];
   const localAdminLinks = [
     ['/admin/dashboard', t('local_admin_nav_dashboard')],
@@ -165,12 +178,12 @@ const RootLayout = () => {
     localStorage.removeItem('manaratak_access_token');
     localStorage.removeItem('manaratak_refresh_token');
     localStorage.removeItem('manaratak_admin_access');
-    window.location.href = '/';
+    window.location.href = localizePathname('/', language);
   };
 
   const getWorkspaceUrl = () => {
     const ref = userEmail?.includes('@') ? userEmail.split('@')[0] : 'demo-student';
-    return `/student/${encodeURIComponent(ref)}`;
+    return localizePathname(`/student/${encodeURIComponent(ref)}`, language);
   };
 
   return (
@@ -180,14 +193,18 @@ const RootLayout = () => {
           {/* 3. أبعاد الهيدر والأزرار (Header Layout & Buttons) - h-24 (96px) on Mobile, h-28 (112px) on Desktop */}
           <div className="bg-white border-b border-slate-100 flex items-center h-24 lg:h-28">
             <div className="mx-auto max-w-7xl w-full px-4 flex items-center justify-between gap-4">
-              <Link to="/" className="transition-transform active:scale-95" onClick={() => setMenuOpen(false)}>
+              <Link to={localizePathname('/', language)} className="transition-transform active:scale-95" onClick={() => setMenuOpen(false)}>
                 <Logo showText={true} />
               </Link>
 
               <div className="flex items-center gap-2 sm:gap-3">
                 {/* Language Switch */}
                 <button
-                  onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
+                  onClick={() => {
+                    const nextLanguage = language === 'en' ? 'ar' : 'en';
+                    setLanguage(nextLanguage);
+                    navigate(localizeLocation(location, nextLanguage));
+                  }}
                   className="text-[#0F4B3A] hover:bg-emerald-50 font-bold border border-[#0F4B3A]/10 text-xs md:text-sm rounded-lg md:rounded-xl px-2.5 py-1.5 md:px-4 md:py-2 flex items-center gap-1.5 transition-all cursor-pointer min-h-[40px]"
                 >
                   <Globe className="w-4 h-4 text-emerald-700" />
@@ -198,7 +215,7 @@ const RootLayout = () => {
                 {/* Interaction Buttons (الدخول / الحساب / خروج) - styled with spec dimensions */}
                 {!isLoggedIn ? (
                   <Link 
-                    to="/login" 
+                    to={localizePathname('/login', language)}
                     className="bg-[#0F4B3A] text-white hover:bg-[#0c3e30] font-bold text-xs md:text-sm rounded-lg md:rounded-xl px-3 py-1.5 md:px-5 md:py-2.5 flex items-center justify-center transition-all min-h-[40px] shadow-sm"
                   >
                     {t('nav_login')}
@@ -352,7 +369,7 @@ const HomePage = () => {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      window.location.href = `/search?q=${encodeURIComponent(searchQuery)}`;
+      window.location.href = `${localizePathname('/search', language)}?q=${encodeURIComponent(searchQuery)}`;
     }
   };
 
@@ -360,10 +377,10 @@ const HomePage = () => {
   const heroDesc = t('home_premium_hero_description');
 
   const quickTags = [
-    { label: t('home_quick_fully_funded'), link: '/scholarships' },
-    { label: t('home_quick_elite_universities'), link: '/universities' },
-    { label: t('home_quick_free_language_courses'), link: '/courses' },
-    { label: t('home_quick_practice_tests'), link: '/international-tests' },
+    { label: t('home_quick_fully_funded'), link: localizePathname('/scholarships', language) },
+    { label: t('home_quick_elite_universities'), link: localizePathname('/universities', language) },
+    { label: t('home_quick_free_language_courses'), link: localizePathname('/courses', language) },
+    { label: t('home_quick_practice_tests'), link: localizePathname('/international-tests', language) },
   ];
 
   const domains = [
@@ -561,7 +578,7 @@ const HomePage = () => {
 // Route Groups Definition
 const router = createBrowserRouter([
   {
-    path: '/',
+    path: '/:locale?',
     element: <RootLayout />,
     children: [
       {

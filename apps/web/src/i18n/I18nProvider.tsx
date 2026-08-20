@@ -5,6 +5,7 @@ import {
   isSupportedLocale,
   type SupportedLocale,
 } from '@manaratak/shared';
+import { resolvePublicLocationLocale } from './localeRouting';
 import { en } from './en';
 import { ar } from './ar';
 
@@ -28,10 +29,10 @@ const dictionaries = {
 export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguageState] = useState<SupportedLocale>(() => {
     const saved = localStorage.getItem('manaratak_lang');
-    if (isSupportedLocale(saved)) {
-      return saved;
-    }
-    return DEFAULT_LOCALE;
+    return resolvePublicLocationLocale({
+      pathname: window.location.pathname,
+      persistedBrowserLocale: saved,
+    });
   });
 
   const setLanguage = (lang: SupportedLocale) => {
