@@ -272,7 +272,24 @@ export * from './value-objects/TechnicalMetadata';export * from './generated/dum
 export * from './universities/universities';
 export * from './universities/UniversityReadinessContracts';
 export * from './universities/UniversityPublicationReadinessPolicy';
-export * from './scholarships/scholarships';
+export {
+  ScholarshipCompletenessClassifier,
+  ScholarshipDeduplicationService,
+  ScholarshipImportPayloadSchema,
+  ScholarshipNamingService,
+  ScholarshipCompletenessState,
+  ScholarshipStatus,
+  type CreateScholarshipDto,
+  type IScholarshipRepository,
+  type ITransactionalScholarshipRepository,
+  type PublicScholarshipDto,
+  type PublicScholarshipFilters,
+  type ScholarshipDto,
+  type ScholarshipFilters,
+  type ScholarshipImportPayload,
+  type ScholarshipPage,
+  type UpdateScholarshipDto,
+} from './scholarships/scholarships';
 export * from './majors/enums';
 export * from './majors/majors';
 export * from './tests-platform/index';
