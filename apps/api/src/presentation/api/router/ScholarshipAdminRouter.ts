@@ -1,12 +1,26 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { ScholarshipStatus, ScholarshipCompletenessState, UpdateScholarshipDto } from '@manaratak/domain';
-import { AdminScholarshipUseCases, ImportAdminUseCases } from '@manaratak/application';
+import { ScholarshipStatus, ScholarshipCompletenessState, UpdateScholarshipDto, type IScholarshipRepository } from '@manaratak/domain';
+import {
+  AdminScholarshipUseCases,
+  ImportAdminUseCases,
+  ScholarshipImportCenterUseCases,
+  type IScholarshipImportCenterGateway,
+  type ScholarshipImportOperationalClass,
+} from '@manaratak/application';
 
 export class ScholarshipAdminRouter {
-  public static create(cradle: { adminScholarshipUseCases: AdminScholarshipUseCases; importAdminUseCases?: ImportAdminUseCases }): Router {
+  public static create(cradle: {
+    adminScholarshipUseCases: AdminScholarshipUseCases;
+    importAdminUseCases?: ImportAdminUseCases;
+    importRepository?: IScholarshipImportCenterGateway;
+    scholarshipRepository?: IScholarshipRepository;
+  }): Router {
     const router = Router();
-    const { adminScholarshipUseCases, importAdminUseCases } = cradle;
+    const { adminScholarshipUseCases, importAdminUseCases, importRepository, scholarshipRepository } = cradle;
+    const scholarshipImportCenterUseCases = importRepository && scholarshipRepository
+      ? new ScholarshipImportCenterUseCases(importRepository, scholarshipRepository)
+      : undefined;
 
     // Middleware to catch async errors
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
@@ -26,6 +40,25 @@ export class ScholarshipAdminRouter {
       page: z.string().optional().transform(val => val ? parseInt(val, 10) : 1),
       pageSize: z.string().optional().transform(val => val ? parseInt(val, 10) : 20),
     });
+
+    const operationalClassSchema = z.enum(['REAL', 'TEST', 'DEMO', 'ARCHIVED', 'UNCLASSIFIED']);
+    const importCenterQuerySchema = z.object({
+      batchId: z.string().min(1).optional(),
+      status: z.string().min(1).optional(),
+      operationalClass: operationalClassSchema.optional(),
+      page: z.string().optional().transform(val => val ? parseInt(val, 10) : 1),
+      pageSize: z.string().optional().transform(val => val ? parseInt(val, 10) : 50),
+    });
+    const importCenterDecisionSchema = z.object({
+      action: z.enum(['MERGE', 'KEEP_CURRENT', 'SPLIT']),
+      reason: z.string().max(2000).optional(),
+    });
+    const requireImportCenter = () => {
+      if (!scholarshipImportCenterUseCases) {
+        throw new Error('SCHOLARSHIP_IMPORT_CENTER_NOT_CONFIGURED');
+      }
+      return scholarshipImportCenterUseCases;
+    };
 
     const updateBodySchema = z.object({
       displayName: z.string().optional(),
@@ -116,6 +149,107 @@ export class ScholarshipAdminRouter {
       const { dataText, sourceSystem } = req.body;
       const result = await importAdminUseCases.importData({ dataText, sourceSystem, dataType: 'SCHOLARSHIPS' });
       res.status(201).json(result);
+    }));
+
+    // WP12-7 Scholarship Import Center Backend (API -> Application -> existing Phase 6 store)
+    router.get('/import-center/overview', asyncHandler(async (req: Request, res: Response) => {
+      const operationalClass = operationalClassSchema.optional().parse(req.query.operationalClass) as ScholarshipImportOperationalClass | undefined;
+      res.json(await requireImportCenter().getOverview(operationalClass ?? 'REAL'));
+    }));
+
+    router.get('/import-center/sources', asyncHandler(async (_req: Request, res: Response) => {
+      res.json(await requireImportCenter().listSources());
+    }));
+
+    router.get('/import-center/records', asyncHandler(async (req: Request, res: Response) => {
+      const query = importCenterQuerySchema.parse(req.query);
+      res.json(await requireImportCenter().listRecords(query));
+    }));
+
+    router.get('/import-center/records/:id/diff', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await requireImportCenter().getDiff(req.params.id));
+    }));
+
+    router.get('/import-center/records/:id/merge-proposal', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await requireImportCenter().getMergeProposal(req.params.id));
+    }));
+
+    router.get('/import-center/records/:id', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await requireImportCenter().getRecord(req.params.id));
+    }));
+
+    router.get('/import-center/screening', asyncHandler(async (req: Request, res: Response) => {
+      const query = importCenterQuerySchema.parse(req.query);
+      res.json(await requireImportCenter().listScreening(query));
+    }));
+
+    router.get('/import-center/duplicates', asyncHandler(async (req: Request, res: Response) => {
+      const query = importCenterQuerySchema.parse(req.query);
+      res.json(await requireImportCenter().listDuplicatesAndUpdates(query));
+    }));
+
+    router.get('/import-center/missing-data', asyncHandler(async (req: Request, res: Response) => {
+      const query = importCenterQuerySchema.parse(req.query);
+      res.json(await requireImportCenter().listMissingData(query));
+    }));
+
+    router.get('/import-center/verification', asyncHandler(async (req: Request, res: Response) => {
+      const query = importCenterQuerySchema.parse(req.query);
+      res.json(await requireImportCenter().listVerification(query));
+    }));
+
+    router.get('/import-center/review-queue', asyncHandler(async (req: Request, res: Response) => {
+      const query = importCenterQuerySchema.parse(req.query);
+      res.json(await requireImportCenter().listReviewQueue(query));
+    }));
+
+    router.get('/import-center/ready-to-transfer', asyncHandler(async (req: Request, res: Response) => {
+      const query = importCenterQuerySchema.parse(req.query);
+      res.json(await requireImportCenter().listReadyToTransfer(query));
+    }));
+
+    router.get('/import-center/history', asyncHandler(async (req: Request, res: Response) => {
+      const query = importCenterQuerySchema.parse(req.query);
+      res.json(await requireImportCenter().listHistory(query));
+    }));
+
+    router.post('/import-center/records/:id/decision', asyncHandler(async (req: Request, res: Response) => {
+      const payload = importCenterDecisionSchema.parse(req.body);
+      const context = mutationContext(req);
+      try {
+        const result = await requireImportCenter().recordDecision({
+          recordId: req.params.id,
+          action: payload.action,
+          actorId: context.actorId,
+          reason: payload.reason,
+          correlationId: context.correlationId,
+        });
+        res.status(201).json(result);
+      } catch (error) {
+        if (error instanceof Error && error.message === 'SCHOLARSHIP_IMPORT_REVIEW_DECISION_PORT_NOT_CONFIGURED') {
+          res.status(501).json({ error: error.message });
+          return;
+        }
+        throw error;
+      }
+    }));
+
+    router.post('/import-center/records/:id/transfer', asyncHandler(async (req: Request, res: Response) => {
+      const context = mutationContext(req);
+      try {
+        const result = await requireImportCenter().transfer({
+          recordId: req.params.id,
+          actorId: context.actorId,
+          correlationId: context.correlationId,
+        });
+        res.status(201).json(result);
+      } catch (error) {
+        if (error instanceof Error && error.message === 'SCHOLARSHIP_IMPORT_TRANSFER_DEFERRED_TO_WP12_10') {
+          res.status(422).json({ error: error.message });
+          return;
+        }
+        throw error;
+      }
     }));
 
     router.get('/imported-records', asyncHandler(async (req: Request, res: Response) => {
