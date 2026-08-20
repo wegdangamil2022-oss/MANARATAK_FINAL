@@ -53,6 +53,17 @@ export class UniversityAdminRouter {
       metadata: z.record(z.string(), z.unknown()).optional(),
     });
 
+    const translationLocaleSchema = z.enum(['ar', 'en']);
+    const translationBodySchema = z.object({
+      displayName: z.string().trim().min(1).nullable().optional(),
+      description: z.string().nullable().optional(),
+      reviewStatus: z
+        .enum(['NEEDS_REVIEW', 'APPROVED', 'PUBLISHED', 'REJECTED'])
+        .default('NEEDS_REVIEW'),
+      sourceRecordId: z.string().nullable().optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
+    });
+
     const normalizedDetailsSchema = z
       .object({
         campuses: z
@@ -177,6 +188,28 @@ export class UniversityAdminRouter {
       asyncHandler(async (req: Request, res: Response) => {
         const university = await adminUniversityUseCases.getUniversity(req.params.id);
         res.json(university);
+      }),
+    );
+
+    router.get(
+      '/:id/translations',
+      asyncHandler(async (req: Request, res: Response) => {
+        const translations = await adminUniversityUseCases.listTranslations(req.params.id);
+        res.json({ data: translations });
+      }),
+    );
+
+    router.put(
+      '/:id/translations/:locale',
+      asyncHandler(async (req: Request, res: Response) => {
+        const locale = translationLocaleSchema.parse(req.params.locale);
+        const payload = translationBodySchema.parse(req.body);
+        const translation = await adminUniversityUseCases.upsertTranslation(
+          req.params.id,
+          { locale, ...payload },
+          mutationContext(req),
+        );
+        res.json(translation);
       }),
     );
 

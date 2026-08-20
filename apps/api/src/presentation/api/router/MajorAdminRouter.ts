@@ -39,6 +39,8 @@ export class MajorAdminRouter {
 
     const updateBodySchema = z.object({
       displayName: z.string().optional(),
+      localizedNameAr: z.string().trim().min(1).nullable().optional(),
+      localizedNameEn: z.string().trim().min(1).nullable().optional(),
       degreeLevel: z.string().optional(),
       sourceClassificationSystem: z.string().optional(),
       academicFieldOrDiscipline: z.string().nullable().optional(),
@@ -133,6 +135,8 @@ export class MajorAdminRouter {
 
       const dataToUpdate: UpdateMajorDto = {
         displayName: updates.displayName,
+        localizedNameAr: updates.localizedNameAr,
+        localizedNameEn: updates.localizedNameEn,
         degreeLevel: updates.degreeLevel,
         sourceClassificationSystem: updates.sourceClassificationSystem,
         academicFieldOrDiscipline: updates.academicFieldOrDiscipline,

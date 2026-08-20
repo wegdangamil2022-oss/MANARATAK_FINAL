@@ -8,6 +8,7 @@ import {
   UniversityImportCompletenessState,
   UniversityStatus,
   UniversityNormalizedDetailsUpdate,
+  UniversityTranslationDto,
   UpdateUniversityDto,
   PublicationReadinessEngine,
   PublicationReadinessResult,
@@ -38,6 +39,35 @@ export class AdminUniversityUseCases {
       throw new Error(`University with id ${id} not found`);
     }
     return university;
+  }
+
+  public async listTranslations(id: string): Promise<UniversityTranslationDto[]> {
+    await this.getUniversity(id);
+    if (!this.repository.listTranslations) {
+      throw new Error('UNIVERSITY_TRANSLATION_PERSISTENCE_NOT_AVAILABLE');
+    }
+    return this.repository.listTranslations(id);
+  }
+
+  public async upsertTranslation(
+    id: string,
+    input: Omit<
+      UniversityTranslationDto,
+      'id' | 'universityId' | 'createdAt' | 'updatedAt'
+    >,
+    context?: AtomicMutationRequestContext,
+  ): Promise<UniversityTranslationDto> {
+    await this.getUniversity(id);
+    if (input.locale !== 'ar' && input.locale !== 'en') {
+      throw new Error(`UNSUPPORTED_TRANSLATION_LOCALE:${input.locale}`);
+    }
+
+    return this.mutate('UNIVERSITY_TRANSLATION_UPSERTED', id, context, async (repository) => {
+      if (!repository.upsertTranslation) {
+        throw new Error('UNIVERSITY_TRANSLATION_PERSISTENCE_NOT_AVAILABLE');
+      }
+      return repository.upsertTranslation(id, input);
+    });
   }
 
   public async updateUniversity(

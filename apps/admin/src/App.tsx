@@ -27,6 +27,7 @@ import { StudyDestinationDetailPage } from './pages/StudyDestinationDetailPage';
 import { ReferenceDataAdminPage } from './pages/ReferenceDataAdminPage';
 import { AcademicTaxonomyAdminPage } from './pages/AcademicTaxonomyAdminPage';
 import { AcademicTaxonomyDetailPage } from './pages/AcademicTaxonomyDetailPage';
+import { AdminTranslationWorkspacePage } from './pages/AdminTranslationWorkspacePage';
 import { I18nProvider, useTranslation } from './i18n/I18nProvider';
 
 function AdminLayout() {
@@ -66,6 +67,7 @@ function AdminLayout() {
               <a href="/scholarships" className="text-sm font-medium hover:text-black">{t('admin_nav_scholarships')}</a>
               <a href="/universities" className="text-sm font-medium hover:text-black">{t('admin_nav_universities')}</a>
               <a href="/majors" className="text-sm font-medium hover:text-black">{t('admin_nav_majors')}</a>
+              <a href="/translations" className="text-sm font-medium hover:text-black">{t('localized_payload')}</a>
               <a href="/courses" className="text-sm font-medium hover:text-black">{t('admin_nav_courses')}</a>
               <a href="/certificates" className="text-sm font-medium hover:text-black">{t('admin_nav_certificates')}</a>
               <a href="/cms" className="text-sm font-medium hover:text-black">{t('admin_nav_cms')}</a>
@@ -107,6 +109,7 @@ function AdminLayout() {
               <Route path="/universities" element={<UniversityAdminPage />} />
               <Route path="/majors" element={<MajorAdminPage />} />
               <Route path="/majors/:id" element={<MajorDetailPage />} />
+              <Route path="/translations" element={<AdminTranslationWorkspacePage />} />
               <Route path="/courses" element={<CourseListPage />} />
               <Route path="/courses/:id" element={<CourseDetailPage />} />
               <Route path="/certificates" element={<CertificateAdminPage />} />
