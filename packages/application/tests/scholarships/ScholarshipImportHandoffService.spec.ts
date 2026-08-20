@@ -51,7 +51,18 @@ describe('ScholarshipImportHandoffService', () => {
     const result = await service.accept(handoff());
 
     expect(result.stageState).toBe('STAGED_NEEDS_REVIEW');
-    expect(result.completeness.missingFields).toEqual(['description', 'officialSourceUrl']);
+    expect(result.completeness.identityMissingFields).toEqual([]);
+    expect(result.completeness.coreMissingFields).toEqual([
+      'fundingType',
+      'benefits',
+      'countryOrScope',
+      'degreeTargets',
+      'eligibility',
+      'requiredDocumentsOrTests',
+      'deadlineMode',
+    ]);
+    expect(result.nameScreening.rawSourceTitle).toBe('Example Scholarship');
+    expect(result.dedupe.state).toBe('NOT_CHECKED');
     expect(result.normalizedPayload.scholarshipName).toBe('Example Scholarship');
   });
 

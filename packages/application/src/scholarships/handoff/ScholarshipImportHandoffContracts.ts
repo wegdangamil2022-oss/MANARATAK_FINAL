@@ -20,14 +20,62 @@ export interface ScholarshipImportHandoffEvidence {
   referenceMetadata?: UniversalImportHandoff['referenceMetadata'];
 }
 
+export interface ScholarshipNameScreeningResult {
+  rawSourceTitle: string;
+  normalizedSourceTitle: string;
+  displayName: string;
+  cleanedScholarshipName: string;
+  detectedYear: string | null;
+  sourceAliases: string[];
+  extracted: {
+    fundingTypeCode: 'FULLY_FUNDED' | 'PARTIALLY_FUNDED' | null;
+    degreeLevelLabels: Array<'BACHELOR' | 'MASTER' | 'DOCTORATE'>;
+    removedPhrases: string[];
+  };
+}
+
+export interface ScholarshipCompletenessScreeningResult {
+  state: ScholarshipCompletenessState;
+  missingFields: string[];
+  identityMissingFields: string[];
+  coreMissingFields: string[];
+  optionalMissingFields: string[];
+  missingCount: number;
+  identityReady: boolean;
+}
+
+export type ScholarshipDuplicateScreeningState =
+  | 'NOT_CHECKED'
+  | 'NEW'
+  | 'DUPLICATE'
+  | 'UPDATE'
+  | 'COLLISION_REVIEW';
+
+export interface ScholarshipDuplicateScreeningMatch {
+  id: string;
+  publicId?: string | null;
+  displayName?: string | null;
+  canonicalDedupKey?: string | null;
+  sourceImportRecordId?: string | null;
+}
+
+export interface ScholarshipDedupeScreeningResult {
+  duplicateKey: string;
+  providerKey: string;
+  yearOrNoYear: string;
+  state: ScholarshipDuplicateScreeningState;
+  matches: ScholarshipDuplicateScreeningMatch[];
+  requiresReview: boolean;
+  reason: string;
+}
+
 export interface ScholarshipImportStagingCandidate {
   stagingKey: string;
   stageState: ScholarshipImportStagingState;
   normalizedPayload: ScholarshipImportPayload;
-  completeness: {
-    state: ScholarshipCompletenessState;
-    missingFields: string[];
-  };
+  nameScreening: ScholarshipNameScreeningResult;
+  completeness: ScholarshipCompletenessScreeningResult;
+  dedupe: ScholarshipDedupeScreeningResult;
   canonicalScreening: ScholarshipCanonicalResolutionResult[];
   evidence: ScholarshipImportHandoffEvidence;
 }
@@ -38,4 +86,9 @@ export interface ScholarshipImportStagingCandidate {
  */
 export interface IScholarshipHandoffCanonicalScreening {
   screen(payload: ScholarshipImportPayload): Promise<ScholarshipCanonicalResolutionResult[]>;
+}
+
+/** Read-only lookup for the approved WP12-5 duplicate key. */
+export interface IScholarshipHandoffDuplicateLookup {
+  findMatchesByDedupKey(key: string): Promise<readonly ScholarshipDuplicateScreeningMatch[]>;
 }

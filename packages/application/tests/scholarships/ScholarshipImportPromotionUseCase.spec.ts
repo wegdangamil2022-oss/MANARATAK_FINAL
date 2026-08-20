@@ -47,17 +47,21 @@ describe('ScholarshipImportPromotionUseCase', () => {
     const useCase = new ScholarshipImportPromotionUseCase(repo);
     const record = createRecord(ImportRecordStatus.VALID, {
       scholarshipName: 'Test', description: 'desc',
+      providerName: 'Example Foundation',
       fundingCoverage: 'Full',
       coverageDetails: 'Tuition and board',
       eligibleMajorsOrFields: 'All',
       degreeLevel: 'Bachelors',
+      studyCountry: 'Qatar',
+      eligibilityCriteria: 'Open to eligible students',
+      requiredDocuments: 'Transcript and passport',
       officialSourceUrl: 'https://example.com',
       applicationLink: 'https://example.com/apply',
       applicationDeadline: '2027-10-01T00:00:00Z'
     });
     
     const result = await useCase.promote(record);
-    console.log(result); expect(result.type).toBe('CREATED');
+    expect(result.type).toBe('CREATED');
     expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({
       displayName: 'Test',
       status: ScholarshipStatus.IMPORTED,
@@ -71,15 +75,18 @@ describe('ScholarshipImportPromotionUseCase', () => {
     const useCase = new ScholarshipImportPromotionUseCase(repo);
     const record = createRecord(ImportRecordStatus.NEEDS_REVIEW, {
       scholarshipName: 'Test', description: 'desc',
+      providerName: 'Example Foundation',
       fundingCoverage: 'Full',
       coverageDetails: 'Tuition',
       eligibleMajorsOrFields: 'CS',
-      degreeLevel: 'BSc'
-      // missing URLs
+      degreeLevel: 'BSc',
+      officialSourceUrl: 'https://example.com'
+      // identity is ready, but core fields such as country, eligibility,
+      // documents/tests, and deadline still need review.
     });
     
     const result = await useCase.promote(record);
-    console.log(result); expect(result.type).toBe('CREATED');
+    expect(result.type).toBe('CREATED');
     expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({
       status: ScholarshipStatus.READY_TO_REVIEW,
       completenessStatus: ScholarshipCompletenessState.NEEDS_REVIEW
@@ -92,12 +99,17 @@ describe('ScholarshipImportPromotionUseCase', () => {
     const useCase = new ScholarshipImportPromotionUseCase(repo);
     const record = createRecord(ImportRecordStatus.VALID, {
       scholarshipName: 'Test', description: 'desc',
+      providerName: 'Example Foundation',
       fundingCoverage: 'Full',
       coverageDetails: 'Tuition and board',
       eligibleMajorsOrFields: 'All',
       degreeLevel: 'Bachelors',
+      studyCountry: 'Qatar',
+      eligibilityCriteria: 'Open to eligible students',
+      requiredDocuments: 'Transcript and passport',
       officialSourceUrl: 'https://example.com',
-      applicationLink: 'https://example.com/apply'
+      applicationLink: 'https://example.com/apply',
+      applicationDeadline: '2027-10-01T00:00:00Z'
     });
     
     const result = await useCase.promote(record);
