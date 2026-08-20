@@ -158,6 +158,7 @@ export interface InternationalTestVersionDto {
   status: 'DRAFT' | 'NEEDS_REVIEW' | 'APPROVED' | 'PUBLISHED' | 'SUPERSEDED' | 'ARCHIVED';
   sourceImportRecordId?: string;
   sourceFileName?: string;
+  sourceLocale?: string;
   sourceUri?: string;
   sourceHash?: string;
   importedAt?: Date;
@@ -180,6 +181,7 @@ export interface UpsertInternationalTestVersionDto {
   status: InternationalTestVersionDto['status'];
   sourceImportRecordId?: string;
   sourceFileName?: string;
+  sourceLocale?: string;
   sourceUri?: string;
   sourceHash?: string;
   importedAt?: Date;
@@ -198,6 +200,7 @@ export interface UpsertInternationalTestVersionDto {
 export interface InternationalTestImportDraftRequestDto {
   sourceImportRecordId?: string;
   sourceFileName: string;
+  sourceLocale?: string;
   sourceUri?: string;
   sourceHash?: string;
   rawContent?: string;
@@ -224,6 +227,7 @@ export interface InternationalTestImportDraftResultDto {
   versionNumber: number;
   status: InternationalTestVersionDto['status'];
   sourceFileName: string;
+  sourceLocale?: string;
   sourceHash?: string;
   preservedRawContent: boolean;
   reviewStatus: 'NEEDS_REVIEW';

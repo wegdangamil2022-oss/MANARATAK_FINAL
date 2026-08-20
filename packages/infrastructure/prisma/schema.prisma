@@ -64,20 +64,20 @@ model SettingVersionRecord {
 // --- Import Foundation ---
 
 model ImportBatch {
-  id               String   @id @default(uuid())
+  id               String    @id @default(uuid())
   sourceSystem     String
   dataType         String
   batchStatus      String
-  totalRecords     Int      @default(0)
-  processedRecords Int      @default(0)
-  failedRecords    Int      @default(0)
-  attemptCount     Int      @default(0)
-  availableAt      DateTime @default(now())
+  totalRecords     Int       @default(0)
+  processedRecords Int       @default(0)
+  failedRecords    Int       @default(0)
+  attemptCount     Int       @default(0)
+  availableAt      DateTime  @default(now())
   claimedBy        String?
   claimUntil       DateTime?
   lastError        String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   records ImportRecord[]
 
@@ -106,17 +106,17 @@ model ImportRecord {
 
   batch ImportBatch @relation(fields: [batchId], references: [id])
 
+  @@unique([batchId, sourceDedupKey])
   @@index([batchId])
   @@index([batchId, status])
   @@index([batchId, chunkIndex])
-  @@unique([batchId, sourceDedupKey])
   @@index([retentionExpiresAt])
 }
 
 // --- Transactional Outbox ---
 
 model TransactionalOutboxRecord {
-  id            String   @id
+  id            String    @id
   eventType     String
   domain        String
   aggregateType String?
@@ -125,17 +125,17 @@ model TransactionalOutboxRecord {
   metadata      Json
   correlationId String?
   causationId   String?
-  state         String   @default("PENDING")
-  attempts      Int      @default(0)
-  availableAt   DateTime @default(now())
+  state         String    @default("PENDING")
+  attempts      Int       @default(0)
+  availableAt   DateTime  @default(now())
   claimedBy     String?
   claimUntil    DateTime?
   processedAt   DateTime?
   lastErrorCode String?
   lastErrorText String?
   lastFailedAt  DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([state, availableAt])
   @@index([claimUntil])
@@ -146,43 +146,45 @@ model TransactionalOutboxRecord {
 // --- Universities ---
 
 model University {
-  id                   String  @id @default(uuid())
-  publicId             String  @unique
-  slug                 String  @unique
-  canonicalName        String
-  canonicalDedupKey    String  @unique
-  displayName          String
-  country              String?
-  city                 String?
-  institutionType      String?
-  officialWebsite      String?
-  status               String
-  completenessStatus   String
-  sourceUrl            String?
-  officialSourceUrl    String?
-  logoAssetId          String?
-  foundedYear          Int?
-  sourceImportRecordId String?
-  optionalFields       Json?
-  countryReferenceId   String?
-  regionReferenceId    String?
-  cityReferenceId      String?
+  id                     String  @id @default(uuid())
+  publicId               String  @unique
+  slug                   String  @unique
+  canonicalName          String
+  canonicalDedupKey      String  @unique
+  displayName            String
+  country                String?
+  city                   String?
+  institutionType        String?
+  officialWebsite        String?
+  status                 String
+  completenessStatus     String
+  sourceUrl              String?
+  officialSourceUrl      String?
+  logoAssetId            String?
+  foundedYear            Int?
+  sourceImportRecordId   String?
+  optionalFields         Json?
+  countryReferenceId     String?
+  regionReferenceId      String?
+  cityReferenceId        String?
   institutionalOwnership String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  countryReference  ReferenceCountry?     @relation(fields: [countryReferenceId], references: [id], onDelete: Restrict)
-  regionReference   AdministrativeRegion? @relation(fields: [regionReferenceId], references: [id], onDelete: SetNull)
-  cityReference     ReferenceCity?         @relation(fields: [cityReferenceId], references: [id], onDelete: SetNull)
-  campuses          UniversityCampus[]
-  organizationUnits UniversityOrganizationUnit[]
-  academicPrograms  UniversityAcademicProgram[]
-  tuitionProfiles   UniversityTuitionProfile[]
+  countryReference      ReferenceCountry?                @relation(fields: [countryReferenceId], references: [id], onDelete: Restrict)
+  regionReference       AdministrativeRegion?            @relation(fields: [regionReferenceId], references: [id], onDelete: SetNull)
+  cityReference         ReferenceCity?                   @relation(fields: [cityReferenceId], references: [id], onDelete: SetNull)
+  campuses              UniversityCampus[]
+  organizationUnits     UniversityOrganizationUnit[]
+  academicPrograms      UniversityAcademicProgram[]
+  tuitionProfiles       UniversityTuitionProfile[]
   accommodationProfiles UniversityAccommodationProfile[]
-  rankings          UniversityRanking[]
-  sourceRecords     UniversitySourceRecord[]
-  importChanges     UniversityImportChange[]
+  rankings              UniversityRanking[]
+  sourceRecords         UniversitySourceRecord[]
+  translations          UniversityTranslation[]
+  localizedTexts        UniversityLocalizedText[]
+  importChanges         UniversityImportChange[]
 
   @@index([countryReferenceId])
   @@index([regionReferenceId])
@@ -190,28 +192,29 @@ model University {
 }
 
 model UniversityCampus {
-  id String @id @default(uuid())
-  universityId String
-  sourceReferenceId String?
-  name String
-  campusType String?
-  status String @default("ACTIVE")
-  address String?
+  id                 String                       @id @default(uuid())
+  universityId       String
+  sourceReferenceId  String?
+  name               String
+  campusType         String?
+  status             String                       @default("ACTIVE")
+  address            String?
   countryReferenceId String?
-  regionReferenceId String?
-  cityReferenceId String?
-  latitude Float?
-  longitude Float?
-  coordinateSource String?
-  metadata Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
-  countryReference ReferenceCountry? @relation(fields: [countryReferenceId], references: [id], onDelete: Restrict)
-  regionReference AdministrativeRegion? @relation(fields: [regionReferenceId], references: [id], onDelete: SetNull)
-  cityReference ReferenceCity? @relation(fields: [cityReferenceId], references: [id], onDelete: SetNull)
-  organizationUnits UniversityOrganizationUnit[]
-  programLinks UniversityProgramCampus[]
+  regionReferenceId  String?
+  cityReferenceId    String?
+  latitude           Float?
+  longitude          Float?
+  coordinateSource   String?
+  metadata           Json?
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
+  university         University                   @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  countryReference   ReferenceCountry?            @relation(fields: [countryReferenceId], references: [id], onDelete: Restrict)
+  regionReference    AdministrativeRegion?        @relation(fields: [regionReferenceId], references: [id], onDelete: SetNull)
+  cityReference      ReferenceCity?               @relation(fields: [cityReferenceId], references: [id], onDelete: SetNull)
+  organizationUnits  UniversityOrganizationUnit[]
+  programLinks       UniversityProgramCampus[]
+
   @@unique([universityId, sourceReferenceId])
   @@index([universityId])
   @@index([countryReferenceId])
@@ -220,23 +223,24 @@ model UniversityCampus {
 }
 
 model UniversityOrganizationUnit {
-  id String @id @default(uuid())
-  universityId String
-  campusId String?
+  id                       String                       @id @default(uuid())
+  universityId             String
+  campusId                 String?
   parentOrganizationUnitId String?
-  sourceReferenceId String?
-  unitType String
-  name String
-  normalizedName String
-  status String @default("ACTIVE")
-  metadata Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
-  campus UniversityCampus? @relation(fields: [campusId], references: [id], onDelete: SetNull)
-  parent UniversityOrganizationUnit? @relation("UniversityOrganizationHierarchy", fields: [parentOrganizationUnitId], references: [id], onDelete: SetNull)
-  children UniversityOrganizationUnit[] @relation("UniversityOrganizationHierarchy")
-  programs UniversityAcademicProgram[]
+  sourceReferenceId        String?
+  unitType                 String
+  name                     String
+  normalizedName           String
+  status                   String                       @default("ACTIVE")
+  metadata                 Json?
+  createdAt                DateTime                     @default(now())
+  updatedAt                DateTime                     @updatedAt
+  university               University                   @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  campus                   UniversityCampus?            @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  parent                   UniversityOrganizationUnit?  @relation("UniversityOrganizationHierarchy", fields: [parentOrganizationUnitId], references: [id], onDelete: SetNull)
+  children                 UniversityOrganizationUnit[] @relation("UniversityOrganizationHierarchy")
+  programs                 UniversityAcademicProgram[]
+
   @@unique([universityId, unitType, normalizedName, parentOrganizationUnitId])
   @@index([universityId])
   @@index([campusId])
@@ -244,25 +248,26 @@ model UniversityOrganizationUnit {
 }
 
 model UniversityAcademicProgram {
-  id String @id @default(uuid())
-  universityId String
-  organizationUnitId String?
-  sourceReferenceId String?
-  sourceProgramName String
-  normalizedName String
-  degreeLevelId String?
-  majorId String?
-  majorMappingState String
-  status String @default("DRAFT")
-  metadata Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
-  organizationUnit UniversityOrganizationUnit? @relation(fields: [organizationUnitId], references: [id], onDelete: SetNull)
-  degreeLevel DegreeLevel? @relation(fields: [degreeLevelId], references: [id], onDelete: SetNull)
-  major Major? @relation(fields: [majorId], references: [id], onDelete: SetNull)
-  campuses UniversityProgramCampus[]
+  id                    String                                  @id @default(uuid())
+  universityId          String
+  organizationUnitId    String?
+  sourceReferenceId     String?
+  sourceProgramName     String
+  normalizedName        String
+  degreeLevelId         String?
+  majorId               String?
+  majorMappingState     String
+  status                String                                  @default("DRAFT")
+  metadata              Json?
+  createdAt             DateTime                                @default(now())
+  updatedAt             DateTime                                @updatedAt
+  university            University                              @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  organizationUnit      UniversityOrganizationUnit?             @relation(fields: [organizationUnitId], references: [id], onDelete: SetNull)
+  degreeLevel           DegreeLevel?                            @relation(fields: [degreeLevelId], references: [id], onDelete: SetNull)
+  major                 Major?                                  @relation(fields: [majorId], references: [id], onDelete: SetNull)
+  campuses              UniversityProgramCampus[]
   admissionRequirements UniversityProgramAdmissionRequirement[]
+
   @@unique([universityId, sourceReferenceId])
   @@index([universityId])
   @@index([organizationUnitId])
@@ -273,31 +278,33 @@ model UniversityAcademicProgram {
 
 model UniversityProgramCampus {
   academicProgramId String
-  campusId String
-  createdAt DateTime @default(now())
-  academicProgram UniversityAcademicProgram @relation(fields: [academicProgramId], references: [id], onDelete: Cascade)
-  campus UniversityCampus @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  campusId          String
+  createdAt         DateTime                  @default(now())
+  academicProgram   UniversityAcademicProgram @relation(fields: [academicProgramId], references: [id], onDelete: Cascade)
+  campus            UniversityCampus          @relation(fields: [campusId], references: [id], onDelete: Cascade)
+
   @@id([academicProgramId, campusId])
   @@index([campusId])
 }
 
 model UniversityProgramAdmissionRequirement {
-  id String @id @default(uuid())
-  academicProgramId String
+  id                  String                    @id @default(uuid())
+  academicProgramId   String
   internationalTestId String
-  testVariantId String?
-  testVersionId String?
-  minimumScore Float?
-  sectionScores Json?
-  validityMetadata Json?
+  testVariantId       String?
+  testVersionId       String?
+  minimumScore        Float?
+  sectionScores       Json?
+  validityMetadata    Json?
   restrictionMetadata Json?
-  status String @default("REVIEW_REQUIRED")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  academicProgram UniversityAcademicProgram @relation(fields: [academicProgramId], references: [id], onDelete: Cascade)
-  internationalTest InternationalTest @relation(fields: [internationalTestId], references: [id], onDelete: Restrict)
-  testVariant InternationalTestVariant? @relation(fields: [testVariantId], references: [id], onDelete: SetNull)
-  testVersion InternationalTestVersion? @relation(fields: [testVersionId], references: [id], onDelete: SetNull)
+  status              String                    @default("REVIEW_REQUIRED")
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  academicProgram     UniversityAcademicProgram @relation(fields: [academicProgramId], references: [id], onDelete: Cascade)
+  internationalTest   InternationalTest         @relation(fields: [internationalTestId], references: [id], onDelete: Restrict)
+  testVariant         InternationalTestVariant? @relation(fields: [testVariantId], references: [id], onDelete: SetNull)
+  testVersion         InternationalTestVersion? @relation(fields: [testVersionId], references: [id], onDelete: SetNull)
+
   @@unique([academicProgramId, internationalTestId, testVariantId, testVersionId])
   @@index([internationalTestId])
   @@index([testVariantId])
@@ -305,113 +312,167 @@ model UniversityProgramAdmissionRequirement {
 }
 
 model UniversityTuitionProfile {
-  id String @id @default(uuid())
-  universityId String
-  profileType String
+  id                   String             @id @default(uuid())
+  universityId         String
+  profileType          String
   organizationUnitName String?
-  amount Decimal? @db.Decimal(18, 2)
-  currencyCode String?
-  currencyReferenceId String?
-  officialSourceUrl String?
-  effectiveFrom DateTime?
-  effectiveTo DateTime?
-  metadata Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
-  currency ReferenceCurrency? @relation("UniversityTuitionCurrency", fields: [currencyReferenceId], references: [id], onDelete: SetNull)
+  amount               Decimal?           @db.Decimal(18, 2)
+  currencyCode         String?
+  currencyReferenceId  String?
+  officialSourceUrl    String?
+  effectiveFrom        DateTime?
+  effectiveTo          DateTime?
+  metadata             Json?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  university           University         @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  currency             ReferenceCurrency? @relation("UniversityTuitionCurrency", fields: [currencyReferenceId], references: [id], onDelete: SetNull)
+
   @@index([universityId])
   @@index([profileType])
   @@index([currencyReferenceId])
 }
 
 model UniversityAccommodationProfile {
-  id String @id @default(uuid())
-  universityId String
-  accommodationAvailable Boolean?
-  internationalEligible Boolean?
-  typicalCost Decimal? @db.Decimal(18, 2)
-  currencyCode String?
-  currencyReferenceId String?
-  averageMonthlyLivingCost Decimal? @db.Decimal(18, 2)
-  livingCostCurrencyCode String?
+  id                            String             @id @default(uuid())
+  universityId                  String
+  accommodationAvailable        Boolean?
+  internationalEligible         Boolean?
+  typicalCost                   Decimal?           @db.Decimal(18, 2)
+  currencyCode                  String?
+  currencyReferenceId           String?
+  averageMonthlyLivingCost      Decimal?           @db.Decimal(18, 2)
+  livingCostCurrencyCode        String?
   livingCostCurrencyReferenceId String?
-  costVariationNote String?
-  metadata Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
-  currency ReferenceCurrency? @relation("UniversityAccommodationCurrency", fields: [currencyReferenceId], references: [id], onDelete: SetNull)
-  livingCostCurrency ReferenceCurrency? @relation("UniversityAccommodationLivingCostCurrency", fields: [livingCostCurrencyReferenceId], references: [id], onDelete: SetNull)
+  costVariationNote             String?
+  metadata                      Json?
+  createdAt                     DateTime           @default(now())
+  updatedAt                     DateTime           @updatedAt
+  university                    University         @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  currency                      ReferenceCurrency? @relation("UniversityAccommodationCurrency", fields: [currencyReferenceId], references: [id], onDelete: SetNull)
+  livingCostCurrency            ReferenceCurrency? @relation("UniversityAccommodationLivingCostCurrency", fields: [livingCostCurrencyReferenceId], references: [id], onDelete: SetNull)
+
   @@index([universityId])
   @@index([currencyReferenceId])
   @@index([livingCostCurrencyReferenceId])
 }
 
 model UniversityRanking {
-  id String @id @default(uuid())
-  universityId String
-  provider String
-  rankingYear Int
-  rank String
-  scope String
-  scopeLabel String?
-  note String?
+  id                String     @id @default(uuid())
+  universityId      String
+  provider          String
+  rankingYear       Int
+  rank              String
+  scope             String
+  scopeLabel        String?
+  note              String?
   officialSourceUrl String
-  verifiedAt DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  verifiedAt        DateTime
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  university        University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
   @@unique([universityId, provider, rankingYear, scope])
   @@index([provider, rankingYear, scope])
 }
 
 model UniversitySourceRecord {
-  id String @id @default(uuid())
-  universityId String
-  importRecordId String?
-  stage String
+  id               String                    @id @default(uuid())
+  universityId     String
+  importRecordId   String?
+  stage            String
   sourceArtifactId String
-  sourceRowNumber Int?
-  sourceHash String
-  sourceUri String?
-  importedAt DateTime?
-  metadata Json?
-  createdAt DateTime @default(now())
-  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  sourceRowNumber  Int?
+  sourceHash       String
+  sourceUri        String?
+  sourceLocale     String?
+  importedAt       DateTime?
+  metadata         Json?
+  createdAt        DateTime                  @default(now())
+  university       University                @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  translations     UniversityTranslation[]   @relation("UniversityTranslationSourceRecord")
+  localizedTexts   UniversityLocalizedText[] @relation("UniversityLocalizedTextSourceRecord")
+
   @@unique([stage, sourceArtifactId, sourceRowNumber])
   @@index([universityId])
   @@index([sourceHash])
 }
 
+model UniversityTranslation {
+  id             String   @id @default(uuid())
+  universityId   String
+  locale         String
+  displayName    String?
+  description    String?
+  reviewStatus   String   @default("NEEDS_REVIEW")
+  sourceRecordId String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  university   University              @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  sourceRecord UniversitySourceRecord? @relation("UniversityTranslationSourceRecord", fields: [sourceRecordId], references: [id], onDelete: SetNull)
+
+  @@unique([universityId, locale])
+  @@index([locale])
+  @@index([reviewStatus])
+  @@index([sourceRecordId])
+}
+
+model UniversityLocalizedText {
+  id             String   @id @default(uuid())
+  universityId   String
+  targetType     String
+  targetId       String
+  fieldKey       String
+  locale         String
+  value          String
+  reviewStatus   String   @default("NEEDS_REVIEW")
+  sourceRecordId String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  university   University              @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  sourceRecord UniversitySourceRecord? @relation("UniversityLocalizedTextSourceRecord", fields: [sourceRecordId], references: [id], onDelete: SetNull)
+
+  @@unique([universityId, targetType, targetId, fieldKey, locale])
+  @@index([universityId, targetType, targetId])
+  @@index([locale])
+  @@index([reviewStatus])
+  @@index([sourceRecordId])
+}
+
 model UniversityImportChangeSet {
-  id String @id
-  importBatchId String?
+  id               String                   @id
+  importBatchId    String?
   sourceArtifactId String
-  stage String
-  state String @default("PLANNED")
-  approvedBy String?
-  appliedAt DateTime?
-  rolledBackAt DateTime?
-  createdAt DateTime @default(now())
-  changes UniversityImportChange[]
+  stage            String
+  state            String                   @default("PLANNED")
+  approvedBy       String?
+  appliedAt        DateTime?
+  rolledBackAt     DateTime?
+  createdAt        DateTime                 @default(now())
+  changes          UniversityImportChange[]
+
   @@index([state])
   @@index([sourceArtifactId])
 }
 
 model UniversityImportChange {
-  id String @id @default(uuid())
-  changeSetId String
+  id           String                    @id @default(uuid())
+  changeSetId  String
   universityId String?
-  entityType String
-  entityId String
-  operation String
-  beforeState Json?
-  afterState Json?
-  sequence Int
-  createdAt DateTime @default(now())
-  changeSet UniversityImportChangeSet @relation(fields: [changeSetId], references: [id], onDelete: Cascade)
-  university University? @relation(fields: [universityId], references: [id], onDelete: SetNull)
+  entityType   String
+  entityId     String
+  operation    String
+  beforeState  Json?
+  afterState   Json?
+  sequence     Int
+  createdAt    DateTime                  @default(now())
+  changeSet    UniversityImportChangeSet @relation(fields: [changeSetId], references: [id], onDelete: Cascade)
+  university   University?               @relation(fields: [universityId], references: [id], onDelete: SetNull)
+
   @@unique([changeSetId, sequence])
   @@index([universityId])
   @@index([entityType, entityId])
@@ -450,6 +511,8 @@ model Major {
   canonicalName             String
   canonicalDedupKey         String  @unique
   displayName               String
+  localizedNameAr           String?
+  localizedNameEn           String?
   status                    String
   completenessStatus        String
   facultyName               String?
@@ -655,17 +718,18 @@ model MajorClassificationMapping {
 }
 
 model MajorSource {
-  id         String    @id @default(uuid())
-  majorId    String?
-  profileId  String?
-  sourceType String
-  sourceName String
-  sourceUri  String?
-  sourceHash String?
-  importedAt DateTime?
-  metadata   Json?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id           String    @id @default(uuid())
+  majorId      String?
+  profileId    String?
+  sourceType   String
+  sourceName   String
+  sourceLocale String?
+  sourceUri    String?
+  sourceHash   String?
+  importedAt   DateTime?
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   major   Major?             @relation(fields: [majorId], references: [id], onDelete: Cascade)
   profile MajorLevelProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
@@ -683,6 +747,8 @@ model FellowshipDefinition {
   canonicalName      String
   canonicalDedupKey  String   @unique
   displayName        String
+  localizedNameAr    String?
+  localizedNameEn    String?
   fellowshipType     String
   professionalDomain String?
   status             String   @default("READY_TO_REVIEW")
@@ -736,27 +802,27 @@ model InternationalTest {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  family                        InternationalTestFamily?                        @relation(fields: [familyId], references: [id], onDelete: SetNull)
-  provider                      InternationalTestProvider?                      @relation(fields: [providerId], references: [id], onDelete: SetNull)
-  currentPublishedVersion       InternationalTestVersion?                       @relation("CurrentPublishedTestVersion", fields: [currentPublishedVersionId], references: [id], onDelete: SetNull)
-  versions                      InternationalTestVersion[]                      @relation("InternationalTestVersions")
-  variants                      InternationalTestVariant[]
-  sections                      InternationalTestSection[]
-  scoreScale                    InternationalTestScoreScale?
-  fees                          InternationalTestFeeMetadata[]
-  officialLinks                 InternationalTestOfficialLink[]
-  availability                  InternationalTestAvailability?
-  preparationMaterials          InternationalTestPreparationMaterial[]
-  evidence                      InternationalTestEvidence?
-  sessions                      InternationalTestSession[]
-  centers                       InternationalTestCenter[]
-  requirements                  InternationalTestRequirement[]
-  policies                      InternationalTestPolicy[]
-  countryRelationships          InternationalTestCountryRelationship[]
-  languageRelationships         InternationalTestLanguageRelationship[]
-  academicTaxonomyRelationships InternationalTestAcademicTaxonomyRelationship[]
-  degreeRelationships           InternationalTestDegreeRelationship[]
-  equivalencyMappings           InternationalTestEquivalencyMapping[]
+  family                          InternationalTestFamily?                        @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  provider                        InternationalTestProvider?                      @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  currentPublishedVersion         InternationalTestVersion?                       @relation("CurrentPublishedTestVersion", fields: [currentPublishedVersionId], references: [id], onDelete: SetNull)
+  versions                        InternationalTestVersion[]                      @relation("InternationalTestVersions")
+  variants                        InternationalTestVariant[]
+  sections                        InternationalTestSection[]
+  scoreScale                      InternationalTestScoreScale?
+  fees                            InternationalTestFeeMetadata[]
+  officialLinks                   InternationalTestOfficialLink[]
+  availability                    InternationalTestAvailability?
+  preparationMaterials            InternationalTestPreparationMaterial[]
+  evidence                        InternationalTestEvidence?
+  sessions                        InternationalTestSession[]
+  centers                         InternationalTestCenter[]
+  requirements                    InternationalTestRequirement[]
+  policies                        InternationalTestPolicy[]
+  countryRelationships            InternationalTestCountryRelationship[]
+  languageRelationships           InternationalTestLanguageRelationship[]
+  academicTaxonomyRelationships   InternationalTestAcademicTaxonomyRelationship[]
+  degreeRelationships             InternationalTestDegreeRelationship[]
+  equivalencyMappings             InternationalTestEquivalencyMapping[]
   universityAdmissionRequirements UniversityProgramAdmissionRequirement[]
 
   @@index([status])
@@ -819,6 +885,7 @@ model InternationalTestVersion {
   status               String
   sourceImportRecordId String?
   sourceFileName       String?
+  sourceLocale         String?
   sourceUri            String?
   sourceHash           String?
   importedAt           DateTime?
@@ -833,14 +900,14 @@ model InternationalTestVersion {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
-  test            InternationalTest                      @relation("InternationalTestVersions", fields: [testId], references: [id], onDelete: Cascade)
-  currentForTests InternationalTest[]                    @relation("CurrentPublishedTestVersion")
-  deliveryModes   InternationalTestDeliveryModeProfile[]
-  scoreScales     InternationalTestVersionScoreScale[]
-  sessions        InternationalTestSession[]
-  requirements    InternationalTestRequirement[]
-  policies        InternationalTestPolicy[]
-  contentBlocks   InternationalTestContentBlock[]
+  test                            InternationalTest                       @relation("InternationalTestVersions", fields: [testId], references: [id], onDelete: Cascade)
+  currentForTests                 InternationalTest[]                     @relation("CurrentPublishedTestVersion")
+  deliveryModes                   InternationalTestDeliveryModeProfile[]
+  scoreScales                     InternationalTestVersionScoreScale[]
+  sessions                        InternationalTestSession[]
+  requirements                    InternationalTestRequirement[]
+  policies                        InternationalTestPolicy[]
+  contentBlocks                   InternationalTestContentBlock[]
   universityAdmissionRequirements UniversityProgramAdmissionRequirement[]
 
   @@unique([testId, versionNumber])
@@ -883,7 +950,7 @@ model InternationalTestVariant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  test InternationalTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  test                            InternationalTest                       @relation(fields: [testId], references: [id], onDelete: Cascade)
   universityAdmissionRequirements UniversityProgramAdmissionRequirement[]
 
   @@index([testId])
@@ -1364,7 +1431,7 @@ model CredentialRecord {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  identity     IdentityRecord @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  identity IdentityRecord @relation(fields: [identityId], references: [id], onDelete: Cascade)
 
   @@index([identityId])
 }
@@ -1468,10 +1535,11 @@ model AuditRecord {
 // --- Reference Data ---
 
 model ReferenceCountry {
-  id                  String   @id @default(uuid())
-  iso2Code            String   @unique
-  iso3Code            String   @unique
+  id                  String             @id @default(uuid())
+  iso2Code            String             @unique
+  iso3Code            String             @unique
   name                String
+  nameAr              String?
   officialName        String?
   region              String?
   subregion           String?
@@ -1479,10 +1547,10 @@ model ReferenceCountry {
   defaultLanguageCode String?
   callingCode         String?
   flagAssetId         String?
-  isActive            Boolean  @default(true)
+  isActive            Boolean            @default(true)
   metadata            Json?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
   universities        University[]
   universityCampuses  UniversityCampus[]
 
@@ -1492,19 +1560,20 @@ model ReferenceCountry {
 }
 
 model ReferenceCurrency {
-  id          String   @id @default(uuid())
-  isoCode     String   @unique
-  numericCode String?
-  name        String
-  symbol      String?
-  minorUnit   Int?
-  isActive    Boolean  @default(true)
-  metadata    Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  universityTuitionProfiles UniversityTuitionProfile[] @relation("UniversityTuitionCurrency")
+  id                              String                           @id @default(uuid())
+  isoCode                         String                           @unique
+  numericCode                     String?
+  name                            String
+  nameAr                          String?
+  symbol                          String?
+  minorUnit                       Int?
+  isActive                        Boolean                          @default(true)
+  metadata                        Json?
+  createdAt                       DateTime                         @default(now())
+  updatedAt                       DateTime                         @updatedAt
+  universityTuitionProfiles       UniversityTuitionProfile[]       @relation("UniversityTuitionCurrency")
   universityAccommodationProfiles UniversityAccommodationProfile[] @relation("UniversityAccommodationCurrency")
-  universityLivingCostProfiles UniversityAccommodationProfile[] @relation("UniversityAccommodationLivingCostCurrency")
+  universityLivingCostProfiles    UniversityAccommodationProfile[] @relation("UniversityAccommodationLivingCostCurrency")
 
   @@index([isActive])
   @@index([name])
@@ -1514,6 +1583,7 @@ model ReferenceLanguage {
   id         String   @id @default(uuid())
   isoCode    String   @unique
   name       String
+  nameAr     String?
   nativeName String?
   direction  String
   isActive   Boolean  @default(true)
@@ -1530,6 +1600,7 @@ model ReferenceCity {
   id                     String                @id @default(uuid())
   countryIso2Code        String
   name                   String
+  nameAr                 String?
   region                 String?
   timezone               String?
   latitude               Float?
@@ -1552,7 +1623,7 @@ model ReferenceCity {
 }
 
 model AdministrativeRegion {
-  id                 String          @id @default(uuid())
+  id                 String             @id @default(uuid())
   countryIso2Code    String
   regionCode         String
   name               String
@@ -1562,8 +1633,8 @@ model AdministrativeRegion {
   sourceType         String?
   verificationStatus String?
   metadata           Json?
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
   cities             ReferenceCity[]
   universities       University[]
   universityCampuses UniversityCampus[]
@@ -1683,13 +1754,13 @@ model AcademicStandardMapping {
 }
 
 model SessionRecord {
-  id               String   @id @default(uuid())
+  id               String    @id @default(uuid())
   identityId       String
-  refreshTokenHash String   @unique
+  refreshTokenHash String    @unique
   expiresAt        DateTime
   revokedAt        DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   identity IdentityRecord @relation(fields: [identityId], references: [id], onDelete: Cascade)
 

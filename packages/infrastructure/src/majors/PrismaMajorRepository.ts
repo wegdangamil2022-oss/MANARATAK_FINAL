@@ -39,7 +39,7 @@ const MAJOR_INCLUDE = {
 
 export const MAJOR_OPTIONAL_FIELDS_RESERVED_KEYS = new Set([
   'id', 'publicId', 'code', 'slug', 'canonicalName', 'canonicalDedupKey',
-  'displayName', 'status', 'completenessStatus', 'facultyName',
+  'displayName', 'localizedNameAr', 'localizedNameEn', 'status', 'completenessStatus', 'facultyName',
   'academicFieldId', 'disciplineId', 'currentPublishedVersionId',
   'academicField', 'discipline', 'classificationMappings', 'profiles',
   'versions', 'aliases', 'relationships', 'sources', 'createdAt', 'updatedAt'
@@ -112,7 +112,7 @@ export class PrismaMajorRepository implements ITransactionalMajorRepository {
   async create(data: Omit<MajorDto, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<MajorDto, 'id' | 'createdAt' | 'updatedAt'>>): Promise<MajorDto> {
     const {
       id: _id, createdAt: _createdAt, updatedAt: _updatedAt,
-      publicId, slug, canonicalName, canonicalDedupKey, displayName, status,
+      publicId, slug, canonicalName, canonicalDedupKey, displayName, localizedNameAr, localizedNameEn, status,
       completenessStatus, facultyName, academicFieldId, disciplineId, currentPublishedVersionId,
       optionalFields, profiles: _profiles, versions: _versions, aliases: _aliases,
       relationships: _relationships, classificationMappings: _classificationMappings,
@@ -127,7 +127,7 @@ export class PrismaMajorRepository implements ITransactionalMajorRepository {
 
     const record = await this.prisma.major.create({
       data: {
-        publicId, slug, canonicalName, canonicalDedupKey, displayName, status, 
+        publicId, slug, canonicalName, canonicalDedupKey, displayName, localizedNameAr, localizedNameEn, status,
         completenessStatus, facultyName,
         academicFieldId,
         disciplineId,
@@ -141,7 +141,7 @@ export class PrismaMajorRepository implements ITransactionalMajorRepository {
 
   async update(id: string, updates: UpdateMajorDto): Promise<MajorDto> {
     const {
-      displayName, status, completenessStatus, academicFieldId, disciplineId,
+      displayName, localizedNameAr, localizedNameEn, status, completenessStatus, academicFieldId, disciplineId,
       currentPublishedVersionId, optionalFields,
       ...rest
     } = updates;
@@ -160,6 +160,8 @@ export class PrismaMajorRepository implements ITransactionalMajorRepository {
       where: { id: resolvedId },
       data: {
         displayName: displayName !== undefined ? displayName : undefined,
+        localizedNameAr: localizedNameAr !== undefined ? localizedNameAr : undefined,
+        localizedNameEn: localizedNameEn !== undefined ? localizedNameEn : undefined,
         status: status !== undefined ? status : undefined,
         completenessStatus: completenessStatus !== undefined ? completenessStatus : undefined,
         academicFieldId: academicFieldId !== undefined ? academicFieldId : undefined,
@@ -557,6 +559,7 @@ export class PrismaMajorRepository implements ITransactionalMajorRepository {
         profileId: data.profileId,
         sourceType: data.sourceType,
         sourceName: data.sourceName,
+        sourceLocale: data.sourceLocale,
         sourceUri: data.sourceUri,
         sourceHash: data.sourceHash,
         importedAt: data.importedAt,
@@ -719,6 +722,7 @@ export class PrismaMajorRepository implements ITransactionalMajorRepository {
       ...record,
       majorId: record.majorId ?? undefined,
       profileId: record.profileId ?? undefined,
+      sourceLocale: record.sourceLocale ?? undefined,
       sourceUri: record.sourceUri ?? undefined,
       sourceHash: record.sourceHash ?? undefined,
       importedAt: record.importedAt ?? undefined,

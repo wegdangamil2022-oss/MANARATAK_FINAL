@@ -85,6 +85,7 @@ export interface MajorSourceDto {
   profileId?: string;
   sourceType: 'CATALOG_FILE' | 'DETAIL_DOSSIER' | 'OFFICIAL_SOURCE' | 'ADMIN_ENTRY';
   sourceName: string;
+  sourceLocale?: string;
   sourceUri?: string;
   sourceHash?: string;
   importedAt?: Date;
@@ -177,6 +178,8 @@ export interface MajorDto {
   canonicalName: string;
   canonicalDedupKey: string;
   displayName: string;
+  localizedNameAr?: string | null;
+  localizedNameEn?: string | null;
   status: MajorLifecycleStatus;
   completenessStatus: MajorImportCompletenessState;
   facultyName?: string | null;
@@ -222,6 +225,8 @@ export interface FellowshipDefinitionDto {
   canonicalName: string;
   canonicalDedupKey: string;
   displayName: string;
+  localizedNameAr?: string | null;
+  localizedNameEn?: string | null;
   fellowshipType: string;
   professionalDomain?: string | null;
   status: MajorLifecycleStatus;
@@ -396,6 +401,8 @@ export interface PaginatedMajorResult<T = MajorDto> {
 
 export interface UpdateMajorDto {
   displayName?: string;
+  localizedNameAr?: string | null;
+  localizedNameEn?: string | null;
   status?: MajorLifecycleStatus;
   completenessStatus?: MajorImportCompletenessState;
   /** @deprecated Compatibility input only. New writes identify DegreeLevel through a level profile degreeLevelId. */
@@ -456,7 +463,7 @@ export interface ITransactionalMajorRepository extends IMajorRepository {
 
 export interface IFellowshipDefinitionRepository {
   create(data: Omit<FellowshipDefinitionDto, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<FellowshipDefinitionDto, 'id' | 'createdAt' | 'updatedAt'>>): Promise<FellowshipDefinitionDto>;
-  update(id: string, updates: Partial<Pick<FellowshipDefinitionDto, 'displayName' | 'status' | 'completenessStatus' | 'professionalDomain' | 'linkedMajorId' | 'linkedProfileId' | 'optionalFields'>>): Promise<FellowshipDefinitionDto>;
+  update(id: string, updates: Partial<Pick<FellowshipDefinitionDto, 'displayName' | 'localizedNameAr' | 'localizedNameEn' | 'status' | 'completenessStatus' | 'professionalDomain' | 'linkedMajorId' | 'linkedProfileId' | 'optionalFields'>>): Promise<FellowshipDefinitionDto>;
   findByDedupKey(key: string): Promise<FellowshipDefinitionDto | null>;
 }
 

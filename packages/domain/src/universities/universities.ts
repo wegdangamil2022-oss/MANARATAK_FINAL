@@ -16,6 +16,48 @@ export enum UniversityImportCompletenessState {
   COMPLETE = 'COMPLETE',
 }
 
+export type UniversityTranslationReviewStatus =
+  | 'NEEDS_REVIEW'
+  | 'APPROVED'
+  | 'PUBLISHED'
+  | 'REJECTED';
+
+export interface UniversityTranslationDto {
+  id?: string;
+  universityId?: string;
+  locale: string;
+  displayName?: string | null;
+  description?: string | null;
+  reviewStatus?: UniversityTranslationReviewStatus;
+  sourceRecordId?: string | null;
+  metadata?: Record<string, unknown>;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export type UniversityLocalizedTextTargetType =
+  | 'CAMPUS'
+  | 'ORGANIZATION_UNIT'
+  | 'ACADEMIC_PROGRAM'
+  | 'TUITION_PROFILE'
+  | 'ACCOMMODATION_PROFILE'
+  | 'RANKING';
+
+export interface UniversityLocalizedTextDto {
+  id?: string;
+  universityId?: string;
+  targetType: UniversityLocalizedTextTargetType;
+  targetId: string;
+  fieldKey: string;
+  locale: string;
+  value: string;
+  reviewStatus?: UniversityTranslationReviewStatus;
+  sourceRecordId?: string | null;
+  metadata?: Record<string, unknown>;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 export interface UniversityDto {
   id: string;
   publicId: string;
@@ -48,6 +90,8 @@ export interface UniversityDto {
   rankings?: unknown[];
   sourceRecords?: unknown[];
   localizedNames?: Record<string, string>;
+  translations?: UniversityTranslationDto[];
+  localizedTexts?: UniversityLocalizedTextDto[];
   accreditations?: unknown[];
   description?: string;
   languagesOfInstruction?: string[];
@@ -207,6 +251,16 @@ export interface IUniversityRepository {
   listPublished(
     filters: PublicUniversityFilters,
   ): Promise<PaginatedUniversityResult<UniversityDto>>;
+  listTranslations?(id: string): Promise<UniversityTranslationDto[]>;
+  upsertTranslation?(
+    id: string,
+    data: Omit<UniversityTranslationDto, 'id' | 'universityId' | 'createdAt' | 'updatedAt'>,
+  ): Promise<UniversityTranslationDto>;
+  listLocalizedTexts?(id: string): Promise<UniversityLocalizedTextDto[]>;
+  upsertLocalizedText?(
+    id: string,
+    data: Omit<UniversityLocalizedTextDto, 'id' | 'universityId' | 'createdAt' | 'updatedAt'>,
+  ): Promise<UniversityLocalizedTextDto>;
   replaceNormalizedDetails?(
     id: string,
     details: UniversityNormalizedDetailsUpdate,
@@ -242,6 +296,9 @@ export const UNIVERSITY_CANONICAL_KEYS = new Set<string>([
   'accommodationProfiles',
   'rankings',
   'sourceRecords',
+  'translations',
+  'localizedTexts',
+  'localizedNames',
   'importChanges',
   'optionalFields',
   'createdAt',

@@ -54,6 +54,7 @@ type InternationalTestVersionRecord = {
   status: string;
   sourceImportRecordId?: string | null;
   sourceFileName?: string | null;
+  sourceLocale?: string | null;
   sourceUri?: string | null;
   sourceHash?: string | null;
   importedAt?: Date | null;
@@ -687,6 +688,7 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
         status: 'DRAFT',
         sourceImportRecordId: data.sourceImportRecordId,
         sourceFileName: data.sourceFileName,
+        sourceLocale: data.sourceLocale,
         sourceUri: data.sourceUri,
         sourceHash: data.sourceHash,
         importedAt: new Date(),
@@ -714,6 +716,7 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
       versionNumber: version.versionNumber,
       status: version.status as InternationalTestImportDraftResultDto['status'],
       sourceFileName: version.sourceFileName ?? data.sourceFileName,
+      sourceLocale: version.sourceLocale ?? data.sourceLocale,
       sourceHash: version.sourceHash ?? undefined,
       preservedRawContent: hasRawContent,
       reviewStatus: 'NEEDS_REVIEW',
@@ -910,6 +913,7 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
       status: record.status as InternationalTestVersionDto['status'],
       sourceImportRecordId: record.sourceImportRecordId ?? undefined,
       sourceFileName: record.sourceFileName ?? undefined,
+      sourceLocale: record.sourceLocale ?? undefined,
       sourceUri: record.sourceUri ?? undefined,
       sourceHash: record.sourceHash ?? undefined,
       importedAt: record.importedAt ?? undefined,

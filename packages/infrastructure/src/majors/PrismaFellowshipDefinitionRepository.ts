@@ -20,6 +20,8 @@ export class PrismaFellowshipDefinitionRepository implements IFellowshipDefiniti
         canonicalName: data.canonicalName,
         canonicalDedupKey: data.canonicalDedupKey,
         displayName: data.displayName,
+        localizedNameAr: data.localizedNameAr,
+        localizedNameEn: data.localizedNameEn,
         fellowshipType: data.fellowshipType,
         professionalDomain: data.professionalDomain,
         status: data.status,
@@ -35,12 +37,14 @@ export class PrismaFellowshipDefinitionRepository implements IFellowshipDefiniti
 
   async update(
     id: string,
-    updates: Partial<Pick<FellowshipDefinitionDto, 'displayName' | 'status' | 'completenessStatus' | 'professionalDomain' | 'linkedMajorId' | 'linkedProfileId' | 'optionalFields'>>
+    updates: Partial<Pick<FellowshipDefinitionDto, 'displayName' | 'localizedNameAr' | 'localizedNameEn' | 'status' | 'completenessStatus' | 'professionalDomain' | 'linkedMajorId' | 'linkedProfileId' | 'optionalFields'>>
   ): Promise<FellowshipDefinitionDto> {
     const updated = await this.prisma.fellowshipDefinition.update({
       where: { id },
       data: {
         displayName: updates.displayName,
+        localizedNameAr: updates.localizedNameAr,
+        localizedNameEn: updates.localizedNameEn,
         status: updates.status,
         completenessStatus: updates.completenessStatus,
         professionalDomain: updates.professionalDomain,
@@ -69,6 +73,8 @@ export class PrismaFellowshipDefinitionRepository implements IFellowshipDefiniti
       canonicalName: record.canonicalName,
       canonicalDedupKey: record.canonicalDedupKey,
       displayName: record.displayName,
+      localizedNameAr: record.localizedNameAr,
+      localizedNameEn: record.localizedNameEn,
       fellowshipType: record.fellowshipType,
       professionalDomain: record.professionalDomain,
       status: record.status as MajorStatus,

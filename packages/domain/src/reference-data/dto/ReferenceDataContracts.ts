@@ -12,6 +12,7 @@ export interface ReferenceCountryDto {
   iso2Code: string;
   iso3Code: string;
   name: string;
+  nameAr?: string | null;
   officialName?: string | null;
   region?: string | null;
   subregion?: string | null;
@@ -27,6 +28,7 @@ export interface UpsertReferenceCountryDto {
   iso2Code: string;
   iso3Code: string;
   name: string;
+  nameAr?: string | null;
   officialName?: string | null;
   region?: string | null;
   subregion?: string | null;
@@ -43,6 +45,7 @@ export interface ReferenceCurrencyDto {
   isoCode: string;
   numericCode?: string | null;
   name: string;
+  nameAr?: string | null;
   symbol?: string | null;
   minorUnit?: number | null;
   isActive: boolean;
@@ -53,6 +56,7 @@ export interface UpsertReferenceCurrencyDto {
   isoCode: string;
   numericCode?: string | null;
   name: string;
+  nameAr?: string | null;
   symbol?: string | null;
   minorUnit?: number | null;
   isActive?: boolean;
@@ -63,6 +67,7 @@ export interface ReferenceLanguageDto {
   id?: string;
   isoCode: string;
   name: string;
+  nameAr?: string | null;
   nativeName?: string | null;
   direction: 'LTR' | 'RTL';
   isActive: boolean;
@@ -72,6 +77,7 @@ export interface ReferenceLanguageDto {
 export interface UpsertReferenceLanguageDto {
   isoCode: string;
   name: string;
+  nameAr?: string | null;
   nativeName?: string | null;
   direction: 'LTR' | 'RTL';
   isActive?: boolean;
@@ -92,6 +98,7 @@ export interface ReferenceCityDto {
   id: string;
   countryIso2Code: string;
   name: string;
+  nameAr?: string | null;
   region?: string | null;
   timezone?: string | null;
   latitude?: number | null;
@@ -105,6 +112,7 @@ export interface ReferenceCityDto {
 export interface UpsertReferenceCityDto {
   countryIso2Code: string;
   name: string;
+  nameAr?: string | null;
   region?: string | null;
   timezone?: string | null;
   latitude?: number | null;

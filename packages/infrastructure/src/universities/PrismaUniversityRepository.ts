@@ -10,6 +10,10 @@ import {
   UniversityFilters,
   UniversityStatus,
   UniversityNormalizedDetailsUpdate,
+  UniversityTranslationDto,
+  UniversityTranslationReviewStatus,
+  UniversityLocalizedTextDto,
+  UniversityLocalizedTextTargetType,
   UpdateUniversityDto,
 } from '@manaratak/domain';
 
@@ -21,12 +25,45 @@ const universityDetails = {
   accommodationProfiles: true,
   rankings: true,
   sourceRecords: true,
+  translations: true,
+  localizedTexts: true,
 } satisfies Prisma.UniversityInclude;
 
 type UniversityRecord = Prisma.UniversityGetPayload<{ include: typeof universityDetails }>;
 
 interface UniversityTransactionContext extends AtomicPersistenceContext {
   readonly transactionClient: Prisma.TransactionClient;
+}
+
+function parseUniversityTranslationReviewStatus(value: string): UniversityTranslationReviewStatus {
+  switch (value) {
+    case 'NEEDS_REVIEW':
+    case 'APPROVED':
+    case 'PUBLISHED':
+    case 'REJECTED':
+      return value;
+    default:
+      throw new Error(`UNIVERSITY_TRANSLATION_REVIEW_STATUS_INVALID:${value}`);
+  }
+}
+
+function parseUniversityLocalizedTextTargetType(value: string): UniversityLocalizedTextTargetType {
+  switch (value) {
+    case 'CAMPUS':
+    case 'ORGANIZATION_UNIT':
+    case 'ACADEMIC_PROGRAM':
+    case 'TUITION_PROFILE':
+    case 'ACCOMMODATION_PROFILE':
+    case 'RANKING':
+      return value;
+    default:
+      throw new Error(`UNIVERSITY_LOCALIZED_TEXT_TARGET_TYPE_INVALID:${value}`);
+  }
+}
+
+function asMetadata(value: Prisma.JsonValue | null): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  return value as Record<string, unknown>;
 }
 
 export class PrismaUniversityRepository implements ITransactionalUniversityRepository {
@@ -237,6 +274,132 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
     return this.list({ ...filters, status: UniversityStatus.PUBLISHED });
   }
 
+  async listTranslations(id: string): Promise<UniversityTranslationDto[]> {
+    await this.prisma.university.findUniqueOrThrow({ where: { id }, select: { id: true } });
+    const records = await this.prisma.universityTranslation.findMany({
+      where: { universityId: id },
+      orderBy: { locale: 'asc' },
+    });
+    return records.map((record) => ({
+      id: record.id,
+      universityId: record.universityId,
+      locale: record.locale,
+      displayName: record.displayName,
+      description: record.description,
+      reviewStatus: parseUniversityTranslationReviewStatus(record.reviewStatus),
+      sourceRecordId: record.sourceRecordId,
+      metadata: asMetadata(record.metadata),
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    }));
+  }
+
+  async upsertTranslation(
+    id: string,
+    data: Omit<UniversityTranslationDto, 'id' | 'universityId' | 'createdAt' | 'updatedAt'>,
+  ): Promise<UniversityTranslationDto> {
+    await this.prisma.university.findUniqueOrThrow({ where: { id }, select: { id: true } });
+    await this.assertSourceRecordOwnedByUniversity(id, data.sourceRecordId);
+    const record = await this.prisma.universityTranslation.upsert({
+      where: { universityId_locale: { universityId: id, locale: data.locale } },
+      create: {
+        universityId: id,
+        locale: data.locale,
+        displayName: data.displayName,
+        description: data.description,
+        reviewStatus: data.reviewStatus ?? 'NEEDS_REVIEW',
+        sourceRecordId: data.sourceRecordId,
+        metadata: data.metadata as Prisma.InputJsonObject | undefined,
+      },
+      update: {
+        displayName: data.displayName,
+        description: data.description,
+        reviewStatus: data.reviewStatus,
+        sourceRecordId: data.sourceRecordId,
+        metadata: data.metadata as Prisma.InputJsonObject | undefined,
+      },
+    });
+    return {
+      id: record.id,
+      universityId: record.universityId,
+      locale: record.locale,
+      displayName: record.displayName,
+      description: record.description,
+      reviewStatus: parseUniversityTranslationReviewStatus(record.reviewStatus),
+      sourceRecordId: record.sourceRecordId,
+      metadata: asMetadata(record.metadata),
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
+  }
+
+  async listLocalizedTexts(id: string): Promise<UniversityLocalizedTextDto[]> {
+    await this.prisma.university.findUniqueOrThrow({ where: { id }, select: { id: true } });
+    const records = await this.prisma.universityLocalizedText.findMany({
+      where: { universityId: id },
+      orderBy: [{ targetType: 'asc' }, { targetId: 'asc' }, { fieldKey: 'asc' }, { locale: 'asc' }],
+    });
+    return records.map((record) => ({
+      id: record.id,
+      universityId: record.universityId,
+      targetType: parseUniversityLocalizedTextTargetType(record.targetType),
+      targetId: record.targetId,
+      fieldKey: record.fieldKey,
+      locale: record.locale,
+      value: record.value,
+      reviewStatus: parseUniversityTranslationReviewStatus(record.reviewStatus),
+      sourceRecordId: record.sourceRecordId,
+      metadata: asMetadata(record.metadata),
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    }));
+  }
+
+  async upsertLocalizedText(
+    id: string,
+    data: Omit<UniversityLocalizedTextDto, 'id' | 'universityId' | 'createdAt' | 'updatedAt'>,
+  ): Promise<UniversityLocalizedTextDto> {
+    await this.assertLocalizedTextTargetOwnedByUniversity(id, data.targetType, data.targetId);
+    await this.assertSourceRecordOwnedByUniversity(id, data.sourceRecordId);
+    const identity = {
+      universityId: id,
+      targetType: data.targetType,
+      targetId: data.targetId,
+      fieldKey: data.fieldKey,
+      locale: data.locale,
+    };
+    const record = await this.prisma.universityLocalizedText.upsert({
+      where: { universityId_targetType_targetId_fieldKey_locale: identity },
+      create: {
+        ...identity,
+        value: data.value,
+        reviewStatus: data.reviewStatus ?? 'NEEDS_REVIEW',
+        sourceRecordId: data.sourceRecordId,
+        metadata: data.metadata as Prisma.InputJsonObject | undefined,
+      },
+      update: {
+        value: data.value,
+        reviewStatus: data.reviewStatus,
+        sourceRecordId: data.sourceRecordId,
+        metadata: data.metadata as Prisma.InputJsonObject | undefined,
+      },
+    });
+    return {
+      id: record.id,
+      universityId: record.universityId,
+      targetType: parseUniversityLocalizedTextTargetType(record.targetType),
+      targetId: record.targetId,
+      fieldKey: record.fieldKey,
+      locale: record.locale,
+      value: record.value,
+      reviewStatus: parseUniversityTranslationReviewStatus(record.reviewStatus),
+      sourceRecordId: record.sourceRecordId,
+      metadata: asMetadata(record.metadata),
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
+  }
+
   async replaceNormalizedDetails(
     id: string,
     details: UniversityNormalizedDetailsUpdate,
@@ -417,14 +580,77 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
   }
 
   private mapToDto(record: UniversityRecord): UniversityDto {
-    const { optionalFields, ...rest } = record;
+    const { optionalFields, translations = [], localizedTexts = [], ...rest } = record;
     const safeOptionalFields = sanitizeUniversityOptionalFields(optionalFields);
+    const localizedNames = Object.fromEntries(
+      translations
+        .filter((translation) => Boolean(translation.displayName))
+        .map((translation) => [translation.locale, translation.displayName as string]),
+    );
     return {
       ...safeOptionalFields,
       ...rest,
       status: rest.status as UniversityStatus,
       completenessStatus: rest.completenessStatus as UniversityDto['completenessStatus'],
+      localizedNames,
+      translations: translations.map((translation) => ({
+        id: translation.id,
+        universityId: translation.universityId,
+        locale: translation.locale,
+        displayName: translation.displayName,
+        description: translation.description,
+        reviewStatus: parseUniversityTranslationReviewStatus(translation.reviewStatus),
+        sourceRecordId: translation.sourceRecordId,
+        metadata: asMetadata(translation.metadata),
+        createdAt: translation.createdAt,
+        updatedAt: translation.updatedAt,
+      })),
+      localizedTexts: localizedTexts.map((text) => ({
+        id: text.id,
+        universityId: text.universityId,
+        targetType: parseUniversityLocalizedTextTargetType(text.targetType),
+        targetId: text.targetId,
+        fieldKey: text.fieldKey,
+        locale: text.locale,
+        value: text.value,
+        reviewStatus: parseUniversityTranslationReviewStatus(text.reviewStatus),
+        sourceRecordId: text.sourceRecordId,
+        metadata: asMetadata(text.metadata),
+        createdAt: text.createdAt,
+        updatedAt: text.updatedAt,
+      })),
       optionalFields: safeOptionalFields,
     } as unknown as UniversityDto;
+  }
+
+  private async assertSourceRecordOwnedByUniversity(
+    universityId: string,
+    sourceRecordId: string | null | undefined,
+  ): Promise<void> {
+    if (!sourceRecordId) return;
+    const count = await this.prisma.universitySourceRecord.count({
+      where: { id: sourceRecordId, universityId },
+    });
+    if (count !== 1) throw new Error('UNIVERSITY_TRANSLATION_SOURCE_RECORD_OWNERSHIP_MISMATCH');
+  }
+
+  private async assertLocalizedTextTargetOwnedByUniversity(
+    universityId: string,
+    targetType: UniversityLocalizedTextTargetType,
+    targetId: string,
+  ): Promise<void> {
+    const delegates: Record<
+      UniversityLocalizedTextTargetType,
+      { count(args: { where: { id: string; universityId: string } }): Promise<number> }
+    > = {
+      CAMPUS: this.prisma.universityCampus,
+      ORGANIZATION_UNIT: this.prisma.universityOrganizationUnit,
+      ACADEMIC_PROGRAM: this.prisma.universityAcademicProgram,
+      TUITION_PROFILE: this.prisma.universityTuitionProfile,
+      ACCOMMODATION_PROFILE: this.prisma.universityAccommodationProfile,
+      RANKING: this.prisma.universityRanking,
+    };
+    const count = await delegates[targetType].count({ where: { id: targetId, universityId } });
+    if (count !== 1) throw new Error('UNIVERSITY_LOCALIZED_TEXT_TARGET_OWNERSHIP_MISMATCH');
   }
 }

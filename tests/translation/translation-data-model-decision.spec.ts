@@ -60,7 +60,7 @@ describe('translation data model decision', () => {
     expect(schema).toMatch(/model AcademicTaxonomyNode[\s\S]*localizedNames\s+Json\?/);
   });
 
-  it('records University normalized translation as a future WP06 action without pretending it already exists', () => {
+  it('records University normalized translation as the implemented WP06 source strategy', () => {
     const universityDecision = matrix.decisions.find(
       (decision) =>
         decision.domain === 'University' &&
@@ -68,7 +68,8 @@ describe('translation data model decision', () => {
     );
 
     expect(universityDecision).toBeDefined();
-    expect(schema).not.toMatch(/model UniversityTranslation\s*\{/);
+    expect(schema).toMatch(/model UniversityTranslation\s*\{/);
+    expect(schema).toMatch(/model UniversityLocalizedText\s*\{/);
   });
 
   it('does not authorize translation of protected identity values', () => {

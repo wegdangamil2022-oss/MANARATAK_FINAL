@@ -32,6 +32,7 @@
     "stage3:tests:verify": "node scripts/verify-international-test-source-baseline.mjs",
     "stage3:majors:verify": "node scripts/verify-major-source-identities.mjs",
     "stage3:verify": "npm run stage3:degree-taxonomy:verify && npm run stage3:tests:verify && npm run stage3:majors:verify",
+    "translation:schema:verify": "tsx scripts/verify-translation-schema-source.ts",
     "web:sitemap:generate": "tsx scripts/generate-localized-public-sitemap.ts",
     "db:remediation:plan": "tsx scripts/db-remediation-gate.ts plan",
     "db:remediation:status": "tsx scripts/db-remediation-gate.ts status",

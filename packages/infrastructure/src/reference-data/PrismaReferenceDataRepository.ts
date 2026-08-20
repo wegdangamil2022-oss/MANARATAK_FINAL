@@ -19,6 +19,7 @@ interface DbCountry {
   iso2Code: string;
   iso3Code: string;
   name: string;
+  nameAr: string | null;
   officialName: string | null;
   region: string | null;
   subregion: string | null;
@@ -35,6 +36,7 @@ interface DbCurrency {
   isoCode: string;
   numericCode: string | null;
   name: string;
+  nameAr: string | null;
   symbol: string | null;
   minorUnit: number | null;
   isActive: boolean;
@@ -45,6 +47,7 @@ interface DbLanguage {
   id: string;
   isoCode: string;
   name: string;
+  nameAr: string | null;
   nativeName: string | null;
   direction: string;
   isActive: boolean;
@@ -55,6 +58,7 @@ interface DbCity {
   id: string;
   countryIso2Code: string;
   name: string;
+  nameAr: string | null;
   region: string | null;
   timezone: string | null;
   latitude: number | null;
@@ -129,6 +133,7 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       update: {
         iso3Code: data.iso3Code,
         name: data.name,
+        nameAr: data.nameAr,
         officialName: data.officialName,
         region: data.region,
         subregion: data.subregion,
@@ -143,6 +148,7 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
         iso2Code: data.iso2Code,
         iso3Code: data.iso3Code,
         name: data.name,
+        nameAr: data.nameAr,
         officialName: data.officialName,
         region: data.region,
         subregion: data.subregion,
@@ -207,6 +213,7 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       update: {
         numericCode: data.numericCode,
         name: data.name,
+        nameAr: data.nameAr,
         symbol: data.symbol,
         minorUnit: data.minorUnit,
         isActive: data.isActive !== undefined ? data.isActive : undefined,
@@ -216,6 +223,7 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
         isoCode: data.isoCode,
         numericCode: data.numericCode,
         name: data.name,
+        nameAr: data.nameAr,
         symbol: data.symbol,
         minorUnit: data.minorUnit,
         isActive: data.isActive !== undefined ? data.isActive : true,
@@ -272,6 +280,7 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       where: { isoCode: data.isoCode },
       update: {
         name: data.name,
+        nameAr: data.nameAr,
         nativeName: data.nativeName,
         direction: data.direction,
         isActive: data.isActive !== undefined ? data.isActive : undefined,
@@ -280,6 +289,7 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       create: {
         isoCode: data.isoCode,
         name: data.name,
+        nameAr: data.nameAr,
         nativeName: data.nativeName,
         direction: data.direction,
         isActive: data.isActive !== undefined ? data.isActive : true,
@@ -388,6 +398,7 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       const record = await this.prisma.referenceCity.update({
         where: { id: existing.id },
         data: {
+          nameAr: data.nameAr,
           timezone: data.timezone,
           latitude: data.latitude,
           longitude: data.longitude,
@@ -405,6 +416,7 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
         data: {
           countryIso2Code: data.countryIso2Code,
           name: data.name,
+          nameAr: data.nameAr,
           region: data.region,
           timezone: data.timezone,
           latitude: data.latitude,
@@ -440,6 +452,7 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       iso2Code: record.iso2Code,
       iso3Code: record.iso3Code,
       name: record.name,
+      nameAr: record.nameAr,
       officialName: record.officialName,
       region: record.region,
       subregion: record.subregion,
@@ -458,6 +471,7 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       isoCode: record.isoCode,
       numericCode: record.numericCode,
       name: record.name,
+      nameAr: record.nameAr,
       symbol: record.symbol,
       minorUnit: record.minorUnit,
       isActive: record.isActive,
@@ -470,6 +484,7 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       id: record.id,
       isoCode: record.isoCode,
       name: record.name,
+      nameAr: record.nameAr,
       nativeName: record.nativeName,
       direction: record.direction as 'LTR' | 'RTL',
       isActive: record.isActive,
@@ -482,6 +497,7 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       id: record.id,
       countryIso2Code: record.countryIso2Code,
       name: record.name,
+      nameAr: record.nameAr,
       region: record.region,
       timezone: record.timezone,
       latitude: record.latitude,
