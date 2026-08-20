@@ -15,6 +15,117 @@ export enum ScholarshipStatus {
   READY_TO_REVIEW = 'READY_TO_REVIEW',
 }
 
+export interface ScholarshipBenefitDto {
+  id?: string;
+  scholarshipId?: string;
+  benefitKey: string;
+  benefitTypeCode: string;
+  coverageTypeCode?: string | null;
+  amount?: string | number | null;
+  currencyReferenceId?: string | null;
+  valueText?: string | null;
+  durationText?: string | null;
+  frequencyCode?: string | null;
+  isCovered?: boolean;
+  isOptional?: boolean;
+  displayOrder?: number;
+  notes?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface ScholarshipDegreeTargetDto {
+  id?: string;
+  scholarshipId?: string;
+  targetKey: string;
+  degreeLevelId?: string | null;
+  sourceLabel?: string | null;
+  resolutionStatus?: string;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface ScholarshipMajorTargetDto {
+  id?: string;
+  scholarshipId?: string;
+  targetKey: string;
+  majorId?: string | null;
+  sourceLabel?: string | null;
+  resolutionStatus?: string;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface ScholarshipEligibilityItemDto {
+  id?: string;
+  scholarshipId?: string;
+  itemKey: string;
+  itemTypeCode: string;
+  operatorCode?: string | null;
+  valueText?: string | null;
+  minimumValue?: string | number | null;
+  maximumValue?: string | number | null;
+  countryReferenceId?: string | null;
+  degreeLevelId?: string | null;
+  majorId?: string | null;
+  internationalTestId?: string | null;
+  isRequired?: boolean;
+  priorityOrder?: number;
+  resolutionStatus?: string;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface ScholarshipRequiredDocumentDto {
+  id?: string;
+  scholarshipId?: string;
+  documentKey: string;
+  documentTypeCode?: string | null;
+  displayName: string;
+  description?: string | null;
+  isRequired?: boolean;
+  displayOrder?: number;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface ScholarshipSourceEvidenceDto {
+  id?: string;
+  scholarshipId?: string;
+  evidenceKey: string;
+  sourceTypeCode: string;
+  sourceUrl: string;
+  sourceName?: string | null;
+  sourceHash?: string | null;
+  trustLevel?: string | null;
+  isOfficial?: boolean;
+  importRecordId?: string | null;
+  capturedAt?: Date;
+  verifiedAt?: Date | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface ScholarshipUniversityLinkDto {
+  id?: string;
+  scholarshipId?: string;
+  linkKey: string;
+  universityId?: string | null;
+  academicProgramId?: string | null;
+  sourceLabel?: string | null;
+  relationshipTypeCode?: string;
+  resolutionStatus?: string;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 export interface CreateScholarshipDto {
   publicId: string;
   slug: string;
@@ -30,13 +141,36 @@ export interface CreateScholarshipDto {
   applicationDeadline?: Date | null;
   officialWebsite?: string | null;
   sourceUrl?: string | null;
+
+  academicYear?: string | null;
+  cycleName?: string | null;
+  countryReferenceId?: string | null;
+  countrySourceLabel?: string | null;
+  countryScope?: string | null;
+  fundingTypeCode?: string | null;
+  deadlineType?: string | null;
+  applicationMethod?: string | null;
+  applicationUrl?: string | null;
+  officialSourceUrl?: string | null;
+  sourceImportRecordId?: string | null;
+  sourceLocale?: string | null;
+  lastVerifiedAt?: Date | null;
+
+  benefits?: ScholarshipBenefitDto[];
+  degreeTargets?: ScholarshipDegreeTargetDto[];
+  majorTargets?: ScholarshipMajorTargetDto[];
+  eligibilityItems?: ScholarshipEligibilityItemDto[];
+  requiredDocumentItems?: ScholarshipRequiredDocumentDto[];
+  sourceEvidence?: ScholarshipSourceEvidenceDto[];
+  universityLinks?: ScholarshipUniversityLinkDto[];
+
+  // Legacy compatibility fields retained during Expand/Backfill.
   fundingCoverage?: string;
   coverageDetails?: string;
   eligibleMajorsOrFields?: string | string[];
   degreeLevel?: string;
   studyCountry?: string;
   applicationLink?: string;
-  officialSourceUrl?: string;
   sponsorName?: string;
   requiredDocuments?: string | string[];
   eligibilityCriteria?: string;
@@ -48,7 +182,6 @@ export interface CreateScholarshipDto {
   duration?: string;
   localizedNames?: Record<string, string>;
   metadata?: Record<string, unknown>;
-  sourceImportRecordId?: string | null;
   optionalFields?: Record<string, unknown>;
 }
 

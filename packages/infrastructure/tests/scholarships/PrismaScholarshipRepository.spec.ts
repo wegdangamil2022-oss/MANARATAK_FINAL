@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PrismaScholarshipRepository } from '../../src/scholarships/PrismaScholarshipRepository';
 
 describe('PrismaScholarshipRepository', () => {
@@ -12,14 +12,14 @@ describe('PrismaScholarshipRepository', () => {
         create: vi.fn(),
         update: vi.fn(),
         findMany: vi.fn(),
-        count: vi.fn()
-      }
+        count: vi.fn(),
+      },
     };
     repository = new PrismaScholarshipRepository(mockPrisma as any);
   });
 
-  it('create maps domain fields to Prisma and JSON optionalFields correctly', async () => {
-    const payload = {
+  it('writes normalized root fields and child relations while retaining legacy evidence', async () => {
+    const payload: any = {
       publicId: 'schol-123',
       slug: 'test-slug',
       canonicalName: 'Test',
@@ -28,23 +28,46 @@ describe('PrismaScholarshipRepository', () => {
       providerName: 'Test Provider',
       status: 'IMPORTED',
       completenessStatus: 'COMPLETE',
-      amountMinorUnits: '1000',
-      amountCurrencyCode: 'USD',
-      isFullyFunded: true,
-      applicationDeadline: new Date('2025-01-01'),
-      officialWebsite: 'https://example.com',
-      sourceUrl: 'https://source.com',
-      fundingCoverage: 'Tuition and Fees', // This should go to optionalFields
-      customField: 'Something else' // This should go to optionalFields
+      applicationLink: 'https://example.com/apply',
+      officialSourceUrl: 'https://example.com/official',
+      sourceLocale: 'en',
+      fundingCoverage: 'Tuition and Fees',
+      benefits: [
+        {
+          benefitKey: 'tuition',
+          benefitTypeCode: 'TUITION',
+          valueText: 'Full tuition',
+        },
+      ],
+      optionalFields: { customField: 'legacy-evidence-only' },
     };
 
     mockPrisma.scholarship.create.mockResolvedValue({
       ...payload,
       id: 'db-id-123',
+      createdAt: new Date('2026-08-20T00:00:00Z'),
+      updatedAt: new Date('2026-08-20T00:00:00Z'),
+      applicationUrl: 'https://example.com/apply',
       optionalFields: {
         fundingCoverage: 'Tuition and Fees',
-        customField: 'Something else'
-      }
+        applicationLink: 'https://example.com/apply',
+        customField: 'legacy-evidence-only',
+      },
+      benefits: [
+        {
+          id: 'benefit-1',
+          scholarshipId: 'db-id-123',
+          benefitKey: 'tuition',
+          benefitTypeCode: 'TUITION',
+          valueText: 'Full tuition',
+        },
+      ],
+      degreeTargets: [],
+      majorTargets: [],
+      eligibilityItems: [],
+      requiredDocuments: [],
+      sourceEvidence: [],
+      universityLinks: [],
     });
 
     const result = await repository.create(payload);
@@ -52,20 +75,65 @@ describe('PrismaScholarshipRepository', () => {
     expect(mockPrisma.scholarship.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         publicId: 'schol-123',
-        displayName: 'Test Scholarship',
-        optionalFields: {
-          fundingCoverage: 'Tuition and Fees',
-          customField: 'Something else'
-        }
-      })
+        applicationUrl: 'https://example.com/apply',
+        officialSourceUrl: 'https://example.com/official',
+        sourceLocale: 'en',
+        benefits: {
+          create: [
+            expect.objectContaining({
+              benefitKey: 'tuition',
+              benefitTypeCode: 'TUITION',
+            }),
+          ],
+        },
+      }),
+      include: expect.objectContaining({
+        benefits: true,
+        degreeTargets: true,
+        majorTargets: true,
+        sourceEvidence: true,
+        universityLinks: true,
+      }),
     });
-
-    // The result should have the optional fields flattened
     expect(result.fundingCoverage).toBe('Tuition and Fees');
-    expect(result.customField).toBe('Something else');
+    expect((result as any).customField).toBeUndefined();
+    expect(result.optionalFields).toHaveProperty('customField', 'legacy-evidence-only');
+    expect(result.benefits?.[0].benefitKey).toBe('tuition');
   });
 
-  it('listPublished only returns PUBLISHED status', async () => {
+  it('does not flatten arbitrary optionalFields keys into the domain DTO root', async () => {
+    mockPrisma.scholarship.findUnique.mockResolvedValue({
+      id: 'db-id-123',
+      publicId: 'schol-123',
+      slug: 'test',
+      canonicalName: 'Test',
+      canonicalDedupKey: 'test|key',
+      displayName: 'Test',
+      status: 'PUBLISHED',
+      completenessStatus: 'COMPLETE',
+      optionalFields: {
+        fundingCoverage: 'Full funding',
+        arbitraryExperimentalKey: 'must-not-leak',
+      },
+      benefits: [],
+      degreeTargets: [],
+      majorTargets: [],
+      eligibilityItems: [],
+      requiredDocuments: [],
+      sourceEvidence: [],
+      universityLinks: [],
+      createdAt: new Date('2026-08-20T00:00:00Z'),
+      updatedAt: new Date('2026-08-20T00:00:00Z'),
+    });
+
+    const result = await repository.findById('db-id-123');
+
+    expect(result?.fundingCoverage).toBe('Full funding');
+    expect((result as any)?.arbitraryExperimentalKey).toBeUndefined();
+    expect(result?.optionalFields).toHaveProperty('arbitraryExperimentalKey', 'must-not-leak');
+  });
+
+  it('listPublished requests only PUBLISHED scholarships and includes normalized children', async () => {
     mockPrisma.scholarship.findMany.mockResolvedValue([]);
     mockPrisma.scholarship.count.mockResolvedValue(0);
 
@@ -73,8 +141,13 @@ describe('PrismaScholarshipRepository', () => {
 
     expect(mockPrisma.scholarship.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ status: 'PUBLISHED' })
-      })
+        where: expect.objectContaining({ status: 'PUBLISHED' }),
+        include: expect.objectContaining({
+          benefits: true,
+          requiredDocuments: true,
+          universityLinks: true,
+        }),
+      }),
     );
   });
 });

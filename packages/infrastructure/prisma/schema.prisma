@@ -185,6 +185,7 @@ model University {
   translations          UniversityTranslation[]
   localizedTexts        UniversityLocalizedText[]
   importChanges         UniversityImportChange[]
+  scholarshipLinks      ScholarshipUniversityLink[]
 
   @@index([countryReferenceId])
   @@index([regionReferenceId])
@@ -267,6 +268,7 @@ model UniversityAcademicProgram {
   major                 Major?                                  @relation(fields: [majorId], references: [id], onDelete: SetNull)
   campuses              UniversityProgramCampus[]
   admissionRequirements UniversityProgramAdmissionRequirement[]
+  scholarshipLinks      ScholarshipUniversityLink[]
 
   @@unique([universityId, sourceReferenceId])
   @@index([universityId])
@@ -481,25 +483,226 @@ model UniversityImportChange {
 // --- Scholarships ---
 
 model Scholarship {
-  id                  String    @id @default(uuid())
-  publicId            String    @unique
-  slug                String    @unique
-  canonicalName       String
-  canonicalDedupKey   String    @unique
-  displayName         String
-  providerName        String?
-  status              String
-  completenessStatus  String
-  amountMinorUnits    String?
-  amountCurrencyCode  String?
-  isFullyFunded       Boolean   @default(false)
-  applicationDeadline DateTime?
-  officialWebsite     String?
-  sourceUrl           String?
-  optionalFields      Json?
+  id                   String    @id @default(uuid())
+  publicId             String    @unique
+  slug                 String    @unique
+  canonicalName        String
+  canonicalDedupKey    String    @unique
+  displayName          String
+  providerName         String?
+  status               String
+  completenessStatus   String
+  amountMinorUnits     String?
+  amountCurrencyCode   String?
+  isFullyFunded        Boolean   @default(false)
+  applicationDeadline  DateTime?
+  officialWebsite      String?
+  sourceUrl            String?
+  optionalFields       Json?
+  academicYear         String?
+  cycleName            String?
+  countryReferenceId   String?
+  countrySourceLabel   String?
+  countryScope         String?
+  fundingTypeCode      String?
+  deadlineType         String?
+  applicationMethod    String?
+  applicationUrl       String?
+  officialSourceUrl    String?
+  sourceImportRecordId String?
+  sourceLocale         String?
+  lastVerifiedAt       DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  primaryCountry    ReferenceCountry?             @relation("ScholarshipPrimaryCountry", fields: [countryReferenceId], references: [id], onDelete: SetNull)
+  benefits          ScholarshipBenefit[]
+  degreeTargets     ScholarshipDegreeTarget[]
+  majorTargets      ScholarshipMajorTarget[]
+  eligibilityItems  ScholarshipEligibilityItem[]
+  requiredDocuments ScholarshipRequiredDocument[]
+  sourceEvidence    ScholarshipSourceEvidence[]
+  universityLinks   ScholarshipUniversityLink[]
+
+  @@index([countryReferenceId])
+  @@index([academicYear])
+  @@index([applicationDeadline])
+  @@index([status, completenessStatus])
+}
+
+model ScholarshipBenefit {
+  id                  String   @id @default(uuid())
+  scholarshipId       String
+  benefitKey          String
+  benefitTypeCode     String
+  coverageTypeCode    String?
+  amount              Decimal? @db.Decimal(18, 2)
+  currencyReferenceId String?
+  valueText           String?
+  durationText        String?
+  frequencyCode       String?
+  isCovered           Boolean  @default(true)
+  isOptional          Boolean  @default(false)
+  displayOrder        Int      @default(0)
+  notes               String?
+  metadata            Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  scholarship Scholarship        @relation(fields: [scholarshipId], references: [id], onDelete: Cascade)
+  currency    ReferenceCurrency? @relation("ScholarshipBenefitCurrency", fields: [currencyReferenceId], references: [id], onDelete: SetNull)
+
+  @@unique([scholarshipId, benefitKey])
+  @@index([scholarshipId])
+  @@index([benefitTypeCode])
+  @@index([currencyReferenceId])
+}
+
+model ScholarshipDegreeTarget {
+  id               String   @id @default(uuid())
+  scholarshipId    String
+  targetKey        String
+  degreeLevelId    String?
+  sourceLabel      String?
+  resolutionStatus String   @default("PENDING")
+  metadata         Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  scholarship Scholarship  @relation(fields: [scholarshipId], references: [id], onDelete: Cascade)
+  degreeLevel DegreeLevel? @relation("ScholarshipDegreeTargetDegree", fields: [degreeLevelId], references: [id], onDelete: SetNull)
+
+  @@unique([scholarshipId, targetKey])
+  @@index([scholarshipId])
+  @@index([degreeLevelId])
+  @@index([resolutionStatus])
+}
+
+model ScholarshipMajorTarget {
+  id               String   @id @default(uuid())
+  scholarshipId    String
+  targetKey        String
+  majorId          String?
+  sourceLabel      String?
+  resolutionStatus String   @default("PENDING")
+  metadata         Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  scholarship Scholarship @relation(fields: [scholarshipId], references: [id], onDelete: Cascade)
+  major       Major?      @relation("ScholarshipMajorTargetMajor", fields: [majorId], references: [id], onDelete: SetNull)
+
+  @@unique([scholarshipId, targetKey])
+  @@index([scholarshipId])
+  @@index([majorId])
+  @@index([resolutionStatus])
+}
+
+model ScholarshipEligibilityItem {
+  id                  String   @id @default(uuid())
+  scholarshipId       String
+  itemKey             String
+  itemTypeCode        String
+  operatorCode        String?
+  valueText           String?
+  minimumValue        Decimal? @db.Decimal(18, 4)
+  maximumValue        Decimal? @db.Decimal(18, 4)
+  countryReferenceId  String?
+  degreeLevelId       String?
+  majorId             String?
+  internationalTestId String?
+  isRequired          Boolean  @default(true)
+  priorityOrder       Int      @default(0)
+  resolutionStatus    String   @default("PENDING")
+  metadata            Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  scholarship       Scholarship        @relation(fields: [scholarshipId], references: [id], onDelete: Cascade)
+  country           ReferenceCountry?  @relation("ScholarshipEligibilityCountry", fields: [countryReferenceId], references: [id], onDelete: SetNull)
+  degreeLevel       DegreeLevel?       @relation("ScholarshipEligibilityDegree", fields: [degreeLevelId], references: [id], onDelete: SetNull)
+  major             Major?             @relation("ScholarshipEligibilityMajor", fields: [majorId], references: [id], onDelete: SetNull)
+  internationalTest InternationalTest? @relation("ScholarshipEligibilityTest", fields: [internationalTestId], references: [id], onDelete: SetNull)
+
+  @@unique([scholarshipId, itemKey])
+  @@index([scholarshipId])
+  @@index([itemTypeCode])
+  @@index([countryReferenceId])
+  @@index([degreeLevelId])
+  @@index([majorId])
+  @@index([internationalTestId])
+  @@index([resolutionStatus])
+}
+
+model ScholarshipRequiredDocument {
+  id               String   @id @default(uuid())
+  scholarshipId    String
+  documentKey      String
+  documentTypeCode String?
+  displayName      String
+  description      String?
+  isRequired       Boolean  @default(true)
+  displayOrder     Int      @default(0)
+  metadata         Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  scholarship Scholarship @relation(fields: [scholarshipId], references: [id], onDelete: Cascade)
+
+  @@unique([scholarshipId, documentKey])
+  @@index([scholarshipId])
+  @@index([documentTypeCode])
+}
+
+model ScholarshipSourceEvidence {
+  id             String    @id @default(uuid())
+  scholarshipId  String
+  evidenceKey    String
+  sourceTypeCode String
+  sourceUrl      String
+  sourceName     String?
+  sourceHash     String?
+  trustLevel     String?
+  isOfficial     Boolean   @default(false)
+  importRecordId String?
+  capturedAt     DateTime  @default(now())
+  verifiedAt     DateTime?
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  scholarship Scholarship @relation(fields: [scholarshipId], references: [id], onDelete: Cascade)
+
+  @@unique([scholarshipId, evidenceKey])
+  @@index([scholarshipId])
+  @@index([sourceHash])
+  @@index([sourceTypeCode])
+  @@index([isOfficial])
+}
+
+model ScholarshipUniversityLink {
+  id                   String   @id @default(uuid())
+  scholarshipId        String
+  linkKey              String
+  universityId         String?
+  academicProgramId    String?
+  sourceLabel          String?
+  relationshipTypeCode String   @default("TARGET")
+  resolutionStatus     String   @default("PENDING")
+  metadata             Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  scholarship     Scholarship                @relation(fields: [scholarshipId], references: [id], onDelete: Cascade)
+  university      University?                @relation(fields: [universityId], references: [id], onDelete: SetNull)
+  academicProgram UniversityAcademicProgram? @relation(fields: [academicProgramId], references: [id], onDelete: SetNull)
+
+  @@unique([scholarshipId, linkKey])
+  @@index([scholarshipId])
+  @@index([universityId])
+  @@index([academicProgramId])
+  @@index([resolutionStatus])
 }
 
 // --- Majors ---
@@ -536,6 +739,8 @@ model Major {
   sources                 MajorSource[]
   fellowships             FellowshipDefinition[]       @relation("FellowshipLinkedMajor")
   universityPrograms      UniversityAcademicProgram[]
+  scholarshipTargets      ScholarshipMajorTarget[]     @relation("ScholarshipMajorTargetMajor")
+  scholarshipEligibility  ScholarshipEligibilityItem[] @relation("ScholarshipEligibilityMajor")
 
   @@index([status])
   @@index([completenessStatus])
@@ -802,28 +1007,29 @@ model InternationalTest {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  family                          InternationalTestFamily?                        @relation(fields: [familyId], references: [id], onDelete: SetNull)
-  provider                        InternationalTestProvider?                      @relation(fields: [providerId], references: [id], onDelete: SetNull)
-  currentPublishedVersion         InternationalTestVersion?                       @relation("CurrentPublishedTestVersion", fields: [currentPublishedVersionId], references: [id], onDelete: SetNull)
-  versions                        InternationalTestVersion[]                      @relation("InternationalTestVersions")
-  variants                        InternationalTestVariant[]
-  sections                        InternationalTestSection[]
-  scoreScale                      InternationalTestScoreScale?
-  fees                            InternationalTestFeeMetadata[]
-  officialLinks                   InternationalTestOfficialLink[]
-  availability                    InternationalTestAvailability?
-  preparationMaterials            InternationalTestPreparationMaterial[]
-  evidence                        InternationalTestEvidence?
-  sessions                        InternationalTestSession[]
-  centers                         InternationalTestCenter[]
-  requirements                    InternationalTestRequirement[]
-  policies                        InternationalTestPolicy[]
-  countryRelationships            InternationalTestCountryRelationship[]
-  languageRelationships           InternationalTestLanguageRelationship[]
-  academicTaxonomyRelationships   InternationalTestAcademicTaxonomyRelationship[]
-  degreeRelationships             InternationalTestDegreeRelationship[]
-  equivalencyMappings             InternationalTestEquivalencyMapping[]
-  universityAdmissionRequirements UniversityProgramAdmissionRequirement[]
+  family                             InternationalTestFamily?                        @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  provider                           InternationalTestProvider?                      @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  currentPublishedVersion            InternationalTestVersion?                       @relation("CurrentPublishedTestVersion", fields: [currentPublishedVersionId], references: [id], onDelete: SetNull)
+  versions                           InternationalTestVersion[]                      @relation("InternationalTestVersions")
+  variants                           InternationalTestVariant[]
+  sections                           InternationalTestSection[]
+  scoreScale                         InternationalTestScoreScale?
+  fees                               InternationalTestFeeMetadata[]
+  officialLinks                      InternationalTestOfficialLink[]
+  availability                       InternationalTestAvailability?
+  preparationMaterials               InternationalTestPreparationMaterial[]
+  evidence                           InternationalTestEvidence?
+  sessions                           InternationalTestSession[]
+  centers                            InternationalTestCenter[]
+  requirements                       InternationalTestRequirement[]
+  policies                           InternationalTestPolicy[]
+  countryRelationships               InternationalTestCountryRelationship[]
+  languageRelationships              InternationalTestLanguageRelationship[]
+  academicTaxonomyRelationships      InternationalTestAcademicTaxonomyRelationship[]
+  degreeRelationships                InternationalTestDegreeRelationship[]
+  equivalencyMappings                InternationalTestEquivalencyMapping[]
+  universityAdmissionRequirements    UniversityProgramAdmissionRequirement[]
+  scholarshipEligibilityRequirements ScholarshipEligibilityItem[]                    @relation("ScholarshipEligibilityTest")
 
   @@index([status])
   @@index([testCategory])
@@ -1535,24 +1741,26 @@ model AuditRecord {
 // --- Reference Data ---
 
 model ReferenceCountry {
-  id                  String             @id @default(uuid())
-  iso2Code            String             @unique
-  iso3Code            String             @unique
-  name                String
-  nameAr              String?
-  officialName        String?
-  region              String?
-  subregion           String?
-  defaultCurrencyCode String?
-  defaultLanguageCode String?
-  callingCode         String?
-  flagAssetId         String?
-  isActive            Boolean            @default(true)
-  metadata            Json?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  universities        University[]
-  universityCampuses  UniversityCampus[]
+  id                     String                       @id @default(uuid())
+  iso2Code               String                       @unique
+  iso3Code               String                       @unique
+  name                   String
+  nameAr                 String?
+  officialName           String?
+  region                 String?
+  subregion              String?
+  defaultCurrencyCode    String?
+  defaultLanguageCode    String?
+  callingCode            String?
+  flagAssetId            String?
+  isActive               Boolean                      @default(true)
+  metadata               Json?
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
+  universities           University[]
+  universityCampuses     UniversityCampus[]
+  scholarships           Scholarship[]                @relation("ScholarshipPrimaryCountry")
+  scholarshipEligibility ScholarshipEligibilityItem[] @relation("ScholarshipEligibilityCountry")
 
   @@index([region])
   @@index([isActive])
@@ -1574,6 +1782,7 @@ model ReferenceCurrency {
   universityTuitionProfiles       UniversityTuitionProfile[]       @relation("UniversityTuitionCurrency")
   universityAccommodationProfiles UniversityAccommodationProfile[] @relation("UniversityAccommodationCurrency")
   universityLivingCostProfiles    UniversityAccommodationProfile[] @relation("UniversityAccommodationLivingCostCurrency")
+  scholarshipBenefits             ScholarshipBenefit[]             @relation("ScholarshipBenefitCurrency")
 
   @@index([isActive])
   @@index([name])
@@ -1661,6 +1870,8 @@ model DegreeLevel {
   majorProfiles                        MajorLevelProfile[]
   internationalTestDegreeRelationships InternationalTestDegreeRelationship[]
   universityPrograms                   UniversityAcademicProgram[]
+  scholarshipTargets                   ScholarshipDegreeTarget[]             @relation("ScholarshipDegreeTargetDegree")
+  scholarshipEligibility               ScholarshipEligibilityItem[]          @relation("ScholarshipEligibilityDegree")
 }
 
 // --- Academic Taxonomy Foundation (Phase 08) ---
