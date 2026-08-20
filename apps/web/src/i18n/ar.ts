@@ -1093,5 +1093,13 @@ export const ar = {
   "available": "متوفر",
   "skill_info_not_available": "معلومات المهارات غير متوفرة بعد.",
   "course_not_found_desc": "الدورة التي تبحث عنها غير موجودة أو غير منشورة.",
-  "course_seo_description_fallback": "تفاصيل الدورة، نوع الوصول، الجهة المزودة، اللغة، ورابط الدورة المباشر."
+  "course_seo_description_fallback": "تفاصيل الدورة، نوع الوصول، الجهة المزودة، اللغة، ورابط الدورة المباشر.",
+  "transfer_in_domain_workspace": "نقل إلى مساحة عمل المجال",
+  "admin_status_draft": "مسودة",
+  "admin_status_ready_to_publish": "جاهز للنشر",
+  "admin_status_published": "منشور",
+  "admin_status_archived": "مؤرشف",
+  "admin_view_details": "عرض التفاصيل",
+  "admin_faculties": "الكليات والعمادات",
+  "provider_examples": "ETS، College Board، Cambridge..."
 };

@@ -1093,5 +1093,13 @@ export const en = {
   "available": "Available",
   "skill_info_not_available": "Skill information is not available yet.",
   "course_not_found_desc": "The course you are looking for doesn't exist or is not published.",
-  "course_seo_description_fallback": "course details, access type, provider, language, and direct course link."
+  "course_seo_description_fallback": "course details, access type, provider, language, and direct course link.",
+  "transfer_in_domain_workspace": "Transfer in Domain Workspace",
+  "admin_status_draft": "Draft",
+  "admin_status_ready_to_publish": "Ready to Publish",
+  "admin_status_published": "Published",
+  "admin_status_archived": "Archived",
+  "admin_view_details": "View Details",
+  "admin_faculties": "Faculties and Deanships",
+  "provider_examples": "ETS, College Board, Cambridge..."
 };
