@@ -1,14 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import {
+  DEFAULT_LOCALE,
+  getLocaleDirection,
+  isSupportedLocale,
+  type SupportedLocale,
+} from '@manaratak/shared';
 import { en } from './en';
 import { ar } from './ar';
 
-type Language = 'ar' | 'en';
 type Translations = typeof en;
 
 interface I18nContextType {
-  language: Language;
+  language: SupportedLocale;
   t: (key: keyof Translations | (string & {})) => string;
-  setLanguage: (lang: Language) => void;
+  setLanguage: (lang: SupportedLocale) => void;
   dir: 'rtl' | 'ltr';
   isRTL: boolean;
 }
@@ -21,20 +26,20 @@ const dictionaries = {
 };
 
 export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<Language>(() => {
+  const [language, setLanguageState] = useState<SupportedLocale>(() => {
     const saved = localStorage.getItem('manaratak_lang');
-    if (saved === 'ar' || saved === 'en') {
+    if (isSupportedLocale(saved)) {
       return saved;
     }
-    return 'ar'; // Default to Arabic
+    return DEFAULT_LOCALE;
   });
 
-  const setLanguage = (lang: Language) => {
+  const setLanguage = (lang: SupportedLocale) => {
     setLanguageState(lang);
     localStorage.setItem('manaratak_lang', lang);
   };
 
-  const dir = language === 'ar' ? 'rtl' : 'ltr';
+  const dir = getLocaleDirection(language);
 
   useEffect(() => {
     document.documentElement.lang = language;

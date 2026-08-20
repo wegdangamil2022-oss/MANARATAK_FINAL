@@ -1,14 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import {
+  DEFAULT_LOCALE,
+  getLocaleDirection,
+  isSupportedLocale,
+  type SupportedLocale,
+} from '@manaratak/shared';
 import { en } from './en';
 import { ar } from './ar';
 
-type Language = 'ar' | 'en';
 type Translations = typeof en;
 
 interface I18nContextType {
-  language: Language;
+  language: SupportedLocale;
   t: (key: keyof Translations) => string;
-  setLanguage: (lang: Language) => void;
+  setLanguage: (lang: SupportedLocale) => void;
   dir: 'rtl' | 'ltr';
 }
 
@@ -20,20 +25,20 @@ const dictionaries = {
 };
 
 export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<Language>(() => {
+  const [language, setLanguageState] = useState<SupportedLocale>(() => {
     const saved = localStorage.getItem('manaratak_admin_lang');
-    if (saved === 'ar' || saved === 'en') {
+    if (isSupportedLocale(saved)) {
       return saved;
     }
-    return 'ar'; // Default admin to Arabic
+    return DEFAULT_LOCALE;
   });
 
-  const setLanguage = (lang: Language) => {
+  const setLanguage = (lang: SupportedLocale) => {
     setLanguageState(lang);
     localStorage.setItem('manaratak_admin_lang', lang);
   };
 
-  const dir = language === 'ar' ? 'rtl' : 'ltr';
+  const dir = getLocaleDirection(language);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -55,13 +60,13 @@ export const useTranslation = () => {
   const context = useContext(I18nContext);
   if (context === undefined) {
     const savedLang = localStorage.getItem('manaratak_admin_lang') || localStorage.getItem('manaratak_lang');
-    const language: Language = savedLang === 'en' ? 'en' : 'ar';
+    const language = isSupportedLocale(savedLang) ? savedLang : DEFAULT_LOCALE;
     const dict = dictionaries[language] || dictionaries.ar;
     return {
       language,
       t: (key: keyof Translations): string => dict[key] || dictionaries.en[key] || (key as string),
       setLanguage: () => {},
-      dir: (language === 'ar' ? 'rtl' : 'ltr') as 'rtl' | 'ltr',
+      dir: getLocaleDirection(language),
     };
   }
   return context;
