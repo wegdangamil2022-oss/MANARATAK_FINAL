@@ -290,6 +290,7 @@ export {
   type ScholarshipPage,
   type UpdateScholarshipDto,
 } from './scholarships/scholarships';
+export * from './scholarships/contracts';
 export * from './majors/enums';
 export * from './majors/majors';
 export * from './tests-platform/index';

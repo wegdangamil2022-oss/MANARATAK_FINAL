@@ -3,7 +3,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { adminApiClient } from './api/client';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { ScholarshipListPage } from './pages/ScholarshipListPage';
-import { ScholarshipDetailPage } from './pages/ScholarshipDetailPage';
+import { ScholarshipDetailPage } from './pages/ScholarshipCatalogDetailPage';
 import { CourseListPage } from './pages/CourseListPage';
 import { CourseDetailPage } from './pages/CourseDetailPage';
 import { CertificateAdminPage } from './pages/CertificateAdminPage';
