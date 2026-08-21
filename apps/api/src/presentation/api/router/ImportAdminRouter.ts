@@ -2,8 +2,15 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { readFile } from 'fs/promises';
 import * as path from 'path';
 import { z } from 'zod';
-import { ImportAdminUseCases, MajorImportStagingUseCase } from '@manaratak/application';
-import { ImportRecordDto, ImportRecordStatus, ImportTargetDomain } from '@manaratak/domain';
+import { CourseImportArtifactUseCase, ImportAdminUseCases, MajorImportStagingUseCase } from '@manaratak/application';
+import {
+  IAssetRecordRepository,
+  IAssetStorageGateway,
+  IExternalCourseProviderRepository,
+  ImportRecordDto,
+  ImportRecordStatus,
+  ImportTargetDomain,
+} from '@manaratak/domain';
 
 type ImportBatchLike = {
   id?: string;
@@ -20,6 +27,9 @@ export class ImportAdminRouter {
   public static create(cradle: { 
     importAdminUseCases: ImportAdminUseCases;
     majorImportStagingUseCase: MajorImportStagingUseCase;
+    assetRecordRepository: IAssetRecordRepository;
+    assetStorageGateway: IAssetStorageGateway;
+    externalCourseProviderRepository: IExternalCourseProviderRepository;
     importRepository?: {
       getRecordById(id: string): Promise<ImportRecordWithBatch | null>;
       getBatchById?(id: string): Promise<ImportBatchLike | null>;
@@ -39,6 +49,13 @@ export class ImportAdminRouter {
       majorImportPromotionUseCase,
       fellowshipImportPromotionUseCase,
     } = cradle;
+
+    const courseImportArtifactUseCase = new CourseImportArtifactUseCase(
+      cradle.assetRecordRepository,
+      cradle.assetStorageGateway,
+      cradle.externalCourseProviderRepository,
+      importAdminUseCases,
+    );
 
     type RouteHandler = (req: Request, res: Response, next: NextFunction) => Promise<unknown>;
     const asyncHandler = (fn: RouteHandler) => (req: Request, res: Response, next: NextFunction) => {
@@ -81,6 +98,12 @@ export class ImportAdminRouter {
         .transform(val => val === 'INTERNATIONAL_TESTS' ? ImportTargetDomain.Tests : val),
     });
 
+    const courseArtifactBodySchema = z.object({
+      assetId: z.string().trim().min(1),
+      sourceSystem: z.string().trim().min(1).optional(),
+      expectedSha256: z.string().trim().regex(/^[a-f0-9]{64}$/i).optional(),
+    });
+
     const majorCatalogBodySchema = z.object({
       dataText: z.string().min(1).optional(),
       catalogKind: majorCatalogKindSchema,
@@ -119,6 +142,18 @@ export class ImportAdminRouter {
        const result = await importAdminUseCases.importData(payload);
        res.status(201).json(result);
      }));
+
+    router.post('/courses/preflight', asyncHandler(async (req: Request, res: Response) => {
+      const payload = courseArtifactBodySchema.parse(req.body);
+      const result = await courseImportArtifactUseCase.preflight(payload);
+      res.status(200).json(result);
+    }));
+
+    router.post('/courses/stage', asyncHandler(async (req: Request, res: Response) => {
+      const payload = courseArtifactBodySchema.parse(req.body);
+      const result = await courseImportArtifactUseCase.stage(payload);
+      res.status(result.duplicateArtifact ? 200 : 201).json(result);
+    }));
 
     router.post('/major-catalogs', asyncHandler(async (req: Request, res: Response) => {
       const payload = majorCatalogBodySchema.parse(req.body);

@@ -1,4 +1,5 @@
 export * from './CourseImportPromotionUseCase';
+export * from './CourseImportArtifactUseCase';
 export * from './AdminCourseUseCases';
 export * from './PublicCourseUseCases';
 export * from './CourseCurriculumUseCases';
