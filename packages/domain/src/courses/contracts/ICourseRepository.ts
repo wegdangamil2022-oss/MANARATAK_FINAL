@@ -1,3 +1,4 @@
+import type { AtomicPersistenceContext } from '../../event-foundation/outbox/TransactionalOutbox';
 import { CourseAccessType } from '../enums/CourseAccessType';
 import { CourseImportCompletenessState } from '../enums/CourseImportCompletenessState';
 import { CourseOriginType } from '../enums/CourseOriginType';
@@ -56,4 +57,8 @@ export interface ICourseRepository {
   listByStatus(status: CourseStatus): Promise<CourseDto[]>;
   list(filters: CourseFilters): Promise<PaginatedCourseResult<CourseDto>>;
   listPublished(filters: PublicCourseFilters): Promise<PaginatedCourseResult<CourseDto>>;
+}
+
+export interface ITransactionalCourseRepository extends ICourseRepository {
+  withTransaction(context: AtomicPersistenceContext): ICourseRepository;
 }

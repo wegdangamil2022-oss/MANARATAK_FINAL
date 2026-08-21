@@ -42,7 +42,7 @@ export * from './audit/InMemoryAuditRecordRepository';
 export class PrismaCertificateRepository {}
 export class PrismaServiceCatalogRepository {}
 export class PrismaCareerPathRepository {}
-export class PrismaCourseRepository {}
+export * from './courses/PrismaCourseRepository';
 export class PrismaAlumniRepository {}
 export class InMemorySettingsRepository {}
 export class InMemoryAuthService {}

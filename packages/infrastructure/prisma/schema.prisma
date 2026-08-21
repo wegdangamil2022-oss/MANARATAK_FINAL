@@ -113,6 +113,47 @@ model ImportRecord {
   @@index([retentionExpiresAt])
 }
 
+// --- Phase 13 Learning Platform: Core Course Persistence ---
+
+model Course {
+  id                   String   @id @default(uuid())
+  publicId             String   @unique
+  slug                 String   @unique
+  canonicalName        String
+  canonicalDedupKey    String   @unique
+  displayName          String
+  accessType           String
+  originType           String
+  directCourseUrl      String
+  status               String
+  completenessStatus   String
+
+  platformName         String?
+  providerName         String?
+  learningLanguage     String?
+  studyDuration        String?
+  certificateAvailable Boolean?
+  category             String?
+  difficultyLevel      String?
+  sourceUrl            String?
+  officialSourceUrl    String?
+  thumbnailAssetId     String?
+  sourceImportRecordId String?
+  optionalFields       Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([completenessStatus])
+  @@index([accessType])
+  @@index([originType])
+  @@index([platformName])
+  @@index([sourceImportRecordId])
+  @@index([status, originType])
+  @@index([status, platformName])
+}
+
 // --- Transactional Outbox ---
 
 model TransactionalOutboxRecord {
