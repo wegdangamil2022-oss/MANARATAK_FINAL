@@ -125,7 +125,8 @@ const RootLayout = () => {
     return <Navigate replace to={localizeLocation(location, targetLocale)} />;
   }
 
-  const isAdminPath = location.pathname.startsWith('/admin') || location.pathname.startsWith('/study-destinations');
+  const localeRelativePath = location.pathname.replace(/^\/(?:ar|en)(?=\/|$)/, '') || '/';
+  const isAdminPath = localeRelativePath.startsWith('/admin') || localeRelativePath.startsWith('/study-destinations');
   const isLocalAdminReadOnly = import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
 
   const userEmail = localStorage.getItem('manaratak_user_email');
@@ -338,19 +339,22 @@ const RootLayout = () => {
               {t('local_admin_readonly_notice')}
             </div>
             <nav aria-label={t('local_admin_navigation_aria')} className="mb-5 flex min-h-12 items-center gap-1 overflow-x-auto border-y border-slate-200 bg-white px-2 py-2">
-              {localAdminLinks.map(([path, label]) => (
+              {localAdminLinks.map(([path, label]) => {
+                const localizedPath = localizePathname(path, language);
+                return (
                 <Link
                   key={path}
-                  to={path}
+                  to={localizedPath}
                   className={`flex min-h-9 shrink-0 items-center px-3 text-xs font-bold transition-colors ${
-                    location.pathname === path || (path !== '/admin/dashboard' && location.pathname.startsWith(`${path}/`))
+                    location.pathname === localizedPath || (path !== '/admin/dashboard' && location.pathname.startsWith(`${localizedPath}/`))
                       ? 'bg-[#0F4B3A] text-white'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-[#0F4B3A]'
                   }`}
                 >
                   {label}
                 </Link>
-              ))}
+                );
+              })}
             </nav>
           </>
         )}
