@@ -1,449 +1,435 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useTranslation } from '../../i18n/I18nProvider';
-import { 
-  ArrowLeft, ArrowRight, Search, Filter, Plus, ExternalLink, 
-  CheckCircle2, AlertCircle, RefreshCw, Eye, ShieldCheck, 
-  DownloadCloud, Link2, Globe, Clock, Sparkles, Award, FileText, 
-  Layers, AlertTriangle, ChevronRight, X, Building2
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  AlertCircle,
+  Award,
+  BookOpen,
+  DownloadCloud,
+  ExternalLink,
+  Eye,
+  FilterX,
+  Globe,
+  Layers,
+  Loader2,
+  RefreshCw,
+  Search,
+  ShieldCheck,
 } from 'lucide-react';
 import { ApiClient } from '../../api/client';
+import {
+  COURSE_SPECIALTY_OPTIONS,
+  COURSE_TYPE_OPTIONS,
+  MASTER_PROVIDER_OPTIONS,
+  deriveCourseSpecialty,
+  deriveCourseType,
+  getArabicCourseTitle,
+  getCourseDuration,
+  getCourseLanguageRaw,
+  getCourseLevelRaw,
+  getCourseProvider,
+  getCourseStatus,
+  getDirectCourseUrl,
+  getFreeCertificateState,
+  getLinkHealth,
+  getLinkHealthArabic,
+  getMissingFieldsCount,
+  getOriginalCourseTitle,
+  getStatusArabic,
+  getStatusStyle,
+  getStudyFreeState,
+  isSourceVerified,
+  translateLanguage,
+  translateLevel,
+  type ImportedCourseRecord,
+} from './importedCourseUi';
+
+type QuickFilter = 'ALL' | 'REVIEW' | 'MISSING' | 'BROKEN' | 'VERIFY' | 'READY' | 'PUBLISHED' | 'ARCHIVED';
+type FreeMode = 'ALL' | 'FREE_CERTIFICATE' | 'FREE_STUDY';
+
+const STATUS_ORDER = [
+  'IMPORTED',
+  'READY_TO_REVIEW',
+  'AWAITING_REVIEW',
+  'UNDER_REVIEW',
+  'MISSING_DATA',
+  'BROKEN_LINK',
+  'READY_TO_PUBLISH',
+  'APPROVED',
+  'PUBLISHED',
+  'REJECTED',
+  'ARCHIVED',
+];
 
 export function AdminImportedCoursesPreviewPage() {
-  const navigate = useNavigate();
-  const { t, isRTL } = useTranslation();
-  const ArrowIcon = isRTL ? ArrowLeft : ArrowRight;
-
-  const [courses, setCourses] = useState<any[]>([]);
+  const [courses, setCourses] = useState<ImportedCourseRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedProvider, setSelectedProvider] = useState<string>('ALL');
-  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedProvider, setSelectedProvider] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const [selectedFreeMode, setSelectedFreeMode] = useState<FreeMode>('ALL');
+  const [selectedSpecialty, setSelectedSpecialty] = useState('');
+  const [selectedCourseType, setSelectedCourseType] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState('');
+  const [selectedLevel, setSelectedLevel] = useState('');
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>('ALL');
 
   const loadData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await ApiClient.getAdminImportedCourses();
-      setCourses(data);
-    } catch {
-      // Fallback sample dataset for Imported External Courses
-      setCourses([
-        {
-          id: 'imp_crs_01',
-          titleAr: 'تخصص الذكاء الاصطناعي والتعلّم العميق Deep Learning Specialization',
-          titleEn: 'Deep Learning Specialization',
-          originalTitle: 'Deep Learning Specialization by DeepLearning.AI',
-          provider: 'Coursera',
-          directUrl: 'https://www.coursera.org/specializations/deep-learning',
-          officialSourceUrl: 'https://www.deeplearning.ai/courses/deep-learning-specialization/',
-          language: 'English',
-          level: 'Intermediate',
-          duration: '3 Months (5 hrs/week)',
-          externalPriceType: 'Paid ($49/mo)',
-          certificateAvailable: true,
-          status: 'PUBLISHED',
-          category: 'Artificial Intelligence',
-          linkedSkills: ['Neural Networks', 'TensorFlow', 'Convolutional Networks', 'Python'],
-          linkedMajors: ['Computer Science', 'Artificial Intelligence'],
-          sourceVerified: true,
-          linkHealth: 'HEALTHY',
-          missingFieldsCount: 0,
-          updatedAt: '2026-07-25 11:20'
-        },
-        {
-          id: 'imp_crs_02',
-          titleAr: 'دورة هندسة الحوسبة السحابية AWS Cloud Architecting',
-          titleEn: 'AWS Cloud Solutions Architecting',
-          originalTitle: 'AWS Cloud Solutions Architecting Course',
-          provider: 'AWS Skill Builder',
-          directUrl: 'https://explore.skillbuilder.aws/learn/course/external/view/elearning/102',
-          officialSourceUrl: 'https://aws.amazon.com/training/learning-paths/cloud-practitioner/',
-          language: 'English',
-          level: 'Advanced',
-          duration: '20 Hours',
-          externalPriceType: 'Free',
-          certificateAvailable: true,
-          status: 'READY_TO_PUBLISH',
-          category: 'Cloud Computing',
-          linkedSkills: ['AWS S3', 'EC2', 'IAM', 'Cloud Architecture'],
-          linkedMajors: ['Computer Engineering', 'Cybersecurity'],
-          sourceVerified: true,
-          linkHealth: 'HEALTHY',
-          missingFieldsCount: 0,
-          updatedAt: '2026-07-24 16:45'
-        },
-        {
-          id: 'imp_crs_03',
-          titleAr: 'أساسيات الشبكات CCNA Networking Essentials',
-          titleEn: 'Cisco CCNA Networking Essentials',
-          originalTitle: 'Networking Essentials v2.0',
-          provider: 'Cisco Networking Academy',
-          directUrl: 'https://www.netacad.com/courses/networking/networking-essentials',
-          officialSourceUrl: 'https://www.netacad.com',
-          language: 'Bilingual (Ar/En)',
-          level: 'Beginner',
-          duration: '70 Hours',
-          externalPriceType: 'Free',
-          certificateAvailable: true,
-          status: 'AWAITING_REVIEW',
-          category: 'Networking',
-          linkedSkills: ['IP Addressing', 'Subnetting', 'Routing', 'Switches'],
-          linkedMajors: ['Information Technology', 'Computer Networks'],
-          sourceVerified: false,
-          linkHealth: 'NEEDS_VERIFICATION',
-          missingFieldsCount: 1,
-          updatedAt: '2026-07-23 09:15'
-        },
-        {
-          id: 'imp_crs_04',
-          titleAr: 'مبادئ البرمجة بلغة بايثون للعلوم والهندسة',
-          titleEn: 'Programming for Everybody (Getting Started with Python)',
-          originalTitle: 'Programming for Everybody (Getting Started with Python)',
-          provider: 'edX',
-          directUrl: 'https://www.edx.org/learn/python/university-of-michigan-programming-for-everybody-getting-started-with-python',
-          officialSourceUrl: 'https://www.edx.org',
-          language: 'English',
-          level: 'Beginner',
-          duration: '7 Weeks',
-          externalPriceType: 'Free (Audit)',
-          certificateAvailable: true,
-          status: 'MISSING_DATA',
-          category: 'Software Engineering',
-          linkedSkills: ['Python', 'Data Structures', 'Variables', 'Loops'],
-          linkedMajors: ['Computer Science', 'Software Engineering'],
-          sourceVerified: false,
-          linkHealth: 'HEALTHY',
-          missingFieldsCount: 3,
-          updatedAt: '2026-07-22 14:00'
-        },
-        {
-          id: 'imp_crs_05',
-          titleAr: 'أساسيات الحوسبة السحابية مع Microsoft Azure',
-          titleEn: 'Microsoft Azure Fundamentals (AZ-900)',
-          originalTitle: 'Microsoft Azure Fundamentals Training',
-          provider: 'Microsoft Learn',
-          directUrl: 'https://learn.microsoft.com/en-us/credentials/certifications/azure-fundamentals/',
-          officialSourceUrl: 'https://learn.microsoft.com',
-          language: 'English',
-          level: 'Beginner',
-          duration: '12 Hours',
-          externalPriceType: 'Free',
-          certificateAvailable: false,
-          status: 'BROKEN_LINK',
-          category: 'Cloud Computing',
-          linkedSkills: ['Azure Services', 'Cloud Governance', 'Security'],
-          linkedMajors: ['Information Systems'],
-          sourceVerified: true,
-          linkHealth: 'BROKEN',
-          missingFieldsCount: 2,
-          updatedAt: '2026-07-20 18:30'
-        }
-      ]);
+      setCourses(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setCourses([]);
+      setError(err?.message ? 'تعذر تحميل الدورات المستوردة من الخادم حاليًا.' : 'تعذر تحميل الدورات المستوردة حاليًا.');
     } finally {
       setLoading(false);
     }
   };
 
-  // 8 Top Counters Calculations
-  const totalCount = courses.length;
-  const awaitingReviewCount = courses.filter(c => c.status === 'AWAITING_REVIEW' || c.status === 'UNDER_REVIEW').length;
-  const missingDataCount = courses.filter(c => c.status === 'MISSING_DATA' || c.missingFieldsCount > 0).length;
-  const brokenLinksCount = courses.filter(c => c.status === 'BROKEN_LINK' || c.linkHealth === 'BROKEN').length;
-  const needsSourceVerifyCount = courses.filter(c => c.sourceVerified === false || c.linkHealth === 'NEEDS_VERIFICATION').length;
-  const readyToPublishCount = courses.filter(c => c.status === 'READY_TO_PUBLISH').length;
-  const publishedCount = courses.filter(c => c.status === 'PUBLISHED').length;
-  const archivedCount = courses.filter(c => c.status === 'ARCHIVED').length;
+  useEffect(() => {
+    void loadData();
+  }, []);
 
-  // Filter Logic
-  const filteredCourses = courses.filter(course => {
-    const matchesSearch = searchQuery === '' || 
-      course.titleAr.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (course.titleEn && course.titleEn.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      course.provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      course.category.toLowerCase().includes(searchQuery.toLowerCase());
+  const counts = useMemo(() => ({
+    all: courses.length,
+    review: courses.filter(course => ['IMPORTED', 'READY_TO_REVIEW', 'AWAITING_REVIEW', 'UNDER_REVIEW'].includes(getCourseStatus(course))).length,
+    missing: courses.filter(course => ['MISSING_DATA', 'INCOMPLETE'].includes(getCourseStatus(course)) || getMissingFieldsCount(course) > 0).length,
+    broken: courses.filter(course => getCourseStatus(course) === 'BROKEN_LINK' || getLinkHealth(course) === 'BROKEN').length,
+    verify: courses.filter(course => !isSourceVerified(course) || getLinkHealth(course) === 'NEEDS_VERIFICATION').length,
+    ready: courses.filter(course => ['READY_TO_PUBLISH', 'APPROVED'].includes(getCourseStatus(course))).length,
+    published: courses.filter(course => getCourseStatus(course) === 'PUBLISHED').length,
+    archived: courses.filter(course => getCourseStatus(course) === 'ARCHIVED').length,
+  }), [courses]);
 
-    const matchesProvider = selectedProvider === 'ALL' || course.provider === selectedProvider;
-    const matchesStatus = selectedStatus === 'ALL' || course.status === selectedStatus;
+  const providerOptions = useMemo(() => {
+    const dynamic = courses.map(getCourseProvider).filter(provider => provider && provider !== 'مزود غير محدد');
+    return Array.from(new Set<string>([...MASTER_PROVIDER_OPTIONS, ...dynamic])).sort((a, b) => a.localeCompare(b));
+  }, [courses]);
 
-    return matchesSearch && matchesProvider && matchesStatus;
-  });
+  const statusOptions = useMemo(() => {
+    const dynamic = courses.map(getCourseStatus).filter(Boolean);
+    return Array.from(new Set([...STATUS_ORDER, ...dynamic]));
+  }, [courses]);
 
-  const providersList = ['Coursera', 'edX', 'Cisco Networking Academy', 'Microsoft Learn', 'AWS Skill Builder', 'FutureLearn'];
+  const specialtyOptions = useMemo(() => {
+    const dynamic = courses.map(deriveCourseSpecialty);
+    const all = Array.from(new Set<string>([...COURSE_SPECIALTY_OPTIONS, ...dynamic]));
+    return all.filter(Boolean);
+  }, [courses]);
+
+  const languageOptions = useMemo(() => Array.from(new Set(courses.map(getCourseLanguageRaw).filter(Boolean))).sort(), [courses]);
+  const levelOptions = useMemo(() => Array.from(new Set(courses.map(getCourseLevelRaw).filter(Boolean))).sort(), [courses]);
+
+  const filteredCourses = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+
+    return courses.filter(course => {
+      const status = getCourseStatus(course);
+      const provider = getCourseProvider(course);
+      const specialty = deriveCourseSpecialty(course);
+      const courseType = deriveCourseType(course);
+      const language = getCourseLanguageRaw(course);
+      const level = getCourseLevelRaw(course);
+      const freeStudy = getStudyFreeState(course);
+      const freeCertificate = getFreeCertificateState(course);
+
+      if (q) {
+        const searchable = [
+          getArabicCourseTitle(course),
+          getOriginalCourseTitle(course),
+          provider,
+          specialty,
+          courseType,
+          course.category,
+        ].filter(Boolean).join(' ').toLowerCase();
+        if (!searchable.includes(q)) return false;
+      }
+
+      if (selectedProvider && provider !== selectedProvider) return false;
+      if (selectedStatus && status !== selectedStatus) return false;
+      if (selectedSpecialty && specialty !== selectedSpecialty) return false;
+      if (selectedCourseType && courseType !== selectedCourseType) return false;
+      if (selectedLanguage && language !== selectedLanguage) return false;
+      if (selectedLevel && level !== selectedLevel) return false;
+      if (selectedFreeMode === 'FREE_CERTIFICATE' && freeCertificate !== true) return false;
+      if (selectedFreeMode === 'FREE_STUDY' && freeStudy !== true) return false;
+
+      if (quickFilter === 'REVIEW' && !['IMPORTED', 'READY_TO_REVIEW', 'AWAITING_REVIEW', 'UNDER_REVIEW'].includes(status)) return false;
+      if (quickFilter === 'MISSING' && !(['MISSING_DATA', 'INCOMPLETE'].includes(status) || getMissingFieldsCount(course) > 0)) return false;
+      if (quickFilter === 'BROKEN' && !(status === 'BROKEN_LINK' || getLinkHealth(course) === 'BROKEN')) return false;
+      if (quickFilter === 'VERIFY' && !(!isSourceVerified(course) || getLinkHealth(course) === 'NEEDS_VERIFICATION')) return false;
+      if (quickFilter === 'READY' && !['READY_TO_PUBLISH', 'APPROVED'].includes(status)) return false;
+      if (quickFilter === 'PUBLISHED' && status !== 'PUBLISHED') return false;
+      if (quickFilter === 'ARCHIVED' && status !== 'ARCHIVED') return false;
+
+      return true;
+    });
+  }, [courses, searchQuery, selectedProvider, selectedStatus, selectedFreeMode, selectedSpecialty, selectedCourseType, selectedLanguage, selectedLevel, quickFilter]);
+
+  const hasActiveFilters = Boolean(
+    searchQuery || selectedProvider || selectedStatus || selectedSpecialty || selectedCourseType || selectedLanguage || selectedLevel || selectedFreeMode !== 'ALL' || quickFilter !== 'ALL'
+  );
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedProvider('');
+    setSelectedStatus('');
+    setSelectedFreeMode('ALL');
+    setSelectedSpecialty('');
+    setSelectedCourseType('');
+    setSelectedLanguage('');
+    setSelectedLevel('');
+    setQuickFilter('ALL');
+  };
+
+  const stats: Array<{ key: QuickFilter; label: string; count: number }> = [
+    { key: 'ALL', label: 'كل الدورات المستوردة', count: counts.all },
+    { key: 'REVIEW', label: 'بانتظار المراجعة', count: counts.review },
+    { key: 'MISSING', label: 'ناقصة البيانات', count: counts.missing },
+    { key: 'BROKEN', label: 'روابط معطلة', count: counts.broken },
+    { key: 'VERIFY', label: 'تحتاج تحققًا', count: counts.verify },
+    { key: 'READY', label: 'جاهزة للنشر', count: counts.ready },
+    { key: 'PUBLISHED', label: 'منشورة', count: counts.published },
+    { key: 'ARCHIVED', label: 'مؤرشفة', count: counts.archived },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Breadcrumb Navigation */}
-      <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-        <Link to="/admin/courses" className="hover:text-emerald-600 dark:hover:text-emerald-400">
-          {t('admin_courses') || 'Courses Administration'}
-        </Link>
-        <span>/</span>
-        <span className="text-slate-900 dark:text-white font-medium">
-          {isRTL ? 'الدورات المستوردة' : 'Imported External Courses'}
-        </span>
-      </div>
+    <main dir="rtl" className="min-h-screen bg-[#f8fafc] px-4 py-8 text-slate-900 sm:px-6 lg:px-10">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
+          <Link to="/admin/courses" className="hover:text-[#0F4B3A]">إدارة الدورات</Link>
+          <span>/</span>
+          <span className="text-slate-900">الدورات المستوردة</span>
+        </div>
 
-      {/* Header Banner */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 text-xs font-semibold rounded-md bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
-              {isRTL ? 'تغذية الكتالوج الخارجي (External Catalog Links)' : 'External Catalog Links Feed'}
-            </span>
-            <span className="px-2.5 py-0.5 text-xs font-semibold rounded-md bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-              Phase 13 / Phase 06
-            </span>
+        <header className="flex flex-col gap-5 rounded-3xl bg-gradient-to-r from-[#0F4B3A] via-[#155e49] to-[#0a382b] p-6 text-white shadow-xl sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="mb-2 flex w-fit items-center gap-2 text-xs font-bold text-emerald-300 sm:text-sm">
+              <DownloadCloud className="h-4 w-4" />
+              <span>كتالوج الدورات الخارجية</span>
+            </div>
+            <h1 className="text-2xl font-black sm:text-4xl">الدورات المستوردة</h1>
+            <p className="mt-2 max-w-3xl text-sm font-medium leading-relaxed text-emerald-100/90">
+              مراجعة الدورات المستوردة من المنصات والجامعات، والتحقق من مجانية الدراسة والشهادة والرابط المباشر والمصدر قبل النشر.
+            </p>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-            {isRTL ? 'إدارة الدورات المستوردة من المنصات الخارجية' : 'Imported External Courses Catalog'}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-            {isRTL 
-              ? 'إدارة وروابط الكتالوج الخارجي المستورد من المزوّدين المعتمدين (مثل Coursera, edX, Cisco, Microsoft, AWS). هذه الدورات هي روابط خارجية وليست مناهج مصممة داخل منارتك.'
-              : 'Governance and catalog links for external academic training providers (e.g. Coursera, edX, Cisco, Microsoft, AWS). These entries are catalog links, not native MANARATAK curriculum.'}
-          </p>
-        </div>
 
-        {/* Action Button Routing to /admin/imports/courses per Rule 4 */}
-        <Link
-          to="/admin/imports/courses"
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shrink-0 shadow-sm"
-        >
-          <DownloadCloud className="w-4 h-4" />
-          <span>{isRTL ? 'فتح مركز استيراد الدورات' : 'Open Courses Import Center'}</span>
-        </Link>
-      </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="min-w-[120px] rounded-2xl border border-white/20 bg-white/10 p-4 text-center backdrop-blur-md">
+              <span className="block text-2xl font-black text-amber-300 sm:text-3xl">{counts.all}</span>
+              <span className="text-[11px] font-bold text-emerald-100">إجمالي الدورات</span>
+            </div>
+            <button
+              onClick={() => void loadData()}
+              title="تحديث القائمة"
+              className="flex min-h-12 items-center justify-center rounded-2xl border border-white/20 bg-white/10 p-3 text-white transition-all hover:bg-white/20"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+            <Link
+              to="/admin/imports/courses"
+              className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-[#0F4B3A] shadow-sm transition-all hover:bg-emerald-50"
+            >
+              <DownloadCloud className="h-4 w-4" />
+              <span>فتح مركز استيراد الدورات</span>
+            </Link>
+          </div>
+        </header>
 
-      {/* 8 Top Statistics Counters */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-        {/* 1. All Imported */}
-        <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-1">
-          <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate">
-            {isRTL ? 'كل الدورات المستوردة' : 'All Imported'}
-          </span>
-          <span className="text-lg font-bold text-slate-900 dark:text-white">{totalCount}</span>
-        </div>
+        {error && (
+          <div className="flex items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-900">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-rose-600" />
+              <span>{error}</span>
+            </div>
+            <button onClick={() => void loadData()} className="rounded-lg bg-white px-3 py-2 text-xs font-black text-rose-800 shadow-sm">إعادة المحاولة</button>
+          </div>
+        )}
 
-        {/* 2. Awaiting Review */}
-        <div className="p-3 bg-amber-50/60 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800/60 space-y-1">
-          <span className="text-[11px] text-amber-800 dark:text-amber-300 block truncate">
-            {isRTL ? 'بانتظار مراجعة' : 'Awaiting Review'}
-          </span>
-          <span className="text-lg font-bold text-amber-900 dark:text-amber-200">{awaitingReviewCount}</span>
-        </div>
+        <section className="grid grid-cols-2 gap-3 rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm md:grid-cols-4 lg:grid-cols-8">
+          {stats.map(stat => {
+            const active = quickFilter === stat.key;
+            return (
+              <button
+                key={stat.key}
+                onClick={() => setQuickFilter(stat.key)}
+                className={`flex min-h-20 flex-col items-center justify-center rounded-xl border p-3 text-center transition-all ${
+                  active ? 'border-[#0F4B3A] bg-[#0F4B3A] text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                <span className={`mb-1 text-lg font-black ${active ? 'text-white' : 'text-slate-950'}`}>{stat.count}</span>
+                <span className="text-[11px] font-bold leading-tight">{stat.label}</span>
+              </button>
+            );
+          })}
+        </section>
 
-        {/* 3. Missing Data */}
-        <div className="p-3 bg-rose-50/60 dark:bg-rose-950/30 rounded-xl border border-rose-200 dark:border-rose-800/60 space-y-1">
-          <span className="text-[11px] text-rose-800 dark:text-rose-300 block truncate">
-            {isRTL ? 'ناقصة البيانات' : 'Missing Data'}
-          </span>
-          <span className="text-lg font-bold text-rose-900 dark:text-rose-200">{missingDataCount}</span>
-        </div>
+        <section className="space-y-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute right-3 top-3.5 h-4 w-4 text-slate-400" />
+              <input
+                value={searchQuery}
+                onChange={event => setSearchQuery(event.target.value)}
+                placeholder="ابحث باسم الدورة أو المنصة أو التخصص..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-3 pr-10 text-sm font-medium outline-none transition-colors hover:bg-white focus:border-[#0F4B3A] focus:ring-1 focus:ring-[#0F4B3A]"
+              />
+            </div>
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-100 px-4 text-sm font-black text-slate-700 transition-colors hover:bg-slate-200"
+              >
+                <FilterX className="h-4 w-4" />
+                <span>مسح التصفية</span>
+              </button>
+            )}
+          </div>
 
-        {/* 4. Broken Links */}
-        <div className="p-3 bg-red-50/60 dark:bg-red-950/30 rounded-xl border border-red-200 dark:border-red-800/60 space-y-1">
-          <span className="text-[11px] text-red-800 dark:text-red-300 block truncate">
-            {isRTL ? 'روابط معطلة' : 'Broken Links'}
-          </span>
-          <span className="text-lg font-bold text-red-900 dark:text-red-200">{brokenLinksCount}</span>
-        </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <select value={selectedProvider} onChange={event => setSelectedProvider(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700 outline-none focus:border-[#0F4B3A] focus:ring-1 focus:ring-[#0F4B3A]">
+              <option value="">كل المزودين والمنصات</option>
+              {providerOptions.map(provider => <option key={provider} value={provider}>{provider}</option>)}
+            </select>
 
-        {/* 5. Needs Source Verification */}
-        <div className="p-3 bg-indigo-50/60 dark:bg-indigo-950/30 rounded-xl border border-indigo-200 dark:border-indigo-800/60 space-y-1">
-          <span className="text-[11px] text-indigo-800 dark:text-indigo-300 block truncate">
-            {isRTL ? 'تحتاج تحقق' : 'Needs Source Verification'}
-          </span>
-          <span className="text-lg font-bold text-indigo-900 dark:text-indigo-200">{needsSourceVerifyCount}</span>
-        </div>
+            <select value={selectedStatus} onChange={event => setSelectedStatus(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700 outline-none focus:border-[#0F4B3A] focus:ring-1 focus:ring-[#0F4B3A]">
+              <option value="">كل الحالات</option>
+              {statusOptions.map(status => <option key={status} value={status}>{getStatusArabic(status)}</option>)}
+            </select>
 
-        {/* 6. Ready to Publish */}
-        <div className="p-3 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-800/60 space-y-1">
-          <span className="text-[11px] text-blue-800 dark:text-blue-300 block truncate">
-            {isRTL ? 'جاهزة للنشر' : 'Ready to Publish'}
-          </span>
-          <span className="text-lg font-bold text-blue-900 dark:text-blue-200">{readyToPublishCount}</span>
-        </div>
+            <select value={selectedFreeMode} onChange={event => setSelectedFreeMode(event.target.value as FreeMode)} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700 outline-none focus:border-[#0F4B3A] focus:ring-1 focus:ring-[#0F4B3A]">
+              <option value="ALL">كل الدورات</option>
+              <option value="FREE_CERTIFICATE">الدورات ذات الشهادات المجانية</option>
+              <option value="FREE_STUDY">الدورات ذات الدراسة المجانية</option>
+            </select>
 
-        {/* 7. Published */}
-        <div className="p-3 bg-emerald-50/60 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800/60 space-y-1">
-          <span className="text-[11px] text-emerald-800 dark:text-emerald-300 block truncate">
-            {isRTL ? 'منشورة' : 'Published'}
-          </span>
-          <span className="text-lg font-bold text-emerald-900 dark:text-emerald-200">{publishedCount}</span>
-        </div>
+            <select value={selectedSpecialty} onChange={event => setSelectedSpecialty(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700 outline-none focus:border-[#0F4B3A] focus:ring-1 focus:ring-[#0F4B3A]">
+              <option value="">كل التخصصات والمجالات</option>
+              {specialtyOptions.map(specialty => <option key={specialty} value={specialty}>{specialty}</option>)}
+            </select>
 
-        {/* 8. Archived */}
-        <div className="p-3 bg-slate-100 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
-          <span className="text-[11px] text-slate-600 dark:text-slate-400 block truncate">
-            {isRTL ? 'مؤرشفة' : 'Archived'}
-          </span>
-          <span className="text-lg font-bold text-slate-800 dark:text-slate-200">{archivedCount}</span>
-        </div>
-      </div>
+            <select value={selectedCourseType} onChange={event => setSelectedCourseType(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700 outline-none focus:border-[#0F4B3A] focus:ring-1 focus:ring-[#0F4B3A]">
+              <option value="">كل أنواع الدورات</option>
+              {COURSE_TYPE_OPTIONS.map(type => <option key={type} value={type}>{type}</option>)}
+            </select>
 
-      {/* Filter and Search Controls Bar */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 absolute top-3 ltr:left-3 rtl:right-3 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={isRTL ? 'البحث بالاسم، المزوّد، أو المجال...' : 'Search title, provider, or field...'}
-            className="w-full py-2 ltr:pl-9 ltr:pr-3 rtl:pr-9 rtl:pl-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+            <select value={selectedLanguage} onChange={event => setSelectedLanguage(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700 outline-none focus:border-[#0F4B3A] focus:ring-1 focus:ring-[#0F4B3A]">
+              <option value="">كل اللغات</option>
+              {languageOptions.map(language => <option key={language} value={language}>{translateLanguage(language)}</option>)}
+            </select>
 
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          {/* Provider Filter */}
-          <select
-            value={selectedProvider}
-            onChange={(e) => setSelectedProvider(e.target.value)}
-            className="py-2 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none"
-          >
-            <option value="ALL">{isRTL ? 'كل المزودين المعتمدين' : 'All Providers'}</option>
-            {providersList.map(p => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
+            <select value={selectedLevel} onChange={event => setSelectedLevel(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700 outline-none focus:border-[#0F4B3A] focus:ring-1 focus:ring-[#0F4B3A]">
+              <option value="">كل المستويات</option>
+              {levelOptions.map(level => <option key={level} value={level}>{translateLevel(level)}</option>)}
+            </select>
 
-          {/* Status Filter */}
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="py-2 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none"
-          >
-            <option value="ALL">{isRTL ? 'كل الحالات' : 'All Statuses'}</option>
-            <option value="PUBLISHED">{isRTL ? 'منشورة' : 'Published'}</option>
-            <option value="READY_TO_PUBLISH">{isRTL ? 'جاهزة للنشر' : 'Ready to Publish'}</option>
-            <option value="AWAITING_REVIEW">{isRTL ? 'بانتظار المراجعة' : 'Awaiting Review'}</option>
-            <option value="MISSING_DATA">{isRTL ? 'ناقصة البيانات' : 'Missing Data'}</option>
-            <option value="BROKEN_LINK">{isRTL ? 'روابط معطلة' : 'Broken Link'}</option>
-            <option value="ARCHIVED">{isRTL ? 'مؤرشفة' : 'Archived'}</option>
-          </select>
-        </div>
-      </div>
+            <div className="flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-sm font-bold text-emerald-950">
+              <span>النتائج المطابقة</span>
+              <span className="text-lg font-black text-[#0F4B3A]">{filteredCourses.length}</span>
+            </div>
+          </div>
+        </section>
 
-      {/* Lightweight Vertical List Table per Rule 2 */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-slate-600 dark:text-slate-300 ltr:text-left rtl:text-right">
-            <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 font-bold border-b border-slate-200 dark:border-slate-800">
-              <tr>
-                <th className="py-3 px-4">{isRTL ? 'عنوان الدورة المستوردة' : 'Imported Course Title'}</th>
-                <th className="py-3 px-4">{isRTL ? 'المزوّد الخارجي' : 'External Provider'}</th>
-                <th className="py-3 px-4">{isRTL ? 'المستوى واللغة' : 'Level & Language'}</th>
-                <th className="py-3 px-4">{isRTL ? 'التسعير الخارجي' : 'External Price'}</th>
-                <th className="py-3 px-4">{isRTL ? 'الشهادة' : 'Certificate'}</th>
-                <th className="py-3 px-4">{isRTL ? 'صحة الرابط والتحقق' : 'Link Health & Verification'}</th>
-                <th className="py-3 px-4">{isRTL ? 'الحالة' : 'Status'}</th>
-                <th className="py-3 px-4 ltr:text-right rtl:text-left">{isRTL ? 'الإجراء' : 'Action'}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredCourses.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400">
-                    {isRTL ? 'لا توجد دورات مستوردة مطابقة للفلاتر.' : 'No imported courses matching filters.'}
-                  </td>
-                </tr>
-              ) : (
-                filteredCourses.map((course) => (
-                  <tr key={course.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                    {/* Course Title */}
-                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white max-w-xs">
-                      <div className="truncate">{isRTL ? course.titleAr : (course.titleEn || course.titleAr)}</div>
-                      <div className="text-[11px] text-slate-400 font-normal truncate mt-0.5">{course.category}</div>
-                    </td>
+        <section className="space-y-3">
+          {loading ? (
+            <div className="flex min-h-64 flex-col items-center justify-center rounded-3xl border border-slate-200 bg-white text-slate-500 shadow-sm">
+              <Loader2 className="mb-3 h-8 w-8 animate-spin text-[#0F4B3A]" />
+              <span className="text-sm font-bold">جاري تحميل الدورات المستوردة...</span>
+            </div>
+          ) : filteredCourses.length === 0 ? (
+            <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-sm">
+              <BookOpen className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+              <h2 className="text-lg font-black text-slate-900">لا توجد دورات مطابقة</h2>
+              <p className="mt-2 text-sm font-medium text-slate-500">جرّب تعديل الفلاتر أو استيراد دفعة جديدة من مركز استيراد الدورات.</p>
+            </div>
+          ) : (
+            filteredCourses.map(course => {
+              const id = String(course.id || course.publicId || course.courseId || '');
+              const status = getCourseStatus(course);
+              const freeStudy = getStudyFreeState(course);
+              const freeCertificate = getFreeCertificateState(course);
+              const directUrl = getDirectCourseUrl(course);
 
-                    {/* External Provider */}
-                    <td className="py-3.5 px-4">
-                      <span className="px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-semibold border border-blue-200 dark:border-blue-800">
-                        {course.provider}
-                      </span>
-                    </td>
-
-                    {/* Level & Language */}
-                    <td className="py-3.5 px-4 font-medium">
-                      <div className="text-slate-800 dark:text-slate-200">{course.level}</div>
-                      <div className="text-[11px] text-slate-400">{course.language}</div>
-                    </td>
-
-                    {/* External Price */}
-                    <td className="py-3.5 px-4 font-semibold text-slate-800 dark:text-slate-200">
-                      {course.externalPriceType}
-                    </td>
-
-                    {/* Certificate Available */}
-                    <td className="py-3.5 px-4">
-                      {course.certificateAvailable ? (
-                        <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-                          {isRTL ? 'متاحة' : 'Available'}
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                          {isRTL ? 'غير متاحة' : 'No'}
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Link Health & Source Verification */}
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-1.5">
-                        {course.linkHealth === 'HEALTHY' && (
-                          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-[11px] font-medium">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>{isRTL ? 'سليم' : 'Healthy'}</span>
-                          </span>
-                        )}
-                        {course.linkHealth === 'NEEDS_VERIFICATION' && (
-                          <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 text-[11px] font-medium">
-                            <AlertCircle className="w-3.5 h-3.5" />
-                            <span>{isRTL ? 'يحتاج تحقق' : 'Needs Verify'}</span>
-                          </span>
-                        )}
-                        {course.linkHealth === 'BROKEN' && (
-                          <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 text-[11px] font-medium">
-                            <AlertTriangle className="w-3.5 h-3.5" />
-                            <span>{isRTL ? 'معطل' : 'Broken'}</span>
-                          </span>
-                        )}
+              return (
+                <article key={id || `${getCourseProvider(course)}-${getOriginalCourseTitle(course)}`} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+                  <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full border px-3 py-1 text-[11px] font-black ${getStatusStyle(status)}`}>{getStatusArabic(status)}</span>
+                        <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-800">{deriveCourseSpecialty(course)}</span>
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-black text-slate-700">{deriveCourseType(course)}</span>
                       </div>
-                    </td>
 
-                    {/* Status */}
-                    <td className="py-3.5 px-4">
-                      <span className={`px-2.5 py-1 text-[11px] font-semibold rounded-full border ${
-                        course.status === 'PUBLISHED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800' :
-                        course.status === 'READY_TO_PUBLISH' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800' :
-                        course.status === 'BROKEN_LINK' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/50 dark:text-red-300 dark:border-red-800' :
-                        'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800'
-                      }`}>
-                        {course.status}
-                      </span>
-                    </td>
+                      <h2 className="text-lg font-black leading-8 text-slate-950 sm:text-xl">{getArabicCourseTitle(course)}</h2>
 
-                    {/* Action */}
-                    <td className="py-3.5 px-4 ltr:text-right rtl:text-left">
-                      <Link
-                        to={`/admin/courses/imported/${course.id}`}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>{isRTL ? 'عرض التفاصيل' : 'View Details'}</span>
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                      <div className="mt-4 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-slate-700">
+                          <Globe className="h-4 w-4 shrink-0 text-[#0F4B3A]" />
+                          <div><span className="block text-[10px] font-bold text-slate-400">المزود</span><span className="font-black">{getCourseProvider(course)}</span></div>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-slate-700">
+                          <Layers className="h-4 w-4 shrink-0 text-[#0F4B3A]" />
+                          <div><span className="block text-[10px] font-bold text-slate-400">المستوى</span><span className="font-black">{translateLevel(getCourseLevelRaw(course))}</span></div>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-slate-700">
+                          <BookOpen className="h-4 w-4 shrink-0 text-[#0F4B3A]" />
+                          <div><span className="block text-[10px] font-bold text-slate-400">اللغة</span><span className="font-black">{translateLanguage(getCourseLanguageRaw(course))}</span></div>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-slate-700">
+                          <Award className="h-4 w-4 shrink-0 text-[#0F4B3A]" />
+                          <div><span className="block text-[10px] font-bold text-slate-400">المدة</span><span className="font-black">{getCourseDuration(course)}</span></div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-black">
+                        <span className={`rounded-lg border px-3 py-1.5 ${freeStudy === true ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
+                          {freeStudy === true ? 'الدراسة مجانية' : freeStudy === false ? 'الدراسة غير مجانية' : 'مجانية الدراسة غير محددة'}
+                        </span>
+                        <span className={`rounded-lg border px-3 py-1.5 ${freeCertificate === true ? 'border-blue-200 bg-blue-50 text-blue-800' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
+                          {freeCertificate === true ? 'شهادة مجانية' : freeCertificate === false ? 'لا توجد شهادة مجانية' : 'الشهادة المجانية غير محددة'}
+                        </span>
+                        <span className={`rounded-lg border px-3 py-1.5 ${isSourceVerified(course) ? 'border-indigo-200 bg-indigo-50 text-indigo-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                          {isSourceVerified(course) ? 'المصدر متحقق منه' : 'المصدر يحتاج تحققًا'}
+                        </span>
+                        <span className={`rounded-lg border px-3 py-1.5 ${getLinkHealth(course) === 'HEALTHY' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                          {getLinkHealthArabic(course)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 flex-row gap-2 xl:w-[170px] xl:flex-col">
+                      {id && (
+                        <Link to={`/admin/courses/imported/${encodeURIComponent(id)}`} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#0F4B3A] px-4 text-xs font-black text-white transition-colors hover:bg-[#0a382b]">
+                          <Eye className="h-4 w-4" />
+                          <span>عرض التفاصيل</span>
+                        </Link>
+                      )}
+                      {directUrl && (
+                        <a href={directUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700 transition-colors hover:bg-slate-50">
+                          <ExternalLink className="h-4 w-4" />
+                          <span>فتح الدورة</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5 text-xs font-bold leading-7 text-emerald-950">
+          <div className="flex items-start gap-2">
+            <ShieldCheck className="mt-1 h-4 w-4 shrink-0 text-emerald-700" />
+            <p>
+              التخصصات المعروضة في الفلاتر تصنيف مساعد للواجهة مشتق من اسم الدورة وموضوعاتها وبياناتها المتاحة، ولا يغيّر السجل الأصلي أو يستبدل التصنيف الأكاديمي المعتمد. كما أن فلاتر مجانية الدراسة والشهادة تعتمد على حقول المجانية الصريحة ولا تعتبر مجرد توفر شهادة دليلًا على أنها مجانية.
+            </p>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
