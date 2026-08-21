@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import type { AtomicPersistenceContext } from '@manaratak/domain';
 import { v4 as uuidv4 } from 'uuid';
 
 export class PrismaImportRepository {
@@ -17,6 +18,14 @@ export class PrismaImportRepository {
       throw new Error('DEVELOPMENT_ONLY import persistence must not receive PrismaClient.');
     }
     this.persistenceClassification = mode;
+  }
+
+  withTransaction(context: AtomicPersistenceContext): PrismaImportRepository {
+    const transactionClient = (context as AtomicPersistenceContext & { transactionClient?: PrismaClient }).transactionClient;
+    if (!context.boundaryId || !transactionClient) {
+      throw new Error('IMPORT_ATOMIC_TRANSACTION_CONTEXT_REQUIRED');
+    }
+    return new PrismaImportRepository(transactionClient);
   }
 
   async createBatch(data: {

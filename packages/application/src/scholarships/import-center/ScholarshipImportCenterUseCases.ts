@@ -25,6 +25,7 @@ import type {
   ScholarshipImportTransferRequest,
   ScholarshipImportVerificationState,
 } from './ScholarshipImportCenterContracts';
+import { readScholarshipImportReviewDecision } from './ScholarshipImportReviewDecisionCodec';
 
 const OWNER_DOMAIN = 'SCHOLARSHIPS';
 const PAGE_SIZE = 100;
@@ -396,13 +397,25 @@ export class ScholarshipImportCenterUseCases {
       sourceTraceable,
     };
     const canonical = this.canonicalSummary(raw);
-    const reviewReasons = this.reviewReasons(completeness, dedupe, verification, canonical);
+    const decision = readScholarshipImportReviewDecision(record.processingNotes);
+    const mergeDecisionMatches = Boolean(
+      existing &&
+      decision?.action === 'MERGE' &&
+      decision.recordId === record.id &&
+      decision.duplicateKey === dedupe.duplicateKey &&
+      decision.targetScholarshipId === existing.id,
+    );
+    const reviewReasons = this.reviewReasons(completeness, dedupe, verification, canonical)
+      .filter((reason) => !(mergeDecisionMatches && reason === `DEDUPE:${dedupe.state}`));
+    const dedupeReady = dedupe.state === 'NEW' || (
+      (dedupe.state === 'DUPLICATE' || dedupe.state === 'UPDATE') && mergeDecisionMatches
+    );
     const readyToTransfer =
-      completeness.state === ScholarshipCompletenessState.COMPLETE &&
-      dedupe.state === 'NEW' &&
+      completeness.identityReady &&
+      dedupeReady &&
       verification.state === 'VERIFIED' &&
       canonical.state === 'CLEAR' &&
-      reviewReasons.length === 0;
+      !base.transferred;
 
     return {
       ...base,

@@ -1,4 +1,5 @@
 import type {
+  AtomicPersistenceContext,
   IScholarshipRepository,
   ScholarshipCompletenessState,
 } from '@manaratak/domain';
@@ -69,6 +70,20 @@ export interface IScholarshipImportCenterGateway {
   getBatchById(id: string): Promise<ScholarshipImportCenterBatchRecord | null>;
 }
 
+/**
+ * Durable ImportRecord command port used only inside the WP12-10 atomic boundary.
+ * Implementations must bind all reads/writes to the supplied transaction context.
+ */
+export interface IScholarshipImportAtomicGateway extends IScholarshipImportCenterGateway {
+  updateRecord(id: string, updates: {
+    status?: string;
+    validationErrors?: unknown;
+    promotedEntityId?: string;
+    processingNotes?: string;
+  }): Promise<ScholarshipImportCenterStoredRecord>;
+  withTransaction(context: AtomicPersistenceContext): IScholarshipImportAtomicGateway;
+}
+
 export interface ScholarshipImportReviewDecisionRequest {
   recordId: string;
   action: ScholarshipImportReviewAction;
@@ -85,8 +100,8 @@ export interface ScholarshipImportReviewDecisionResult {
 }
 
 /**
- * WP12-7 command boundary. No default implementation is supplied because the current
- * schema has no append-only Scholarship import-review decision persistence.
+ * Scholarship-owned review-decision command boundary. WP12-10 supplies a durable
+ * implementation backed by ImportRecord decision envelopes plus atomic audit/outbox.
  */
 export interface IScholarshipImportReviewDecisionPort {
   recordDecision(input: ScholarshipImportReviewDecisionRequest): Promise<ScholarshipImportReviewDecisionResult>;
@@ -105,7 +120,7 @@ export interface ScholarshipImportTransferResult {
   publicationStatus: 'DRAFT';
 }
 
-/** WP12-10 will provide the atomic transfer implementation. */
+/** Scholarship-owned atomic transfer boundary. */
 export interface IScholarshipImportTransferPort {
   transfer(input: ScholarshipImportTransferRequest): Promise<ScholarshipImportTransferResult>;
 }

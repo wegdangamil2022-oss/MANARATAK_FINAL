@@ -3,8 +3,11 @@ import { z } from 'zod';
 import { ScholarshipStatus, ScholarshipCompletenessState, UpdateScholarshipDto, type IScholarshipRepository } from '@manaratak/domain';
 import {
   AdminScholarshipUseCases,
+  AtomicDomainMutationCoordinator,
   ImportAdminUseCases,
+  ScholarshipImportAtomicTransferUseCase,
   ScholarshipImportCenterUseCases,
+  type IScholarshipImportAtomicGateway,
   type IScholarshipImportCenterGateway,
   type ScholarshipImportOperationalClass,
 } from '@manaratak/application';
@@ -12,14 +15,34 @@ import {
 export class ScholarshipAdminRouter {
   public static create(cradle: {
     adminScholarshipUseCases: AdminScholarshipUseCases;
+    atomicDomainMutationCoordinator?: AtomicDomainMutationCoordinator;
     importAdminUseCases?: ImportAdminUseCases;
     importRepository?: IScholarshipImportCenterGateway;
     scholarshipRepository?: IScholarshipRepository;
   }): Router {
     const router = Router();
-    const { adminScholarshipUseCases, importAdminUseCases, importRepository, scholarshipRepository } = cradle;
+    const {
+      adminScholarshipUseCases,
+      atomicDomainMutationCoordinator,
+      importAdminUseCases,
+      importRepository,
+      scholarshipRepository,
+    } = cradle;
+    const atomicImportGateway = importRepository as (IScholarshipImportCenterGateway & Partial<IScholarshipImportAtomicGateway>) | undefined;
+    const atomicTransfer = atomicImportGateway && scholarshipRepository && atomicDomainMutationCoordinator && typeof atomicImportGateway.withTransaction === 'function'
+      ? new ScholarshipImportAtomicTransferUseCase(
+          atomicImportGateway as IScholarshipImportAtomicGateway,
+          scholarshipRepository,
+          atomicDomainMutationCoordinator,
+        )
+      : undefined;
     const scholarshipImportCenterUseCases = importRepository && scholarshipRepository
-      ? new ScholarshipImportCenterUseCases(importRepository, scholarshipRepository)
+      ? new ScholarshipImportCenterUseCases(
+          importRepository,
+          scholarshipRepository,
+          atomicTransfer,
+          atomicTransfer,
+        )
       : undefined;
 
     // Middleware to catch async errors
@@ -236,20 +259,12 @@ export class ScholarshipAdminRouter {
 
     router.post('/import-center/records/:id/transfer', asyncHandler(async (req: Request, res: Response) => {
       const context = mutationContext(req);
-      try {
-        const result = await requireImportCenter().transfer({
-          recordId: req.params.id,
-          actorId: context.actorId,
-          correlationId: context.correlationId,
-        });
-        res.status(201).json(result);
-      } catch (error) {
-        if (error instanceof Error && error.message === 'SCHOLARSHIP_IMPORT_TRANSFER_DEFERRED_TO_WP12_10') {
-          res.status(422).json({ error: error.message });
-          return;
-        }
-        throw error;
-      }
+      const result = await requireImportCenter().transfer({
+        recordId: req.params.id,
+        actorId: context.actorId,
+        correlationId: context.correlationId,
+      });
+      res.status(201).json(result);
     }));
 
     router.get('/imported-records', asyncHandler(async (req: Request, res: Response) => {
@@ -264,8 +279,13 @@ export class ScholarshipAdminRouter {
     }));
 
     router.post('/imported-records/:id/promote', asyncHandler(async (req: Request, res: Response) => {
-      if (!importAdminUseCases) throw new Error('Import use cases not configured');
-      res.status(422).json({ error: 'DOMAIN_PROMOTION_DEFERRED_TO_OWNER_PHASE: Domain promotion must be implemented directly by the Scholarship domain.' }); return;
+      const context = mutationContext(req);
+      const result = await requireImportCenter().transfer({
+        recordId: req.params.id,
+        actorId: context.actorId,
+        correlationId: context.correlationId,
+      });
+      res.status(201).json(result);
     }));
 
     // GET /admin/scholarships/:id

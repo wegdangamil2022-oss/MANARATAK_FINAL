@@ -49,6 +49,7 @@ describe('WP12-7 Scholarship Import Center backend source invariants', () => {
     ]) {
       expect(routerSource).toContain(route);
     }
-    expect(routerSource).toContain('SCHOLARSHIP_IMPORT_TRANSFER_DEFERRED_TO_WP12_10');
+    expect(routerSource).not.toContain('SCHOLARSHIP_IMPORT_TRANSFER_DEFERRED_TO_WP12_10');
+    expect(routerSource).toContain('requireImportCenter().transfer');
   });
 });
