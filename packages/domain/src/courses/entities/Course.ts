@@ -15,6 +15,16 @@ export interface CreateCourseDto {
   status: CourseStatus;
   completenessStatus: CourseImportCompletenessState;
 
+  externalProviderId?: string;
+  originalSourceTitle?: string;
+  isStudyFree?: boolean;
+  isFreeCertificate?: boolean;
+  certificateType?: string;
+  learningLanguageRaw?: string;
+  studyLevelRaw?: string;
+  studyDurationRaw?: string;
+  shortCourseTopicsRaw?: string;
+
   platformName?: string;
   providerName?: string;
   learningLanguage?: string;

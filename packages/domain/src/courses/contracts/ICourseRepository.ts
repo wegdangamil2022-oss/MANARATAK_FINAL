@@ -31,6 +31,16 @@ export interface UpdateCourseDto {
   directCourseUrl?: string;
   completenessStatus?: CourseImportCompletenessState;
 
+  externalProviderId?: string | null;
+  originalSourceTitle?: string | null;
+  isStudyFree?: boolean | null;
+  isFreeCertificate?: boolean | null;
+  certificateType?: string | null;
+  learningLanguageRaw?: string | null;
+  studyLevelRaw?: string | null;
+  studyDurationRaw?: string | null;
+  shortCourseTopicsRaw?: string | null;
+
   platformName?: string | null;
   providerName?: string | null;
   learningLanguage?: string | null;

@@ -43,6 +43,8 @@ export class PrismaCertificateRepository {}
 export class PrismaServiceCatalogRepository {}
 export class PrismaCareerPathRepository {}
 export * from './courses/PrismaCourseRepository';
+export * from './courses/PrismaExternalCourseProviderRepository';
+export * from './courses/ExternalCourseProviderSeed';
 export class PrismaAlumniRepository {}
 export class InMemorySettingsRepository {}
 export class InMemoryAuthService {}

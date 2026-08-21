@@ -128,6 +128,16 @@ model Course {
   status               String
   completenessStatus   String
 
+  externalProviderId    String?
+  originalSourceTitle   String?
+  isStudyFree           Boolean?
+  isFreeCertificate     Boolean?
+  certificateType       String?
+  learningLanguageRaw   String?
+  studyLevelRaw         String?
+  studyDurationRaw      String?
+  shortCourseTopicsRaw  String?
+
   platformName         String?
   providerName         String?
   learningLanguage     String?
@@ -144,14 +154,188 @@ model Course {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  externalProvider ExternalCourseProvider? @relation(fields: [externalProviderId], references: [id], onDelete: SetNull)
+  sourceIdentities CourseSourceIdentity[]
+  importAnalyses   CourseImportAnalysis[]
+  fieldProvenance  CourseFieldProvenance[]
+
   @@index([status])
   @@index([completenessStatus])
   @@index([accessType])
   @@index([originType])
+  @@index([externalProviderId])
   @@index([platformName])
   @@index([sourceImportRecordId])
   @@index([status, originType])
   @@index([status, platformName])
+}
+
+
+model ExternalCourseProvider {
+  id                             String   @id @default(uuid())
+  publicId                       String   @unique
+  slug                           String   @unique
+  canonicalName                  String
+  normalizedCanonicalName        String   @unique
+  displayName                    String
+  providerType                   String?
+  status                         String
+  officialWebsite                String?
+  operatingScope                 String?
+  headquartersCountryReferenceId String?
+  sourceTrustLevel               String
+  importStrategy                 String
+  connectorKey                   String?
+  connectorVersion               String?
+  lastVerifiedAt                 DateTime?
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+
+  headquartersCountry      ReferenceCountry?               @relation("ExternalCourseProviderHeadquartersCountry", fields: [headquartersCountryReferenceId], references: [id], onDelete: SetNull)
+  aliases                  ExternalCourseProviderAlias[]
+  allowedDomains           ExternalCourseProviderDomain[]
+  courses                  Course[]
+  sourceIdentities         CourseSourceIdentity[]
+  providerCandidateAnalyses CourseImportAnalysis[]          @relation("CourseImportAnalysisProviderCandidate")
+  resolvedProviderAnalyses CourseImportAnalysis[]           @relation("CourseImportAnalysisResolvedProvider")
+  fieldProvenance          CourseFieldProvenance[]
+
+  @@index([status])
+  @@index([headquartersCountryReferenceId])
+  @@index([importStrategy])
+}
+
+model ExternalCourseProviderAlias {
+  id              String   @id @default(uuid())
+  providerId      String
+  alias           String
+  normalizedAlias String   @unique
+  locale          String?
+  source          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  provider ExternalCourseProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+}
+
+model ExternalCourseProviderDomain {
+  id               String   @id @default(uuid())
+  providerId       String
+  domain           String
+  normalizedDomain String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  provider ExternalCourseProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, normalizedDomain])
+  @@index([normalizedDomain])
+}
+
+model CourseSourceIdentity {
+  id                      String   @id @default(uuid())
+  courseId                String?
+  providerId              String
+  sourceNativeKey         String
+  identityStrategy        String
+  originalTitle           String
+  normalizedOriginalTitle String
+  languageVersionKey      String   @default("")
+  currentUrl              String
+  firstSeenAt             DateTime @default(now())
+  lastSeenAt              DateTime @default(now())
+  status                  String
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  course     Course?                @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  provider   ExternalCourseProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  urlHistory CourseSourceUrlHistory[]
+
+  @@unique([providerId, sourceNativeKey, languageVersionKey])
+  @@index([courseId])
+  @@index([providerId])
+  @@index([status])
+}
+
+model CourseSourceUrlHistory {
+  id                     String    @id @default(uuid())
+  courseSourceIdentityId String
+  url                    String
+  normalizedUrl          String
+  isCurrent              Boolean   @default(false)
+  firstSeenAt            DateTime  @default(now())
+  lastSeenAt             DateTime  @default(now())
+  verificationState      String    @default("UNVERIFIED")
+  responseCode           Int?
+  redirectTarget         String?
+  checkedAt              DateTime?
+  changeImportRecordId   String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  sourceIdentity CourseSourceIdentity @relation(fields: [courseSourceIdentityId], references: [id], onDelete: Cascade)
+
+  @@unique([courseSourceIdentityId, normalizedUrl])
+  @@index([isCurrent])
+  @@index([verificationState])
+}
+
+model CourseImportAnalysis {
+  id                    String   @id @default(uuid())
+  importRecordId        String   @unique
+  providerCandidateId   String?
+  resolvedProviderId    String?
+  sourceNativeKey       String?
+  normalizedPayload     Json
+  eligibilityState      String
+  completenessState     String
+  matchState            String
+  matchedCourseId       String?
+  changeState           String
+  fieldDiffs            Json?
+  relationshipProposals Json?
+  requiresReview        Boolean  @default(false)
+  analyzedAt            DateTime @default(now())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  providerCandidate ExternalCourseProvider? @relation("CourseImportAnalysisProviderCandidate", fields: [providerCandidateId], references: [id], onDelete: SetNull)
+  resolvedProvider  ExternalCourseProvider? @relation("CourseImportAnalysisResolvedProvider", fields: [resolvedProviderId], references: [id], onDelete: SetNull)
+  matchedCourse     Course?                  @relation(fields: [matchedCourseId], references: [id], onDelete: SetNull)
+
+  @@index([providerCandidateId])
+  @@index([resolvedProviderId])
+  @@index([matchedCourseId])
+  @@index([changeState])
+  @@index([requiresReview])
+}
+
+model CourseFieldProvenance {
+  id                 String   @id @default(uuid())
+  courseId           String
+  fieldKey           String
+  importRecordId     String
+  sourceArtifactHash String
+  sourceRowNumber    Int?
+  providerId         String
+  sourceUrl          String?
+  valueHash          String
+  importedAt         DateTime @default(now())
+  reviewedBy         String?
+  reviewStatus       String   @default("UNREVIEWED")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  course   Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  provider ExternalCourseProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@unique([courseId, fieldKey, importRecordId])
+  @@index([providerId])
+  @@index([importRecordId])
+  @@index([reviewStatus])
 }
 
 // --- Transactional Outbox ---
@@ -1802,6 +1986,7 @@ model ReferenceCountry {
   universityCampuses     UniversityCampus[]
   scholarships           Scholarship[]                @relation("ScholarshipPrimaryCountry")
   scholarshipEligibility ScholarshipEligibilityItem[] @relation("ScholarshipEligibilityCountry")
+  externalCourseProviders ExternalCourseProvider[]       @relation("ExternalCourseProviderHeadquartersCountry")
 
   @@index([region])
   @@index([isActive])

@@ -31,6 +31,15 @@ interface CourseRecord {
   directCourseUrl: string;
   status: string;
   completenessStatus: string;
+  externalProviderId: string | null;
+  originalSourceTitle: string | null;
+  isStudyFree: boolean | null;
+  isFreeCertificate: boolean | null;
+  certificateType: string | null;
+  learningLanguageRaw: string | null;
+  studyLevelRaw: string | null;
+  studyDurationRaw: string | null;
+  shortCourseTopicsRaw: string | null;
   platformName: string | null;
   providerName: string | null;
   learningLanguage: string | null;
@@ -111,6 +120,15 @@ const RESERVED_OPTIONAL_FIELD_KEYS = new Set([
   'directCourseUrl',
   'status',
   'completenessStatus',
+  'externalProviderId',
+  'originalSourceTitle',
+  'isStudyFree',
+  'isFreeCertificate',
+  'certificateType',
+  'learningLanguageRaw',
+  'studyLevelRaw',
+  'studyDurationRaw',
+  'shortCourseTopicsRaw',
   'platformName',
   'providerName',
   'learningLanguage',
@@ -166,6 +184,15 @@ export class PrismaCourseRepository implements ITransactionalCourseRepository {
         directCourseUrl: data.directCourseUrl,
         status: data.status,
         completenessStatus: data.completenessStatus,
+        externalProviderId: data.externalProviderId,
+        originalSourceTitle: data.originalSourceTitle,
+        isStudyFree: data.isStudyFree,
+        isFreeCertificate: data.isFreeCertificate,
+        certificateType: data.certificateType,
+        learningLanguageRaw: data.learningLanguageRaw,
+        studyLevelRaw: data.studyLevelRaw,
+        studyDurationRaw: data.studyDurationRaw,
+        shortCourseTopicsRaw: data.shortCourseTopicsRaw,
         platformName: data.platformName,
         providerName: data.providerName,
         learningLanguage: data.learningLanguage,
@@ -202,6 +229,15 @@ export class PrismaCourseRepository implements ITransactionalCourseRepository {
         originType: updates.originType,
         directCourseUrl: updates.directCourseUrl,
         completenessStatus: updates.completenessStatus,
+        externalProviderId: updates.externalProviderId,
+        originalSourceTitle: updates.originalSourceTitle,
+        isStudyFree: updates.isStudyFree,
+        isFreeCertificate: updates.isFreeCertificate,
+        certificateType: updates.certificateType,
+        learningLanguageRaw: updates.learningLanguageRaw,
+        studyLevelRaw: updates.studyLevelRaw,
+        studyDurationRaw: updates.studyDurationRaw,
+        shortCourseTopicsRaw: updates.shortCourseTopicsRaw,
         platformName: updates.platformName,
         providerName: updates.providerName,
         learningLanguage: updates.learningLanguage,
@@ -316,6 +352,15 @@ export class PrismaCourseRepository implements ITransactionalCourseRepository {
       directCourseUrl: record.directCourseUrl,
       status: parseStatus(record.status),
       completenessStatus: parseCompleteness(record.completenessStatus),
+      externalProviderId: record.externalProviderId ?? undefined,
+      originalSourceTitle: record.originalSourceTitle ?? undefined,
+      isStudyFree: record.isStudyFree ?? undefined,
+      isFreeCertificate: record.isFreeCertificate ?? undefined,
+      certificateType: record.certificateType ?? undefined,
+      learningLanguageRaw: record.learningLanguageRaw ?? undefined,
+      studyLevelRaw: record.studyLevelRaw ?? undefined,
+      studyDurationRaw: record.studyDurationRaw ?? undefined,
+      shortCourseTopicsRaw: record.shortCourseTopicsRaw ?? undefined,
       platformName: record.platformName ?? undefined,
       providerName: record.providerName ?? undefined,
       learningLanguage: record.learningLanguage ?? undefined,

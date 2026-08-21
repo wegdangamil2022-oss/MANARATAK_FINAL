@@ -4,3 +4,4 @@ export * from './services';
 export * from './entities';
 export * from './contracts';
 export * from './events';
+export * from './provider-registry';
