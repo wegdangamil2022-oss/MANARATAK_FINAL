@@ -18,6 +18,7 @@ import { AIGovernancePage } from './pages/AIGovernancePage';
 import { AdminReviewQueuePage } from './pages/AdminReviewQueuePage';
 import { AdminHealthReadinessPage } from './pages/AdminHealthReadinessPage';
 import { ImportAdminPage } from './pages/ImportAdminPage';
+import { ScholarshipImportCenterPage } from './pages/ScholarshipImportCenterPage';
 import { UniversityAdminPage } from './pages/UniversityAdminPage';
 import { MajorAdminPage } from './pages/MajorAdminPage';
 import { MajorDetailPage } from './pages/MajorDetailPage';
@@ -63,6 +64,7 @@ function AdminLayout() {
               <a href="/dashboard" className="text-sm font-medium hover:text-black">{t('admin_nav_dashboard')}</a>
               <a href="/review-queue" className="text-sm font-medium hover:text-black">{t('admin_nav_review')}</a>
               <a href="/imports" className="text-sm font-medium hover:text-black">{t('admin_nav_imports')}</a>
+              <a href="/imports/scholarships" className="text-sm font-medium hover:text-black">{t('admin_nav_imports')} · {t('admin_nav_scholarships')}</a>
               <a href="/health-readiness" className="text-sm font-medium hover:text-black">{t('admin_nav_health')}</a>
               <a href="/scholarships" className="text-sm font-medium hover:text-black">{t('admin_nav_scholarships')}</a>
               <a href="/universities" className="text-sm font-medium hover:text-black">{t('admin_nav_universities')}</a>
@@ -101,6 +103,7 @@ function AdminLayout() {
               <Route path="/dashboard" element={<AdminDashboardPage />} />
               <Route path="/review-queue" element={<AdminReviewQueuePage />} />
               <Route path="/imports" element={<ImportAdminPage />} />
+              <Route path="/imports/scholarships" element={<ScholarshipImportCenterPage />} />
               <Route path="/health-readiness" element={<AdminHealthReadinessPage />} />
               <Route path="/scholarships" element={<ScholarshipListPage />} />
               <Route path="/scholarships/:id" element={<ScholarshipDetailPage />} />
