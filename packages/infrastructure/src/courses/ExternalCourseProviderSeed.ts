@@ -20,7 +20,8 @@ const seed = (
 /**
  * Initial provider inventory verified from the 3,663-row MANARATAK course master.
  * This is seed data, not the permanent universe of supported providers.
- * Domains are limited to hosts actually present in the verified master workbook.
+ * Domains are restricted to provider-controlled hosts. A shared publishing host
+ * is not enough evidence that a course belongs to the named provider.
  */
 export const EXTERNAL_COURSE_PROVIDER_SEED: readonly UpsertExternalCourseProviderSeedInput[] = [
   seed({
@@ -39,7 +40,7 @@ export const EXTERNAL_COURSE_PROVIDER_SEED: readonly UpsertExternalCourseProvide
     slug: 'freecodecamp',
     canonicalName: 'freeCodeCamp',
     displayName: 'freeCodeCamp',
-    allowedDomains: ['freecodecamp.org', 'youtube.com'],
+    allowedDomains: ['freecodecamp.org'],
   }),
   seed({
     publicId: 'ecp-fao-elearning-academy',

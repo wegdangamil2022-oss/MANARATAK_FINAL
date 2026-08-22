@@ -41,5 +41,10 @@ describeDisposable('WP-IC-02 provider registry disposable PostgreSQL integration
     expect(canonical?.headquartersCountryReferenceId).toBeUndefined();
     expect(await repository.isDomainApproved(canonical!.id, 'https://www.open.edu/openlearn/course')).toBe(true);
     expect(await repository.isDomainApproved(canonical!.id, 'https://example.invalid/course')).toBe(false);
+
+    const freeCodeCamp = await repository.resolveByName('freeCodeCamp');
+    expect(await repository.isDomainApproved(freeCodeCamp!.id, 'https://www.freecodecamp.org/learn')).toBe(true);
+    expect(await repository.isDomainApproved(freeCodeCamp!.id, 'https://example.invalid/course')).toBe(false);
+    expect(await repository.isDomainApproved(freeCodeCamp!.id, 'https://www.youtube.com/watch?v=ARBITRARY')).toBe(false);
   });
 });

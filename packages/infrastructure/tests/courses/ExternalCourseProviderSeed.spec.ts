@@ -54,4 +54,10 @@ describe('WP-IC-02 external course provider seed contract', () => {
     expect(normalizeExternalCourseProviderDomain('https://courses.mooc.fi/path?q=1')).toBe('courses.mooc.fi');
     expect(normalizeExternalCourseProviderDomain('NETACAD.COM')).toBe('netacad.com');
   });
+
+  it('does not treat a shared publishing host as freeCodeCamp provenance', () => {
+    const freeCodeCamp = EXTERNAL_COURSE_PROVIDER_SEED.find((item) => item.publicId === 'ecp-freecodecamp');
+    expect(freeCodeCamp?.allowedDomains).toEqual(['freecodecamp.org']);
+    expect(freeCodeCamp?.allowedDomains).not.toContain('youtube.com');
+  });
 });
