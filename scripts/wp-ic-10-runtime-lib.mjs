@@ -128,8 +128,8 @@ export function securityAudit(repoRoot) {
   checks.push(gate(
     'archived-cloudsql-credentials-removed',
     !/postgresql:\/\/ai_studio_(?:admin|app_user):/i.test(text.archivedSessionTest) &&
-      /SESSION_TEST_ADMIN_DATABASE_URL/.test(text.archivedSessionTest) &&
-      /SESSION_TEST_APP_DATABASE_URL/.test(text.archivedSessionTest),
+      /TEST_SESSION_ADMIN_DATABASE_URL/.test(text.archivedSessionTest) &&
+      /TEST_SESSION_APP_DATABASE_URL/.test(text.archivedSessionTest),
     'archived session diagnostic reads explicit environment URLs and contains no embedded Cloud SQL credentials',
   ));
 
