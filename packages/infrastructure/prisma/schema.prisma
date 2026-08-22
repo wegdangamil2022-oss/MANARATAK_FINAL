@@ -128,15 +128,20 @@ model Course {
   status               String
   completenessStatus   String
 
-  externalProviderId    String?
-  originalSourceTitle   String?
-  isStudyFree           Boolean?
-  isFreeCertificate     Boolean?
-  certificateType       String?
-  learningLanguageRaw   String?
-  studyLevelRaw         String?
-  studyDurationRaw      String?
-  shortCourseTopicsRaw  String?
+  externalProviderId               String?
+  originalSourceTitle              String?
+  isStudyFree                      Boolean?
+  isFreeCertificate                Boolean?
+  certificateType                  String?
+  learningLanguageRaw              String?
+  learningLanguageReferenceId      String?
+  learningLanguageResolutionState  String   @default("UNRESOLVED")
+  learningLanguageResolutionMethod String?
+  learningLanguageResolvedAt       DateTime?
+  learningLanguageReviewedBy        String?
+  studyLevelRaw                    String?
+  studyDurationRaw                 String?
+  shortCourseTopicsRaw             String?
 
   platformName         String?
   providerName         String?
@@ -154,20 +159,114 @@ model Course {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  externalProvider ExternalCourseProvider? @relation(fields: [externalProviderId], references: [id], onDelete: SetNull)
-  sourceIdentities CourseSourceIdentity[]
-  importAnalyses   CourseImportAnalysis[]
-  fieldProvenance  CourseFieldProvenance[]
+  externalProvider           ExternalCourseProvider?        @relation(fields: [externalProviderId], references: [id], onDelete: SetNull)
+  learningLanguageReference  ReferenceLanguage?             @relation("CourseLearningLanguageReference", fields: [learningLanguageReferenceId], references: [id], onDelete: SetNull)
+  sourceIdentities           CourseSourceIdentity[]
+  importAnalyses             CourseImportAnalysis[]
+  fieldProvenance            CourseFieldProvenance[]
+  taxonomyResolutions        CourseTaxonomyResolution[]
+  academicTaxonomyLinks      CourseAcademicTaxonomyLink[]
+  majorProjections           CourseMajorProjection[]
 
   @@index([status])
   @@index([completenessStatus])
   @@index([accessType])
   @@index([originType])
   @@index([externalProviderId])
+  @@index([learningLanguageReferenceId])
+  @@index([learningLanguageResolutionState])
   @@index([platformName])
   @@index([sourceImportRecordId])
   @@index([status, originType])
   @@index([status, platformName])
+}
+
+model CourseTaxonomyResolution {
+  id                       String   @id @default(uuid())
+  courseId                 String
+  sourceTerm               String
+  normalizedTerm           String
+  status                   String   @default("UNRESOLVED")
+  candidateTaxonomyNodeIds Json
+  chosenTaxonomyNodeId     String?
+  matchMethod              String?
+  confidence               Float?
+  sourceImportRecordId     String?
+  reviewedBy               String?
+  reviewedAt               DateTime?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  course             Course                         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  chosenTaxonomyNode AcademicTaxonomyNode?          @relation("CourseTaxonomyResolutionChosenNode", fields: [chosenTaxonomyNodeId], references: [id], onDelete: SetNull)
+  taxonomyLinks      CourseAcademicTaxonomyLink[]
+
+  @@unique([courseId, normalizedTerm])
+  @@index([courseId])
+  @@index([status])
+  @@index([chosenTaxonomyNodeId])
+}
+
+model CourseAcademicTaxonomyLink {
+  id                   String   @id @default(uuid())
+  courseId             String
+  taxonomyNodeId       String
+  sourceResolutionId   String?
+  relationshipType     String   @default("RELATED")
+  reviewState          String   @default("PROPOSED")
+  matchMethod          String
+  sourceTerm           String
+  confidence           Float?
+  sourceImportRecordId String?
+  reviewedBy           String?
+  reviewedAt           DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  course           Course                    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  taxonomyNode     AcademicTaxonomyNode      @relation(fields: [taxonomyNodeId], references: [id], onDelete: Restrict)
+  sourceResolution CourseTaxonomyResolution? @relation(fields: [sourceResolutionId], references: [id], onDelete: SetNull)
+  majorProjections CourseMajorProjection[]
+
+  @@unique([courseId, taxonomyNodeId, relationshipType])
+  @@index([courseId])
+  @@index([taxonomyNodeId])
+  @@index([reviewState])
+  @@index([sourceResolutionId])
+}
+
+model CourseMajorProjection {
+  id                                 String   @id @default(uuid())
+  projectionKey                      String   @unique
+  courseId                           String
+  majorId                            String
+  profileId                          String?
+  taxonomyNodeId                     String?
+  sourceCourseTaxonomyLinkId         String?
+  sourceMajorClassificationMappingId String?
+  sourceType                         String
+  relationshipType                   String
+  projectionState                    String   @default("PROPOSED")
+  confidence                         Float?
+  reviewedBy                         String?
+  reviewedAt                         DateTime?
+  createdAt                          DateTime @default(now())
+  updatedAt                          DateTime @updatedAt
+
+  course                           Course                       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  major                            Major                        @relation(fields: [majorId], references: [id], onDelete: Cascade)
+  profile                          MajorLevelProfile?           @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  taxonomyNode                     AcademicTaxonomyNode?        @relation(fields: [taxonomyNodeId], references: [id], onDelete: SetNull)
+  sourceCourseTaxonomyLink         CourseAcademicTaxonomyLink? @relation(fields: [sourceCourseTaxonomyLinkId], references: [id], onDelete: SetNull)
+  sourceMajorClassificationMapping MajorClassificationMapping? @relation(fields: [sourceMajorClassificationMappingId], references: [id], onDelete: SetNull)
+
+  @@index([courseId])
+  @@index([majorId])
+  @@index([profileId])
+  @@index([taxonomyNodeId])
+  @@index([projectionState])
+  @@index([sourceCourseTaxonomyLinkId])
+  @@index([sourceMajorClassificationMappingId])
 }
 
 
@@ -966,6 +1065,7 @@ model Major {
   universityPrograms      UniversityAcademicProgram[]
   scholarshipTargets      ScholarshipMajorTarget[]     @relation("ScholarshipMajorTargetMajor")
   scholarshipEligibility  ScholarshipEligibilityItem[] @relation("ScholarshipEligibilityMajor")
+  courseProjections        CourseMajorProjection[]
 
   @@index([status])
   @@index([completenessStatus])
@@ -1041,6 +1141,7 @@ model MajorLevelProfile {
   classificationMappings  MajorClassificationMapping[]
   sources                 MajorSource[]
   fellowships             FellowshipDefinition[]       @relation("FellowshipLinkedProfile")
+  courseProjections       CourseMajorProjection[]
 
   @@unique([majorId, level, code])
   @@index([majorId])
@@ -1138,7 +1239,8 @@ model MajorClassificationMapping {
 
   major        Major?               @relation(fields: [majorId], references: [id], onDelete: Cascade)
   profile      MajorLevelProfile?   @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  taxonomyNode AcademicTaxonomyNode @relation("MajorClassificationTaxonomyNode", fields: [taxonomyNodeId], references: [id], onDelete: Restrict)
+  taxonomyNode      AcademicTaxonomyNode   @relation("MajorClassificationTaxonomyNode", fields: [taxonomyNodeId], references: [id], onDelete: Restrict)
+  courseProjections CourseMajorProjection[]
 
   @@unique([majorId, profileId, taxonomyNodeId, relationshipType])
   @@index([majorId])
@@ -2025,6 +2127,7 @@ model ReferenceLanguage {
   metadata   Json?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  courses    Course[] @relation("CourseLearningLanguageReference")
 
   @@index([isActive])
   @@index([name])
@@ -2128,6 +2231,9 @@ model AcademicTaxonomyNode {
   majorProfileAcademicFieldLinks MajorLevelProfile[]                             @relation("MajorProfileAcademicField")
   majorProfileDisciplineLinks    MajorLevelProfile[]                             @relation("MajorProfileDiscipline")
   majorClassificationMappings    MajorClassificationMapping[]                    @relation("MajorClassificationTaxonomyNode")
+  courseTaxonomyResolutions      CourseTaxonomyResolution[]                       @relation("CourseTaxonomyResolutionChosenNode")
+  courseTaxonomyLinks            CourseAcademicTaxonomyLink[]
+  courseMajorProjections         CourseMajorProjection[]
 
   @@unique([nodeType, canonicalCode, standardType], name: "academicTaxonomyCanonicalKey")
   @@index([nodeType])
