@@ -59,61 +59,8 @@ jobs:
           test -z "${DATABASE_URL+x}"
           npm run translation:ci
 
-  database-integration:
-    name: PostgreSQL integration tests
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: manaratak_ci
-          POSTGRES_PASSWORD: manaratak_ci_password
-          POSTGRES_DB: manaratak_ci
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U manaratak_ci -d manaratak_ci"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      DATABASE_URL: postgresql://manaratak_ci:manaratak_ci_password@localhost:5432/manaratak_ci?schema=public
-      RUN_DATABASE_INTEGRATION_TESTS: 'true'
-      DATABASE_MUTATIONS_ALLOWED: 'true'
-      DATABASE_ENVIRONMENT: test
-    steps:
-      - uses: actions/checkout@v4
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Apply reviewed migrations to disposable CI database
-        run: npx prisma migrate deploy --schema=packages/infrastructure/prisma/schema.prisma
-      - name: Run isolated database integration tests
-        run: npm run test:database
-
-  browser-e2e:
-    name: Browser E2E
-    runs-on: ubuntu-latest
-    env:
-      DATABASE_MUTATIONS_ALLOWED: 'false'
-      DATABASE_ENVIRONMENT: source
-    steps:
-      - uses: actions/checkout@v4
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Install Playwright Chromium
-        run: npx playwright install chromium --with-deps
-      - name: Run browser E2E tests
-        run: npm run e2e
+  # PostgreSQL integration and browser E2E remain implemented in the repository,
+  # but Google Studio owns their disposable-runtime execution after handoff.
 
   configuration:
     name: Deployment configuration

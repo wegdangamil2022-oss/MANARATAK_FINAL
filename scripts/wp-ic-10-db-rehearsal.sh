@@ -50,6 +50,7 @@ cat > "$OUT_DIR/DATABASE_REHEARSAL.json" <<JSON
 {
   "version": 1,
   "kind": "database-rehearsal",
+  "gitSha": "$(git rev-parse HEAD)",
   "generatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "pass": true,
   "detail": "reviewed migrations, database integration, and imported-course integration passed on disposable PostgreSQL",

@@ -24,8 +24,9 @@ import { PrismaExternalCourseProviderRepository } from '../../src/courses/Prisma
 import { PrismaAtomicPersistenceUnitOfWork } from '../../src/event-foundation/PrismaAtomicPersistenceUnitOfWork';
 import { PrismaTransactionalOutboxStore } from '../../src/event-foundation/PrismaTransactionalOutboxStore';
 import { PrismaImportRepository } from '../../src/import-foundation/PrismaImportRepository';
+import { destructiveDatabaseTestsEnabled } from './disposableDatabaseGuard';
 
-const describeWithDatabase = process.env.RUN_DATABASE_INTEGRATION_TESTS === 'true' && process.env.DATABASE_URL ? describe : describe.skip;
+const describeWithDatabase = destructiveDatabaseTestsEnabled() ? describe : describe.skip;
 const headers = ['No.', 'Platform / University', 'Course Name', 'Direct Course URL', 'Study Free', 'Free Certificate', 'Certificate Type', 'Language', 'Study Level', 'Course Duration', 'Short Course Topics (4)'];
 
 class FailingProvenanceGateway extends PrismaCourseImportTransferGateway {

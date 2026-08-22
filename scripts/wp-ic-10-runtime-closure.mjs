@@ -2,7 +2,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
 import * as XLSX from 'xlsx';
 import {
   WPIC10_EXPECTED_ROWS,
@@ -19,10 +20,11 @@ const { command, args } = parse(process.argv.slice(2));
 const repoRoot = path.resolve(String(args['repo-root'] ?? process.cwd()));
 const outputDir = path.resolve(String(args['output-dir'] ?? 'wp-ic-10-results'));
 fs.mkdirSync(outputDir, { recursive: true });
+const gitSha = currentGitSha(repoRoot);
 
 if (command === 'security') {
   const audit = securityAudit(repoRoot);
-  const result = { version: 1, kind: 'security', generatedAt: new Date().toISOString(), ...audit };
+  const result = { version: 1, kind: 'security', gitSha, generatedAt: new Date().toISOString(), ...audit };
   write('SECURITY_AUDIT.json', result);
   console.log(JSON.stringify(result, null, 2));
   process.exit(audit.pass ? 0 : 2);
@@ -60,11 +62,13 @@ if (command === 'memory') {
     source = 'synthetic-3663-shape';
   }
 
-  const parserModule = path.join(repoRoot, 'packages/application/dist/import-foundation/parsers/CourseMasterArtifactParser.js');
-  if (!fs.existsSync(parserModule)) {
-    fatal('Compiled CourseMasterArtifactParser not found. Run npm run build before the memory rehearsal.');
-  }
-  const { CourseMasterArtifactParser } = await import(pathToFileURL(parserModule).href);
+  const parserSource = path.join(repoRoot, 'packages/application/src/import-foundation/parsers/CourseMasterArtifactParser.ts');
+  const parserModule = path.join(outputDir, 'wpic10-memory-parser.cjs');
+  if (!fs.existsSync(parserSource)) fatal('CourseMasterArtifactParser source not found.');
+  // Bundle the production parser as Node-loadable ESM; this avoids relying on
+  // workspace export maps while still rehearsing the exact parser implementation.
+  execFileSync(process.execPath, [path.join(repoRoot, 'node_modules/esbuild/bin/esbuild'), parserSource, '--bundle', '--platform=node', '--format=cjs', `--outfile=${parserModule}`], { stdio: 'ignore' });
+  const { CourseMasterArtifactParser } = createRequire(import.meta.url)(parserModule);
   const parsed = CourseMasterArtifactParser.parse({
     bytes: new Uint8Array(bytes),
     originalFilename: workbookPath ? path.basename(workbookPath) : 'wp-ic-10-synthetic-3663.xlsx',
@@ -81,6 +85,7 @@ if (command === 'memory') {
   const memory = {
     version: 1,
     kind: 'large-file-memory',
+    gitSha,
     generatedAt: new Date().toISOString(),
     source,
     rowsExpected,
@@ -119,6 +124,7 @@ if (command === 'smoke') {
   const result = {
     version: 1,
     kind: 'runtime-smoke',
+    gitSha,
     generatedAt: new Date().toISOString(),
     baseUrl,
     authenticatedChecksEnabled: Boolean(authorization),
@@ -144,7 +150,7 @@ if (command === 'finalize') {
   };
   const phase = String(args.phase ?? 'source');
   if (phase !== 'source' && phase !== 'runtime') fatal('FINALIZE_PHASE_MUST_BE_SOURCE_OR_RUNTIME');
-  const report = buildFinalReport(gateResults, { phase });
+  const report = buildFinalReport(gateResults, { phase, runtimeGitSha: gitSha });
   fs.writeFileSync(path.join(resultsDir, 'FINAL_IMPLEMENTATION_STATUS.json'), `${JSON.stringify(report, null, 2)}\n`);
   fs.writeFileSync(path.join(resultsDir, 'FINAL_IMPLEMENTATION_STATUS.md'), renderFinalMarkdown(report));
   console.log(JSON.stringify(report, null, 2));
@@ -191,3 +197,4 @@ function parse(values) {
 function positiveInt(value, fallback) { const n = Number.parseInt(String(value ?? ''), 10); return Number.isInteger(n) && n > 0 ? n : fallback; }
 function positiveNumber(value, fallback) { const n = Number(value); return Number.isFinite(n) && n > 0 ? n : fallback; }
 function fatal(message) { console.error(message); process.exit(1); }
+function currentGitSha(root) { try { return execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); } catch { return 'UNAVAILABLE'; } }

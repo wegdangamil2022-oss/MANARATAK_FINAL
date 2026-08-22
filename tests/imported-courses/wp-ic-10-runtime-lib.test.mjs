@@ -32,8 +32,8 @@ test('memory validation enforces row/header and memory bounds', () => {
 });
 
 test('source-phase report requires only pre-Google-Studio evidence', () => {
-  const pass = { pass: true, detail: 'ok' };
-  const report = buildFinalReport({ ciClosure: pass, security: pass, memory: pass }, { phase: 'source' });
+  const pass = { pass: true, detail: 'ok', gitSha: 'sha-a' };
+  const report = buildFinalReport({ ciClosure: pass, security: pass, memory: pass }, { phase: 'source', runtimeGitSha: 'sha-a' });
   assert.equal(report.pass, true);
   assert.equal(report.runtimeClosureState, 'CODE_COMPLETE_READY_FOR_GOOGLE_STUDIO_INTEGRATION');
   assert.equal(report.gates.find((item) => item.name === 'database')?.state, 'DEFERRED_TO_GOOGLE_STUDIO');
@@ -41,27 +41,35 @@ test('source-phase report requires only pre-Google-Studio evidence', () => {
 });
 
 test('source-phase report blocks when a required source artifact is missing', () => {
-  const pass = { pass: true, detail: 'ok' };
-  const report = buildFinalReport({ ciClosure: pass, security: pass }, { phase: 'source' });
+  const pass = { pass: true, detail: 'ok', gitSha: 'sha-a' };
+  const report = buildFinalReport({ ciClosure: pass, security: pass }, { phase: 'source', runtimeGitSha: 'sha-a' });
   assert.equal(report.pass, false);
   assert.equal(report.gates.find((item) => item.name === 'memory')?.state, 'NOT_RUN');
 });
 
 test('runtime phase closes only after Google Studio runtime gates pass', () => {
-  const pass = { pass: true, detail: 'ok' };
+  const pass = { pass: true, detail: 'ok', gitSha: 'sha-a' };
   const report = buildFinalReport({
     ciClosure: pass, security: pass, memory: pass, database: pass, backupRestore: pass, browserE2E: pass, runtimeSmoke: pass,
-  }, { phase: 'runtime' });
+  }, { phase: 'runtime', runtimeGitSha: 'sha-a' });
   assert.equal(report.pass, true);
   assert.equal(report.runtimeClosureState, 'GOOGLE_STUDIO_RUNTIME_VERIFIED');
 });
 
 test('failed Google Studio runtime smoke blocks runtime verification', () => {
-  const pass = { pass: true, detail: 'ok' };
-  const fail = { pass: false, detail: 'readiness DOWN' };
+  const pass = { pass: true, detail: 'ok', gitSha: 'sha-a' };
+  const fail = { pass: false, detail: 'readiness DOWN', gitSha: 'sha-a' };
   const report = buildFinalReport({
     ciClosure: pass, security: pass, memory: pass, database: pass, backupRestore: pass, browserE2E: pass, runtimeSmoke: fail,
-  }, { phase: 'runtime' });
+  }, { phase: 'runtime', runtimeGitSha: 'sha-a' });
   assert.equal(report.pass, false);
   assert.equal(report.runtimeClosureState, 'BLOCKED');
+});
+
+test('finalization blocks missing or mixed evidence Git SHAs', () => {
+  const good = { pass: true, detail: 'ok', gitSha: 'sha-a' };
+  const mixed = buildFinalReport({ ciClosure: good, security: { ...good, gitSha: 'sha-b' }, memory: good }, { phase: 'source', runtimeGitSha: 'sha-a' });
+  assert.equal(mixed.pass, false);
+  const missing = buildFinalReport({ ciClosure: good, security: { pass: true }, memory: good }, { phase: 'source', runtimeGitSha: 'sha-a' });
+  assert.equal(missing.pass, false);
 });

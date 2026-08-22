@@ -1,10 +1,10 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { PrismaClient } from '@prisma/client';
 import { PrismaImportedCourseOperationsRepository } from '../../src/courses/PrismaImportedCourseOperationsRepository';
+import { destructiveDatabaseTestsEnabled } from './disposableDatabaseGuard';
 
 const runDatabaseTests =
-  process.env.RUN_DATABASE_TESTS === 'true' &&
-  Boolean(process.env.DATABASE_URL);
+  destructiveDatabaseTestsEnabled();
 
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
 

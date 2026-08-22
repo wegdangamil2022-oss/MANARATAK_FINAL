@@ -65,6 +65,7 @@ cat > "$OUT_DIR/BACKUP_RESTORE_REHEARSAL.json" <<JSON
 {
   "version": 1,
   "kind": "backup-restore-rehearsal",
+  "gitSha": "$(git rev-parse HEAD)",
   "generatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "pass": true,
   "detail": "pg_dump/pg_restore round-trip preserved required imported-course tables",

@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PrismaClient } from '@prisma/client';
+import { destructiveDatabaseTestsEnabled } from './disposableDatabaseGuard';
 
-const describeWithDatabase = process.env.RUN_DATABASE_INTEGRATION_TESTS === 'true' && process.env.DATABASE_URL
+const describeWithDatabase = destructiveDatabaseTestsEnabled()
   ? describe
   : describe.skip;
 

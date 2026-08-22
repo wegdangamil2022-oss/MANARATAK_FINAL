@@ -1,11 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PrismaClient } from '@prisma/client';
 import { PrismaExternalCourseProviderRepository } from '../../src/courses/PrismaExternalCourseProviderRepository';
+import { destructiveDatabaseTestsEnabled } from './disposableDatabaseGuard';
 import { seedExternalCourseProviders } from '../../src/courses/ExternalCourseProviderSeed';
 
 const databaseUrl = process.env.COURSE_PROVIDER_TEST_DATABASE_URL;
 const disposable = process.env.COURSE_PROVIDER_TEST_DATABASE_IS_DISPOSABLE === 'true';
-const describeDisposable = databaseUrl && disposable ? describe : describe.skip;
+const describeDisposable = databaseUrl && disposable && destructiveDatabaseTestsEnabled(databaseUrl) ? describe : describe.skip;
 
 describeDisposable('WP-IC-02 provider registry disposable PostgreSQL integration', () => {
   let prisma: PrismaClient;

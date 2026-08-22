@@ -103,4 +103,21 @@ describe('WP-IC-07 source invariants', () => {
     expect(repository).toContain('listProviderReviewQueue');
     expect(repository).toContain('a."resolvedProviderId" = ${providerId}');
   });
+
+  it('keeps pre-Google-Studio CI source-only and tracks the full imported-course closure surface', () => {
+    const ci = source('.github/workflows/ci.yml');
+    const closure = source('.github/workflows/imported-courses-runtime-closure.yml');
+    expect(ci).not.toContain('npm run test:database');
+    expect(ci).not.toContain('npm run e2e');
+    for (const path of ['apps/api/src/app.ts', 'packages/domain/src/courses/**', 'packages/infrastructure/prisma/**', 'apps/web/playwright.config.ts', 'package.json']) {
+      expect(closure).toContain(path);
+    }
+  });
+
+  it('writes browser evidence only after the focused runtime test succeeds', () => {
+    const runner = source('scripts/wp-ic-10-browser-e2e.mjs');
+    expect(runner).toContain('imported-courses-runtime-closure.spec.ts');
+    expect(runner).toContain("execFileSync('git', ['rev-parse', 'HEAD']");
+    expect(runner.indexOf('execFileSync(process.execPath')).toBeLessThan(runner.indexOf("fs.writeFileSync(path.join(outputDir, 'BROWSER_E2E.json')"));
+  });
 });

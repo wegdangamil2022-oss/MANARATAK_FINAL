@@ -7,10 +7,11 @@ import {
   CourseStatus,
 } from '@manaratak/domain';
 import { PrismaCourseRepository } from '../../src/courses/PrismaCourseRepository';
+import { destructiveDatabaseTestsEnabled } from './disposableDatabaseGuard';
 
 const databaseUrl = process.env.COURSE_PERSISTENCE_TEST_DATABASE_URL;
 const disposable = process.env.COURSE_PERSISTENCE_TEST_DATABASE_IS_DISPOSABLE === 'true';
-const describeDisposable = databaseUrl && disposable ? describe : describe.skip;
+const describeDisposable = databaseUrl && disposable && destructiveDatabaseTestsEnabled(databaseUrl) ? describe : describe.skip;
 
 describeDisposable('PrismaCourseRepository disposable PostgreSQL integration', () => {
   let prisma: PrismaClient;

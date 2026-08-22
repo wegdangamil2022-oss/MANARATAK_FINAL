@@ -23,6 +23,10 @@ This runbook closes the imported-course runtime after WP-IC-09. It does not intr
 12. Do **not** require PostgreSQL, backup/restore, or browser E2E for pre-handoff acceptance. Those gates are deferred to Google Studio.
 13. Handoff after all source/code gates pass. Google Studio then connects PostgreSQL, executes DB integration and backup/restore rehearsal, starts the services, runs browser E2E, and finally runs runtime smoke.
 
+Run the imported-course browser evidence producer only after the runtime is available:
+
+`node scripts/wp-ic-10-browser-e2e.mjs wp-ic-10-results`
+
 ## Runtime invariants
 - Imported-course admin APIs remain authenticated and permission-gated.
 - Course transfer never auto-publishes.

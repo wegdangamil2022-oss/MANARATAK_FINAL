@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const WPIC10_BASE_SHA = 'cd077d8ed6a193428f6d5ab4e3fc07e7bd4c8b27';
+export const WPIC10_HISTORICAL_PACKAGE_BASE_SHA = 'cd077d8ed6a193428f6d5ab4e3fc07e7bd4c8b27';
 export const WPIC10_EXPECTED_ROWS = 3663;
 export const WPIC10_HEADERS = Object.freeze([
   'No.',
@@ -149,7 +149,7 @@ function finishSecurity(checks) {
   return { pass: failed.length === 0, checks, failed: failed.map((item) => item.name) };
 }
 
-export function buildFinalReport(gateResults, { phase = 'source' } = {}) {
+export function buildFinalReport(gateResults, { phase = 'source', runtimeGitSha = 'UNAVAILABLE' } = {}) {
   const sourceRequired = ['ciClosure', 'security', 'memory'];
   const runtimeRequired = ['database', 'backupRestore', 'browserE2E', 'runtimeSmoke'];
   const requiredNames = phase === 'runtime' ? [...sourceRequired, ...runtimeRequired] : sourceRequired;
@@ -158,13 +158,14 @@ export function buildFinalReport(gateResults, { phase = 'source' } = {}) {
 
   for (const name of requiredNames) {
     const value = gateResults[name];
+    const shaValid = value?.gitSha === runtimeGitSha;
     gates.push(!value
       ? { name, pass: false, state: 'NOT_RUN', detail: 'required result artifact missing' }
       : {
           name,
-          pass: value.pass === true,
-          state: value.pass === true ? 'PASS' : 'FAIL',
-          detail: value.detail ?? value.result ?? '',
+          pass: value.pass === true && shaValid,
+          state: value.pass === true && shaValid ? 'PASS' : 'FAIL',
+          detail: !value.gitSha ? 'artifact gitSha missing' : !shaValid ? 'artifact gitSha does not match finalization checkout' : value.detail ?? value.result ?? '',
           source: value.source ?? null,
         });
   }
@@ -185,7 +186,8 @@ export function buildFinalReport(gateResults, { phase = 'source' } = {}) {
     version: 2,
     wp: 'WP-IC-10R1',
     phase,
-    baseSha: WPIC10_BASE_SHA,
+    historicalPackageBaseSha: WPIC10_HISTORICAL_PACKAGE_BASE_SHA,
+    runtimeGitSha,
     generatedAt: new Date().toISOString(),
     pass: requiredPass,
     runtimeClosureState,
@@ -197,7 +199,8 @@ export function renderFinalMarkdown(report) {
   const lines = [
     '# WP-IC-10R1 Runtime Closure Repair Status',
     '',
-    `- Base: \`${report.baseSha}\``,
+    `- Historical package base: \`${report.historicalPackageBaseSha}\``,
+    `- Runtime Git SHA: \`${report.runtimeGitSha}\``,
     `- Generated: ${report.generatedAt}`,
     `- Result: **${report.runtimeClosureState}**`,
     '',
