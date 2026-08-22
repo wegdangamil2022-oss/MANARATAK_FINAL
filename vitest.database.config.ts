@@ -7,6 +7,7 @@ export default defineConfig({
     include: [
       'apps/api/tests/presentation/api/router/MajorImportE2E.spec.ts',
       'packages/infrastructure/tests/auth/RealDatabaseIntegration.spec.ts',
+      'packages/infrastructure/tests/courses/ImportedCourseRuntimeDatabaseIntegration.spec.ts',
     ],
     testTimeout: 20_000,
     hookTimeout: 30_000,

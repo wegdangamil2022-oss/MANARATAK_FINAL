@@ -1,0 +1,165 @@
+name: Imported Courses Runtime Closure
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apps/api/src/presentation/api/router/CourseImportOperationsRouter.ts'
+      - 'apps/web/e2e/imported-courses-runtime-closure.spec.ts'
+      - 'packages/application/src/courses/**'
+      - 'packages/application/tests/courses/**'
+      - 'packages/infrastructure/src/courses/**'
+      - 'packages/infrastructure/prisma/**'
+      - 'packages/infrastructure/tests/courses/**'
+      - 'scripts/wp-ic-08-*'
+      - 'scripts/wp-ic-10-*'
+      - 'tests/imported-courses/**'
+      - 'vitest.database.config.ts'
+      - '.github/workflows/imported-courses-runtime-closure.yml'
+
+permissions:
+  contents: read
+
+env:
+  NODE_ENV: test
+  JWT_SECRET: wpic10-jwt-secret-at-least-32-characters-long
+  SESSION_SECRET: wpic10-session-secret-at-least-32-characters
+  CSRF_SECRET: wpic10-csrf-secret-at-least-32-characters-long
+  ADMIN_AUTH_MODE: strict
+  CORS_ORIGIN: http://localhost:3000
+  REDIS_URL: redis://localhost:6379
+
+jobs:
+  source-hardening:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+      - run: npm ci
+      - name: Prisma schema validation and client generation
+        run: |
+          npx prisma validate --schema=packages/infrastructure/prisma/schema.prisma
+          npm run db:generate
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run test:unit
+      - name: Pure Node imported-course closure tests
+        run: node --test tests/imported-courses/*.test.mjs
+      - name: Imported-course static security invariants
+        run: node scripts/wp-ic-10-runtime-closure.mjs security --repo-root . --output-dir wp-ic-10-results
+      - name: 3,663-row memory rehearsal
+        run: node scripts/wp-ic-10-runtime-closure.mjs memory --rows 3663 --max-rss-mb 1024 --max-delta-mb 512 --output-dir wp-ic-10-results
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+      - name: Persist source/CI closure marker
+        run: |
+          printf '%s\n' '{"version":1,"kind":"ci-closure","pass":true,"detail":"prisma validate/generate, full typecheck, lint, build, unit tests, security audit, 3,663-row memory rehearsal, and production dependency audit passed"}' > wp-ic-10-results/CI_CLOSURE.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wpic10-source-hardening
+          path: wp-ic-10-results
+          if-no-files-found: ignore
+
+  database-rehearsal:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: manaratak_ci
+          POSTGRES_PASSWORD: manaratak_ci_password
+          POSTGRES_DB: manaratak_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U manaratak_ci -d manaratak_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://manaratak_ci:manaratak_ci_password@localhost:5432/manaratak_ci?schema=public
+      RUN_DATABASE_INTEGRATION_TESTS: 'true'
+      DATABASE_MUTATIONS_ALLOWED: 'true'
+      DATABASE_ENVIRONMENT: test
+      WPIC10_ALLOW_DISPOSABLE_DB: '1'
+      WPIC10_OUTPUT_DIR: wp-ic-10-results
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+      - run: npm ci
+      - name: Install PostgreSQL client tools
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Migration + database + import integration rehearsal
+        run: bash scripts/wp-ic-10-db-rehearsal.sh
+      - name: Backup/restore round-trip rehearsal
+        run: bash scripts/wp-ic-10-db-backup-restore.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wpic10-database-rehearsal
+          path: wp-ic-10-results
+          if-no-files-found: ignore
+
+  browser-e2e:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_MUTATIONS_ALLOWED: 'false'
+      DATABASE_ENVIRONMENT: source
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+      - name: Imported-course browser security E2E
+        run: npm run e2e
+      - name: Persist E2E result marker
+        if: success()
+        run: |
+          mkdir -p wp-ic-10-results
+          printf '%s\n' '{"version":1,"kind":"browser-e2e","pass":true,"detail":"imported-course runtime browser E2E passed"}' > wp-ic-10-results/BROWSER_E2E.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wpic10-browser-e2e
+          path: wp-ic-10-results
+          if-no-files-found: ignore
+
+  final-report:
+    name: Final runtime-closure status
+    if: always()
+    needs: [source-hardening, database-rehearsal, browser-e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+      - run: npm ci
+      - name: Download closure evidence
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wpic10-*
+          path: wp-ic-10-results
+          merge-multiple: true
+      - name: Aggregate final implementation status
+        run: node scripts/wp-ic-10-runtime-closure.mjs finalize --results-dir wp-ic-10-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wpic10-final-status
+          path: |
+            wp-ic-10-results/FINAL_IMPLEMENTATION_STATUS.json
+            wp-ic-10-results/FINAL_IMPLEMENTATION_STATUS.md
+          if-no-files-found: ignore
