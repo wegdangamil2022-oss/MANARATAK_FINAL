@@ -15,13 +15,15 @@ const HEADERS = [
   'Short Course Topics (4)',
 ];
 
-function artifactBytes(): Uint8Array {
+function artifactBytes(rows: unknown[][] = [[
+  1, 'Saylor University', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'Yes', 'Certificate of Completion', 'English', 'Not officially specified', '10 hours', 'Business',
+]]): Uint8Array {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(
     workbook,
     XLSX.utils.aoa_to_sheet([
       HEADERS,
-      [1, 'Saylor University', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'Yes', 'Certificate of Completion', 'English', 'Not officially specified', '10 hours', 'Business'],
+      ...rows,
     ]),
     'Courses',
   );
@@ -30,8 +32,18 @@ function artifactBytes(): Uint8Array {
   );
 }
 
-function fixture(existingArtifact = false) {
-  const bytes = artifactBytes();
+function formulaArtifactBytes(): Uint8Array {
+  const workbook = XLSX.utils.book_new();
+  const sheet = XLSX.utils.aoa_to_sheet([HEADERS, [
+    1, 'Saylor University', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'Yes',
+    'Certificate of Completion', 'English', 'Not officially specified', '10 hours', 'Business',
+  ]]);
+  sheet.C2 = { t: 'n', f: '1+1', v: 2 };
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Courses');
+  return new Uint8Array(XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx', compression: true }));
+}
+
+function fixture(existingArtifact = false, bytes = artifactBytes()) {
   const asset = {
     state: AssetLifecycleState.ACTIVE,
     locator: new AssetStorageLocator(AssetStorageZone.CLEAN, 'bucket', 'clean/courses.xlsx'),
@@ -120,6 +132,37 @@ describe('CourseImportArtifactUseCase', () => {
       duplicateArtifact: true,
       existingBatchId: 'batch-existing',
     });
+    expect(stageNormalizedRows).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when parser detects a non-empty cell outside the 11-column contract', async () => {
+    const bytes = artifactBytes([[
+      1, 'Saylor University', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'Yes',
+      'Certificate of Completion', 'English', 'Not officially specified', '10 hours', 'Business', 'unexpected',
+    ]]);
+    const { useCase, stageNormalizedRows } = fixture(false, bytes);
+
+    const preflight = await useCase.preflight({ assetId: 'asset-1' });
+    expect(preflight.valid).toBe(false);
+    expect(preflight.issues).toContainEqual(expect.objectContaining({
+      code: 'COURSE_MASTER_ROW_COLUMN_COUNT_MISMATCH',
+      rowNumber: 2,
+    }));
+
+    await expect(useCase.stage({ assetId: 'asset-1' })).rejects.toThrow('COURSE_ARTIFACT_PREFLIGHT_FAILED');
+    expect(stageNormalizedRows).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the Courses sheet contains a formula cell', async () => {
+    const { useCase, stageNormalizedRows } = fixture(false, formulaArtifactBytes());
+    const preflight = await useCase.preflight({ assetId: 'asset-1' });
+    expect(preflight.valid).toBe(false);
+    expect(preflight.issues).toContainEqual(expect.objectContaining({
+      code: 'COURSE_XLSX_FORMULA_CELL_REJECTED',
+      rowNumber: 2,
+    }));
+
+    await expect(useCase.stage({ assetId: 'asset-1' })).rejects.toThrow('COURSE_ARTIFACT_PREFLIGHT_FAILED');
     expect(stageNormalizedRows).not.toHaveBeenCalled();
   });
 });

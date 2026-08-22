@@ -29,7 +29,7 @@ describe('CourseMasterArtifactParser', () => {
   it('parses exact course-master columns and preserves worksheet row numbers', () => {
     const bytes = workbookBytes([
       [1, 'Saylor University', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'Yes', 'Certificate of Completion', 'English', 'Not officially specified', '10 hours', 'Business'],
-      ['', '', '', '', '', '', '', '', '', '', ''],
+      ['   ', '', '', '', '', '', '', '', '', '', ''],
       [2, 'Saylor University', 'Course B', 'https://learn.saylor.org/course/view.php?id=2', 'Yes', 'No', 'None', 'English', 'Not officially specified', '8 hours', 'Ethics'],
     ]);
 
@@ -43,6 +43,42 @@ describe('CourseMasterArtifactParser', () => {
     expect(result.rows.map((row) => row.sourceRowNumber)).toEqual([2, 4]);
     expect(result.ignoredBlankRows).toBe(1);
     expect(result.security?.archiveEntryCount).toBeGreaterThan(0);
+  });
+
+  it('accepts an exact-width row and trailing technically-empty XLSX cells', () => {
+    const bytes = workbookBytes([[
+      1, 'Saylor University', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'Yes',
+      'Certificate', 'English', 'Level', '10h', 'Topic', '', '',
+    ]]);
+    const result = CourseMasterArtifactParser.parse({
+      bytes,
+      originalFilename: 'courses.xlsx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      declaredByteSize: bytes.byteLength,
+    });
+    expect(result.rows).toHaveLength(1);
+    expect(result.issues).not.toContainEqual(expect.objectContaining({
+      code: 'COURSE_MASTER_ROW_COLUMN_COUNT_MISMATCH',
+    }));
+  });
+
+  it('rejects an XLSX data row with a non-empty twelfth cell', () => {
+    const bytes = workbookBytes([[
+      1, 'Saylor University', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'Yes',
+      'Certificate', 'English', 'Level', '10h', 'Topic', 'unexpected',
+    ]]);
+    const result = CourseMasterArtifactParser.parse({
+      bytes,
+      originalFilename: 'courses.xlsx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      declaredByteSize: bytes.byteLength,
+    });
+    expect(result.issues).toContainEqual(expect.objectContaining({
+      code: 'COURSE_MASTER_ROW_COLUMN_COUNT_MISMATCH',
+      severity: 'ERROR',
+      rowNumber: 2,
+      column: 'L',
+    }));
   });
 
   it('requires the Courses sheet', () => {
@@ -152,5 +188,18 @@ describe('CourseMasterArtifactParser', () => {
     });
     expect(result.format).toBe('CSV');
     expect(result.rows).toHaveLength(1);
+  });
+
+  it.each([
+    ['extra', `${HEADERS.join(',')}\n1,Saylor University,Course A,https://learn.saylor.org/course/view.php?id=1,Yes,No,None,English,Level,10h,Topic,unexpected`],
+    ['missing', `${HEADERS.join(',')}\n1,Saylor University,Course A,https://learn.saylor.org/course/view.php?id=1,Yes,No,None,English,Level,10h`],
+  ])('rejects CSV rows with a %s data column', (_kind, csv) => {
+    const bytes = new TextEncoder().encode(csv);
+    expect(() => CourseMasterArtifactParser.parse({
+      bytes,
+      originalFilename: 'courses.csv',
+      mimeType: 'text/csv',
+      declaredByteSize: bytes.byteLength,
+    })).toThrow('COURSE_MASTER_ROW_COLUMN_COUNT_MISMATCH');
   });
 });

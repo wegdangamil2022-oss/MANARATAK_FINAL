@@ -47,6 +47,7 @@ const MAX_XLSX_ENTRY_UNCOMPRESSED_BYTES = 32 * 1024 * 1024;
 const MAX_XLSX_COMPRESSION_RATIO = 200;
 const MAX_COURSE_ROWS = 100_000;
 const REQUIRED_SHEET = 'Courses';
+const COURSE_MASTER_COLUMN_COUNT = IMPORTED_COURSE_MASTER_COLUMNS.length;
 
 const XLSX_MIME_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -263,6 +264,20 @@ function rowFromValues(values: unknown[], sourceRowNumber: number): ParsedCourse
   };
 }
 
+function rowWidthIssue(values: unknown[], sourceRowNumber: number): CourseMasterArtifactIssue | undefined {
+  const unexpectedColumn = values.findIndex((value, index) =>
+    index >= COURSE_MASTER_COLUMN_COUNT && text(value) !== '',
+  );
+  if (unexpectedColumn < 0) return undefined;
+  return {
+    code: 'COURSE_MASTER_ROW_COLUMN_COUNT_MISMATCH',
+    message: `Course master row contains a value outside the approved ${COURSE_MASTER_COLUMN_COUNT}-column contract.`,
+    severity: 'ERROR',
+    rowNumber: sourceRowNumber,
+    column: XLSX.utils.encode_col(unexpectedColumn),
+  };
+}
+
 function formulaIssues(sheet: XLSX.WorkSheet): CourseMasterArtifactIssue[] {
   const issues: CourseMasterArtifactIssue[] = [];
   for (const address of Object.keys(sheet)) {
@@ -307,6 +322,7 @@ function parseXlsx(bytes: Uint8Array): CourseMasterParseResult {
   if (matrix.length === 0) throw new Error('COURSE_MASTER_EMPTY_SHEET');
 
   const headers = (matrix[0] ?? []).map(text);
+  while (headers.length > 0 && headers.at(-1) === '') headers.pop();
   const headerResult = validateHeaders(headers);
   issues.push(...headerResult.issues);
   if (issues.some((issue) => issue.severity === 'ERROR' && issue.rowNumber === undefined)) {
@@ -330,6 +346,8 @@ function parseXlsx(bytes: Uint8Array): CourseMasterParseResult {
       ignoredBlankRows += 1;
       continue;
     }
+    const widthIssue = rowWidthIssue(values, index + 1);
+    if (widthIssue) issues.push(widthIssue);
     rows.push(rowFromValues(values, index + 1));
   }
   if (rows.length > MAX_COURSE_ROWS) throw new Error(`COURSE_MASTER_ROW_LIMIT_EXCEEDED:${rows.length}`);
@@ -354,11 +372,20 @@ function parseCsvBytes(bytes: Uint8Array): CourseMasterParseResult {
     throw new Error('COURSE_CSV_UTF8_REQUIRED');
   }
 
-  const records = parseCsv(decoded.replace(/^\uFEFF/, ''), {
-    bom: true,
-    relax_column_count: false,
-    skip_empty_lines: false,
-  }) as unknown[][];
+  let records: unknown[][];
+  try {
+    records = parseCsv(decoded.replace(/^\uFEFF/, ''), {
+      bom: true,
+      relax_column_count: false,
+      skip_empty_lines: false,
+    }) as unknown[][];
+  } catch (error) {
+    const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+    if (code.startsWith('CSV_RECORD_')) {
+      throw new Error('COURSE_MASTER_ROW_COLUMN_COUNT_MISMATCH');
+    }
+    throw error;
+  }
 
   if (records.length === 0) throw new Error('COURSE_MASTER_EMPTY_CSV');
   const headers = (records[0] ?? []).map(text);

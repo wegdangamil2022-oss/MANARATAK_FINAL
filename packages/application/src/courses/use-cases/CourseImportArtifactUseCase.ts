@@ -227,6 +227,11 @@ export class CourseImportArtifactUseCase {
     const rowIssues = new Map<number, CourseMasterArtifactIssue[]>();
     const providerRows = new Map<string, typeof parsed.rows>();
 
+    for (const issue of parsed.issues) {
+      if (issue.rowNumber === undefined) continue;
+      rowIssues.set(issue.rowNumber, [...(rowIssues.get(issue.rowNumber) ?? []), issue]);
+    }
+
     const addRowIssue = (sourceRowNumber: number, issue: CourseMasterArtifactIssue) => {
       const current = rowIssues.get(sourceRowNumber) ?? [];
       current.push(issue);
@@ -375,13 +380,11 @@ export class CourseImportArtifactUseCase {
       else validRows += 1;
     }
 
-    const fatalFileErrors = issues.filter(
-      (issue) => issue.severity === 'ERROR' && issue.rowNumber === undefined,
-    );
+    const parserErrors = parsed.issues.filter((issue) => issue.severity === 'ERROR');
     const resolvedProviders = providers.filter((provider) => provider.resolved).length;
 
     return {
-      valid: fatalFileErrors.length === 0 && parsed.rows.length > 0,
+      valid: parserErrors.length === 0 && parsed.rows.length > 0,
       artifact: {
         assetId,
         originalFilename: asset.metadata.originalFilename,
