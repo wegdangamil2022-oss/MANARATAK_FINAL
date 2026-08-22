@@ -159,18 +159,18 @@ export class PrismaCourseImportTransferGateway implements CourseImportTransferGa
         url: input.nextUrl,
         isCurrent: true,
         lastSeenAt: new Date(),
-        verificationState: 'VERIFIED',
+        verificationState: 'UNVERIFIED',
         changeImportRecordId: input.importRecordId,
-        checkedAt: new Date(),
+        checkedAt: null,
       },
       create: {
         courseSourceIdentityId: input.identityId,
         url: input.nextUrl,
         normalizedUrl: input.normalizedNextUrl,
         isCurrent: true,
-        verificationState: 'VERIFIED',
+        verificationState: 'UNVERIFIED',
         changeImportRecordId: input.importRecordId,
-        checkedAt: new Date(),
+        checkedAt: null,
       },
     });
   }

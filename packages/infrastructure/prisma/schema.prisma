@@ -139,6 +139,7 @@ model Course {
   learningLanguageResolutionMethod String?
   learningLanguageResolvedAt       DateTime?
   learningLanguageReviewedBy        String?
+  learningLanguageAdminReviewedRaw  String?
   studyLevelRaw                    String?
   studyDurationRaw                 String?
   shortCourseTopicsRaw             String?

@@ -104,7 +104,7 @@ describeDatabase('PrismaImportedCourseOperationsRepository disposable PostgreSQL
         state: 'VERIFIED_DIRECT',
         responseCode: 200,
         checkedAt: new Date(),
-      });
+      }, course.directCourseUrl);
 
       const verified = await repository.getImportedCourseById(course.id);
       expect(verified?.linkHealth).toBe('VERIFIED_DIRECT');

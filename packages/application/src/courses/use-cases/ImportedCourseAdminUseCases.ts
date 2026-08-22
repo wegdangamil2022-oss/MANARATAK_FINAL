@@ -102,7 +102,7 @@ export class ImportedCourseAdminUseCases {
       url: course.directCourseUrl,
       allowedDomains: provider.allowedDomains,
     });
-    await this.operationsRepository.recordLinkCheck(course.id, result);
+    await this.operationsRepository.recordLinkCheck(course.id, result, course.directCourseUrl);
     return result;
   }
 

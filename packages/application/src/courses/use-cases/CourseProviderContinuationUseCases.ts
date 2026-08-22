@@ -310,7 +310,7 @@ export class CourseProviderContinuationUseCases {
           detail: error instanceof Error ? error.message : 'COURSE_LINK_CHECK_FAILED',
         };
       }
-      await this.importedOperationsRepository.recordLinkCheck(course.id, result);
+      await this.importedOperationsRepository.recordLinkCheck(course.id, result, course.directCourseUrl);
       results.push({ courseId: course.id, result });
       if (index < courses.data.length - 1) await this.sleep(delayMs);
     }

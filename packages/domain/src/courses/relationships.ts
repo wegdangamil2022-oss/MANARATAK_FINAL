@@ -6,7 +6,14 @@ export type CourseTaxonomyResolutionStatus =
   | 'AMBIGUOUS'
   | 'PROPOSED'
   | 'APPROVED'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'REVIEW_REQUIRED';
+
+export type CourseAcademicTaxonomyLinkReviewState =
+  | 'PROPOSED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'REVIEW_REQUIRED';
 
 export type CourseTaxonomyMatchMethod =
   | 'EXACT_CANONICAL_NAME'
@@ -22,7 +29,8 @@ export type CourseAcademicTaxonomyRelationshipType =
 export type CourseMajorProjectionState =
   | 'PROPOSED'
   | 'APPROVED'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'REVIEW_REQUIRED';
 
 export type CourseMajorProjectionSource =
   | 'TAXONOMY_MAPPING'
@@ -51,6 +59,7 @@ export interface CourseRelationshipSourceDto {
   learningLanguageResolutionState: CourseLanguageResolutionState;
   learningLanguageResolutionMethod?: CourseLanguageResolutionMethod | null;
   learningLanguageReviewedBy?: string | null;
+  learningLanguageAdminReviewedRaw?: string | null;
   externalProviderId?: string | null;
   provider?: {
     id: string;
@@ -99,7 +108,7 @@ export interface CourseAcademicTaxonomyLinkDto {
   taxonomyNodeId: string;
   sourceResolutionId?: string | null;
   relationshipType: CourseAcademicTaxonomyRelationshipType;
-  reviewState: 'PROPOSED' | 'APPROVED' | 'REJECTED';
+  reviewState: CourseAcademicTaxonomyLinkReviewState;
   matchMethod: CourseTaxonomyMatchMethod;
   sourceTerm: string;
   confidence?: number | null;
@@ -229,7 +238,11 @@ export interface ICourseRelationshipRepository {
     confidence?: number | null;
     sourceImportRecordId?: string | null;
   }): Promise<CourseAcademicTaxonomyLinkDto>;
-  listTaxonomyLinks(courseId: string, reviewState?: 'PROPOSED' | 'APPROVED' | 'REJECTED'): Promise<CourseAcademicTaxonomyLinkDto[]>;
+  reconcileTaxonomyRelationships(input: {
+    courseId: string;
+    activeNormalizedTerms: string[];
+  }): Promise<void>;
+  listTaxonomyLinks(courseId: string, reviewState?: CourseAcademicTaxonomyLinkReviewState): Promise<CourseAcademicTaxonomyLinkDto[]>;
   reviewTaxonomyLink(input: {
     linkId: string;
     decision: 'APPROVED' | 'REJECTED';
@@ -248,6 +261,7 @@ export interface ICourseRelationshipRepository {
     languageReferenceId: string;
     actorId: string;
   }): Promise<void>;
+  markLanguageReviewRequired(input: { courseId: string }): Promise<void>;
 
   listMajorMappingsForTaxonomyNode(taxonomyNodeId: string): Promise<CourseMajorMappingCandidateDto[]>;
   upsertMajorProjection(input: {
@@ -263,6 +277,10 @@ export interface ICourseRelationshipRepository {
     projectionState: CourseMajorProjectionState;
     confidence?: number | null;
   }): Promise<CourseMajorProjectionDto>;
+  reconcileMajorProjections(input: {
+    courseId: string;
+    activeProjectionKeys: string[];
+  }): Promise<void>;
   listMajorProjections(courseId: string, state?: CourseMajorProjectionState): Promise<CourseMajorProjectionDto[]>;
   reviewMajorProjection(input: {
     projectionId: string;

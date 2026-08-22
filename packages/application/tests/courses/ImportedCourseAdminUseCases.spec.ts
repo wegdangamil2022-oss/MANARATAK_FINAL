@@ -123,7 +123,11 @@ describe('ImportedCourseAdminUseCases', () => {
       url: 'https://example.org/course',
       allowedDomains: ['example.org'],
     });
-    expect(f.repository.recordLinkCheck).toHaveBeenCalled();
+    expect(f.repository.recordLinkCheck).toHaveBeenCalledWith(
+      'course-1',
+      expect.objectContaining({ state: 'VERIFIED_DIRECT' }),
+      'https://example.org/course',
+    );
   });
 
   it('does not crawl FILE-only providers for fetch-missing', async () => {

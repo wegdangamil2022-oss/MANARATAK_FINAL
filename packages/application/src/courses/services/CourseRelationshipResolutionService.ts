@@ -98,6 +98,13 @@ export class CourseRelationshipResolutionService {
       proposed += 1;
     }
 
+    // Source terms are a current snapshot. A term removed by a later import must
+    // not leave a previous proposal/approval looking current to public queries.
+    await this.repository.reconcileTaxonomyRelationships({
+      courseId,
+      activeNormalizedTerms: terms.map(normalize),
+    });
+
     const language = await this.resolveLanguage(
       courseId,
       source,
@@ -171,6 +178,7 @@ export class CourseRelationshipResolutionService {
   public async projectMajors(courseId: string): Promise<CourseMajorProjectionDto[]> {
     const links = await this.repository.listTaxonomyLinks(courseId, 'APPROVED');
     const projections: CourseMajorProjectionDto[] = [];
+    const activeProjectionKeys: string[] = [];
 
     for (const link of links) {
       const mappings = await this.repository.listMajorMappingsForTaxonomyNode(link.taxonomyNodeId);
@@ -178,6 +186,7 @@ export class CourseRelationshipResolutionService {
         const projectionKey = this.sha256(
           [courseId, mapping.mappingId, mapping.majorId, mapping.profileId ?? ''].join('|'),
         );
+        activeProjectionKeys.push(projectionKey);
         projections.push(await this.repository.upsertMajorProjection({
           projectionKey,
           courseId,
@@ -193,6 +202,8 @@ export class CourseRelationshipResolutionService {
         }));
       }
     }
+
+    await this.repository.reconcileMajorProjections({ courseId, activeProjectionKeys });
 
     return projections;
   }
@@ -228,6 +239,7 @@ export class CourseRelationshipResolutionService {
       learningLanguageReferenceId?: string | null;
       learningLanguageResolutionState: CourseLanguageResolutionState;
       learningLanguageResolutionMethod?: CourseLanguageResolutionMethod | null;
+      learningLanguageAdminReviewedRaw?: string | null;
     },
   ): Promise<{
     raw?: string | null;
@@ -236,13 +248,26 @@ export class CourseRelationshipResolutionService {
     method?: CourseLanguageResolutionMethod | null;
   }> {
     const raw = source.learningLanguageRaw;
-    if (
-      source.learningLanguageResolutionMethod === 'ADMIN_REVIEW' &&
-      source.learningLanguageReferenceId
-    ) {
+    if (source.learningLanguageResolutionMethod === 'ADMIN_REVIEW' && source.learningLanguageReferenceId) {
+      const candidates = raw?.trim() ? await this.repository.resolveLanguageCandidates(raw) : [];
+      if (
+        (raw && source.learningLanguageAdminReviewedRaw && normalize(raw) === normalize(source.learningLanguageAdminReviewedRaw))
+        || (candidates.length === 1 && candidates[0].id === source.learningLanguageReferenceId)
+      ) {
+        return {
+          raw: raw ?? null,
+          state: 'RESOLVED',
+          referenceId: source.learningLanguageReferenceId,
+          method: 'ADMIN_REVIEW',
+        };
+      }
+
+      // Keep the human decision intact, but surface a genuinely changed or no
+      // longer resolvable source language for a fresh review.
+      await this.repository.markLanguageReviewRequired({ courseId });
       return {
         raw: raw ?? null,
-        state: 'RESOLVED',
+        state: 'REVIEW_REQUIRED',
         referenceId: source.learningLanguageReferenceId,
         method: 'ADMIN_REVIEW',
       };

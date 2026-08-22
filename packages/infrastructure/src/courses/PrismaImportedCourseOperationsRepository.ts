@@ -257,12 +257,21 @@ export class PrismaImportedCourseOperationsRepository implements IImportedCourse
     };
   }
 
-  public async recordLinkCheck(courseId: string, result: ImportedCourseLinkCheckResult): Promise<void> {
+  public async recordLinkCheck(
+    courseId: string,
+    result: ImportedCourseLinkCheckResult,
+    checkedUrl: string,
+  ): Promise<void> {
     const context = await this.getVerificationContext(courseId);
     if (!context) throw new Error('IMPORTED_COURSE_NOT_FOUND');
     if (!context.sourceIdentityId) throw new Error('IMPORTED_COURSE_SOURCE_IDENTITY_REQUIRED');
 
     const normalizedUrl = this.normalizeUrl(context.directCourseUrl);
+    if (this.normalizeUrl(checkedUrl) !== normalizedUrl) {
+      // A link check may finish after a controlled import changed the URL. Never
+      // attach that older result to the newer URL's current history record.
+      throw new Error('IMPORTED_COURSE_LINK_CHECK_STALE_URL');
+    }
     const existing = await this.prisma.courseSourceUrlHistory.findUnique({
       where: {
         courseSourceIdentityId_normalizedUrl: {

@@ -77,6 +77,17 @@ describe('WP-IC-07 source invariants', () => {
     expect(checker).toContain('callback(null, resolved.address, resolved.family)');
   });
 
+  it('invalidates URL verification on controlled URL changes and refuses a stale check result', () => {
+    const gateway = source('packages/infrastructure/src/courses/PrismaCourseImportTransferGateway.ts');
+    const repository = source('packages/infrastructure/src/courses/PrismaImportedCourseOperationsRepository.ts');
+
+    const urlChange = gateway.slice(gateway.indexOf('applyVerifiedUrlChange'), gateway.indexOf('writeFieldProvenance'));
+    expect(urlChange).toContain("verificationState: 'UNVERIFIED'");
+    expect(urlChange).toContain('checkedAt: null');
+    expect(repository).toContain('IMPORTED_COURSE_LINK_CHECK_STALE_URL');
+    expect(repository).toContain('this.normalizeUrl(checkedUrl) !== normalizedUrl');
+  });
+
   it('does not add a WP-IC-07 migration or seed/backfill', () => {
     const infrastructureIndex = source('packages/infrastructure/src/index.ts');
     expect(infrastructureIndex).toContain("PrismaImportedCourseOperationsRepository");

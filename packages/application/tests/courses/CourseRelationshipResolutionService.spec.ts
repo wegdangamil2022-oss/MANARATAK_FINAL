@@ -118,6 +118,25 @@ class FakeRelationshipRepository implements ICourseRelationshipRepository {
     return dto;
   }
 
+  async reconcileTaxonomyRelationships(input: any) {
+    const active = new Set(input.activeNormalizedTerms);
+    const staleResolutionIds = this.resolutions
+      .filter((resolution) => !active.has(resolution.normalizedTerm))
+      .map((resolution) => resolution.id);
+    this.resolutions
+      .filter((resolution) => staleResolutionIds.includes(resolution.id))
+      .forEach((resolution) => { resolution.status = 'REVIEW_REQUIRED'; });
+    const staleLinkIds = this.links
+      .filter((link) => staleResolutionIds.includes(link.sourceResolutionId ?? ''))
+      .map((link) => link.id);
+    this.links
+      .filter((link) => staleLinkIds.includes(link.id))
+      .forEach((link) => { link.reviewState = 'REVIEW_REQUIRED'; });
+    this.projections
+      .filter((projection) => staleLinkIds.includes(projection.sourceCourseTaxonomyLinkId ?? ''))
+      .forEach((projection) => { projection.projectionState = 'REVIEW_REQUIRED'; });
+  }
+
   async listTaxonomyLinks(courseId: string, reviewState?: any) {
     return this.links.filter((link) =>
       link.courseId === courseId && (!reviewState || link.reviewState === reviewState)
@@ -146,10 +165,22 @@ class FakeRelationshipRepository implements ICourseRelationshipRepository {
     this.source.learningLanguageResolutionState = 'RESOLVED';
     this.source.learningLanguageResolutionMethod = 'ADMIN_REVIEW';
     this.source.learningLanguageReviewedBy = input.actorId;
+    this.source.learningLanguageAdminReviewedRaw = this.source.learningLanguageRaw;
     this.languageState = {
       courseId: input.courseId,
       languageReferenceId: input.languageReferenceId,
       state: 'RESOLVED',
+      method: 'ADMIN_REVIEW',
+    };
+  }
+
+  async markLanguageReviewRequired(input: any) {
+    if (input.courseId !== this.source.courseId) throw new Error('not-found');
+    this.source.learningLanguageResolutionState = 'REVIEW_REQUIRED';
+    this.languageState = {
+      courseId: input.courseId,
+      languageReferenceId: this.source.learningLanguageReferenceId,
+      state: 'REVIEW_REQUIRED',
       method: 'ADMIN_REVIEW',
     };
   }
@@ -171,6 +202,13 @@ class FakeRelationshipRepository implements ICourseRelationshipRepository {
     };
     this.projections.push(dto);
     return dto;
+  }
+
+  async reconcileMajorProjections(input: any) {
+    const active = new Set(input.activeProjectionKeys);
+    this.projections
+      .filter((projection) => projection.courseId === input.courseId && !active.has(projection.projectionKey))
+      .forEach((projection) => { projection.projectionState = 'REVIEW_REQUIRED'; });
   }
 
   async listMajorProjections(courseId: string, state?: any) {
@@ -292,6 +330,23 @@ describe('CourseRelationshipResolutionService', () => {
     expect(repository.source.learningLanguageReviewedBy).toBe('admin-language');
   });
 
+  it('keeps an ADMIN_REVIEW decision but requires reconciliation when the source language changes', async () => {
+    const repository = new FakeRelationshipRepository();
+    const service = new CourseRelationshipResolutionService(repository);
+    await service.approveLanguageReference('course-1', 'lang-reviewed', 'admin-language');
+    repository.source.learningLanguageRaw = 'French';
+    repository.languageCandidates = [{
+      id: 'lang-fr', isoCode: 'fr', name: 'French', matchMethod: 'EXACT_NAME',
+    }];
+
+    const result = await service.analyzeCourse('course-1');
+
+    expect(result.language).toMatchObject({
+      state: 'REVIEW_REQUIRED', referenceId: 'lang-reviewed', method: 'ADMIN_REVIEW',
+    });
+    expect(repository.source.learningLanguageReferenceId).toBe('lang-reviewed');
+  });
+
   it('does not convert provider headquarters into course study-country', async () => {
     const repository = new FakeRelationshipRepository();
     const service = new CourseRelationshipResolutionService(repository);
@@ -332,5 +387,34 @@ describe('CourseRelationshipResolutionService', () => {
     const approved = await service.approveMajorProjection(projection.id, 'admin-2');
     expect(approved.projectionState).toBe('APPROVED');
     expect(approved.reviewedBy).toBe('admin-2');
+  });
+
+  it('reconciles a removed source topic instead of leaving its link or projection current', async () => {
+    const repository = new FakeRelationshipRepository();
+    const service = new CourseRelationshipResolutionService(repository);
+    await service.analyzeCourse('course-1');
+    await service.approveTaxonomyLink(repository.links[0].id, 'admin-1');
+    const [projection] = await service.projectMajors('course-1');
+    await service.approveMajorProjection(projection.id, 'admin-2');
+
+    repository.source.shortCourseTopicsRaw = 'Data Science';
+    await service.analyzeCourse('course-1');
+
+    expect(repository.links[0].reviewState).toBe('REVIEW_REQUIRED');
+    expect(repository.projections[0].projectionState).toBe('REVIEW_REQUIRED');
+  });
+
+  it('reconciles a projection when its approved taxonomy link is no longer approved', async () => {
+    const repository = new FakeRelationshipRepository();
+    const service = new CourseRelationshipResolutionService(repository);
+    await service.analyzeCourse('course-1');
+    await service.approveTaxonomyLink(repository.links[0].id, 'admin-1');
+    const [projection] = await service.projectMajors('course-1');
+    await service.approveMajorProjection(projection.id, 'admin-2');
+
+    await service.rejectTaxonomyLink(repository.links[0].id, 'admin-3');
+    await service.projectMajors('course-1');
+
+    expect(repository.projections[0].projectionState).toBe('REVIEW_REQUIRED');
   });
 });

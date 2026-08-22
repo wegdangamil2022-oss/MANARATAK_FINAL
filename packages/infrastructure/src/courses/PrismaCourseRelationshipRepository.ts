@@ -41,6 +41,7 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
         learningLanguageResolutionState: true,
         learningLanguageResolutionMethod: true,
         learningLanguageReviewedBy: true,
+        learningLanguageAdminReviewedRaw: true,
         externalProviderId: true,
         externalProvider: {
           select: {
@@ -71,6 +72,7 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
       learningLanguageResolutionState: course.learningLanguageResolutionState as CourseRelationshipSourceDto['learningLanguageResolutionState'],
       learningLanguageResolutionMethod: course.learningLanguageResolutionMethod as CourseRelationshipSourceDto['learningLanguageResolutionMethod'],
       learningLanguageReviewedBy: course.learningLanguageReviewedBy,
+      learningLanguageAdminReviewedRaw: course.learningLanguageAdminReviewedRaw,
       externalProviderId: course.externalProviderId,
       provider: course.externalProvider
         ? {
@@ -146,7 +148,8 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
     const existing = await this.prisma.courseTaxonomyResolution.findUnique({ where });
     const reviewLocked = existing?.reviewedAt != null ||
       existing?.status === 'APPROVED' ||
-      existing?.status === 'REJECTED';
+      existing?.status === 'REJECTED' ||
+      existing?.status === 'REVIEW_REQUIRED';
 
     const record = await this.prisma.courseTaxonomyResolution.upsert({
       where,
@@ -213,6 +216,43 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
       },
     });
     return this.mapTaxonomyLink(record);
+  }
+
+  public async reconcileTaxonomyRelationships(input: {
+    courseId: string;
+    activeNormalizedTerms: string[];
+  }): Promise<void> {
+    const activeTerms = [...new Set(input.activeNormalizedTerms.map(normalize).filter(Boolean))];
+    const staleResolutions = await this.prisma.courseTaxonomyResolution.findMany({
+      where: {
+        courseId: input.courseId,
+        ...(activeTerms.length ? { normalizedTerm: { notIn: activeTerms } } : {}),
+      },
+      select: { id: true },
+    });
+    if (!staleResolutions.length) return;
+
+    const resolutionIds = staleResolutions.map((item) => item.id);
+    const staleLinks = await this.prisma.courseAcademicTaxonomyLink.findMany({
+      where: { courseId: input.courseId, sourceResolutionId: { in: resolutionIds } },
+      select: { id: true },
+    });
+    const staleLinkIds = staleLinks.map((item) => item.id);
+
+    await this.prisma.$transaction([
+      this.prisma.courseTaxonomyResolution.updateMany({
+        where: { id: { in: resolutionIds } },
+        data: { status: 'REVIEW_REQUIRED' },
+      }),
+      this.prisma.courseAcademicTaxonomyLink.updateMany({
+        where: { id: { in: staleLinkIds } },
+        data: { reviewState: 'REVIEW_REQUIRED' },
+      }),
+      this.prisma.courseMajorProjection.updateMany({
+        where: { sourceCourseTaxonomyLinkId: { in: staleLinkIds } },
+        data: { projectionState: 'REVIEW_REQUIRED' },
+      }),
+    ]);
   }
 
   public async listTaxonomyLinks(
@@ -332,6 +372,12 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
     });
     if (!language) throw new Error('REFERENCE_LANGUAGE_NOT_FOUND_OR_INACTIVE');
 
+    const course = await this.prisma.course.findUnique({
+      where: { id: input.courseId },
+      select: { learningLanguageRaw: true },
+    });
+    if (!course) throw new Error('COURSE_NOT_FOUND');
+
     await this.prisma.course.update({
       where: { id: input.courseId },
       data: {
@@ -340,6 +386,17 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
         learningLanguageResolutionMethod: 'ADMIN_REVIEW',
         learningLanguageResolvedAt: new Date(),
         learningLanguageReviewedBy: input.actorId,
+        learningLanguageAdminReviewedRaw: course.learningLanguageRaw,
+      },
+    });
+  }
+
+  public async markLanguageReviewRequired(input: { courseId: string }): Promise<void> {
+    await this.prisma.course.update({
+      where: { id: input.courseId },
+      data: {
+        learningLanguageResolutionState: 'REVIEW_REQUIRED',
+        learningLanguageResolvedAt: null,
       },
     });
   }
@@ -399,7 +456,8 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
     });
     const reviewLocked = existing?.reviewedAt != null ||
       existing?.projectionState === 'APPROVED' ||
-      existing?.projectionState === 'REJECTED';
+      existing?.projectionState === 'REJECTED' ||
+      existing?.projectionState === 'REVIEW_REQUIRED';
 
     const record = await this.prisma.courseMajorProjection.upsert({
       where: { projectionKey: input.projectionKey },
@@ -428,6 +486,21 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
       },
     });
     return this.mapMajorProjection(record);
+  }
+
+  public async reconcileMajorProjections(input: {
+    courseId: string;
+    activeProjectionKeys: string[];
+  }): Promise<void> {
+    const activeProjectionKeys = [...new Set(input.activeProjectionKeys)];
+    await this.prisma.courseMajorProjection.updateMany({
+      where: {
+        courseId: input.courseId,
+        sourceType: 'TAXONOMY_MAPPING',
+        ...(activeProjectionKeys.length ? { projectionKey: { notIn: activeProjectionKeys } } : {}),
+      },
+      data: { projectionState: 'REVIEW_REQUIRED' },
+    });
   }
 
   public async listMajorProjections(

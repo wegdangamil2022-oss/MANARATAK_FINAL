@@ -186,7 +186,11 @@ export interface IImportedCourseOperationsRepository {
   getImportedCourseById(id: string): Promise<ImportedCourseAdminDetail | null>;
   getOverview(): Promise<ImportedCourseOverview>;
   getVerificationContext(courseId: string): Promise<ImportedCourseVerificationContext | null>;
-  recordLinkCheck(courseId: string, result: ImportedCourseLinkCheckResult): Promise<void>;
+  recordLinkCheck(
+    courseId: string,
+    result: ImportedCourseLinkCheckResult,
+    checkedUrl: string,
+  ): Promise<void>;
   getImportOperationsOverview(): Promise<CourseImportOperationsOverview>;
   listCourseBatches(limit?: number): Promise<CourseImportBatchSummary[]>;
   getCourseBatchById(id: string): Promise<CourseImportBatchSummary | null>;
