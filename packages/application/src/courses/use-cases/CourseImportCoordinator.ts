@@ -42,6 +42,7 @@ interface TransferPlan {
   record: CourseImportTransferStoredRecord;
   analysis: CourseImportTransferAnalysis;
   sourceIdentityId: string;
+  sourceIdentityCurrentUrl: string;
   mapped: CourseImportMappedData;
   existing: CourseDto | null;
   requiredApprovalFields: string[];
@@ -152,7 +153,9 @@ export class CourseImportCoordinator {
       await gateway.linkSourceIdentity({
         identityId: plan.sourceIdentityId,
         courseId: course.id,
-        currentUrl: plan.mapped.row.directCourseUrl,
+        currentUrl: URL_CHANGED_STATES.has(plan.analysis.changeState)
+          ? plan.mapped.row.directCourseUrl
+          : plan.sourceIdentityCurrentUrl,
       });
 
       if (URL_CHANGED_STATES.has(plan.analysis.changeState) && plan.existing) {
@@ -237,7 +240,11 @@ export class CourseImportCoordinator {
 
     const dedupKey = this.canonicalDedupKey(identity.providerId, identity.sourceNativeKey, identity.languageVersionKey);
     const mapped = CourseImportMasterMapper.map(analysis.normalizedPayload, dedupKey, record.id);
-    if (mapped.identity.providerId !== identity.providerId || mapped.identity.sourceNativeKey !== identity.sourceNativeKey) {
+    if (
+      mapped.identity.providerId !== identity.providerId
+      || mapped.identity.sourceNativeKey !== identity.sourceNativeKey
+      || mapped.identity.languageVersionKey !== identity.languageVersionKey
+    ) {
       throw new Error('COURSE_IMPORT_ANALYSIS_IDENTITY_DRIFT');
     }
 
@@ -263,6 +270,7 @@ export class CourseImportCoordinator {
       record,
       analysis,
       sourceIdentityId,
+      sourceIdentityCurrentUrl: identity.currentUrl,
       mapped,
       existing,
       requiredApprovalFields,

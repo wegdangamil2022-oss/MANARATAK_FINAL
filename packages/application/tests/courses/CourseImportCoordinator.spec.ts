@@ -280,6 +280,27 @@ describe('CourseImportCoordinator', () => {
     expect(gateway.urlChanges).toHaveLength(1);
   });
 
+  it('does not rewrite source-identity current URL for a tracking-only unchanged replay', async () => {
+    const { coordinator, gateway, courses } = fixture();
+    const before = existingCourse();
+    courses.courses.set(before.id, before);
+    gateway.identity.courseId = before.id;
+    gateway.analysis = analysis(CourseImportChangeState.UNCHANGED, false);
+    (gateway.analysis.normalizedPayload.semanticRow as any).directCourseUrl = `${before.directCourseUrl}&utm_source=mail`;
+
+    const result = await coordinator.transfer({ recordId: 'rec-1', actorId: 'admin-1' });
+    expect(result.state).toBe('TRANSFERRED_UNCHANGED');
+    expect(gateway.identity.currentUrl).toBe(before.directCourseUrl);
+    expect(gateway.urlChanges).toHaveLength(0);
+  });
+
+  it('blocks transfer when analysis language identity differs from the source identity', async () => {
+    const { coordinator, gateway } = fixture();
+    gateway.identity.languageVersionKey = 'en';
+    await expect(coordinator.transfer({ recordId: 'rec-1', actorId: 'admin-1' }))
+      .rejects.toThrow('COURSE_IMPORT_ANALYSIS_IDENTITY_DRIFT');
+  });
+
   it('does not overwrite a reviewed value with an omitted incoming value', async () => {
     const { coordinator, gateway, courses } = fixture();
     const before = existingCourse();

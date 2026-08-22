@@ -260,6 +260,30 @@ describe('WP-IC-04 stable identity / dedup / diff engine', () => {
     expect(repo.identities[0].languageVersionKey).toBe('en');
   });
 
+  it('canonicalizes regional language spelling and separators consistently', async () => {
+    const repo = new AnalysisRepo();
+    const useCase = new CourseImportIdentityDiffUseCase(batchReader({
+      b1: [record('r1', row({ languageRaw: 'EN-us' }))],
+      b2: [record('r2', row({ languageRaw: 'en_US', _payloadFingerprint: 'raw-b' }))],
+    }), new ProviderRepo(), repo);
+    await useCase.analyzeBatch('b1');
+    const replay = (await useCase.analyzeBatch('b2')).analyses[0];
+    expect(replay.changeState).toBe(CourseImportChangeState.UNCHANGED);
+    expect(repo.identities).toHaveLength(1);
+    expect(repo.identities[0].languageVersionKey).toBe('en-us');
+  });
+
+  it('canonicalizes Spanish aliases without collapsing Spanish into English', async () => {
+    const repo = new AnalysisRepo();
+    const useCase = new CourseImportIdentityDiffUseCase(batchReader({
+      b1: [record('r1', row({ languageRaw: 'Spanish', directCourseUrl: 'https://welc.wipo.int/acc/index.jsf?cc=DL101E&lang=es&page=courseCatalog.xhtml' }))],
+      b2: [record('r2', row({ languageRaw: 'spa', directCourseUrl: 'https://welc.wipo.int/acc/index.jsf?cc=DL101E&lang=es&page=courseCatalog.xhtml', _payloadFingerprint: 'raw-b' }))],
+    }), new ProviderRepo(), repo);
+    await useCase.analyzeBatch('b1');
+    expect((await useCase.analyzeBatch('b2')).analyses[0].changeState).toBe(CourseImportChangeState.UNCHANGED);
+    expect(repo.identities[0].languageVersionKey).toBe('es');
+  });
+
   it('force reanalysis bypasses the cached record analysis while normal replay remains idempotent', async () => {
     const repo = new AnalysisRepo();
     const batches = { b1: [record('r1', row())] };
@@ -291,7 +315,7 @@ describe('WP-IC-04 stable identity / dedup / diff engine', () => {
     const repo = new AnalysisRepo();
     const useCase = new CourseImportIdentityDiffUseCase(batchReader({
       b1: [record('r1', row())],
-      b2: [record('r2', row({ directCourseUrl: 'https://welc.wipo.int/acc/index.jsf?utm_source=test&page=courseCatalog.xhtml&lang=en&cc=DL101E', _payloadFingerprint: 'raw-b' }))],
+      b2: [record('r2', row({ directCourseUrl: 'https://welc.wipo.int/acc/index.jsf?mc_eid=x&cc=DL101E&utm_source=test&page=courseCatalog.xhtml&gclid=x&lang=en&fbclid=x&mc_cid=x', _payloadFingerprint: 'raw-b' }))],
     }), new ProviderRepo(), repo);
     await useCase.analyzeBatch('b1');
     const result = (await useCase.analyzeBatch('b2')).analyses[0];
@@ -309,5 +333,16 @@ describe('WP-IC-04 stable identity / dedup / diff engine', () => {
     expect(result.changeState).toBe(CourseImportChangeState.METADATA_CHANGED);
     expect(repo.identities).toHaveLength(1);
     expect(repo.identities[0].identityStrategy).toBe(CourseSourceIdentityStrategy.PROVIDER_URL_KEY);
+  });
+
+  it('fails closed for conflicting same-batch metadata under one strong native identity', async () => {
+    const repo = new AnalysisRepo();
+    const useCase = new CourseImportIdentityDiffUseCase(batchReader({ b1: [
+      record('r1', row()),
+      record('r2', row({ courseDurationRaw: '99 hours', _payloadFingerprint: 'raw-b' })),
+    ] }), new ProviderRepo(), repo);
+    const result = await useCase.analyzeBatch('b1');
+    expect(result.analyses.every((item) => item.changeState === CourseImportChangeState.CONFLICT)).toBe(true);
+    expect(repo.identities).toHaveLength(0);
   });
 });
