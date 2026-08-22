@@ -8,3 +8,4 @@ export * from './CourseImportIdentityDiffUseCase';
 export * from './CourseImportCoordinator';
 export * from './ImportedCourseAdminUseCases';
 export * from './CourseImportOperationsUseCases';
+export * from './CourseProviderContinuationUseCases';

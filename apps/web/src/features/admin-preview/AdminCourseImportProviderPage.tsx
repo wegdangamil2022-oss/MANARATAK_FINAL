@@ -2,9 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   AlertCircle,
+  Database,
   ExternalLink,
   Globe2,
+  Link2,
   Loader2,
+  RefreshCw,
   ShieldCheck,
 } from 'lucide-react';
 import { ApiClient } from '../../api/client';
@@ -63,6 +66,9 @@ export function AdminCourseImportProviderPage() {
     );
   }
 
+  const continuation = provider.continuation || {};
+  const connector = continuation.connector || {};
+
   return (
     <main dir="rtl" className="min-h-screen bg-[#f8fafc] px-4 py-8 text-slate-900 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-5xl space-y-6">
@@ -77,7 +83,7 @@ export function AdminCourseImportProviderPage() {
             <div>
               <div className="flex items-center gap-2 text-xs font-black text-emerald-200">
                 <ShieldCheck className="h-4 w-4" />
-                Provider Registry
+                Provider Registry + Continuation Health
               </div>
               <h1 className="mt-2 text-2xl font-black sm:text-4xl">{provider.displayName}</h1>
               <p className="mt-2 text-sm font-bold text-emerald-100">{provider.canonicalName}</p>
@@ -103,6 +109,73 @@ export function AdminCourseImportProviderPage() {
               <div className="mt-1 text-sm font-black">{value}</div>
             </div>
           ))}
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-[#0F4B3A]" />
+            <h2 className="text-lg font-black">حالة استمرار الاستيراد</h2>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {[
+              ['الدورات الحالية', continuation.canonicalCourseCount ?? 0],
+              ['شهادة مجانية', continuation.freeCertificateCount ?? 0],
+              ['دفعات الاستمرار', continuation.continuationBatchCount ?? 0],
+              ['تحتاج مراجعة', continuation.reviewRequiredCount ?? 0],
+              ['روابط متغيرة', continuation.changedLinkQueueCount ?? 0],
+              ['روابط مكسورة', continuation.brokenLinkCount ?? 0],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
+                <div className="text-xl font-black text-[#0F4B3A]">{value}</div>
+                <div className="mt-1 text-[10px] font-bold text-slate-500">{label}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2 text-xs font-black">
+            <span className="rounded-full bg-slate-100 px-3 py-1.5">Source Health: {continuation.sourceHealth || 'UNVERIFIED'}</span>
+            <span className="rounded-full bg-slate-100 px-3 py-1.5">Needs Verification: {continuation.needsVerificationCount ?? 0}</span>
+            {continuation.latestBatch?.id && (
+              <span className="rounded-full bg-slate-100 px-3 py-1.5" dir="ltr">Latest: {continuation.latestBatch.id}</span>
+            )}
+          </div>
+        </section>
+
+        <section className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-[#0F4B3A]" />
+              <h2 className="text-lg font-black">الموصل المسجل</h2>
+            </div>
+            <div className="mt-4 space-y-2 text-xs font-bold text-slate-700">
+              <div>الحالة: {connector.configured ? 'مهيأ في سجل المزود' : 'غير مهيأ'}</div>
+              <div dir="ltr">Connector Key: {connector.connectorKey || '—'}</div>
+              <div dir="ltr">Version: {connector.connectorVersion || '—'}</div>
+              <div>Implementation: {connector.implementationRegistered ? 'Registered' : 'Not registered'}</div>
+            </div>
+            <p className="mt-4 text-[11px] font-bold leading-6 text-slate-500">
+              التنفيذ الآلي متاح فقط لموصل مسجل ومطابق للإصدار المعتمد. لا يوجد إدخال URL حر أو crawler عام.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-2">
+              <Link2 className="h-5 w-5 text-[#0F4B3A]" />
+              <h2 className="text-lg font-black">صحة الروابط</h2>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-center">
+              <div className="rounded-xl bg-slate-50 p-4">
+                <div className="text-xl font-black text-rose-700">{continuation.brokenLinkCount ?? 0}</div>
+                <div className="text-[10px] font-bold text-slate-500">Broken</div>
+              </div>
+              <div className="rounded-xl bg-slate-50 p-4">
+                <div className="text-xl font-black text-amber-700">{continuation.needsVerificationCount ?? 0}</div>
+                <div className="text-[10px] font-bold text-slate-500">Needs verification</div>
+              </div>
+            </div>
+            <p className="mt-4 text-[11px] font-bold leading-6 text-slate-500">
+              فحص الروابط الجماعي في WP-IC-09 محدود الدفعة ومقيد بالنطاقات المعتمدة مع تأخير بين الطلبات.
+            </p>
+          </div>
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
