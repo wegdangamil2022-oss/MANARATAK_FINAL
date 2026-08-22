@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 import * as XLSX from 'xlsx';
 import {
   WPIC10_EXPECTED_ROWS,
@@ -59,12 +60,22 @@ if (command === 'memory') {
     source = 'synthetic-3663-shape';
   }
 
-  const parsed = XLSX.read(bytes, { type: 'buffer', dense: true });
-  const sheet = parsed.Sheets.Courses;
-  if (!sheet) fatal('Courses sheet missing in memory test workbook.');
-  const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, blankrows: false });
-  const headersObserved = (matrix[0] ?? []).map((value) => String(value));
-  const rowsObserved = matrix.slice(1).filter((row) => row.some((value) => String(value ?? '').trim() !== '')).length;
+  const parserModule = path.join(repoRoot, 'packages/application/dist/import-foundation/parsers/CourseMasterArtifactParser.js');
+  if (!fs.existsSync(parserModule)) {
+    fatal('Compiled CourseMasterArtifactParser not found. Run npm run build before the memory rehearsal.');
+  }
+  const { CourseMasterArtifactParser } = await import(pathToFileURL(parserModule).href);
+  const parsed = CourseMasterArtifactParser.parse({
+    bytes: new Uint8Array(bytes),
+    originalFilename: workbookPath ? path.basename(workbookPath) : 'wp-ic-10-synthetic-3663.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    declaredByteSize: bytes.length,
+  });
+  if (parsed.issues.some((issue) => issue.severity === 'ERROR')) {
+    fatal(`Real parser memory rehearsal failed: ${parsed.issues.filter((issue) => issue.severity === 'ERROR').map((issue) => issue.code).join(',')}`);
+  }
+  const headersObserved = parsed.headers;
+  const rowsObserved = parsed.rows.length;
   const after = process.memoryUsage();
   const toMb = (value) => Math.round((value / 1024 / 1024) * 100) / 100;
   const memory = {
@@ -96,7 +107,7 @@ if (command === 'smoke') {
   const authorization = String(args.authorization ?? process.env.WPIC10_AUTHORIZATION ?? '').trim();
   const checks = [];
   checks.push(await requestCheck('liveness', `${baseUrl}/api/v1/monitoring/health/liveness`, [200], (body) => body?.status === 'UP'));
-  checks.push(await requestCheck('readiness', `${baseUrl}/api/v1/monitoring/health/readiness`, [200, 503], (body) => ['UP', 'DEGRADED', 'DOWN'].includes(body?.status)));
+  checks.push(await requestCheck('readiness', `${baseUrl}/api/v1/monitoring/health/readiness`, [200], (body) => body?.status === 'UP'));
   checks.push(await requestCheck('csrf-read', `${baseUrl}/api/v1/auth/csrf-token`, [200], (body) => body && typeof body === 'object'));
   checks.push(await requestCheck('admin-import-auth-boundary', `${baseUrl}/api/v1/admin/imports/courses/overview`, [401], () => true));
   checks.push(await requestCheck('continuation-mutation-auth-boundary', `${baseUrl}/api/v1/admin/imports/courses/providers/wp-ic-10-smoke/connector/run`, [401, 403, 423], () => true, { method: 'POST', body: '{}' }));
@@ -131,7 +142,9 @@ if (command === 'finalize') {
     browserE2E: readJsonIfExists(path.join(resultsDir, 'BROWSER_E2E.json')),
     runtimeSmoke: readJsonIfExists(path.join(resultsDir, 'RUNTIME_SMOKE.json')),
   };
-  const report = buildFinalReport(gateResults, { requireAll: args['allow-missing'] !== true });
+  const phase = String(args.phase ?? 'source');
+  if (phase !== 'source' && phase !== 'runtime') fatal('FINALIZE_PHASE_MUST_BE_SOURCE_OR_RUNTIME');
+  const report = buildFinalReport(gateResults, { phase });
   fs.writeFileSync(path.join(resultsDir, 'FINAL_IMPLEMENTATION_STATUS.json'), `${JSON.stringify(report, null, 2)}\n`);
   fs.writeFileSync(path.join(resultsDir, 'FINAL_IMPLEMENTATION_STATUS.md'), renderFinalMarkdown(report));
   console.log(JSON.stringify(report, null, 2));

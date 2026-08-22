@@ -357,7 +357,17 @@ async function readCanonicalCourseSentinel(prisma) {
 
 function requireApiArguments() {
   if (!apiBase) fatal('--api-base or WPIC08_API_BASE is required for dry-run/transfer. It must include the API prefix before /admin.');
-  if (!/^https?:\/\//i.test(apiBase)) fatal('WPIC08_API_BASE must be absolute http(s).');
+  let parsedApiBase;
+  try {
+    parsedApiBase = new URL(apiBase);
+  } catch {
+    fatal('WPIC08_API_BASE must be an absolute URL.');
+  }
+  const localApi = ['localhost', '127.0.0.1', '::1'].includes(parsedApiBase.hostname);
+  if (parsedApiBase.username || parsedApiBase.password) fatal('WPIC08_API_BASE must not contain credentials.');
+  if (parsedApiBase.protocol !== 'https:' && !(localApi && parsedApiBase.protocol === 'http:')) {
+    fatal('WPIC08_API_BASE requires HTTPS except for localhost/loopback development.');
+  }
   if (!assetId) fatal('--asset-id or WPIC08_ASSET_ID is required. Register the workbook through the existing Asset platform first.');
   if (!authorization && !cookie) fatal('Provide WPIC08_AUTHORIZATION or WPIC08_COOKIE for an authenticated admin principal.');
   if (!dbSentinelEnabled && !args['sentinel-before']) {

@@ -337,7 +337,7 @@ export class CourseProviderContinuationUseCases {
   public async replayProviderBatch(providerRef: string, batchId: string) {
     const provider = await this.requireApprovedProvider(providerRef);
     await this.assertProviderContinuationBatch(provider, batchId);
-    const analysis = await this.operationsUseCases.analyzeBatch(batchId);
+    const analysis = await this.operationsUseCases.analyzeBatch(batchId, { force: true });
     return {
       providerId: provider.id,
       batchId,

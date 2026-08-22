@@ -153,22 +153,14 @@ describe('ImportedCourseAdminUseCases', () => {
     } as any)).rejects.toThrow('IMPORTED_COURSE_PROVIDER_IDENTITY_CHANGE_FORBIDDEN');
   });
 
-  it('moves a manually edited direct URL back to NEEDS_REVIEW after provider-domain validation', async () => {
+  it('forbids manual direct URL mutation so source identity/history cannot diverge', async () => {
     const f = createFixture();
-    await f.useCases.update('course-1', {
+    await expect(f.useCases.update('course-1', {
       directCourseUrl: 'https://example.org/new-course',
-    } as any);
-    expect(f.providers.isDomainApproved).toHaveBeenCalledWith(
-      'provider-1',
-      'https://example.org/new-course',
-    );
-    expect(f.repository.recordLinkCheck).toHaveBeenCalledWith(
-      'course-1',
-      expect.objectContaining({
-        state: 'NEEDS_REVIEW',
-        detail: 'ADMIN_URL_EDIT_REQUIRES_LINK_CHECK',
-      }),
-    );
+    } as any)).rejects.toThrow('IMPORTED_COURSE_DIRECT_URL_CHANGE_REQUIRES_CONTROLLED_IMPORT');
+    expect(f.admin.updateCourse).not.toHaveBeenCalled();
+    expect(f.providers.isDomainApproved).not.toHaveBeenCalled();
+    expect(f.repository.recordLinkCheck).not.toHaveBeenCalled();
   });
 
   it('forbids changing an imported course to another origin type', async () => {

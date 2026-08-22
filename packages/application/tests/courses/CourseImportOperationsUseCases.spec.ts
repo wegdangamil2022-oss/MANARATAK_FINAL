@@ -65,6 +65,12 @@ describe('CourseImportOperationsUseCases', () => {
     expect(f.identityDiff.analyzeBatch).toHaveBeenCalledWith('batch-1');
   });
 
+  it('forwards explicit force reanalysis only when requested by the continuation replay path', async () => {
+    const f = createFixture();
+    await f.useCases.analyzeBatch('batch-1', { force: true });
+    expect(f.identityDiff.analyzeBatch).toHaveBeenCalledWith('batch-1', { force: true });
+  });
+
   it('transfers through WP-IC-05 CourseImportCoordinator and never invents a second transfer path', async () => {
     const f = createFixture();
     const result = await f.useCases.transferBatch({

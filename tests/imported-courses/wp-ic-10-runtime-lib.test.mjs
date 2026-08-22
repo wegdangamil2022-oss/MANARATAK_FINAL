@@ -31,21 +31,37 @@ test('memory validation enforces row/header and memory bounds', () => {
   assert.deepEqual(failed.failures, ['ROW_COUNT_MISMATCH', 'RSS_DELTA_LIMIT_EXCEEDED']);
 });
 
-test('final report blocks when a required closure artifact is missing', () => {
+test('source-phase report requires only pre-Google-Studio evidence', () => {
   const pass = { pass: true, detail: 'ok' };
-  const report = buildFinalReport({ ciClosure: pass, security: pass, memory: pass, database: pass, backupRestore: pass });
-  assert.equal(report.pass, false);
-  assert.equal(report.gates.find((item) => item.name === 'browserE2E')?.state, 'NOT_RUN');
+  const report = buildFinalReport({ ciClosure: pass, security: pass, memory: pass }, { phase: 'source' });
+  assert.equal(report.pass, true);
+  assert.equal(report.runtimeClosureState, 'CODE_COMPLETE_READY_FOR_GOOGLE_STUDIO_INTEGRATION');
+  assert.equal(report.gates.find((item) => item.name === 'database')?.state, 'DEFERRED_TO_GOOGLE_STUDIO');
+  assert.match(renderFinalMarkdown(report), /intentionally deferred/);
 });
 
-test('final report closes only after every required gate passes', () => {
+test('source-phase report blocks when a required source artifact is missing', () => {
   const pass = { pass: true, detail: 'ok' };
-  const handoff = buildFinalReport({ ciClosure: pass, security: pass, memory: pass, database: pass, backupRestore: pass, browserE2E: pass });
-  assert.equal(handoff.pass, true);
-  assert.equal(handoff.runtimeClosureState, 'CLOSED_READY_FOR_GOOGLE_STUDIO_HANDOFF');
-  assert.match(renderFinalMarkdown(handoff), /Google Studio may proceed/);
+  const report = buildFinalReport({ ciClosure: pass, security: pass }, { phase: 'source' });
+  assert.equal(report.pass, false);
+  assert.equal(report.gates.find((item) => item.name === 'memory')?.state, 'NOT_RUN');
+});
 
-  const deployed = buildFinalReport({ ciClosure: pass, security: pass, memory: pass, database: pass, backupRestore: pass, browserE2E: pass, runtimeSmoke: pass });
-  assert.equal(deployed.pass, true);
-  assert.equal(deployed.runtimeClosureState, 'DEPLOYED_RUNTIME_VERIFIED');
+test('runtime phase closes only after Google Studio runtime gates pass', () => {
+  const pass = { pass: true, detail: 'ok' };
+  const report = buildFinalReport({
+    ciClosure: pass, security: pass, memory: pass, database: pass, backupRestore: pass, browserE2E: pass, runtimeSmoke: pass,
+  }, { phase: 'runtime' });
+  assert.equal(report.pass, true);
+  assert.equal(report.runtimeClosureState, 'GOOGLE_STUDIO_RUNTIME_VERIFIED');
+});
+
+test('failed Google Studio runtime smoke blocks runtime verification', () => {
+  const pass = { pass: true, detail: 'ok' };
+  const fail = { pass: false, detail: 'readiness DOWN' };
+  const report = buildFinalReport({
+    ciClosure: pass, security: pass, memory: pass, database: pass, backupRestore: pass, browserE2E: pass, runtimeSmoke: fail,
+  }, { phase: 'runtime' });
+  assert.equal(report.pass, false);
+  assert.equal(report.runtimeClosureState, 'BLOCKED');
 });

@@ -240,6 +240,12 @@ describe('CourseProviderContinuationUseCases', () => {
     expect(importedOperationsRepository.recordLinkCheck).toHaveBeenCalledTimes(1);
   });
 
+  it('force-reanalyzes an owned provider batch during replay instead of reusing cached analysis', async () => {
+    const { service, operationsUseCases } = build();
+    await service.replayProviderBatch(provider.id, 'batch-1');
+    expect(operationsUseCases.analyzeBatch).toHaveBeenCalledWith('batch-1', { force: true });
+  });
+
   it('refuses replay of a batch that is not owned by the selected provider continuation source', async () => {
     const { service } = build({ batchSourceSystem: 'COURSE_PROVIDER_FILE:another-provider:FULL_SNAPSHOT' });
     await expect(service.replayProviderBatch(provider.id, 'batch-1'))

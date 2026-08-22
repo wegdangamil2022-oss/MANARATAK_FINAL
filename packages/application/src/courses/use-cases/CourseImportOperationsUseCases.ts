@@ -39,8 +39,10 @@ export class CourseImportOperationsUseCases {
     return this.operationsRepository.getImportOperationsOverview();
   }
 
-  public analyzeBatch(batchId: string) {
-    return this.identityDiff.analyzeBatch(batchId);
+  public analyzeBatch(batchId: string, options: { force?: boolean } = {}) {
+    return options.force
+      ? this.identityDiff.analyzeBatch(batchId, { force: true })
+      : this.identityDiff.analyzeBatch(batchId);
   }
 
   public listBatches(limit: number = 50) {

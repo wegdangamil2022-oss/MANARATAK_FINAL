@@ -222,6 +222,16 @@ function validateHeaders(headers: string[]): {
     }
   }
 
+  const exactContract = headers.length === expected.length
+    && headers.every((header, index) => header === expected[index]);
+  if (!exactContract) {
+    issues.push({
+      code: 'COURSE_MASTER_COLUMN_CONTRACT_MISMATCH',
+      message: `Course master columns must exactly match the approved 11-column contract and order: ${expected.join(' | ')}`,
+      severity: 'ERROR',
+    });
+  }
+
   const unknownColumns = headers.filter((header) => header && !expected.includes(header as any));
   for (const column of unknownColumns) {
     issues.push({

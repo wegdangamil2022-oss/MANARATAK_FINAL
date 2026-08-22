@@ -107,7 +107,10 @@ class AnalysisRepo implements ICourseImportAnalysisRepository {
   }
   async upsertAnalysis(input: UpsertCourseImportAnalysisInput) {
     const existing = await this.findAnalysisByImportRecordId(input.importRecordId);
-    if (existing) return existing;
+    if (existing) {
+      Object.assign(existing, input, { analyzedAt: input.analyzedAt ?? now, updatedAt: now });
+      return existing;
+    }
     const analysis: CourseImportAnalysisDto = {
       id: `analysis-${this.analyses.length + 1}`,
       ...input,
@@ -240,6 +243,36 @@ describe('WP-IC-04 stable identity / dedup / diff engine', () => {
     expect(result.analyses.every((item) => item.changeState === CourseImportChangeState.AMBIGUOUS_MATCH)).toBe(true);
     expect(result.analyses.every((item) => item.requiresReview)).toBe(true);
     expect(repo.identities).toHaveLength(0);
+  });
+
+  it('canonicalizes equivalent language labels without creating a second stable identity', async () => {
+    const repo = new AnalysisRepo();
+    const useCase = new CourseImportIdentityDiffUseCase(batchReader({
+      b1: [record('r1', row({ languageRaw: 'English' }))],
+      b2: [record('r2', row({ languageRaw: 'en', _payloadFingerprint: 'raw-b' }))],
+    }), new ProviderRepo(), repo);
+    await useCase.analyzeBatch('b1');
+    repo.identities[0].courseId = 'course-1';
+    const result = (await useCase.analyzeBatch('b2')).analyses[0];
+    expect(result.changeState).toBe(CourseImportChangeState.UNCHANGED);
+    expect(result.matchedCourseId).toBe('course-1');
+    expect(repo.identities).toHaveLength(1);
+    expect(repo.identities[0].languageVersionKey).toBe('en');
+  });
+
+  it('force reanalysis bypasses the cached record analysis while normal replay remains idempotent', async () => {
+    const repo = new AnalysisRepo();
+    const batches = { b1: [record('r1', row())] };
+    const useCase = new CourseImportIdentityDiffUseCase(batchReader(batches), new ProviderRepo(), repo);
+    const first = await useCase.analyzeBatch('b1');
+    expect(first.reused).toBe(0);
+    batches.b1[0].rawPayload = row({ courseDurationRaw: '99 hours', _payloadFingerprint: 'changed' });
+    const cached = await useCase.analyzeBatch('b1');
+    expect(cached.reused).toBe(1);
+    expect((cached.analyses[0].normalizedPayload.semanticRow as any).courseDurationRaw).toBe('12 hours');
+    const forced = await useCase.analyzeBatch('b1', { force: true });
+    expect(forced.reused).toBe(0);
+    expect((forced.analyses[0].normalizedPayload.semanticRow as any).courseDurationRaw).toBe('99 hours');
   });
 
   it('does not collapse legitimate language-specific versions', async () => {

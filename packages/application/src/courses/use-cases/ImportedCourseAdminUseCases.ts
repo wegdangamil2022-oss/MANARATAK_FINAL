@@ -50,18 +50,10 @@ export class ImportedCourseAdminUseCases {
       updates.directCourseUrl !== existing.directCourseUrl;
 
     if (directUrlChanged) {
-      const context = await this.operationsRepository.getVerificationContext(existing.id);
-      if (!context?.sourceIdentityId) throw new Error('IMPORTED_COURSE_SOURCE_IDENTITY_REQUIRED');
-      if (!existing.externalProviderId) throw new Error('IMPORTED_COURSE_PROVIDER_REQUIRED');
-      const provider = await this.providerRepository.findById(existing.externalProviderId);
-      if (!provider || provider.status !== ExternalCourseProviderStatus.APPROVED) {
-        throw new Error('IMPORTED_COURSE_PROVIDER_NOT_APPROVED');
-      }
-      const approved = await this.providerRepository.isDomainApproved(
-        provider.id,
-        updates.directCourseUrl!,
-      );
-      if (!approved) throw new Error('IMPORTED_COURSE_SOURCE_DOMAIN_NOT_APPROVED');
+      // URL evolution is source-lineage metadata. It must go through the reviewed
+      // identity/diff -> CourseImportCoordinator path so CourseSourceIdentity,
+      // CourseSourceUrlHistory, provenance, and the canonical Course change atomically.
+      throw new Error('IMPORTED_COURSE_DIRECT_URL_CHANGE_REQUIRES_CONTROLLED_IMPORT');
     }
 
     await this.adminCourseUseCases.updateCourse(existing.id, {
@@ -69,14 +61,6 @@ export class ImportedCourseAdminUseCases {
       externalProviderId: existing.externalProviderId,
       originType: CourseOriginType.EXTERNAL_LINKED_COURSE,
     });
-
-    if (directUrlChanged) {
-      await this.operationsRepository.recordLinkCheck(existing.id, {
-        state: 'NEEDS_REVIEW',
-        checkedAt: new Date(),
-        detail: 'ADMIN_URL_EDIT_REQUIRES_LINK_CHECK',
-      });
-    }
 
     return this.get(existing.id);
   }

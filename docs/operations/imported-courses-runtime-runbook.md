@@ -1,4 +1,9 @@
-# Imported Courses Runtime Runbook — WP-IC-10
+# Imported Courses Runtime Runbook — WP-IC-10R1
+
+## Pre-Google-Studio boundary
+
+There is no PostgreSQL requirement during code preparation. Pre-handoff closure means source, schema validation/client generation, build, unit, security, and parser-memory gates pass. Database integration, backup/restore, browser E2E, and runtime smoke are prepared in the repository but are executed only after Google Studio provides PostgreSQL and starts the runtime.
+
 
 ## Purpose
 This runbook closes the imported-course runtime after WP-IC-09. It does not introduce a second import architecture or bypass Phase 06 staging / WP-IC-05 controlled transfer.
@@ -15,9 +20,8 @@ This runbook closes the imported-course runtime after WP-IC-09. It does not intr
 9. `node --test tests/imported-courses/*.test.mjs`.
 10. `node scripts/wp-ic-10-runtime-closure.mjs security --repo-root .`.
 11. `node scripts/wp-ic-10-runtime-closure.mjs memory --rows 3663`.
-12. Run the disposable PostgreSQL rehearsal and backup/restore rehearsal before any production migration.
-13. Run browser E2E.
-14. Run runtime smoke against the deployed staging service.
+12. Do **not** require PostgreSQL, backup/restore, or browser E2E for pre-handoff acceptance. Those gates are deferred to Google Studio.
+13. Handoff after all source/code gates pass. Google Studio then connects PostgreSQL, executes DB integration and backup/restore rehearsal, starts the services, runs browser E2E, and finally runs runtime smoke.
 
 ## Runtime invariants
 - Imported-course admin APIs remain authenticated and permission-gated.
@@ -37,8 +41,12 @@ node scripts/wp-ic-10-runtime-closure.mjs smoke \
 Provide `WPIC10_AUTHORIZATION` only when an approved admin credential is available; authenticated checks are additive.
 
 ## Closure
-Before handoff, collect `CI_CLOSURE.json`, `SECURITY_AUDIT.json`, `LARGE_FILE_MEMORY.json`, `DATABASE_REHEARSAL.json`, `BACKUP_RESTORE_REHEARSAL.json`, and `BROWSER_E2E.json`, then run:
+Before handoff, collect only `CI_CLOSURE.json`, `SECURITY_AUDIT.json`, and `LARGE_FILE_MEMORY.json`, then run:
 ```bash
-node scripts/wp-ic-10-runtime-closure.mjs finalize --results-dir wp-ic-10-results
+node scripts/wp-ic-10-runtime-closure.mjs finalize --phase source --results-dir wp-ic-10-results
 ```
-A `CLOSED_READY_FOR_GOOGLE_STUDIO_HANDOFF` result authorizes Google Studio to configure/start the reviewed runtime. After service startup, add `RUNTIME_SMOKE.json` and finalize again; the final deployed state must become `DEPLOYED_RUNTIME_VERIFIED`.
+A `CODE_COMPLETE_READY_FOR_GOOGLE_STUDIO_INTEGRATION` result authorizes Google Studio to connect PostgreSQL and execute the deferred runtime gates. After DB integration, backup/restore, browser E2E, and `RUNTIME_SMOKE.json` all pass, run:
+```bash
+node scripts/wp-ic-10-runtime-closure.mjs finalize --phase runtime --results-dir wp-ic-10-results
+```
+The runtime state must then become `GOOGLE_STUDIO_RUNTIME_VERIFIED`.

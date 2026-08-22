@@ -7,7 +7,12 @@ export default defineConfig({
     include: [
       'apps/api/tests/presentation/api/router/MajorImportE2E.spec.ts',
       'packages/infrastructure/tests/auth/RealDatabaseIntegration.spec.ts',
+      'packages/infrastructure/tests/courses/PrismaCourseRepository.integration.spec.ts',
+      'packages/infrastructure/tests/courses/PrismaExternalCourseProviderRepository.integration.spec.ts',
+      'packages/infrastructure/tests/courses/PrismaCourseRelationships.integration.spec.ts',
+      'packages/infrastructure/tests/courses/PrismaImportedCourseOperationsRepository.integration.spec.ts',
       'packages/infrastructure/tests/courses/ImportedCourseRuntimeDatabaseIntegration.spec.ts',
+      'packages/infrastructure/tests/courses/ImportedCourseRealTransferDatabaseIntegration.spec.ts',
     ],
     testTimeout: 20_000,
     hookTimeout: 30_000,

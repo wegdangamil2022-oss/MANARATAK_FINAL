@@ -79,6 +79,46 @@ describe('CourseMasterArtifactParser', () => {
     ).toBe(true);
   });
 
+  it('rejects reordered required columns instead of positionally mis-mapping data', () => {
+    const reordered = [...HEADERS];
+    [reordered[1], reordered[2]] = [reordered[2], reordered[1]];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([reordered, [1, 'Course A', 'Saylor University', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'No', 'None', 'English', 'Level', '10h', 'Topic']]),
+      'Courses',
+    );
+    const bytes = new Uint8Array(XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx', compression: true }));
+    const result = CourseMasterArtifactParser.parse({
+      bytes,
+      originalFilename: 'courses.xlsx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      declaredByteSize: bytes.byteLength,
+    });
+    expect(result.rows).toHaveLength(0);
+    expect(result.issues.some((issue) => issue.code === 'COURSE_MASTER_COLUMN_CONTRACT_MISMATCH')).toBe(true);
+  });
+
+  it('rejects an extra column in the approved course-master contract', () => {
+    const headers = [...HEADERS.slice(0, 2), 'Unexpected Column', ...HEADERS.slice(2)];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([headers, [1, 'Saylor University', 'extra', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'No', 'None', 'English', 'Level', '10h', 'Topic']]),
+      'Courses',
+    );
+    const bytes = new Uint8Array(XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx', compression: true }));
+    const result = CourseMasterArtifactParser.parse({
+      bytes,
+      originalFilename: 'courses.xlsx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      declaredByteSize: bytes.byteLength,
+    });
+    expect(result.rows).toHaveLength(0);
+    expect(result.unknownColumns).toContain('Unexpected Column');
+    expect(result.issues.some((issue) => issue.code === 'COURSE_MASTER_COLUMN_CONTRACT_MISMATCH')).toBe(true);
+  });
+
   it('rejects formula cells', () => {
     const workbook = XLSX.utils.book_new();
     const sheet = XLSX.utils.aoa_to_sheet([

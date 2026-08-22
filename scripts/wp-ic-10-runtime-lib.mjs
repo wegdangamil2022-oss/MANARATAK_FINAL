@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const WPIC10_BASE_SHA = '1d2d51c31caad30b25db51e977747fe172c8d175';
+export const WPIC10_BASE_SHA = 'cd077d8ed6a193428f6d5ab4e3fc07e7bd4c8b27';
 export const WPIC10_EXPECTED_ROWS = 3663;
 export const WPIC10_HEADERS = Object.freeze([
   'No.',
@@ -48,7 +48,11 @@ export function securityAudit(repoRoot) {
     coordinator: 'packages/application/src/courses/use-cases/CourseImportCoordinator.ts',
     seedPilot: 'scripts/wp-ic-08-course-seed-pilot.mjs',
     continuation: 'packages/application/src/courses/use-cases/CourseProviderContinuationUseCases.ts',
+    identityDiff: 'packages/application/src/courses/use-cases/CourseImportIdentityDiffUseCase.ts',
+    importedAdmin: 'packages/application/src/courses/use-cases/ImportedCourseAdminUseCases.ts',
+    parser: 'packages/application/src/import-foundation/parsers/CourseMasterArtifactParser.ts',
     packageJson: 'package.json',
+    archivedSessionTest: 'scripts/archive/remediation-root/test_session_manager.ts',
   };
   const text = {};
   const checks = [];
@@ -106,6 +110,29 @@ export function securityAudit(repoRoot) {
     'bulk link verification remains bounded and rate-safe',
   ));
 
+  checks.push(gate(
+    'exact-master-column-contract',
+    /COURSE_MASTER_COLUMN_CONTRACT_MISMATCH/.test(text.parser),
+    'course master parser fails closed when the approved 11-column order changes',
+  ));
+  checks.push(gate(
+    'manual-url-mutation-blocked',
+    /IMPORTED_COURSE_DIRECT_URL_CHANGE_REQUIRES_CONTROLLED_IMPORT/.test(text.importedAdmin),
+    'manual admin edits cannot bypass source identity and URL history lineage',
+  ));
+  checks.push(gate(
+    'provider-replay-force-reanalysis',
+    /analyzeBatch\(batchId, \{ force: true \}\)/.test(text.continuation) && /options\.force/.test(text.identityDiff),
+    'provider replay bypasses cached analysis without changing ordinary idempotent analysis',
+  ));
+  checks.push(gate(
+    'archived-cloudsql-credentials-removed',
+    !/postgresql:\/\/ai_studio_(?:admin|app_user):/i.test(text.archivedSessionTest) &&
+      /SESSION_TEST_ADMIN_DATABASE_URL/.test(text.archivedSessionTest) &&
+      /SESSION_TEST_APP_DATABASE_URL/.test(text.archivedSessionTest),
+    'archived session diagnostic reads explicit environment URLs and contains no embedded Cloud SQL credentials',
+  ));
+
   let pkg = {};
   try { pkg = JSON.parse(text.packageJson); } catch {}
   const scripts = pkg.scripts ?? {};
@@ -122,40 +149,45 @@ function finishSecurity(checks) {
   return { pass: failed.length === 0, checks, failed: failed.map((item) => item.name) };
 }
 
-export function buildFinalReport(gateResults, { requireAll = true } = {}) {
-  const requiredNames = ['ciClosure', 'security', 'memory', 'database', 'backupRestore', 'browserE2E'];
-  const gates = requiredNames.map((name) => {
-    const value = gateResults[name];
-    if (!value) return { name, pass: !requireAll, state: 'NOT_RUN', detail: 'result artifact missing' };
-    return {
-      name,
-      pass: value.pass === true,
-      state: value.pass === true ? 'PASS' : 'FAIL',
-      detail: value.detail ?? value.result ?? '',
-      source: value.source ?? null,
-    };
-  });
-  const requiredPass = gates.every((item) => item.pass);
-  const smokeValue = gateResults.runtimeSmoke;
-  const runtimeSmoke = !smokeValue
-    ? { name: 'runtimeSmoke', pass: null, state: 'NOT_RUN', detail: 'deployment smoke runs after Google Studio starts the services' }
-    : { name: 'runtimeSmoke', pass: smokeValue.pass === true, state: smokeValue.pass === true ? 'PASS' : 'FAIL', detail: smokeValue.detail ?? smokeValue.result ?? '' };
-  gates.push(runtimeSmoke);
+export function buildFinalReport(gateResults, { phase = 'source' } = {}) {
+  const sourceRequired = ['ciClosure', 'security', 'memory'];
+  const runtimeRequired = ['database', 'backupRestore', 'browserE2E', 'runtimeSmoke'];
+  const requiredNames = phase === 'runtime' ? [...sourceRequired, ...runtimeRequired] : sourceRequired;
+  const deferredNames = phase === 'runtime' ? [] : runtimeRequired;
+  const gates = [];
 
-  const pass = requiredPass && runtimeSmoke.pass !== false;
+  for (const name of requiredNames) {
+    const value = gateResults[name];
+    gates.push(!value
+      ? { name, pass: false, state: 'NOT_RUN', detail: 'required result artifact missing' }
+      : {
+          name,
+          pass: value.pass === true,
+          state: value.pass === true ? 'PASS' : 'FAIL',
+          detail: value.detail ?? value.result ?? '',
+          source: value.source ?? null,
+        });
+  }
+  for (const name of deferredNames) {
+    const value = gateResults[name];
+    gates.push(value
+      ? { name, pass: value.pass === true, state: value.pass === true ? 'PASS' : 'FAIL', detail: value.detail ?? value.result ?? '', source: value.source ?? null }
+      : { name, pass: null, state: 'DEFERRED_TO_GOOGLE_STUDIO', detail: 'prepared in repository; execute only after Google Studio provides the runtime/database environment' });
+  }
+
+  const requiredPass = gates.filter((item) => requiredNames.includes(item.name)).every((item) => item.pass === true);
   const runtimeClosureState = !requiredPass
     ? 'BLOCKED'
-    : runtimeSmoke.pass === true
-      ? 'DEPLOYED_RUNTIME_VERIFIED'
-      : runtimeSmoke.pass === false
-        ? 'BLOCKED_DEPLOYMENT_SMOKE'
-        : 'CLOSED_READY_FOR_GOOGLE_STUDIO_HANDOFF';
+    : phase === 'runtime'
+      ? 'GOOGLE_STUDIO_RUNTIME_VERIFIED'
+      : 'CODE_COMPLETE_READY_FOR_GOOGLE_STUDIO_INTEGRATION';
   return {
-    version: 1,
-    wp: 'WP-IC-10',
+    version: 2,
+    wp: 'WP-IC-10R1',
+    phase,
     baseSha: WPIC10_BASE_SHA,
     generatedAt: new Date().toISOString(),
-    pass,
+    pass: requiredPass,
     runtimeClosureState,
     gates,
   };
@@ -163,7 +195,7 @@ export function buildFinalReport(gateResults, { requireAll = true } = {}) {
 
 export function renderFinalMarkdown(report) {
   const lines = [
-    '# WP-IC-10 Final Implementation Status',
+    '# WP-IC-10R1 Runtime Closure Repair Status',
     '',
     `- Base: \`${report.baseSha}\``,
     `- Generated: ${report.generatedAt}`,
@@ -175,10 +207,10 @@ export function renderFinalMarkdown(report) {
   for (const item of report.gates) {
     lines.push(`| ${item.name} | ${item.state} | ${String(item.detail ?? '').replace(/\|/g, '\\|')} |`);
   }
-  lines.push('', report.runtimeClosureState === 'CLOSED_READY_FOR_GOOGLE_STUDIO_HANDOFF'
-    ? 'Google Studio may proceed with environment configuration, PostgreSQL connection, reviewed migrations, service startup, and deployment smoke verification only.'
-    : report.runtimeClosureState === 'DEPLOYED_RUNTIME_VERIFIED'
-      ? 'Deployment smoke passed. Imported-course runtime closure is verified.'
+  lines.push('', report.runtimeClosureState === 'CODE_COMPLETE_READY_FOR_GOOGLE_STUDIO_INTEGRATION'
+    ? 'Source, contract, build, unit, security, and parser-memory gates passed. Database integration, backup/restore, browser E2E, and runtime smoke are prepared but intentionally deferred until Google Studio provides the runtime/database environment.'
+    : report.runtimeClosureState === 'GOOGLE_STUDIO_RUNTIME_VERIFIED'
+      ? 'Google Studio runtime smoke passed after database/service integration. Imported-course runtime integration is verified.'
       : 'Do not treat imported courses as runtime-closed until every required gate passes.');
   return `${lines.join('\n')}\n`;
 }

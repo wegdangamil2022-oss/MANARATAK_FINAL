@@ -15,7 +15,7 @@ const input = new URL(process.argv[2]);
 const db = input.pathname.replace(/^\//, '');
 const local = ['localhost', '127.0.0.1', '::1'].includes(input.hostname);
 const disposable = /(test|ci|disposable|wpic10|wp_ic_10|wp-ic-10)/i.test(db);
-if (!local && !disposable) {
+if (!local || !disposable) {
   console.error(`Refusing backup/restore rehearsal against non-disposable target: ${input.hostname}/${db}`);
   process.exit(2);
 }

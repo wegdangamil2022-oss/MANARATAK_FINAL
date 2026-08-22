@@ -1,5 +1,8 @@
 # Imported Courses Seed / Replay Runbook
 
+> Provider replay in WP-IC-10R1 performs a **forced reanalysis** of the selected staged batch. Ordinary analysis remains cache/idempotency aware. This is intended for cases where reviewed provider aliases/source health or analysis rules changed; it does not bypass controlled transfer approvals.
+
+
 ## Initial 3,663 seed
 The authoritative seed remains the WP-IC-08 controlled pilot. Do not replace it with direct SQL or direct Prisma writes to canonical Course records.
 

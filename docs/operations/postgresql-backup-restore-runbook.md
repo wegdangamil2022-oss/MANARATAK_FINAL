@@ -1,5 +1,8 @@
 # PostgreSQL Backup / Restore Runbook — Imported Courses
 
+> **Current implementation boundary:** this runbook is prepared during WP-IC-10R1 but is not executed for pre-Google-Studio code acceptance. Google Studio (or an explicitly provisioned disposable runtime environment) executes it after PostgreSQL becomes available. The safety guard still refuses non-loopback and non-test/CI/disposable targets for rehearsal mode.
+
+
 ## Before reviewed migrations or large seed operations
 1. Confirm the target environment and database name.
 2. Record the deployed application commit SHA and Prisma migration status.

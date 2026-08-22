@@ -1,5 +1,12 @@
 # Google Studio Handoff — Imported Courses
 
+## Deployment model for this handoff
+
+WP-IC-10R1 closes the **code/contracts/source-CI** side only. No PostgreSQL instance is required or contacted while this repair is authored, reviewed, or accepted by Codex. Database integration, backup/restore, browser E2E, and runtime smoke are implemented and remain pending until Google Studio supplies the runtime/database environment.
+
+Google Studio is the runtime integrator after code closure. Its job is to configure environment variables, connect the selected PostgreSQL database, apply only reviewed repository migrations, start API/web services, connect the already-implemented import workflows, and run smoke verification. It must not invent a second import architecture, dedup engine, persistence contract, or migration workaround.
+
+
 Google Studio is the runtime/deployment consumer after WP-IC-10. It should not invent or replace the imported-course architecture.
 
 ## Google Studio responsibilities

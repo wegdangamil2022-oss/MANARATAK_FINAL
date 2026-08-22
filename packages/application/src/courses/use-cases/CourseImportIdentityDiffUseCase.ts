@@ -79,6 +79,29 @@ export interface CourseImportIdentityBatchResult {
 
 const TRACKING_QUERY_KEYS = new Set(['gclid', 'fbclid', 'mc_cid', 'mc_eid']);
 const PAGE_SIZE = 100;
+const LANGUAGE_VERSION_ALIASES = new Map<string, string>([
+  ['english', 'en'], ['eng', 'en'], ['en', 'en'],
+  ['spanish', 'es'], ['spa', 'es'], ['es', 'es'],
+  ['french', 'fr'], ['fra', 'fr'], ['fre', 'fr'], ['fr', 'fr'],
+  ['arabic', 'ar'], ['ara', 'ar'], ['ar', 'ar'],
+  ['german', 'de'], ['deu', 'de'], ['ger', 'de'], ['de', 'de'],
+  ['portuguese', 'pt'], ['por', 'pt'], ['pt', 'pt'],
+  ['italian', 'it'], ['ita', 'it'], ['it', 'it'],
+  ['japanese', 'ja'], ['jpn', 'ja'], ['ja', 'ja'],
+  ['chinese', 'zh'], ['zho', 'zh'], ['chi', 'zh'], ['zh', 'zh'],
+  ['korean', 'ko'], ['kor', 'ko'], ['ko', 'ko'],
+  ['russian', 'ru'], ['rus', 'ru'], ['ru', 'ru'],
+  ['dutch', 'nl'], ['nld', 'nl'], ['dut', 'nl'], ['nl', 'nl'],
+  ['turkish', 'tr'], ['tur', 'tr'], ['tr', 'tr'],
+  ['hindi', 'hi'], ['hin', 'hi'], ['hi', 'hi'],
+  ['indonesian', 'id'], ['ind', 'id'], ['id', 'id'],
+  ['vietnamese', 'vi'], ['vie', 'vi'], ['vi', 'vi'],
+  ['polish', 'pl'], ['pol', 'pl'], ['pl', 'pl'],
+]);
+
+export interface CourseImportAnalysisOptions {
+  force?: boolean;
+}
 
 export class CourseImportIdentityDiffUseCase {
   public constructor(
@@ -88,7 +111,7 @@ export class CourseImportIdentityDiffUseCase {
     private readonly nativeKeyAdapters: CourseProviderNativeKeyAdapters = new CourseProviderNativeKeyAdapters(),
   ) {}
 
-  public async analyzeBatch(batchId: string): Promise<CourseImportIdentityBatchResult> {
+  public async analyzeBatch(batchId: string, options: CourseImportAnalysisOptions = {}): Promise<CourseImportIdentityBatchResult> {
     if (!batchId.trim()) throw new Error('COURSE_IMPORT_BATCH_ID_REQUIRED');
     const records = await this.readBatchRecords(batchId);
     const providerCache = new Map<string, ExternalCourseProviderDto | null>();
@@ -106,7 +129,7 @@ export class CourseImportIdentityDiffUseCase {
 
     for (const item of prepared) {
       const existing = await this.analysisRepository.findAnalysisByImportRecordId(item.importRecordId);
-      if (existing) {
+      if (existing && !options.force) {
         analyses.push(existing);
         reused += 1;
         if (existing.requiresReview) requiresReview += 1;
@@ -114,7 +137,7 @@ export class CourseImportIdentityDiffUseCase {
         continue;
       }
 
-      const analysis = await this.analyzePrepared(item, groupFacts);
+      const analysis = await this.analyzePrepared(item, groupFacts, existing ?? undefined);
       analyses.push(analysis);
       if (analysis.requiresReview) requiresReview += 1;
       counts[analysis.changeState] = (counts[analysis.changeState] ?? 0) + 1;
@@ -253,6 +276,7 @@ export class CourseImportIdentityDiffUseCase {
   private async analyzePrepared(
     item: PreparedRecord,
     groupFacts: Map<string, { kind: 'NONE' | 'IDENTICAL_DUPLICATES' | 'AMBIGUOUS' | 'CONFLICT'; firstId?: string }>,
+    reanalysisBaseline?: CourseImportAnalysisDto,
   ): Promise<CourseImportAnalysisDto> {
     if (item.invalidReason || !item.row || !item.provider || !item.fingerprints || !item.sourceNativeKey ||
         item.languageVersionKey === undefined || !item.normalizedTitle || !item.normalizedUrl || !item.identityStrategy) {
@@ -342,12 +366,22 @@ export class CourseImportIdentityDiffUseCase {
       });
     }
 
-    const previous = await this.analysisRepository.findLatestAnalysisForSourceKey(
-      item.provider.id,
-      item.sourceNativeKey,
-      item.languageVersionKey,
-      item.importRecordId,
+    const baselineIdentity = reanalysisBaseline ? this.asObject(reanalysisBaseline.normalizedPayload.identity) : undefined;
+    const baselineCompatible = Boolean(
+      reanalysisBaseline
+      && reanalysisBaseline.resolvedProviderId === item.provider.id
+      && reanalysisBaseline.sourceNativeKey === item.sourceNativeKey
+      && baselineIdentity?.languageVersionKey === item.languageVersionKey
+      && this.readFingerprints(reanalysisBaseline.normalizedPayload),
     );
+    const previous = baselineCompatible
+      ? reanalysisBaseline
+      : await this.analysisRepository.findLatestAnalysisForSourceKey(
+          item.provider.id,
+          item.sourceNativeKey,
+          item.languageVersionKey,
+          item.importRecordId,
+        );
 
     if (!previous) {
       return this.persistAnalysis(item, {
@@ -560,7 +594,7 @@ export class CourseImportIdentityDiffUseCase {
       studyFreeRaw: this.normalizeTextValue(row.studyFreeRaw),
       freeCertificateRaw: this.normalizeTextValue(row.freeCertificateRaw),
       certificateTypeRaw: this.normalizeTextValue(row.certificateTypeRaw),
-      languageRaw: this.normalizeTextValue(row.languageRaw),
+      languageRaw: this.normalizeLanguageVersion(row.languageRaw),
       studyLevelRaw: this.normalizeTextValue(row.studyLevelRaw),
       courseDurationRaw: this.normalizeTextValue(row.courseDurationRaw),
       shortCourseTopicsRaw: this.normalizeTextValue(row.shortCourseTopicsRaw),
@@ -601,7 +635,14 @@ export class CourseImportIdentityDiffUseCase {
   }
 
   private normalizeLanguageVersion(value: string): string {
-    return this.normalizeTextValue(value).toLocaleLowerCase('en-US');
+    const normalized = this.normalizeTextValue(value).toLocaleLowerCase('en-US');
+    if (!normalized) return '';
+    const locale = normalized.replace(/_/g, '-');
+    const alias = LANGUAGE_VERSION_ALIASES.get(locale);
+    if (alias) return alias;
+    const [base, ...rest] = locale.split('-');
+    const canonicalBase = LANGUAGE_VERSION_ALIASES.get(base);
+    return canonicalBase && rest.length > 0 ? [canonicalBase, ...rest].join('-') : locale;
   }
 
   private normalizeTextValue(value: string): string {
