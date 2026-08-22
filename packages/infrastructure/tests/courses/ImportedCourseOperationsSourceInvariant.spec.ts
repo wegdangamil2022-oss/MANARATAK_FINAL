@@ -93,4 +93,14 @@ describe('WP-IC-07 source invariants', () => {
     expect(infrastructureIndex).toContain("PrismaImportedCourseOperationsRepository");
     expect(infrastructureIndex).toContain("SafeImportedCourseLinkChecker");
   });
+
+  it('uses repository-level provider scoping for continuation batches and review counts', () => {
+    const continuation = source('packages/application/src/courses/use-cases/CourseProviderContinuationUseCases.ts');
+    const repository = source('packages/infrastructure/src/courses/PrismaImportedCourseOperationsRepository.ts');
+    expect(continuation).toContain('listProviderCourseBatches');
+    expect(continuation).toContain('getProviderReviewSummary');
+    expect(continuation).not.toContain('listBatches(100)');
+    expect(repository).toContain('listProviderReviewQueue');
+    expect(repository).toContain('a."resolvedProviderId" = ${providerId}');
+  });
 });

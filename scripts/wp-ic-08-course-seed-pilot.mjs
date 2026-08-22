@@ -2,9 +2,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { execFileSync } from 'node:child_process';
 import * as XLSX from 'xlsx';
 import {
-  WPIC08_BASE_SHA,
+  WPIC08_HISTORICAL_PACKAGE_BASE_SHA,
   WPIC08_EXPECTED_SOURCE_ROWS,
   WPIC08_HEADERS,
   WPIC08_SHEET_NAME,
@@ -35,6 +36,7 @@ const approvalsPath = args.approvals ? path.resolve(String(args.approvals)) : pr
 const sourceSystem = String(args['source-system'] ?? process.env.WPIC08_SOURCE_SYSTEM ?? 'COURSE_MASTER_ARTIFACT').trim();
 const verifyIdempotency = Boolean(args['verify-idempotency']);
 const dbSentinelEnabled = Boolean(args['database-sentinel']) || process.env.WPIC08_ENABLE_DB_SENTINEL === '1';
+const runtimeGitSha = currentGitSha();
 
 if (!['source', 'dry-run', 'transfer'].includes(mode)) {
   fatal(`Unsupported --mode ${mode}. Use source, dry-run, or transfer.`);
@@ -48,7 +50,8 @@ writeJson(path.join(outputDir, 'SOURCE_MANIFEST.json'), source.manifest);
 if (!source.manifest.pass) {
   writeJson(path.join(outputDir, 'WPIC08_RESULT.json'), {
     mode,
-    baseSha: WPIC08_BASE_SHA,
+    historicalPackageBaseSha: WPIC08_HISTORICAL_PACKAGE_BASE_SHA,
+    runtimeGitSha,
     generatedAt: new Date().toISOString(),
     sourceManifest: source.manifest,
     result: 'BLOCKED_SOURCE_MANIFEST',
@@ -60,7 +63,8 @@ if (mode === 'source') {
   const report = {
     version: 1,
     mode: 'source',
-    baseSha: WPIC08_BASE_SHA,
+    historicalPackageBaseSha: WPIC08_HISTORICAL_PACKAGE_BASE_SHA,
+    runtimeGitSha,
     generatedAt: new Date().toISOString(),
     sourceManifest: source.manifest,
     result: 'SOURCE_VERIFIED',
@@ -161,7 +165,8 @@ const dryRun = {
 const dryReport = {
   version: 1,
   mode: 'dry-run',
-  baseSha: WPIC08_BASE_SHA,
+  historicalPackageBaseSha: WPIC08_HISTORICAL_PACKAGE_BASE_SHA,
+  runtimeGitSha,
   generatedAt: new Date().toISOString(),
   sourceManifest: source.manifest,
   dryRun,
@@ -249,7 +254,8 @@ if (sentinelClient) await sentinelClient.$disconnect();
 const finalReport = {
   version: 1,
   mode: 'transfer',
-  baseSha: WPIC08_BASE_SHA,
+  historicalPackageBaseSha: WPIC08_HISTORICAL_PACKAGE_BASE_SHA,
+  runtimeGitSha,
   generatedAt: new Date().toISOString(),
   sourceManifest: source.manifest,
   dryRun,
@@ -430,4 +436,9 @@ function stripTrailingSlash(value) {
 function fatal(message) {
   console.error(`[WP-IC-08] ${message}`);
   process.exit(1);
+}
+
+function currentGitSha() {
+  try { return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); }
+  catch { return 'UNAVAILABLE'; }
 }

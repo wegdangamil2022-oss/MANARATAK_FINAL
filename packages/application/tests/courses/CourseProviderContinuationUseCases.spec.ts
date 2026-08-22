@@ -85,6 +85,9 @@ function build(options: {
       overview: {},
     })),
     listReviewQueue: vi.fn(async () => ({ data: [], total: 0, page: 1, pageSize: 100, totalPages: 0 })),
+    listProviderReviewQueue: vi.fn(async () => ({ data: [], total: 0, page: 1, pageSize: 100, totalPages: 0 })),
+    getProviderReviewSummary: vi.fn(async () => ({ reviewRequiredCount: 0, changedLinkQueueCount: 0 })),
+    listProviderCourseBatches: vi.fn(async () => ({ data: [], total: 0 })),
     recordLinkCheck: vi.fn(async () => undefined),
   } as any;
   const linkChecker = {
@@ -250,5 +253,41 @@ describe('CourseProviderContinuationUseCases', () => {
     const { service } = build({ batchSourceSystem: 'COURSE_PROVIDER_FILE:another-provider:FULL_SNAPSHOT' });
     await expect(service.replayProviderBatch(provider.id, 'batch-1'))
       .rejects.toThrow('COURSE_PROVIDER_CONTINUATION_BATCH_PROVIDER_MISMATCH');
+  });
+
+  it('blocks an empty FULL_SNAPSHOT connector even without a prior baseline', async () => {
+    const registry = new CourseProviderConnectorRegistry();
+    registry.register({ connectorKey: provider.connectorKey, connectorVersion: provider.connectorVersion, expectedSignature: { schema: 1 }, mode: 'FULL_SNAPSHOT', async fetch() { return { rows: [], observedSignature: { schema: 1 } }; } });
+    const { service, importAdminUseCases } = build({ canonicalTotal: 0, registry });
+    await expect(service.runRegisteredConnector(provider.id)).rejects.toBeInstanceOf(CourseProviderDriftError);
+    expect(importAdminUseCases.stageNormalizedRows).not.toHaveBeenCalled();
+  });
+
+  it('does not let source-health approval mutate a connector version to bypass execution checks', async () => {
+    const { service } = build();
+    await expect(service.approveProviderSourceHealth(provider.id, { connectorVersion: '9.9.9' }))
+      .rejects.toThrow('COURSE_PROVIDER_CONNECTOR_VERSION_MUTATION_FORBIDDEN');
+  });
+
+  it('uses provider-scoped batch data so a global first-100 cap cannot hide the latest snapshot', async () => {
+    const { service, importedOperationsRepository } = build();
+    importedOperationsRepository.listProviderCourseBatches.mockImplementation(async (input: any) => {
+      if (input.sourcePrefix) return { data: [{ id: 'late-full', totalRecords: 42 }], total: 1 };
+      return { data: [{ id: 'late-current', sourceSystem: `COURSE_PROVIDER_FILE:${provider.publicId}:INCREMENTAL` }], total: 101 };
+    });
+    const status = await service.getProviderStatus(provider.id);
+    expect(status.continuation.continuationBatchCount).toBe(101);
+    expect(status.continuation.latestBatch.id).toBe('late-current');
+    const result = await service.preflightProviderFile(provider.id, { assetId: 'asset-1', mode: 'FULL_SNAPSHOT' });
+    expect(result.driftAlerts).toEqual([]);
+  });
+
+  it('uses provider-scoped review pagination instead of sampling the first 2,000 global records', async () => {
+    const { service, importedOperationsRepository } = build();
+    importedOperationsRepository.getProviderReviewSummary.mockResolvedValue({ reviewRequiredCount: 2101, changedLinkQueueCount: 0 });
+    const status = await service.getProviderStatus(provider.id);
+    expect(status.continuation.reviewRequiredCount).toBe(2101);
+    expect(importedOperationsRepository.listReviewQueue).not.toHaveBeenCalled();
+    expect(importedOperationsRepository.getProviderReviewSummary).toHaveBeenCalledWith(provider.id);
   });
 });

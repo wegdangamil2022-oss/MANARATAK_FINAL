@@ -193,8 +193,18 @@ export interface IImportedCourseOperationsRepository {
   ): Promise<void>;
   getImportOperationsOverview(): Promise<CourseImportOperationsOverview>;
   listCourseBatches(limit?: number): Promise<CourseImportBatchSummary[]>;
+  listProviderCourseBatches(input: {
+    providerPublicId: string;
+    sourcePrefix?: string;
+    limit?: number;
+  }): Promise<{ data: CourseImportBatchSummary[]; total: number }>;
   getCourseBatchById(id: string): Promise<CourseImportBatchSummary | null>;
   listReviewQueue(input?: { page?: number; pageSize?: number }): Promise<CourseImportReviewPage>;
+  listProviderReviewQueue(
+    providerId: string,
+    input?: { page?: number; pageSize?: number },
+  ): Promise<CourseImportReviewPage>;
+  getProviderReviewSummary(providerId: string): Promise<{ reviewRequiredCount: number; changedLinkQueueCount: number }>;
 }
 
 export interface IImportedCourseLinkChecker {

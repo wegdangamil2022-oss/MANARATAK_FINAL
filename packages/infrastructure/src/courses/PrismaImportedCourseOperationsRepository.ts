@@ -394,6 +394,31 @@ export class PrismaImportedCourseOperationsRepository implements IImportedCourse
     });
   }
 
+  public async listProviderCourseBatches(input: {
+    providerPublicId: string;
+    sourcePrefix?: string;
+    limit?: number;
+  }): Promise<{ data: any[]; total: number }> {
+    const where: Prisma.ImportBatchWhereInput = {
+      dataType: 'COURSES',
+      ...(input.sourcePrefix
+        ? { sourceSystem: { startsWith: input.sourcePrefix } }
+        : { OR: [
+          { sourceSystem: { startsWith: `COURSE_PROVIDER_FILE:${input.providerPublicId}:` } },
+          { sourceSystem: { startsWith: `COURSE_PROVIDER_CONNECTOR:${input.providerPublicId}:` } },
+        ] }),
+    };
+    const take = Math.min(100, Math.max(1, input.limit ?? 50));
+    const [data, total] = await Promise.all([
+      this.prisma.importBatch.findMany({
+        where, take, orderBy: { createdAt: 'desc' },
+        select: { id: true, sourceSystem: true, dataType: true, batchStatus: true, totalRecords: true, processedRecords: true, failedRecords: true, createdAt: true, updatedAt: true },
+      }),
+      this.prisma.importBatch.count({ where }),
+    ]);
+    return { data, total };
+  }
+
   public async getCourseBatchById(id: string): Promise<any | null> {
     return this.prisma.importBatch.findFirst({
       where: { id, dataType: 'COURSES' },
@@ -504,6 +529,48 @@ export class PrismaImportedCourseOperationsRepository implements IImportedCourse
       pageSize: size,
       totalPages: Math.ceil(total / size),
     };
+  }
+
+  public async listProviderReviewQueue(providerId: string, input: { page?: number; pageSize?: number } = {}): Promise<CourseImportReviewPage> {
+    const page = pageNumber(input.page, 1);
+    const size = pageSize(input.pageSize, 50);
+    const offset = (page - 1) * size;
+    const rows = await this.prisma.$queryRaw<any[]>`
+      SELECT a."importRecordId", r."batchId", r."status" AS "recordStatus", r."sourceRowNumber",
+        a."resolvedProviderId", p."displayName" AS "providerName", a."normalizedPayload", a."changeState",
+        a."requiresReview", a."matchedCourseId", r."promotedEntityId", r."validationErrors", a."analyzedAt", r."createdAt" AS "recordCreatedAt"
+      FROM "CourseImportAnalysis" a
+      INNER JOIN "ImportRecord" r ON r."id" = a."importRecordId"
+      INNER JOIN "ImportBatch" b ON b."id" = r."batchId"
+      LEFT JOIN "ExternalCourseProvider" p ON p."id" = a."resolvedProviderId"
+      WHERE b."dataType" = 'COURSES' AND a."resolvedProviderId" = ${providerId}
+        AND (a."requiresReview" = TRUE OR a."changeState" IN ('URL_CHANGED','METADATA_CHANGED','URL_AND_METADATA_CHANGED','AMBIGUOUS_MATCH','CONFLICT','INVALID','INCOMPLETE'))
+      ORDER BY a."analyzedAt" DESC LIMIT ${size} OFFSET ${offset}`;
+    const countRows = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS "count" FROM "CourseImportAnalysis" a
+      INNER JOIN "ImportRecord" r ON r."id" = a."importRecordId"
+      INNER JOIN "ImportBatch" b ON b."id" = r."batchId"
+      WHERE b."dataType" = 'COURSES' AND a."resolvedProviderId" = ${providerId}
+        AND (a."requiresReview" = TRUE OR a."changeState" IN ('URL_CHANGED','METADATA_CHANGED','URL_AND_METADATA_CHANGED','AMBIGUOUS_MATCH','CONFLICT','INVALID','INCOMPLETE'))`;
+    const total = Number(countRows[0]?.count ?? 0);
+    return {
+      data: rows.map((row: any) => {
+        const payload = this.objectOrNull(row.normalizedPayload) ?? {};
+        const normalizedRow = this.objectOrNull(payload.row) ?? payload;
+        return { importRecordId: row.importRecordId, batchId: row.batchId, status: row.recordStatus, sourceRowNumber: row.sourceRowNumber, providerId: row.resolvedProviderId, providerName: row.providerName ?? null, courseName: this.stringValue(normalizedRow.courseName ?? normalizedRow['Course Name']), directCourseUrl: this.stringValue(normalizedRow.directCourseUrl ?? normalizedRow['Direct Course URL']), changeState: row.changeState, requiresReview: row.requiresReview, matchedCourseId: row.matchedCourseId, promotedEntityId: row.promotedEntityId, validationErrors: row.validationErrors, analyzedAt: row.analyzedAt, createdAt: row.recordCreatedAt };
+      }), total, page, pageSize: size, totalPages: Math.ceil(total / size),
+    };
+  }
+
+  public async getProviderReviewSummary(providerId: string): Promise<{ reviewRequiredCount: number; changedLinkQueueCount: number }> {
+    const rows = await this.prisma.$queryRaw<Array<{ reviewCount: bigint; changedCount: bigint }>>`
+      SELECT COUNT(*)::bigint AS "reviewCount",
+        COUNT(*) FILTER (WHERE a."changeState" IN ('URL_CHANGED','URL_AND_METADATA_CHANGED'))::bigint AS "changedCount"
+      FROM "CourseImportAnalysis" a INNER JOIN "ImportRecord" r ON r."id" = a."importRecordId"
+      INNER JOIN "ImportBatch" b ON b."id" = r."batchId"
+      WHERE b."dataType" = 'COURSES' AND a."resolvedProviderId" = ${providerId}
+        AND (a."requiresReview" = TRUE OR a."changeState" IN ('URL_CHANGED','METADATA_CHANGED','URL_AND_METADATA_CHANGED','AMBIGUOUS_MATCH','CONFLICT','INVALID','INCOMPLETE'))`;
+    return { reviewRequiredCount: Number(rows[0]?.reviewCount ?? 0), changedLinkQueueCount: Number(rows[0]?.changedCount ?? 0) };
   }
 
   private courseWhere(filters: ImportedCourseAdminFilters): Prisma.CourseWhereInput {

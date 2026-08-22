@@ -140,22 +140,18 @@ export class CourseProviderContinuationUseCases {
 
   public async getProviderStatus(providerRef: string) {
     const provider = await this.requireProvider(providerRef);
-    const [canonical, freeCertificate, broken, needsReviewLinks, unknownLinks, reviewRecords, batches] = await Promise.all([
+    const [canonical, freeCertificate, broken, needsReviewLinks, unknownLinks, reviewSummary, batches] = await Promise.all([
       this.importedOperationsRepository.listImportedCourses({ providerId: provider.id, page: 1, pageSize: 1 }),
       this.importedOperationsRepository.listImportedCourses({ providerId: provider.id, freeMode: 'FREE_CERTIFICATE', page: 1, pageSize: 1 }),
       this.importedOperationsRepository.listImportedCourses({ providerId: provider.id, linkHealth: 'BROKEN', page: 1, pageSize: 1 }),
       this.importedOperationsRepository.listImportedCourses({ providerId: provider.id, linkHealth: 'NEEDS_REVIEW', page: 1, pageSize: 1 }),
       this.importedOperationsRepository.listImportedCourses({ providerId: provider.id, linkHealth: 'UNKNOWN', page: 1, pageSize: 1 }),
-      this.listProviderReviewRecords(provider.id, 10_000),
-      this.operationsUseCases.listBatches(100),
+      this.importedOperationsRepository.getProviderReviewSummary(provider.id),
+      this.importedOperationsRepository.listProviderCourseBatches({ providerPublicId: provider.publicId, limit: 100 }),
     ]);
 
-    const providerBatches = this.providerBatches(provider, batches);
+    const providerBatches = batches.data;
     const latestBatch = providerBatches[0] ?? null;
-    const changedLinkReviews = reviewRecords.filter((item: any) =>
-      item.changeState === CourseImportChangeState.URL_CHANGED ||
-      item.changeState === CourseImportChangeState.URL_AND_METADATA_CHANGED,
-    );
     const sourceHealth = provider.status !== ExternalCourseProviderStatus.APPROVED
       ? 'NEEDS_REVIEW'
       : broken.total > 0
@@ -174,9 +170,9 @@ export class CourseProviderContinuationUseCases {
         freeCertificateCount: freeCertificate.total,
         brokenLinkCount: broken.total,
         needsVerificationCount: needsReviewLinks.total + unknownLinks.total,
-        reviewRequiredCount: reviewRecords.length,
-        changedLinkQueueCount: changedLinkReviews.length,
-        continuationBatchCount: providerBatches.length,
+        reviewRequiredCount: reviewSummary.reviewRequiredCount,
+        changedLinkQueueCount: reviewSummary.changedLinkQueueCount,
+        continuationBatchCount: batches.total,
         latestBatch,
         lastVerifiedAt: provider.lastVerifiedAt ?? null,
         connector: {
@@ -362,7 +358,16 @@ export class CourseProviderContinuationUseCases {
     input: { connectorVersion?: string } = {},
   ) {
     const provider = await this.requireProvider(providerRef);
-    const connectorVersion = input.connectorVersion?.trim() || provider.connectorVersion;
+    if (input.connectorVersion?.trim() && input.connectorVersion.trim() !== provider.connectorVersion) {
+      throw new Error('COURSE_PROVIDER_CONNECTOR_VERSION_MUTATION_FORBIDDEN');
+    }
+    if (provider.connectorKey) {
+      const implementation = this.connectorRegistry.resolve(provider.connectorKey);
+      if (!implementation || implementation.connectorVersion !== provider.connectorVersion) {
+        throw new Error('COURSE_PROVIDER_CONNECTOR_VERSION_MISMATCH');
+      }
+    }
+    const connectorVersion = provider.connectorVersion;
     const updated = await this.providerRepository.upsertSeedProvider({
       publicId: provider.publicId,
       slug: provider.slug,
@@ -546,10 +551,7 @@ export class CourseProviderContinuationUseCases {
       const observed = Number(preflight?.summary?.rowsFound ?? 0);
       const baseline = await this.latestSnapshotBaseline(provider, PROVIDER_FILE_PREFIX)
         ?? (await this.importedOperationsRepository.listImportedCourses({ providerId: provider.id, page: 1, pageSize: 1 })).total;
-      if (
-        baseline >= MIN_LOW_YIELD_BASELINE &&
-        observed < Math.floor(baseline * FULL_SNAPSHOT_LOW_YIELD_RATIO)
-      ) {
+      if (observed === 0 || (baseline >= MIN_LOW_YIELD_BASELINE && observed < Math.floor(baseline * FULL_SNAPSHOT_LOW_YIELD_RATIO))) {
         alerts.push(this.alert({
           provider,
           connectorId: this.providerFileSourceSystem(provider, mode),
@@ -650,10 +652,7 @@ export class CourseProviderContinuationUseCases {
       const baseline = await this.latestSnapshotBaseline(provider, PROVIDER_CONNECTOR_PREFIX)
         ?? (await this.importedOperationsRepository.listImportedCourses({ providerId: provider.id, page: 1, pageSize: 1 })).total;
       const observed = fetched.rows.length;
-      if (
-        baseline >= MIN_LOW_YIELD_BASELINE &&
-        observed < Math.floor(baseline * FULL_SNAPSHOT_LOW_YIELD_RATIO)
-      ) {
+      if (observed === 0 || (baseline >= MIN_LOW_YIELD_BASELINE && observed < Math.floor(baseline * FULL_SNAPSHOT_LOW_YIELD_RATIO))) {
         alerts.push(this.alert({
           provider,
           connectorId: connector.connectorKey,
@@ -719,19 +718,12 @@ export class CourseProviderContinuationUseCases {
     provider: ExternalCourseProviderDto,
     prefix: string,
   ): Promise<number | null> {
-    const batches = await this.operationsUseCases.listBatches(100);
-    const matching = batches.filter((batch: any) => {
-      const source = String(batch?.sourceSystem ?? '');
-      return source.startsWith(`${prefix}${provider.publicId}:FULL_SNAPSHOT`);
+    const matching = await this.importedOperationsRepository.listProviderCourseBatches({
+      providerPublicId: provider.publicId,
+      sourcePrefix: `${prefix}${provider.publicId}:FULL_SNAPSHOT`,
+      limit: 1,
     });
-    if (matching.length === 0) return null;
-    return Number(matching[0]?.totalRecords ?? 0);
-  }
-
-  private providerBatches(provider: ExternalCourseProviderDto, batches: any[]): any[] {
-    return (batches ?? []).filter((batch: any) =>
-      this.isProviderContinuationSource(provider, String(batch?.sourceSystem ?? '')),
-    );
+    return matching.data.length ? Number(matching.data[0]?.totalRecords ?? 0) : null;
   }
 
   private isProviderContinuationSource(provider: ExternalCourseProviderDto, sourceSystem: string): boolean {
@@ -742,9 +734,9 @@ export class CourseProviderContinuationUseCases {
   private async listProviderReviewRecords(providerId: string, limit: number): Promise<any[]> {
     const rows: any[] = [];
     let page = 1;
-    while (rows.length < limit && page <= 20) {
-      const result = await this.importedOperationsRepository.listReviewQueue({ page, pageSize: 100 });
-      rows.push(...result.data.filter((item: any) => item.providerId === providerId));
+    while (rows.length < limit) {
+      const result = await this.importedOperationsRepository.listProviderReviewQueue(providerId, { page, pageSize: 100 });
+      rows.push(...result.data);
       if (page * result.pageSize >= result.total) break;
       page += 1;
     }

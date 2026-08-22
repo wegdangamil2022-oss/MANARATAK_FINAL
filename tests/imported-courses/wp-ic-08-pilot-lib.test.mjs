@@ -8,6 +8,7 @@ import {
   summarizeProviderResolution,
   summarizeTransferResults,
   assertIdempotencyReplay,
+  renderReconciliationMarkdown,
 } from '../../scripts/wp-ic-08-pilot-lib.mjs';
 
 function fixtureRow(no, provider, overrides = {}) {
@@ -40,6 +41,16 @@ test('buildSourceManifest validates a non-official fixture without weakening off
   assert.equal(result.pass, true);
   assert.equal(result.observed.sourceRows, 2);
   assert.equal(result.observed.providerCount, 2);
+});
+
+test('pilot report keeps historical package and runtime Git SHA separate', () => {
+  const markdown = renderReconciliationMarkdown({
+    historicalPackageBaseSha: 'historical-sha',
+    runtimeGitSha: 'runtime-sha',
+  });
+  assert.match(markdown, /Historical package base SHA: historical-sha/);
+  assert.match(markdown, /Runtime git SHA: runtime-sha/);
+  assert.doesNotMatch(markdown, /Base SHA:/);
 });
 
 test('buildSourceManifest rejects wrong exact header order', () => {
