@@ -3,7 +3,8 @@ import { PublicScholarshipUseCases } from '../../src/scholarships/use-cases/Publ
 import { 
   IScholarshipRepository, 
   ScholarshipStatus,
-  ScholarshipCompletenessState
+  ScholarshipCompletenessState,
+  ScholarshipPublicationStatus
 } from '@manaratak/domain';
 
 describe('PublicScholarshipUseCases', () => {
@@ -34,6 +35,7 @@ describe('PublicScholarshipUseCases', () => {
       data: [{
         id: 'internal-id',
         status: ScholarshipStatus.PUBLISHED,
+        publicationStatus: ScholarshipPublicationStatus.PUBLISHED,
         displayName: 'Test',
         optionalFields: { customField: 'value' }
       }], 
@@ -52,6 +54,7 @@ describe('PublicScholarshipUseCases', () => {
       id: 'schol-1',
       slug: 'test-slug',
       status: ScholarshipStatus.PUBLISHED,
+      publicationStatus: ScholarshipPublicationStatus.PUBLISHED,
       displayName: 'Test',
       optionalFields: { extra: 123 }
     });
@@ -63,11 +66,12 @@ describe('PublicScholarshipUseCases', () => {
     expect(result).toHaveProperty('extra', 123);
   });
 
-  it('getScholarship throws if not PUBLISHED', async () => {
+  it('getScholarship rejects legacy PUBLISHED when canonical publication is not PUBLISHED', async () => {
     mockRepo.findBySlug = vi.fn().mockResolvedValue({
       id: 'schol-1',
       slug: 'test-slug',
       status: ScholarshipStatus.READY_TO_PUBLISH,
+      publicationStatus: ScholarshipPublicationStatus.DRAFT,
       displayName: 'Test'
     });
     
@@ -78,5 +82,13 @@ describe('PublicScholarshipUseCases', () => {
     mockRepo.findBySlug = vi.fn().mockResolvedValue(null);
     
     await expect(useCases.getScholarship('test-slug')).rejects.toThrow('Scholarship not found');
+  });
+
+  it('never exposes a legacy workflow PUBLISHED scholarship when canonical publication is DRAFT', async () => {
+    mockRepo.findBySlug = vi.fn().mockResolvedValue({
+      id: 'schol-legacy', slug: 'legacy', status: ScholarshipStatus.PUBLISHED,
+      publicationStatus: ScholarshipPublicationStatus.DRAFT, displayName: 'Legacy state only',
+    });
+    await expect(useCases.getScholarship('legacy')).rejects.toThrow('Scholarship not found');
   });
 });

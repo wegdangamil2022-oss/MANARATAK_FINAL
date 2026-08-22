@@ -4,6 +4,7 @@ import {
   ScholarshipDto, 
   UpdateScholarshipDto,
   ScholarshipStatus,
+  ScholarshipPublicationStatus,
   ScholarshipCompletenessState,
   ScholarshipFilters,
   PaginatedResult,
@@ -105,6 +106,7 @@ export class AdminScholarshipUseCases {
       duration: input.duration || '',
       status: initialStatus,
       completenessStatus: classification.state,
+      publicationStatus: ScholarshipPublicationStatus.DRAFT,
     };
 
     return this.mutate('SCHOLARSHIP_CREATED', publicId, context, repository => repository.create(scholarshipData));
@@ -143,7 +145,7 @@ export class AdminScholarshipUseCases {
       throw new Error('Cannot mark INCOMPLETE scholarship as READY_TO_REVIEW');
     }
     if (existing.status !== ScholarshipStatus.READY_TO_REVIEW) {
-      await this.mutate('SCHOLARSHIP_MARKED_READY_TO_REVIEW', id, context, repository => repository.updateStatus(id, ScholarshipStatus.READY_TO_REVIEW));
+      await this.lifecycleMutation('SCHOLARSHIP_MARKED_READY_TO_REVIEW', id, { workflowStatus: ScholarshipStatus.READY_TO_REVIEW }, context);
     }
   }
 
@@ -152,7 +154,7 @@ export class AdminScholarshipUseCases {
     if (existing.completenessStatus !== ScholarshipCompletenessState.COMPLETE) {
       throw new Error('Only COMPLETE scholarships can be marked as READY_TO_PUBLISH');
     }
-    await this.mutate('SCHOLARSHIP_MARKED_READY_TO_PUBLISH', id, context, repository => repository.updateStatus(id, ScholarshipStatus.READY_TO_PUBLISH));
+    await this.lifecycleMutation('SCHOLARSHIP_MARKED_READY_TO_PUBLISH', id, { workflowStatus: ScholarshipStatus.READY_TO_PUBLISH }, context);
   }
 
   public async publish(id: string, context?: AtomicMutationRequestContext): Promise<void> {
@@ -160,27 +162,36 @@ export class AdminScholarshipUseCases {
     if (existing.status !== ScholarshipStatus.READY_TO_PUBLISH) {
       throw new Error('Only READY_TO_PUBLISH scholarships can be PUBLISHED');
     }
-    await this.mutate('SCHOLARSHIP_PUBLISHED', id, context, repository => repository.updateStatus(id, ScholarshipStatus.PUBLISHED));
+    await this.lifecycleMutation('SCHOLARSHIP_PUBLISHED', id, {
+      workflowStatus: ScholarshipStatus.PUBLISHED,
+      publicationStatus: ScholarshipPublicationStatus.PUBLISHED,
+    }, context);
   }
 
   public async unpublish(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getScholarship(id);
-    if (existing.status !== ScholarshipStatus.PUBLISHED) {
+    if (existing.publicationStatus !== ScholarshipPublicationStatus.PUBLISHED) {
       throw new Error('Cannot unpublish a scholarship that is not PUBLISHED');
     }
-    await this.mutate('SCHOLARSHIP_UNPUBLISHED', id, context, repository => repository.updateStatus(id, ScholarshipStatus.READY_TO_REVIEW));
+    await this.lifecycleMutation('SCHOLARSHIP_UNPUBLISHED', id, {
+      workflowStatus: ScholarshipStatus.READY_TO_REVIEW,
+      publicationStatus: ScholarshipPublicationStatus.DRAFT,
+    }, context);
   }
 
   public async reject(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getScholarship(id);
-    if (existing.status === ScholarshipStatus.PUBLISHED) {
+    if (existing.publicationStatus === ScholarshipPublicationStatus.PUBLISHED) {
       throw new Error('Cannot reject a PUBLISHED scholarship. Unpublish first.');
     }
-    await this.mutate('SCHOLARSHIP_REJECTED', id, context, repository => repository.updateStatus(id, ScholarshipStatus.REJECTED));
+    await this.lifecycleMutation('SCHOLARSHIP_REJECTED', id, { workflowStatus: ScholarshipStatus.REJECTED }, context);
   }
 
   public async archive(id: string, context?: AtomicMutationRequestContext): Promise<void> {
-    await this.mutate('SCHOLARSHIP_ARCHIVED', id, context, repository => repository.updateStatus(id, ScholarshipStatus.ARCHIVED));
+    await this.lifecycleMutation('SCHOLARSHIP_ARCHIVED', id, {
+      workflowStatus: ScholarshipStatus.ARCHIVED,
+      publicationStatus: ScholarshipPublicationStatus.ARCHIVED,
+    }, context);
   }
 
   private mutate<T>(action: string, id: string, context: AtomicMutationRequestContext | undefined, mutation: (repository: IScholarshipRepository) => Promise<T>): Promise<T> {
@@ -189,5 +200,19 @@ export class AdminScholarshipUseCases {
     if (!repository.withTransaction) throw new Error('SCHOLARSHIP_TRANSACTIONAL_PERSISTENCE_REQUIRED');
     return this.atomicMutations.execute({ domain: 'SCHOLARSHIPS', aggregateType: 'SCHOLARSHIP', aggregateId: id, action, context },
       transaction => mutation(repository.withTransaction!(transaction)));
+  }
+
+  private lifecycleMutation(
+    action: string,
+    id: string,
+    lifecycle: { workflowStatus?: ScholarshipStatus; publicationStatus?: ScholarshipPublicationStatus },
+    context?: AtomicMutationRequestContext,
+  ): Promise<void> {
+    return this.mutate(action, id, context, repository => {
+      if (repository.updateLifecycle) return repository.updateLifecycle(id, lifecycle);
+      // Temporary source-only compatibility for old adapters; real Prisma persistence always uses canonical fields.
+      if (lifecycle.workflowStatus) return repository.updateStatus(id, lifecycle.workflowStatus);
+      throw new Error('SCHOLARSHIP_LIFECYCLE_PERSISTENCE_REQUIRED');
+    });
   }
 }

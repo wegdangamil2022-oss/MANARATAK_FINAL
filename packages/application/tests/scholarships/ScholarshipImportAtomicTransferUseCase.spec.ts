@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   ScholarshipCompletenessState,
+  ScholarshipPublicationStatus,
   ScholarshipDeduplicationService,
   ScholarshipNamingService,
   ScholarshipStatus,
@@ -134,6 +135,9 @@ function existingScholarship(status: ScholarshipStatus = ScholarshipStatus.IMPOR
     displayName: 'Old display name',
     status,
     completenessStatus: ScholarshipCompletenessState.COMPLETE,
+    publicationStatus: status === ScholarshipStatus.PUBLISHED
+      ? ScholarshipPublicationStatus.PUBLISHED
+      : ScholarshipPublicationStatus.DRAFT,
     providerName: source.providerName,
     sourceImportRecordId: 'old-record',
     sourceEvidence: [],
@@ -182,7 +186,7 @@ describe('WP12-10 ScholarshipImportAtomicTransferUseCase', () => {
     expect(env.getScholarship()?.status).toBe(ScholarshipStatus.IMPORTED);
   });
 
-  it('refuses to mutate a published or ready-to-publish target through import transfer', async () => {
+  it('refuses to mutate a canonically published target through import transfer', async () => {
     const env = setup(existingScholarship(ScholarshipStatus.PUBLISHED));
     await env.service.recordDecision({ recordId: 'rec-1', action: 'MERGE', actorId: 'admin-1' });
 

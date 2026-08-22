@@ -5,6 +5,7 @@ import {
   ScholarshipImportPayloadSchema,
   ScholarshipNamingService,
   ScholarshipStatus,
+  ScholarshipVerificationStatus,
   type CreateScholarshipDto,
   type IScholarshipRepository,
   type ITransactionalScholarshipRepository,
@@ -186,8 +187,8 @@ export class ScholarshipImportAtomicTransferUseCase
       if (plan.existing) {
         this.assertMergeDecision(decision, plan);
         if (
-          plan.existing.status === ScholarshipStatus.PUBLISHED ||
-          plan.existing.status === ScholarshipStatus.READY_TO_PUBLISH
+          plan.existing.publicationStatus === 'PUBLISHED' ||
+          plan.existing.publicationStatus === 'ARCHIVED'
         ) {
           throw new Error('SCHOLARSHIP_IMPORT_TARGET_PUBLICATION_LOCKED');
         }
@@ -205,7 +206,7 @@ export class ScholarshipImportAtomicTransferUseCase
         mode = 'CREATE';
       }
 
-      if (scholarship.status === ScholarshipStatus.PUBLISHED) {
+      if (scholarship.publicationStatus === 'PUBLISHED') {
         throw new Error('SCHOLARSHIP_IMPORT_TRANSFER_AUTO_PUBLISH_FORBIDDEN');
       }
 
@@ -339,6 +340,7 @@ export class ScholarshipImportAtomicTransferUseCase
       canonicalName: plan.cleanedName.cleanedScholarshipName,
       canonicalDedupKey: plan.duplicateKey,
       status: ScholarshipStatus.IMPORTED,
+      verificationStatus: ScholarshipVerificationStatus.PENDING,
       ...common,
     };
   }
@@ -385,6 +387,8 @@ export class ScholarshipImportAtomicTransferUseCase
     const majorLabels = this.uniqueStrings(this.strings(payload.eligibleMajorsOrFields));
     const currencyResult = this.firstResolved(plan.canonical, 'CURRENCY');
     const countryResult = this.firstResolved(plan.canonical, 'COUNTRY');
+    const languageLabels = this.uniqueStrings(this.strings(payload.studyLanguage));
+    const languageResult = languageLabels.length ? this.resolutionFor(plan.canonical, 'LANGUAGE', languageLabels[0]) : undefined;
     const fundingTypeCode = this.stringValue(metadata.fundingTypeCode)
       ?? plan.cleanedName.extracted.fundingTypeCode
       ?? (payload.isFullyFunded === true ? 'FULLY_FUNDED' : null);
@@ -419,6 +423,9 @@ export class ScholarshipImportAtomicTransferUseCase
       sourceImportRecordId: plan.record.id,
       sourceLocale,
       lastVerifiedAt,
+      studyLanguageReferenceId: languageResult?.canonicalReferenceId ?? null,
+      studyLanguageSourceLabel: languageLabels[0] ?? null,
+      studyLanguageResolutionStatus: languageResult?.state ?? (languageLabels.length ? 'SOURCE_ONLY' : null),
       benefits: this.benefits(plan, fundingTypeCode, currencyResult?.canonicalReferenceId ?? null),
       degreeTargets: degreeLabels.map((label, index) => {
         const resolved = this.resolutionFor(plan.canonical, 'DEGREE_LEVEL', label);
@@ -543,18 +550,28 @@ export class ScholarshipImportAtomicTransferUseCase
 
   private requiredDocuments(plan: TransferPlan): NonNullable<CreateScholarshipDto['requiredDocumentItems']> {
     const metadata = this.object(plan.payload.metadata);
-    const labels = this.uniqueStrings([
-      ...this.strings(plan.payload.requiredDocuments),
-      ...(Array.isArray(metadata.requiredDocumentItems)
-        ? metadata.requiredDocumentItems.flatMap((value) => {
-            const item = this.object(value);
-            return this.strings(item.displayName ?? item.name);
-          })
-        : []),
-    ]);
-    return labels.map((label, index) => ({
-      documentKey: `document-${index + 1}-${this.shortKey(label)}`,
-      displayName: label,
+    const rawItems = Array.isArray(metadata.requiredDocumentItems) ? metadata.requiredDocumentItems : [];
+    const structured = rawItems.flatMap((value) => {
+      const item = this.object(value);
+      const label = this.stringValue(item.displayName ?? item.name ?? item.sourceLabel);
+      if (!label) return [];
+      const testLabel = this.stringValue(item.internationalTestLabel ?? item.testName);
+      const resolved = testLabel ? this.resolutionFor(plan.canonical, 'INTERNATIONAL_TEST', testLabel) : undefined;
+      return [{ label, internationalTestId: this.stringValue(item.internationalTestId) ?? resolved?.canonicalReferenceId ?? null,
+        sourceLabel: this.stringValue(item.sourceLabel) ?? label,
+        resolutionStatus: this.stringValue(item.resolutionStatus) ?? resolved?.state ?? 'SOURCE_ONLY' }];
+    });
+    const labels = this.uniqueStrings(this.strings(plan.payload.requiredDocuments));
+    const combined = [
+      ...labels.map((label) => ({ label, internationalTestId: null, sourceLabel: label, resolutionStatus: 'SOURCE_ONLY' })),
+      ...structured.filter((item) => !labels.includes(item.label)),
+    ];
+    return combined.map((item, index) => ({
+      documentKey: `document-${index + 1}-${this.shortKey(item.label)}`,
+      displayName: item.label,
+      internationalTestId: item.internationalTestId,
+      sourceLabel: item.sourceLabel,
+      resolutionStatus: item.resolutionStatus,
       isRequired: true,
       displayOrder: index,
     }));

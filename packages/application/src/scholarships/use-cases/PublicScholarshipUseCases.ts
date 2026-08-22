@@ -3,7 +3,7 @@ import {
   PublicScholarshipFilters, 
   PublicScholarshipDto, 
   PaginatedResult,
-  ScholarshipStatus
+  ScholarshipPublicationStatus
 } from '@manaratak/domain';
 
 export class PublicScholarshipUseCases {
@@ -21,7 +21,7 @@ export class PublicScholarshipUseCases {
   public async getScholarship(slug: string): Promise<PublicScholarshipDto> {
     const scholarship = await this.repository.findBySlug(slug);
     
-    if (!scholarship || scholarship.status !== ScholarshipStatus.PUBLISHED) {
+    if (!scholarship || scholarship.publicationStatus !== ScholarshipPublicationStatus.PUBLISHED) {
       throw new Error('Scholarship not found');
     }
     
@@ -35,6 +35,8 @@ export class PublicScholarshipUseCases {
       sourceImportRecordId,
       status,
       completenessStatus,
+      verificationStatus,
+      publicationStatus,
       createdAt,
       optionalFields,
       ...publicData

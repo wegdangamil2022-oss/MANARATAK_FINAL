@@ -141,7 +141,7 @@ describe('PrismaScholarshipRepository', () => {
 
     expect(mockPrisma.scholarship.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ status: 'PUBLISHED' }),
+        where: expect.objectContaining({ publicationStatus: 'PUBLISHED' }),
         include: expect.objectContaining({
           benefits: true,
           requiredDocuments: true,

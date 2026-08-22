@@ -3,7 +3,8 @@ import { AdminScholarshipUseCases } from '../../src/scholarships/use-cases/Admin
 import { 
   IScholarshipRepository, 
   ScholarshipStatus,
-  ScholarshipCompletenessState
+  ScholarshipCompletenessState,
+  ScholarshipPublicationStatus
 } from '@manaratak/domain';
 
 describe('AdminScholarshipUseCases', () => {
@@ -94,5 +95,18 @@ describe('AdminScholarshipUseCases', () => {
     });
     
     await expect(useCases.publish('schol-1')).rejects.toThrow('Only READY_TO_PUBLISH');
+  });
+
+  it('publishes through canonical publication lifecycle without changing completeness', async () => {
+    mockRepo.updateLifecycle = vi.fn();
+    mockRepo.findById = vi.fn().mockResolvedValue({
+      id: 'schol-1', status: ScholarshipStatus.READY_TO_PUBLISH,
+      completenessStatus: ScholarshipCompletenessState.COMPLETE,
+    });
+    await useCases.publish('schol-1');
+    expect(mockRepo.updateLifecycle).toHaveBeenCalledWith('schol-1', {
+      workflowStatus: ScholarshipStatus.PUBLISHED,
+      publicationStatus: ScholarshipPublicationStatus.PUBLISHED,
+    });
   });
 });

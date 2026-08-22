@@ -7,6 +7,8 @@ import {
   ScholarshipDeduplicationService,
   ScholarshipCompletenessClassifier,
   ScholarshipCompletenessState,
+  ScholarshipPublicationStatus,
+  ScholarshipVerificationStatus,
   ImportRecordDto,
   ImportRecordStatus
 } from '@manaratak/domain';
@@ -40,10 +42,6 @@ export class ScholarshipImportPromotionUseCase {
       const payload = validationResult.data;
       
       const classification = ScholarshipCompletenessClassifier.classify(payload);
-      if (classification.state === ScholarshipCompletenessState.INCOMPLETE) {
-        return { type: 'REJECTED', reason: 'Record classified as INCOMPLETE' };
-      }
-      
       const canonicalName = ScholarshipNamingService.normalize(payload.scholarshipName);
       const dedupKey = ScholarshipDeduplicationService.generateKey(payload);
       
@@ -81,6 +79,8 @@ export class ScholarshipImportPromotionUseCase {
         degreeLevel: payload.degreeLevel,
         status,
         completenessStatus: classification.state,
+        verificationStatus: ScholarshipVerificationStatus.PENDING,
+        publicationStatus: ScholarshipPublicationStatus.DRAFT,
         applicationLink: payload.applicationLink === '' ? undefined : payload.applicationLink,
         officialSourceUrl: payload.officialSourceUrl === '' ? undefined : payload.officialSourceUrl,
         sponsorName: payload.sponsorName,

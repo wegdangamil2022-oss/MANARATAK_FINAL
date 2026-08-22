@@ -10,6 +10,10 @@ const migration = readFileSync(
   ),
   'utf8',
 );
+const closureMigration = readFileSync(
+  resolve(process.cwd(), 'packages/infrastructure/prisma/migrations/20260823020000_scholarship_lifecycle_language_document_refs/migration.sql'),
+  'utf8',
+);
 
 function modelBody(modelName: string): string {
   const match = schema.match(new RegExp(`model ${modelName}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'));
@@ -51,6 +55,17 @@ describe('WP12-2 normalized Scholarship schema', () => {
     expect(modelBody('ScholarshipEligibilityItem')).toContain('InternationalTest?');
     expect(modelBody('ScholarshipUniversityLink')).toContain('University?');
     expect(modelBody('ScholarshipUniversityLink')).toContain('UniversityAcademicProgram?');
+    expect(modelBody('Scholarship')).toContain('studyLanguage     ReferenceLanguage?');
+    expect(modelBody('ScholarshipRequiredDocument')).toContain('internationalTest InternationalTest?');
+  });
+
+  it('persists independent lifecycle fields and leaves the closure migration expand-only', () => {
+    const scholarship = modelBody('Scholarship');
+    expect(scholarship).toContain('verificationStatus   String    @default("PENDING")');
+    expect(scholarship).toContain('publicationStatus    String    @default("DRAFT")');
+    expect(closureMigration).toContain('ADD COLUMN "studyLanguageReferenceId"');
+    expect(closureMigration).toContain('ADD COLUMN "internationalTestId"');
+    expect(closureMigration).not.toMatch(/\bDROP\s+(TABLE|COLUMN)\b|\bDELETE\s+FROM\b|\bTRUNCATE\b|^\s*UPDATE\s+/im);
   });
 
   it('keeps the migration expand-only and free of data backfill operations', () => {

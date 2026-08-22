@@ -6,6 +6,20 @@ export enum ScholarshipCompletenessState {
   COMPLETE = 'COMPLETE',
 }
 
+/** Canonical lifecycle dimension; independent of legacy workflow/review status. */
+export enum ScholarshipVerificationStatus {
+  PENDING = 'PENDING',
+  VERIFIED = 'VERIFIED',
+  FAILED = 'FAILED',
+}
+
+/** Canonical public exposure dimension; never infer this only from workflow status. */
+export enum ScholarshipPublicationStatus {
+  DRAFT = 'DRAFT',
+  PUBLISHED = 'PUBLISHED',
+  ARCHIVED = 'ARCHIVED',
+}
+
 export enum ScholarshipStatus {
   IMPORTED = 'IMPORTED',
   ARCHIVED = 'ARCHIVED',
@@ -87,6 +101,9 @@ export interface ScholarshipRequiredDocumentDto {
   documentTypeCode?: string | null;
   displayName: string;
   description?: string | null;
+  internationalTestId?: string | null;
+  sourceLabel?: string | null;
+  resolutionStatus?: string;
   isRequired?: boolean;
   displayOrder?: number;
   metadata?: Record<string, unknown> | null;
@@ -134,6 +151,8 @@ export interface CreateScholarshipDto {
   displayName: string;
   status: ScholarshipStatus;
   completenessStatus: ScholarshipCompletenessState;
+  verificationStatus?: ScholarshipVerificationStatus;
+  publicationStatus?: ScholarshipPublicationStatus;
   providerName?: string | null;
   amountMinorUnits?: string | null;
   amountCurrencyCode?: string | null;
@@ -155,6 +174,9 @@ export interface CreateScholarshipDto {
   sourceImportRecordId?: string | null;
   sourceLocale?: string | null;
   lastVerifiedAt?: Date | null;
+  studyLanguageReferenceId?: string | null;
+  studyLanguageSourceLabel?: string | null;
+  studyLanguageResolutionStatus?: string | null;
 
   benefits?: ScholarshipBenefitDto[];
   degreeTargets?: ScholarshipDegreeTargetDto[];
@@ -235,6 +257,11 @@ export interface IScholarshipRepository {
   findById(id: string): Promise<ScholarshipDto | null>;
   findBySlug(slug: string): Promise<ScholarshipDto | null>;
   updateStatus(id: string, status: ScholarshipStatus): Promise<void>;
+  updateLifecycle?(id: string, lifecycle: {
+    workflowStatus?: ScholarshipStatus;
+    verificationStatus?: ScholarshipVerificationStatus;
+    publicationStatus?: ScholarshipPublicationStatus;
+  }): Promise<void>;
   list(filters: ScholarshipFilters): Promise<ScholarshipPage<ScholarshipDto>>;
   listPublished(filters: PublicScholarshipFilters): Promise<ScholarshipPage<ScholarshipDto>>;
   findByPublicId?(publicId: string): Promise<ScholarshipDto | null>;

@@ -9,6 +9,8 @@ import {
   ScholarshipFilters,
   ScholarshipPage,
   ScholarshipStatus,
+  ScholarshipPublicationStatus,
+  ScholarshipVerificationStatus,
   UpdateScholarshipDto,
 } from '@manaratak/domain';
 
@@ -94,6 +96,8 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
       providerName: data.providerName,
       status: data.status,
       completenessStatus: data.completenessStatus,
+      verificationStatus: data.verificationStatus ?? ScholarshipVerificationStatus.PENDING,
+      publicationStatus: data.publicationStatus ?? ScholarshipPublicationStatus.DRAFT,
       amountMinorUnits: data.amountMinorUnits,
       amountCurrencyCode: data.amountCurrencyCode,
       isFullyFunded: data.isFullyFunded,
@@ -113,6 +117,9 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
       sourceImportRecordId: data.sourceImportRecordId,
       sourceLocale: data.sourceLocale,
       lastVerifiedAt: data.lastVerifiedAt,
+      studyLanguageReferenceId: data.studyLanguageReferenceId,
+      studyLanguageSourceLabel: data.studyLanguageSourceLabel,
+      studyLanguageResolutionStatus: data.studyLanguageResolutionStatus,
       optionalFields: legacyCompatibility,
       benefits: this.toNestedCreate(data.benefits),
       degreeTargets: this.toNestedCreate(data.degreeTargets),
@@ -146,6 +153,8 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
       providerName: updates.providerName,
       status: updates.status,
       completenessStatus: updates.completenessStatus,
+      verificationStatus: updates.verificationStatus,
+      publicationStatus: updates.publicationStatus,
       amountMinorUnits: updates.amountMinorUnits,
       amountCurrencyCode: updates.amountCurrencyCode,
       isFullyFunded: updates.isFullyFunded,
@@ -165,6 +174,9 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
       sourceImportRecordId: updates.sourceImportRecordId,
       sourceLocale: updates.sourceLocale,
       lastVerifiedAt: updates.lastVerifiedAt,
+      studyLanguageReferenceId: updates.studyLanguageReferenceId,
+      studyLanguageSourceLabel: updates.studyLanguageSourceLabel,
+      studyLanguageResolutionStatus: updates.studyLanguageResolutionStatus,
       optionalFields: legacyCompatibility,
       benefits: this.toNestedReplace(updates.benefits),
       degreeTargets: this.toNestedReplace(updates.degreeTargets),
@@ -188,6 +200,21 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
     await this.prisma.scholarship.update({
       where: { id },
       data: { status },
+    });
+  }
+
+  async updateLifecycle(id: string, lifecycle: {
+    workflowStatus?: ScholarshipStatus;
+    verificationStatus?: ScholarshipVerificationStatus;
+    publicationStatus?: ScholarshipPublicationStatus;
+  }): Promise<void> {
+    await this.prisma.scholarship.update({
+      where: { id },
+      data: {
+        status: lifecycle.workflowStatus,
+        verificationStatus: lifecycle.verificationStatus,
+        publicationStatus: lifecycle.publicationStatus,
+      },
     });
   }
 
@@ -223,7 +250,14 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
   }
 
   async listPublished(filters: PublicScholarshipFilters): Promise<ScholarshipPage<ScholarshipDto>> {
-    return this.list({ ...filters, status: ScholarshipStatus.PUBLISHED });
+    const page = filters.page || 1;
+    const pageSize = filters.pageSize || 20;
+    const where: Prisma.ScholarshipWhereInput = { publicationStatus: ScholarshipPublicationStatus.PUBLISHED };
+    const [data, total] = await Promise.all([
+      this.prisma.scholarship.findMany({ where, skip: (page - 1) * pageSize, take: pageSize, orderBy: { createdAt: 'desc' }, include: this.normalizedInclude }),
+      this.prisma.scholarship.count({ where }),
+    ]);
+    return { data: data.map((record) => this.mapToDto(record)), total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
   }
 
   private mapToDto(record: unknown): ScholarshipDto {
@@ -236,6 +270,8 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
       ...raw,
       ...compatibility,
       optionalFields: legacy,
+      verificationStatus: raw.verificationStatus ?? ScholarshipVerificationStatus.PENDING,
+      publicationStatus: raw.publicationStatus ?? this.legacyPublicationStatus(raw.status),
       benefits: Array.isArray(raw.benefits) ? raw.benefits : [],
       degreeTargets: Array.isArray(raw.degreeTargets) ? raw.degreeTargets : [],
       majorTargets: Array.isArray(raw.majorTargets) ? raw.majorTargets : [],
@@ -244,6 +280,12 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
       sourceEvidence: Array.isArray(raw.sourceEvidence) ? raw.sourceEvidence : [],
       universityLinks: Array.isArray(raw.universityLinks) ? raw.universityLinks : [],
     } as unknown as ScholarshipDto;
+  }
+
+  private legacyPublicationStatus(status: unknown): ScholarshipPublicationStatus {
+    if (status === ScholarshipStatus.PUBLISHED) return ScholarshipPublicationStatus.PUBLISHED;
+    if (status === ScholarshipStatus.ARCHIVED) return ScholarshipPublicationStatus.ARCHIVED;
+    return ScholarshipPublicationStatus.DRAFT;
   }
 
   private buildLegacyCompatibility(

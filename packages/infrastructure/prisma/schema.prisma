@@ -817,6 +817,8 @@ model Scholarship {
   providerName         String?
   status               String
   completenessStatus   String
+  verificationStatus   String    @default("PENDING")
+  publicationStatus    String    @default("DRAFT")
   amountMinorUnits     String?
   amountCurrencyCode   String?
   isFullyFunded        Boolean   @default(false)
@@ -837,11 +839,15 @@ model Scholarship {
   sourceImportRecordId String?
   sourceLocale         String?
   lastVerifiedAt       DateTime?
+  studyLanguageReferenceId String?
+  studyLanguageSourceLabel String?
+  studyLanguageResolutionStatus String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   primaryCountry    ReferenceCountry?             @relation("ScholarshipPrimaryCountry", fields: [countryReferenceId], references: [id], onDelete: SetNull)
+  studyLanguage     ReferenceLanguage?            @relation("ScholarshipStudyLanguage", fields: [studyLanguageReferenceId], references: [id], onDelete: SetNull)
   benefits          ScholarshipBenefit[]
   degreeTargets     ScholarshipDegreeTarget[]
   majorTargets      ScholarshipMajorTarget[]
@@ -854,6 +860,9 @@ model Scholarship {
   @@index([academicYear])
   @@index([applicationDeadline])
   @@index([status, completenessStatus])
+  @@index([publicationStatus])
+  @@index([verificationStatus])
+  @@index([studyLanguageReferenceId])
 }
 
 model ScholarshipBenefit {
@@ -967,6 +976,9 @@ model ScholarshipRequiredDocument {
   documentTypeCode String?
   displayName      String
   description      String?
+  internationalTestId String?
+  sourceLabel      String?
+  resolutionStatus String @default("PENDING")
   isRequired       Boolean  @default(true)
   displayOrder     Int      @default(0)
   metadata         Json?
@@ -974,10 +986,13 @@ model ScholarshipRequiredDocument {
   updatedAt        DateTime @updatedAt
 
   scholarship Scholarship @relation(fields: [scholarshipId], references: [id], onDelete: Cascade)
+  internationalTest InternationalTest? @relation("ScholarshipRequiredDocumentTest", fields: [internationalTestId], references: [id], onDelete: SetNull)
 
   @@unique([scholarshipId, documentKey])
   @@index([scholarshipId])
   @@index([documentTypeCode])
+  @@index([internationalTestId])
+  @@index([resolutionStatus])
 }
 
 model ScholarshipSourceEvidence {
@@ -1358,6 +1373,7 @@ model InternationalTest {
   equivalencyMappings                InternationalTestEquivalencyMapping[]
   universityAdmissionRequirements    UniversityProgramAdmissionRequirement[]
   scholarshipEligibilityRequirements ScholarshipEligibilityItem[]                    @relation("ScholarshipEligibilityTest")
+  scholarshipRequiredDocuments       ScholarshipRequiredDocument[]                   @relation("ScholarshipRequiredDocumentTest")
 
   @@index([status])
   @@index([testCategory])
@@ -2129,6 +2145,7 @@ model ReferenceLanguage {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   courses    Course[] @relation("CourseLearningLanguageReference")
+  scholarships Scholarship[] @relation("ScholarshipStudyLanguage")
 
   @@index([isActive])
   @@index([name])
