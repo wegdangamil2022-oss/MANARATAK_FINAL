@@ -24,6 +24,10 @@ import {
   PrismaUniversityRepository,
   PrismaCourseRepository,
   PrismaExternalCourseProviderRepository,
+  PrismaCourseImportAnalysisRepository,
+  PrismaCourseImportTransferGateway,
+  PrismaImportedCourseOperationsRepository,
+  SafeImportedCourseLinkChecker,
   PrismaMajorRepository,
   Phase10CatalogRepository,
   PrismaFellowshipDefinitionRepository,
@@ -91,6 +95,11 @@ import {
   FellowshipImportPromotionUseCase,
   PublicMajorUseCases,
   AdminCourseUseCases,
+  ImportedCourseAdminUseCases,
+  CourseImportArtifactUseCase,
+  CourseImportIdentityDiffUseCase,
+  CourseImportCoordinator,
+  CourseImportOperationsUseCases,
   PublicCourseUseCases,
   CourseCurriculumUseCases,
   CourseProgressUseCases,
@@ -156,12 +165,14 @@ import { SharedComponentRouter } from '../../presentation/api/router/SharedCompo
 import { MonitoringRouter } from '../../presentation/api/router/MonitoringRouter';
 import { ScholarshipAdminRouter } from '../../presentation/api/router/ScholarshipAdminRouter';
 import { ImportAdminRouter } from '../../presentation/api/router/ImportAdminRouter';
+import { CourseImportOperationsRouter } from '../../presentation/api/router/CourseImportOperationsRouter';
 import { ScholarshipPublicRouter } from '../../presentation/api/router/ScholarshipPublicRouter';
 import { UniversityAdminRouter } from '../../presentation/api/router/UniversityAdminRouter';
 import { UniversityPublicRouter } from '../../presentation/api/router/UniversityPublicRouter';
 import { MajorAdminRouter } from '../../presentation/api/router/MajorAdminRouter';
 import { MajorPublicRouter } from '../../presentation/api/router/MajorPublicRouter';
 import { CourseAdminRouter } from '../../presentation/api/router/CourseAdminRouter';
+import { ImportedCourseAdminRouter } from '../../presentation/api/router/ImportedCourseAdminRouter';
 import { CoursePublicRouter } from '../../presentation/api/router/CoursePublicRouter';
 import { CertificateAdminRouter } from '../../presentation/api/router/CertificateAdminRouter';
 import { CertificatePublicRouter } from '../../presentation/api/router/CertificatePublicRouter';
@@ -8059,6 +8070,10 @@ export function registerDependencies() {
     fellowshipDefinitionRepository: asFunction(({ prisma }) => new PrismaFellowshipDefinitionRepository(prisma)).singleton(),
     courseRepository: asFunction(({ prisma }) => new PrismaCourseRepository(prisma)).singleton(),
     externalCourseProviderRepository: asFunction(({ prisma }) => new PrismaExternalCourseProviderRepository(prisma)).singleton(),
+    courseImportAnalysisRepository: asFunction(({ prisma }) => new PrismaCourseImportAnalysisRepository(prisma)).singleton(),
+    courseImportTransferGateway: asFunction(({ prisma }) => new PrismaCourseImportTransferGateway(prisma)).singleton(),
+    importedCourseOperationsRepository: asFunction(({ prisma }) => new PrismaImportedCourseOperationsRepository(prisma)).singleton(),
+    importedCourseLinkChecker: asClass(SafeImportedCourseLinkChecker).singleton(),
     courseCurriculumRepository: asFunction(() => createUnavailableCapability('courseCurriculumPersistence')).singleton(),
     courseProgressRepository: asFunction(() => createUnavailableCapability('courseProgressPersistence')).singleton(),
     certificateRepository: asFunction(() => createUnavailableCapability('certificatePersistence')).singleton(),
@@ -8157,6 +8172,16 @@ export function registerDependencies() {
     fellowshipImportPromotionUseCase: asFunction(({ fellowshipDefinitionRepository }) => new FellowshipImportPromotionUseCase(fellowshipDefinitionRepository)).scoped(),
     publicMajorUseCases: asFunction(({ majorRepository }) => new PublicMajorUseCases(majorRepository)).scoped(),
     adminCourseUseCases: asFunction(({ courseRepository }) => new AdminCourseUseCases(courseRepository)).scoped(),
+    courseImportArtifactUseCase: asFunction(({ assetRecordRepository, assetStorageGateway, externalCourseProviderRepository, importAdminUseCases }) =>
+      new CourseImportArtifactUseCase(assetRecordRepository, assetStorageGateway, externalCourseProviderRepository, importAdminUseCases)).scoped(),
+    courseImportIdentityDiffUseCase: asFunction(({ importRepository, externalCourseProviderRepository, courseImportAnalysisRepository }) =>
+      new CourseImportIdentityDiffUseCase(importRepository, externalCourseProviderRepository, courseImportAnalysisRepository)).scoped(),
+    courseImportCoordinator: asFunction(({ courseImportTransferGateway, courseRepository, atomicDomainMutationCoordinator }) =>
+      new CourseImportCoordinator(courseImportTransferGateway, courseRepository, atomicDomainMutationCoordinator)).scoped(),
+    importedCourseAdminUseCases: asFunction(({ importedCourseOperationsRepository, externalCourseProviderRepository, adminCourseUseCases, importedCourseLinkChecker }) =>
+      new ImportedCourseAdminUseCases(importedCourseOperationsRepository, externalCourseProviderRepository, adminCourseUseCases, importedCourseLinkChecker)).scoped(),
+    courseImportOperationsUseCases: asFunction(({ importedCourseOperationsRepository, importRepository, courseImportCoordinator, courseImportIdentityDiffUseCase }) =>
+      new CourseImportOperationsUseCases(importedCourseOperationsRepository, importRepository, courseImportCoordinator, courseImportIdentityDiffUseCase)).scoped(),
     publicCourseUseCases: asFunction(({ courseRepository }) => new PublicCourseUseCases(courseRepository)).scoped(),
     courseCurriculumUseCases: asFunction(({ courseRepository, courseCurriculumRepository }) => new CourseCurriculumUseCases(courseRepository, courseCurriculumRepository)).scoped(),
     courseCompletionEventPublisher: asFunction(({ manageEnterpriseEventsUseCase }) => new EnterpriseCourseCompletionEventPublisher(manageEnterpriseEventsUseCase)).scoped(),
@@ -8249,12 +8274,14 @@ export function registerDependencies() {
     // --- Routers ---
     scholarshipAdminRouter: asFunction((cradle) => ScholarshipAdminRouter.create(cradle)).singleton(),
     importAdminRouter: asFunction((cradle) => ImportAdminRouter.create(cradle)).singleton(),
+    courseImportOperationsRouter: asFunction((cradle) => CourseImportOperationsRouter.create(cradle)).singleton(),
     scholarshipPublicRouter: asFunction((cradle) => ScholarshipPublicRouter.create(cradle)).singleton(),
     universityAdminRouter: asFunction((cradle) => UniversityAdminRouter.create(cradle)).singleton(),
     universityPublicRouter: asFunction((cradle) => UniversityPublicRouter.create(cradle)).singleton(),
     majorAdminRouter: asFunction((cradle) => MajorAdminRouter.create(cradle)).scoped(),
     majorPublicRouter: asFunction((cradle) => MajorPublicRouter.create(cradle)).singleton(),
     courseAdminRouter: asFunction((cradle) => CourseAdminRouter.create(cradle)).singleton(),
+    importedCourseAdminRouter: asFunction((cradle) => ImportedCourseAdminRouter.create(cradle)).singleton(),
     coursePublicRouter: asFunction((cradle) => CoursePublicRouter.create(cradle)).singleton(),
     certificateAdminRouter: asFunction((cradle) => CertificateAdminRouter.create(cradle)).singleton(),
     certificatePublicRouter: asFunction((cradle) => CertificatePublicRouter.create(cradle)).singleton(),

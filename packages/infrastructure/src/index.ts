@@ -45,6 +45,10 @@ export class PrismaCareerPathRepository {}
 export * from './courses/PrismaCourseRepository';
 export * from './courses/PrismaCourseRelationshipRepository';
 export * from './courses/PrismaExternalCourseProviderRepository';
+export * from './courses/PrismaCourseImportAnalysisRepository';
+export * from './courses/PrismaCourseImportTransferGateway';
+export * from './courses/PrismaImportedCourseOperationsRepository';
+export * from './courses/SafeImportedCourseLinkChecker';
 export * from './courses/ExternalCourseProviderSeed';
 export class PrismaAlumniRepository {}
 export class InMemorySettingsRepository {}

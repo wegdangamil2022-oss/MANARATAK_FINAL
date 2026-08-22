@@ -170,6 +170,7 @@ export * from './courses/services/CourseNamingService';
 export * from './courses/provider-registry';
 export * from './courses/import-analysis';
 export * from './courses/relationships';
+export * from './courses/imported-operations';
 export * from './courses/value-objects/CourseImportPayload';
 export * from './entities/Account';
 export * from './entities/ContactRegistry';

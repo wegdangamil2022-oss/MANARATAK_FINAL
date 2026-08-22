@@ -312,6 +312,8 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
 
     // 2. Active Phase 2-10 Domain Routers (Eager) - Phase 6-10 Roadmap Scope
     // Phase 6: Import Foundation & Assets
+    // Static course-import operations MUST be mounted before the generic /admin/imports router.
+    v1Router.use('/admin/imports/courses', requireAdminPermission('admin:imports:manage'), container.resolve<Router>('courseImportOperationsRouter'));
     v1Router.use('/admin/imports', requireAdminPermission('admin:imports:manage'), container.resolve<Router>('importAdminRouter'));
     v1Router.use('/admin/assets', requireAdminPermission('admin:assets:manage'), container.resolve<Router>('assetPlatformRouter'));
 
@@ -351,6 +353,8 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     // 4. Future Phase 11+ Routers (Lazy) - Post-Phase-10 Extensions
     v1Router.use('/admin/scholarships', requireAdminPermission('admin:scholarships:manage'), lazyRouter('scholarshipAdminRouter'));
     v1Router.use('/public/scholarships', lazyRouter('scholarshipPublicRouter'));
+    // Static /imported must be registered before /admin/courses/:id can match "imported".
+    v1Router.use('/admin/courses/imported', requireAdminPermission('admin:courses:manage'), lazyRouter('importedCourseAdminRouter'));
     v1Router.use('/admin/courses', requireAdminPermission('admin:courses:manage'), lazyRouter('courseAdminRouter'));
     v1Router.use('/public/courses', lazyRouter('coursePublicRouter'));
     v1Router.use('/admin/certificates', requireAdminPermission('admin:certificates:manage'), lazyRouter('certificateAdminRouter'));

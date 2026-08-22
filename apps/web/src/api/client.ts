@@ -1684,26 +1684,238 @@ export class ApiClient {
 
 
 
-  // Imported External Courses API
-  static async getAdminImportedCourses(params?: any): Promise<any[]> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/courses/imported`);
-    if (!res.ok) throw new Error('Failed to fetch imported courses');
+  // Imported External Courses API — explicit WP-IC-07 REST contract.
+  static async getAdminImportedCourses(params?: Record<string, unknown>): Promise<any> {
+    const search = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') search.append(key, String(value));
+    });
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    const res = await apiFetch(`${API_BASE_URL}/admin/courses/imported${suffix}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch imported courses');
+    }
     return res.json();
   }
 
   static async getAdminImportedCourseById(id: string): Promise<any> {
     const res = await apiFetch(`${API_BASE_URL}/admin/courses/imported/${encodeURIComponent(id)}`);
-    if (!res.ok) throw new Error('Failed to fetch imported course');
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch imported course');
+    }
     return res.json();
   }
 
-  static async executeAdminImportedCourseAction(id: string, action: string, payload?: any): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/courses/imported/${encodeURIComponent(id)}/${action}`, {
+  static async updateAdminImportedCourse(id: string, payload: Record<string, unknown>): Promise<any> {
+    const res = await apiFetch(`${API_BASE_URL}/admin/courses/imported/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to update imported course');
+    }
+    return res.json();
+  }
+
+  private static async postImportedCourseAction(id: string, endpoint: string): Promise<any> {
+    const res = await apiFetch(`${API_BASE_URL}/admin/courses/imported/${encodeURIComponent(id)}/${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload || {})
+      body: JSON.stringify({}),
     });
-    if (!res.ok) throw new Error(`Failed to execute imported course action ${action}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `Failed imported-course operation: ${endpoint}`);
+    }
+    if (res.status === 204) return null;
+    return res.json();
+  }
+
+  static verifyAdminImportedCourseSource(id: string) {
+    return this.postImportedCourseAction(id, 'verify-source');
+  }
+
+  static checkAdminImportedCourseLink(id: string) {
+    return this.postImportedCourseAction(id, 'check-link');
+  }
+
+  static fetchAdminImportedCourseMissing(id: string) {
+    return this.postImportedCourseAction(id, 'fetch-missing');
+  }
+
+  static markAdminImportedCourseReady(id: string) {
+    return this.postImportedCourseAction(id, 'mark-ready');
+  }
+
+  static publishAdminImportedCourse(id: string) {
+    return this.postImportedCourseAction(id, 'publish');
+  }
+
+  static unpublishAdminImportedCourse(id: string) {
+    return this.postImportedCourseAction(id, 'unpublish');
+  }
+
+  static rejectAdminImportedCourse(id: string) {
+    return this.postImportedCourseAction(id, 'reject');
+  }
+
+  static archiveAdminImportedCourse(id: string) {
+    return this.postImportedCourseAction(id, 'archive');
+  }
+
+  // Backward-compatible UI adapter. It maps a closed action enum to explicit
+  // REST endpoints; it never constructs an open-ended /:action URL.
+  static async executeAdminImportedCourseAction(id: string, action: string, payload?: any): Promise<any> {
+    switch (action) {
+      case 'VERIFY_SOURCE':
+        return this.verifyAdminImportedCourseSource(id);
+      case 'CHECK_LINK':
+        return this.checkAdminImportedCourseLink(id);
+      case 'FETCH_MISSING_FIELDS':
+        return this.fetchAdminImportedCourseMissing(id);
+      case 'MARK_READY_TO_PUBLISH':
+        return this.markAdminImportedCourseReady(id);
+      case 'PUBLISH':
+        return this.publishAdminImportedCourse(id);
+      case 'UNPUBLISH':
+        return this.unpublishAdminImportedCourse(id);
+      case 'REJECT':
+        return this.rejectAdminImportedCourse(id);
+      case 'ARCHIVE':
+        return this.archiveAdminImportedCourse(id);
+      case 'EDIT':
+        return this.updateAdminImportedCourse(id, {
+          displayName: payload?.displayName ?? payload?.titleAr,
+          directCourseUrl: payload?.directCourseUrl ?? payload?.directUrl,
+          providerName: payload?.provider,
+          isStudyFree: payload?.studyFree === 'Yes' ? true : payload?.studyFree === 'No' ? false : undefined,
+          isFreeCertificate: payload?.freeCertificate === 'Yes' ? true : payload?.freeCertificate === 'No' ? false : undefined,
+          certificateType: payload?.certificateType,
+          learningLanguageRaw: payload?.language,
+          studyLevelRaw: payload?.level,
+          studyDurationRaw: payload?.duration,
+          category: payload?.category,
+          shortCourseTopicsRaw: payload?.shortCourseTopics,
+        });
+      default:
+        throw new Error(`Unsupported imported course action: ${action}`);
+    }
+  }
+
+  static async getCourseImportOverview(): Promise<any> {
+    const res = await apiFetch(`${API_BASE_URL}/admin/imports/courses/overview`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch course import overview');
+    }
+    return res.json();
+  }
+
+  static async getCourseImportProviders(): Promise<any> {
+    const res = await apiFetch(`${API_BASE_URL}/admin/imports/courses/providers`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch course providers');
+    }
+    return res.json();
+  }
+
+  static async getCourseImportProvider(id: string): Promise<any> {
+    const res = await apiFetch(`${API_BASE_URL}/admin/imports/courses/providers/${encodeURIComponent(id)}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch course provider');
+    }
+    return res.json();
+  }
+
+  static async preflightCourseImport(payload: Record<string, unknown>): Promise<any> {
+    const res = await apiFetch(`${API_BASE_URL}/admin/imports/courses/preflight`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Course import preflight failed');
+    }
+    return res.json();
+  }
+
+  static async createCourseImportBatch(payload: Record<string, unknown>): Promise<any> {
+    const res = await apiFetch(`${API_BASE_URL}/admin/imports/courses/batches`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to create course import batch');
+    }
+    return res.json();
+  }
+
+  static async getCourseImportBatches(limit = 50): Promise<any[]> {
+    const res = await apiFetch(`${API_BASE_URL}/admin/imports/courses/batches?limit=${encodeURIComponent(String(limit))}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch course import batches');
+    }
+    const result = await res.json();
+    return Array.isArray(result?.data) ? result.data : [];
+  }
+
+  static async getCourseImportBatch(id: string): Promise<any> {
+    const res = await apiFetch(`${API_BASE_URL}/admin/imports/courses/batches/${encodeURIComponent(id)}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch course import batch');
+    }
+    return res.json();
+  }
+
+  static async getCourseImportBatchRecords(id: string, params?: Record<string, unknown>): Promise<any> {
+    const search = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') search.append(key, String(value));
+    });
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    const res = await apiFetch(`${API_BASE_URL}/admin/imports/courses/batches/${encodeURIComponent(id)}/records${suffix}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch course import records');
+    }
+    return res.json();
+  }
+
+  static async getCourseImportReviewQueue(params?: Record<string, unknown>): Promise<any> {
+    const search = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') search.append(key, String(value));
+    });
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    const res = await apiFetch(`${API_BASE_URL}/admin/imports/courses/review${suffix}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch course import review queue');
+    }
+    return res.json();
+  }
+
+  static async transferCourseImportBatch(id: string, payload: Record<string, unknown>): Promise<any> {
+    const res = await apiFetch(`${API_BASE_URL}/admin/imports/courses/batches/${encodeURIComponent(id)}/transfer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to transfer course import batch');
+    }
     return res.json();
   }
 

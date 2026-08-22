@@ -50,13 +50,15 @@ const AdminInternationalTestsPreviewPage = React.lazy(() => import('../features/
 const AdminInternationalTestDetailPage = React.lazy(() => import('../features/admin-preview/AdminInternationalTestDetailPage').then(m => ({ default: m.AdminInternationalTestDetailPage })));
 const AdminHealthPreviewPage = React.lazy(() => import('../features/admin-preview/AdminHealthPreviewPage').then(m => ({ default: m.AdminHealthPreviewPage })));
 const AdminImportsPreviewPage = React.lazy(() => import('../features/admin-preview/AdminImportsPreviewPage').then(m => ({ default: m.AdminImportsPreviewPage })));
+const AdminCourseImportOperationsPage = React.lazy(() => import('../features/admin-preview/AdminCourseImportOperationsPage').then(m => ({ default: m.AdminCourseImportOperationsPage })));
+const AdminCourseImportProviderPage = React.lazy(() => import('../features/admin-preview/AdminCourseImportProviderPage').then(m => ({ default: m.AdminCourseImportProviderPage })));
 const AdminDomainImportCenterPage = React.lazy(() => import('../features/admin-preview/AdminDomainImportCenterPage').then(m => ({ default: m.AdminDomainImportCenterPage })));
 const AdminReviewQueuePreviewPage = React.lazy(() => import('../features/admin-preview/AdminReviewQueuePreviewPage').then(m => ({ default: m.AdminReviewQueuePreviewPage })));
 const AdminCoursesLandingPage = React.lazy(() => import('../features/admin-preview/AdminCoursesLandingPage').then(m => ({ default: m.AdminCoursesLandingPage })));
 const AdminNativeCoursesPreviewPage = React.lazy(() => import('../features/admin-preview/AdminNativeCoursesPreviewPage').then(m => ({ default: m.AdminNativeCoursesPreviewPage })));
 const AdminNativeCourseDetailPage = React.lazy(() => import('../features/admin-preview/AdminNativeCourseDetailPage').then(m => ({ default: m.AdminNativeCourseDetailPage })));
-const AdminImportedCoursesPreviewPage = React.lazy(() => import('../features/admin-preview/AdminImportedCoursesPreviewPage').then(m => ({ default: m.AdminImportedCoursesPreviewPage })));
-const AdminImportedCourseDetailPage = React.lazy(() => import('../features/admin-preview/AdminImportedCourseDetailPage').then(m => ({ default: m.AdminImportedCourseDetailPage })));
+const AdminImportedCoursesPreviewPage = React.lazy(() => import('../features/admin-preview/AdminImportedCoursesRuntimePage').then(m => ({ default: m.AdminImportedCoursesRuntimePage })));
+const AdminImportedCourseDetailPage = React.lazy(() => import('../features/admin-preview/AdminImportedCourseRuntimeDetailPage').then(m => ({ default: m.AdminImportedCourseRuntimeDetailPage })));
 const AdminPaidCoursesPreviewPage = React.lazy(() => import('../features/admin-preview/AdminPaidCoursesPreviewPage').then(m => ({ default: m.AdminPaidCoursesPreviewPage })));
 const AdminPaidCourseDetailPage = React.lazy(() => import('../features/admin-preview/AdminPaidCourseDetailPage').then(m => ({ default: m.AdminPaidCourseDetailPage })));
 const AdminServicesLandingPage = React.lazy(() => import('../features/admin-preview/AdminServicesLandingPage').then(m => ({ default: m.AdminServicesLandingPage })));
@@ -688,6 +690,14 @@ const router = createBrowserRouter([
       {
         path: 'admin/imports',
         element: <AdminImportsPreviewPage />
+      },
+      {
+        path: 'admin/imports/courses',
+        element: <AdminCourseImportOperationsPage />
+      },
+      {
+        path: 'admin/imports/courses/providers/:id',
+        element: <AdminCourseImportProviderPage />
       },
       {
         path: 'admin/imports/:domainKey',
