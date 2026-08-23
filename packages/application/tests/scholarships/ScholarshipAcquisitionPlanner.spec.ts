@@ -35,7 +35,7 @@ describe('WP12-6 ScholarshipAcquisitionPlanner', () => {
     const planner = new ScholarshipAcquisitionPlanner(new ScholarshipSourceRegistryService(noopGateway));
     const plan = planner.prepare(activeWebSource(), 'https://scholarships.example.org/opportunities/123');
 
-    expect(plan.phase6ConnectorId).toBe('static-html-stub');
+    expect(plan.phase6ConnectorId).toBe('static-html');
     expect(plan.rawSnapshot.requiredBeforeSemanticTransform).toBe(true);
     expect(plan.rawSnapshot.rawArtifactReferenceRequired).toBe(true);
     expect(plan.security.phase6SsrfAndAllowListRequiredAtRuntime).toBe(true);
@@ -62,7 +62,7 @@ describe('WP12-6 ScholarshipAcquisitionPlanner', () => {
     };
     const plan = planner.prepare(manual);
 
-    expect(plan.phase6ConnectorId).toBe('manual-upload-stub');
+    expect(plan.phase6ConnectorId).toBe('manual-upload');
     expect(plan.targetUrl).toBeNull();
     expect(plan.rawSnapshot.owner).toBe('PHASE6');
     expect(() => planner.prepare({ ...manual, status: 'DISABLED' }))

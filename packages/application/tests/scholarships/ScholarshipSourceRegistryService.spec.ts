@@ -46,7 +46,7 @@ describe('WP12-6 ScholarshipSourceRegistryService', () => {
     const plan = await service.register(source());
 
     expect(plan.source.category).toBe(SourceConnectorCategory.STATIC_HTML);
-    expect(plan.source.connectorId).toBe('static-html-stub');
+    expect(plan.source.connectorId).toBe('static-html');
     expect(plan.source.status).toBe(SourceStatus.ACTIVE);
     expect(plan.source.accessClassification).toBe(SourceAccessClassification.PUBLIC_ALLOWED);
     expect(plan.source.metadata?.ownerDomain).toBe('SCHOLARSHIPS');
@@ -76,7 +76,7 @@ describe('WP12-6 ScholarshipSourceRegistryService', () => {
     }));
 
     expect(plan.source.category).toBe(SourceConnectorCategory.MANUAL_UPLOAD);
-    expect(plan.source.connectorId).toBe('manual-upload-stub');
+    expect(plan.source.connectorId).toBe('manual-upload');
     expect(plan.source.accessClassification).toBe(SourceAccessClassification.MANUAL_ONLY);
     expect(plan.source.baseUrl).toBe('manual://scholarship-source/manual-1');
   });

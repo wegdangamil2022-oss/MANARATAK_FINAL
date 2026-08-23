@@ -21,28 +21,23 @@ const CONNECTOR_BY_MODE: Record<ScholarshipAcquisitionMode, {
 }> = {
   WEBSITE: {
     category: SourceConnectorCategory.STATIC_HTML,
-    connectorId: 'static-html-stub',
-    connectorVersion: '1.0.0',
+    connectorId: 'static-html', connectorVersion: '2.0.0',
   },
   SITEMAP: {
     category: SourceConnectorCategory.SITEMAP,
-    connectorId: 'sitemap-stub',
-    connectorVersion: '1.0.0',
+    connectorId: 'sitemap', connectorVersion: '2.0.0',
   },
   FEED: {
     category: SourceConnectorCategory.OFFICIAL_FEED,
-    connectorId: 'official-feed-stub',
-    connectorVersion: '1.0.0',
+    connectorId: 'official-feed', connectorVersion: '2.0.0',
   },
   API: {
     category: SourceConnectorCategory.OFFICIAL_API,
-    connectorId: 'official-api-stub',
-    connectorVersion: '1.0.0',
+    connectorId: 'official-api', connectorVersion: '2.0.0',
   },
   MANUAL_FILE: {
     category: SourceConnectorCategory.MANUAL_UPLOAD,
-    connectorId: 'manual-upload-stub',
-    connectorVersion: '1.0.0',
+    connectorId: 'manual-upload', connectorVersion: '2.0.0',
   },
 };
 

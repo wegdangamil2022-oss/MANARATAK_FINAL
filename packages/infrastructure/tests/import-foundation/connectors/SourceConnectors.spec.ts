@@ -1,91 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { 
-  ImportSourceDefinition, 
-  SourceConnectorCategory, 
-  SourceAccessClassification, 
-  SourceStatus 
-} from '@manaratak/domain';
-import { OfficialApiSourceConnector } from '../../../src/import-foundation/connectors/OfficialApiSourceConnector';
-import { OfficialFeedSourceConnector } from '../../../src/import-foundation/connectors/OfficialFeedSourceConnector';
-import { SitemapSourceConnector } from '../../../src/import-foundation/connectors/SitemapSourceConnector';
-import { JsonLdSourceConnector } from '../../../src/import-foundation/connectors/JsonLdSourceConnector';
-import { StaticHtmlSourceConnector } from '../../../src/import-foundation/connectors/StaticHtmlSourceConnector';
-import { DocumentSourceConnector } from '../../../src/import-foundation/connectors/DocumentSourceConnector';
-import { BrowserAssistedSourceConnector } from '../../../src/import-foundation/connectors/BrowserAssistedSourceConnector';
-import { ManualUploadSourceConnector } from '../../../src/import-foundation/connectors/ManualUploadSourceConnector';
-
-const allConnectors = [
-  new OfficialApiSourceConnector(),
-  new OfficialFeedSourceConnector(),
-  new SitemapSourceConnector(),
-  new JsonLdSourceConnector(),
-  new StaticHtmlSourceConnector(),
-  new DocumentSourceConnector(),
-  new BrowserAssistedSourceConnector(),
-  new ManualUploadSourceConnector()
-];
-
-describe('SourceConnectors (Stubs)', () => {
-  allConnectors.forEach(connector => {
-    describe(`${connector.constructor.name}`, () => {
-      
-      const createSource = (category: SourceConnectorCategory, status: SourceStatus = SourceStatus.ACTIVE, accessClassification: SourceAccessClassification = SourceAccessClassification.PUBLIC_ALLOWED) => {
-        return new ImportSourceDefinition({
-          sourceId: 'test-source',
-          displayName: 'Test',
-          baseUrl: 'https://example.com',
-          category,
-          accessClassification,
-          status,
-          connectorId: 'any',
-          connectorVersion: '1.0.0'
-        });
-      };
-
-      it('supports matching category active source', () => {
-        const source = createSource(connector.category);
-        expect(connector.supports(source)).toBe(true);
-      });
-
-      it('rejects mismatched category', () => {
-        const otherCategory = Object.values(SourceConnectorCategory).find(c => c !== connector.category) as SourceConnectorCategory;
-        const source = createSource(otherCategory);
-        expect(connector.supports(source)).toBe(false);
-      });
-
-      it('rejects blocked source status', () => {
-        const source = createSource(connector.category, SourceStatus.BLOCKED);
-        expect(connector.supports(source)).toBe(false);
-      });
-
-      it('rejects disabled source status', () => {
-        const source = createSource(connector.category, SourceStatus.DISABLED);
-        expect(connector.supports(source)).toBe(false);
-      });
-
-      it('rejects blocked access classification', () => {
-        const source = createSource(connector.category, SourceStatus.NEEDS_REVIEW, SourceAccessClassification.BLOCKED);
-        expect(connector.supports(source)).toBe(false);
-      });
-
-      it('getSignature returns connectorId and version', async () => {
-        const source = createSource(connector.category);
-        const signature = await connector.getSignature(source);
-        expect(signature.connectorId).toBe(connector.connectorId);
-        expect(signature.connectorVersion).toBe(connector.connectorVersion);
-      });
-
-      it('acquire throws NotImplemented error', async () => {
-        const source = createSource(connector.category);
-        await expect(connector.acquire(source)).rejects.toThrow(/External acquisition is not implemented in Phase 06 P4E/);
-      });
-
-      if (connector instanceof BrowserAssistedSourceConnector) {
-        it('browser-assisted acquire error mentions authorized human action', async () => {
-          const source = createSource(connector.category);
-          await expect(connector.acquire(source)).rejects.toThrow(/Requires authorized human action and is not stealth scraping/);
-        });
-      }
-    });
+import { ImportSourceDefinition, SourceConnectorCategory, SourceAccessClassification, SourceStatus } from '@manaratak/domain';
+import type { ISafeSourceHttpTransport } from '@manaratak/application';
+import { OfficialApiSourceConnector, OfficialFeedSourceConnector, SitemapSourceConnector, StaticHtmlSourceConnector, ManualUploadSourceConnector } from '../../../src';
+const transport: ISafeSourceHttpTransport = { async get(_source, request) { return { requestedUrl: request.targetUrl!, finalUrl: request.targetUrl!, statusCode: 200, contentType: 'application/octet-stream', rawBytes: new TextEncoder().encode('safe-offline-fixture'), fetchedAt: new Date('2026-08-23T00:00:00Z') }; } };
+const operational = [new OfficialApiSourceConnector(transport), new OfficialFeedSourceConnector(transport), new SitemapSourceConnector(transport), new StaticHtmlSourceConnector(transport)];
+function source(category: SourceConnectorCategory, connectorId: string, connectorVersion: string) { return new ImportSourceDefinition({ sourceId: 'test-source', displayName: 'Test', baseUrl: 'https://example.com/data', category, accessClassification: SourceAccessClassification.PUBLIC_ALLOWED, status: SourceStatus.ACTIVE, connectorId, connectorVersion }); }
+describe('operational source connectors', () => {
+  for (const connector of operational) it(`${connector.connectorId} acquires raw bytes through injected transport`, async () => {
+    const configured = source(connector.category, connector.connectorId, connector.connectorVersion); expect(connector.supports(configured)).toBe(true);
+    const result = await connector.acquire(configured); expect(new TextDecoder().decode(result.rawBytes)).toBe('safe-offline-fixture'); expect((await connector.getSignature(configured)).expectedSchemaShape).toEqual({ type: 'raw-source-bytes', category: connector.category });
+  });
+  it('manual upload never uses network acquisition', async () => {
+    const connector = new ManualUploadSourceConnector(); const configured = source(connector.category, connector.connectorId, connector.connectorVersion);
+    await expect(connector.acquire(configured, { targetUrl: 'https://example.com' })).rejects.toThrow('MANUAL_SOURCE_NETWORK_URL_FORBIDDEN');
+    const result = await connector.acquire(configured, { manualInput: { rawBytes: new Uint8Array([1, 2]), fileName: 'safe.bin' } }); expect(result.contentLength).toBe(2);
   });
 });

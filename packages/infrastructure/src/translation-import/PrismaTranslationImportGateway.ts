@@ -312,7 +312,9 @@ export class PrismaTranslationImportGateway implements ITranslationImportGateway
         handoffId: evidence.handoffId,
         stagingKey: candidate.stagingKey,
         sourceSystem: evidence.provenance.sourceSystem,
-        acquiredAt: evidence.provenance.acquiredAt.toISOString(),
+        ...(evidence.provenance.acquiredAt
+          ? { acquiredAt: evidence.provenance.acquiredAt.toISOString() }
+          : {}),
         artifactId: evidence.artifact.artifactId,
         sourceId: evidence.artifact.sourceId,
         rawArtifactReference: evidence.artifact.rawArtifactReference,

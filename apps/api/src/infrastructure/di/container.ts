@@ -53,7 +53,9 @@ import {
   PrismaAtomicPersistenceUnitOfWork,
   PrismaAcademicTaxonomyRepository,
   DegreeLevelRepository,
-  PrismaScholarshipCanonicalLookupGateway
+  PrismaScholarshipCanonicalLookupGateway,
+  NodeSafeSourceHttpTransport, LocalImportRawSnapshotStore, SourceAcquisitionLimiter,
+  StaticHtmlSourceConnector, SitemapSourceConnector, OfficialFeedSourceConnector, OfficialApiSourceConnector, ManualUploadSourceConnector
 , PrismaSessionManager, PrismaCredentialVerifier} from '@manaratak/infrastructure';
 
 // UseCases
@@ -140,6 +142,7 @@ import {
 
 // These are directly from src instead of index for some reason
 import { ManageNotificationTemplatesUseCase } from '@manaratak/application';
+import { SourceConnectorRegistry, AcquireImportSourceUseCase } from '@manaratak/application';
 import { ManageNotificationIntentsUseCase } from '@manaratak/application';
 import { ManageAuditRecordsUseCase } from '@manaratak/application';
 
@@ -8104,6 +8107,18 @@ export function registerDependencies() {
     importQueueGateway: asFunction(({ prisma }) => isPrisma
       ? new PrismaImportQueueGateway(prisma)
       : new InMemoryImportQueueGateway()).singleton(),
+    safeSourceHttpTransport: asClass(NodeSafeSourceHttpTransport).singleton(),
+    staticHtmlSourceConnector: asFunction(({ safeSourceHttpTransport }) => new StaticHtmlSourceConnector(safeSourceHttpTransport)).singleton(),
+    sitemapSourceConnector: asFunction(({ safeSourceHttpTransport }) => new SitemapSourceConnector(safeSourceHttpTransport)).singleton(),
+    officialFeedSourceConnector: asFunction(({ safeSourceHttpTransport }) => new OfficialFeedSourceConnector(safeSourceHttpTransport)).singleton(),
+    officialApiSourceConnector: asFunction(({ safeSourceHttpTransport }) => new OfficialApiSourceConnector(safeSourceHttpTransport)).singleton(),
+    manualUploadSourceConnector: asClass(ManualUploadSourceConnector).singleton(),
+    sourceConnectorRegistry: asFunction(({ staticHtmlSourceConnector, sitemapSourceConnector, officialFeedSourceConnector, officialApiSourceConnector, manualUploadSourceConnector }) =>
+      new SourceConnectorRegistry([staticHtmlSourceConnector, sitemapSourceConnector, officialFeedSourceConnector, officialApiSourceConnector, manualUploadSourceConnector])).singleton(),
+    importRawSnapshotStore: asClass(LocalImportRawSnapshotStore).singleton(),
+    sourceAcquisitionLimiter: asClass(SourceAcquisitionLimiter).singleton(),
+    acquireImportSourceUseCase: asFunction(({ sourceConnectorRegistry, importRawSnapshotStore, sourceAcquisitionLimiter }) =>
+      new AcquireImportSourceUseCase(sourceConnectorRegistry, importRawSnapshotStore, sourceAcquisitionLimiter)).scoped(),
     assetRecordRepository: asFunction(({ prisma }) => new PrismaAssetRecordRepository(prisma)).singleton(),
     assetStorageGateway: asClass(LocalAssetStorageGateway).singleton(),
     assetMalwareScannerGateway: asClass(NoopAssetMalwareScannerGateway).singleton(),

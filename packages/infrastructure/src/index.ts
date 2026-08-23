@@ -186,6 +186,11 @@ export * from './import-foundation/connectors/StaticHtmlSourceConnector';
 export * from './import-foundation/connectors/DocumentSourceConnector';
 export * from './import-foundation/connectors/BrowserAssistedSourceConnector';
 export * from './import-foundation/connectors/ManualUploadSourceConnector';
+export * from './import-foundation/network/SourceNetworkSecurityPolicy';
+export * from './import-foundation/network/NodeSafeSourceHttpTransport';
+export * from './import-foundation/InMemoryImportRawSnapshotStore';
+export * from './import-foundation/LocalImportRawSnapshotStore';
+export * from './import-foundation/SourceAcquisitionLimiter';
 export * from './degree-level';
 export * from './universities/PrismaUniversityImportChangeExecutorGateway';
 
