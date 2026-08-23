@@ -7,6 +7,11 @@ import {
   ImportAdminUseCases,
   ScholarshipImportAtomicTransferUseCase,
   ScholarshipImportCenterUseCases,
+  ScholarshipImportNewUseCase,
+  ScholarshipSourceRegistryService,
+  ScholarshipCanonicalResolutionService,
+  type IScholarshipImportVerificationDecisionPort,
+  type IScholarshipImportCanonicalResolutionDecisionPort,
   type IScholarshipImportAtomicGateway,
   type IScholarshipImportCenterGateway,
   type ScholarshipImportOperationalClass,
@@ -19,6 +24,11 @@ export class ScholarshipAdminRouter {
     importAdminUseCases?: ImportAdminUseCases;
     importRepository?: IScholarshipImportCenterGateway;
     scholarshipRepository?: IScholarshipRepository;
+    scholarshipSourceRegistryService?: ScholarshipSourceRegistryService;
+    scholarshipImportNewUseCase?: ScholarshipImportNewUseCase;
+    scholarshipImportVerificationDecisionPort?: IScholarshipImportVerificationDecisionPort;
+    scholarshipImportCanonicalResolutionDecisionPort?: IScholarshipImportCanonicalResolutionDecisionPort;
+    scholarshipCanonicalResolutionService?: ScholarshipCanonicalResolutionService;
   }): Router {
     const router = Router();
     const {
@@ -27,6 +37,11 @@ export class ScholarshipAdminRouter {
       importAdminUseCases,
       importRepository,
       scholarshipRepository,
+      scholarshipSourceRegistryService,
+      scholarshipImportNewUseCase,
+      scholarshipImportVerificationDecisionPort,
+      scholarshipImportCanonicalResolutionDecisionPort,
+      scholarshipCanonicalResolutionService,
     } = cradle;
     const atomicImportGateway = importRepository as (IScholarshipImportCenterGateway & Partial<IScholarshipImportAtomicGateway>) | undefined;
     const atomicTransfer = atomicImportGateway && scholarshipRepository && atomicDomainMutationCoordinator && typeof atomicImportGateway.withTransaction === 'function'
@@ -42,6 +57,9 @@ export class ScholarshipAdminRouter {
           scholarshipRepository,
           atomicTransfer,
           atomicTransfer,
+          scholarshipSourceRegistryService,
+          scholarshipImportVerificationDecisionPort,
+          scholarshipImportCanonicalResolutionDecisionPort,
         )
       : undefined;
 
@@ -76,6 +94,17 @@ export class ScholarshipAdminRouter {
       action: z.enum(['MERGE', 'KEEP_CURRENT', 'SPLIT']),
       reason: z.string().max(2000).optional(),
     });
+    const sourceConfigSchema = z.object({
+      sourceId: z.string().min(1), sourceName: z.string().min(1), baseUrl: z.string().url().optional(),
+      sourceType: z.enum(['SCHOLARSHIP_WEBSITE', 'GOVERNMENT_SCHOLARSHIP_PORTAL', 'FOUNDATION_DONOR_PORTAL', 'AGGREGATOR', 'MANUAL_FILE']),
+      status: z.enum(['ACTIVE', 'DISABLED', 'NOT_CONFIGURED']), acquisitionMode: z.enum(['WEBSITE', 'SITEMAP', 'FEED', 'API', 'MANUAL_FILE']),
+      allowedUrlScope: z.object({ allowedOrigins: z.array(z.string().url()).min(1), allowedPathPrefixes: z.array(z.string()).optional(), allowSubdomains: z.boolean().optional() }).optional(),
+      rateLimitPolicy: z.object({ requestsPerMinute: z.number().int().positive(), burstLimit: z.number().int().positive().optional(), minimumDelayMs: z.number().int().nonnegative().optional() }).optional(),
+      lastExecution: z.object({ state: z.enum(['NEVER_RUN', 'SUCCEEDED', 'FAILED', 'PARTIAL']), executionId: z.string().optional(), startedAt: z.string().optional(), finishedAt: z.string().optional(), recordsObserved: z.number().int().nonnegative().optional(), errorsObserved: z.number().int().nonnegative().optional(), durationMs: z.number().nonnegative().optional() }),
+    });
+    const importNewSchema = z.object({ sourceId: z.string().min(1), targetUrl: z.string().url().optional(), parserHint: z.enum(['json', 'ndjson', 'csv']).optional(), structuredContent: z.unknown().optional(), fileName: z.string().max(512).optional(), contentType: z.string().max(256).optional(), approvedAssetReference: z.string().max(1024).optional() });
+    const verificationSchema = z.object({ state: z.enum(['VERIFIED', 'FAILED']), reason: z.string().min(1).max(2000), evidence: z.record(z.string(), z.unknown()).optional() });
+    const canonicalResolutionSchema = z.object({ fieldOrRequirementKey: z.string().min(1), canonicalEntityType: z.enum(['PROVIDER_UNIVERSITY', 'UNIVERSITY', 'COUNTRY', 'LANGUAGE', 'CURRENCY', 'DEGREE_LEVEL', 'MAJOR', 'INTERNATIONAL_TEST']), canonicalId: z.string().min(1).optional(), rawValue: z.string().min(1), resolutionType: z.enum(['RESOLVED', 'NOT_APPLICABLE', 'REJECTED']), reason: z.string().max(2000).optional() });
     const requireImportCenter = () => {
       if (!scholarshipImportCenterUseCases) {
         throw new Error('SCHOLARSHIP_IMPORT_CENTER_NOT_CONFIGURED');
@@ -184,6 +213,24 @@ export class ScholarshipAdminRouter {
       res.json(await requireImportCenter().listSources());
     }));
 
+    router.post('/import-center/sources', asyncHandler(async (req: Request, res: Response) => {
+      if (!scholarshipSourceRegistryService) throw new Error('SCHOLARSHIP_SOURCE_REGISTRY_NOT_CONFIGURED');
+      const source = sourceConfigSchema.parse(req.body); const result = await scholarshipSourceRegistryService.register(source); res.status(201).json(result);
+    }));
+
+    router.patch('/import-center/sources/:sourceId/status', asyncHandler(async (req: Request, res: Response) => {
+      if (!scholarshipSourceRegistryService) throw new Error('SCHOLARSHIP_SOURCE_REGISTRY_NOT_CONFIGURED');
+      const status = z.object({ status: z.enum(['ACTIVE', 'DISABLED']) }).parse(req.body).status; const updated = await scholarshipSourceRegistryService.updateStatus(req.params.sourceId, status);
+      if (!updated) throw new Error('SCHOLARSHIP_SOURCE_NOT_FOUND'); res.json({ sourceId: req.params.sourceId, status });
+    }));
+
+    router.post('/import-center/import-new', asyncHandler(async (req: Request, res: Response) => {
+      if (!scholarshipImportNewUseCase) throw new Error('SCHOLARSHIP_IMPORT_NEW_NOT_CONFIGURED');
+      const payload = importNewSchema.parse(req.body); const context = mutationContext(req);
+      const result = await scholarshipImportNewUseCase.execute({ sourceId: payload.sourceId, targetUrl: payload.targetUrl, parserHint: payload.parserHint, manualInput: payload.structuredContent !== undefined ? { structuredContent: payload.structuredContent, fileName: payload.fileName, contentType: payload.contentType, approvedAssetReference: payload.approvedAssetReference } : undefined, correlationId: context.correlationId });
+      res.status(result.state === 'REJECTED_SOURCE' ? 400 : 201).json(result);
+    }));
+
     router.get('/import-center/records', asyncHandler(async (req: Request, res: Response) => {
       const query = importCenterQuerySchema.parse(req.query);
       res.json(await requireImportCenter().listRecords(query));
@@ -219,6 +266,17 @@ export class ScholarshipAdminRouter {
     router.get('/import-center/verification', asyncHandler(async (req: Request, res: Response) => {
       const query = importCenterQuerySchema.parse(req.query);
       res.json(await requireImportCenter().listVerification(query));
+    }));
+
+    router.post('/import-center/records/:id/verification', asyncHandler(async (req: Request, res: Response) => {
+      if (!scholarshipImportVerificationDecisionPort) throw new Error('SCHOLARSHIP_IMPORT_VERIFICATION_NOT_CONFIGURED'); const payload = verificationSchema.parse(req.body); const context = mutationContext(req);
+      res.status(201).json(await scholarshipImportVerificationDecisionPort.record({ recordId: req.params.id, state: payload.state, actorId: context.actorId, reason: payload.reason, evidence: payload.evidence, correlationId: context.correlationId }));
+    }));
+
+    router.post('/import-center/records/:id/canonical-resolution', asyncHandler(async (req: Request, res: Response) => {
+      if (!scholarshipImportCanonicalResolutionDecisionPort || !scholarshipCanonicalResolutionService) throw new Error('SCHOLARSHIP_IMPORT_CANONICAL_RESOLUTION_NOT_CONFIGURED'); const payload = canonicalResolutionSchema.parse(req.body); const context = mutationContext(req);
+      if (payload.resolutionType === 'RESOLVED') { const resolution = await scholarshipCanonicalResolutionService.resolve({ target: payload.canonicalEntityType, rawValue: payload.rawValue, canonicalId: payload.canonicalId }); if (resolution.state !== 'RESOLVED') throw new Error('SCHOLARSHIP_CANONICAL_RESOLUTION_NOT_EXISTING_OR_AMBIGUOUS'); }
+      res.status(201).json(await scholarshipImportCanonicalResolutionDecisionPort.record({ recordId: req.params.id, ...payload, actorId: context.actorId, correlationId: context.correlationId }));
     }));
 
     router.get('/import-center/review-queue', asyncHandler(async (req: Request, res: Response) => {

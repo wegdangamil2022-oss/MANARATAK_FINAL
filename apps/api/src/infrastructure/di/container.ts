@@ -55,7 +55,7 @@ import {
   DegreeLevelRepository,
   PrismaScholarshipCanonicalLookupGateway,
   NodeSafeSourceHttpTransport, LocalImportRawSnapshotStore, SourceAcquisitionLimiter,
-  StaticHtmlSourceConnector, SitemapSourceConnector, OfficialFeedSourceConnector, OfficialApiSourceConnector, ManualUploadSourceConnector
+  StaticHtmlSourceConnector, SitemapSourceConnector, OfficialFeedSourceConnector, OfficialApiSourceConnector, ManualUploadSourceConnector, InMemorySourceRegistryGateway, PrismaSourceRegistryGateway, PrismaScholarshipImportVerificationDecisionPort, PrismaScholarshipImportCanonicalResolutionDecisionPort, InMemoryScholarshipImportVerificationDecisionPort, InMemoryScholarshipImportCanonicalResolutionDecisionPort
 , PrismaSessionManager, PrismaCredentialVerifier} from '@manaratak/infrastructure';
 
 // UseCases
@@ -142,7 +142,7 @@ import {
 
 // These are directly from src instead of index for some reason
 import { ManageNotificationTemplatesUseCase } from '@manaratak/application';
-import { SourceConnectorRegistry, AcquireImportSourceUseCase } from '@manaratak/application';
+import { SourceConnectorRegistry, AcquireImportSourceUseCase, ScholarshipSourceRegistryService, ScholarshipAcquisitionPlanner, ScholarshipImportNewUseCase } from '@manaratak/application';
 import { ManageNotificationIntentsUseCase } from '@manaratak/application';
 import { ManageAuditRecordsUseCase } from '@manaratak/application';
 
@@ -8119,6 +8119,13 @@ export function registerDependencies() {
     sourceAcquisitionLimiter: asClass(SourceAcquisitionLimiter).singleton(),
     acquireImportSourceUseCase: asFunction(({ sourceConnectorRegistry, importRawSnapshotStore, sourceAcquisitionLimiter }) =>
       new AcquireImportSourceUseCase(sourceConnectorRegistry, importRawSnapshotStore, sourceAcquisitionLimiter)).scoped(),
+    sourceRegistryGateway: asFunction(({ prisma }) => isPrisma ? new PrismaSourceRegistryGateway(prisma) : new InMemorySourceRegistryGateway()).singleton(),
+    scholarshipSourceRegistryService: asFunction(({ sourceRegistryGateway }) => new ScholarshipSourceRegistryService(sourceRegistryGateway)).singleton(),
+    scholarshipAcquisitionPlanner: asFunction(({ scholarshipSourceRegistryService }) => new ScholarshipAcquisitionPlanner(scholarshipSourceRegistryService)).singleton(),
+    scholarshipImportNewUseCase: asFunction(({ sourceRegistryGateway, scholarshipAcquisitionPlanner, acquireImportSourceUseCase, importAdminUseCases }) =>
+      new ScholarshipImportNewUseCase(sourceRegistryGateway, scholarshipAcquisitionPlanner, acquireImportSourceUseCase, importAdminUseCases)).scoped(),
+    scholarshipImportVerificationDecisionPort: asFunction(({ prisma }) => isPrisma ? new PrismaScholarshipImportVerificationDecisionPort(prisma) : new InMemoryScholarshipImportVerificationDecisionPort()).singleton(),
+    scholarshipImportCanonicalResolutionDecisionPort: asFunction(({ prisma }) => isPrisma ? new PrismaScholarshipImportCanonicalResolutionDecisionPort(prisma) : new InMemoryScholarshipImportCanonicalResolutionDecisionPort()).singleton(),
     assetRecordRepository: asFunction(({ prisma }) => new PrismaAssetRecordRepository(prisma)).singleton(),
     assetStorageGateway: asClass(LocalAssetStorageGateway).singleton(),
     assetMalwareScannerGateway: asClass(NoopAssetMalwareScannerGateway).singleton(),

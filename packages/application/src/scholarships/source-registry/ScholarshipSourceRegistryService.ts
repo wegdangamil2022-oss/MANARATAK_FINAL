@@ -103,6 +103,10 @@ export class ScholarshipSourceRegistryService {
     return sources.filter((source) => this.isScholarshipSource(source));
   }
 
+  async updateStatus(sourceId: string, status: 'ACTIVE' | 'DISABLED'): Promise<boolean> {
+    return this.registry.updateSourceStatus(sourceId, status === 'ACTIVE' ? SourceStatus.ACTIVE : SourceStatus.DISABLED);
+  }
+
   private isScholarshipSource(source: ImportSourceDefinition | null): source is ImportSourceDefinition {
     return Boolean(source && source.metadata?.ownerDomain === OWNER_DOMAIN);
   }

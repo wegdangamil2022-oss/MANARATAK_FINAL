@@ -146,6 +146,7 @@ export * from './import-foundation/contracts/ISourceConnector';
 export * from './import-foundation/contracts/IImportRawSnapshotStore';
 export * from './import-foundation/services/SourceConnectorRegistry';
 export * from './import-foundation/use-cases/AcquireImportSourceUseCase';
+export * from './scholarships/import-center/ScholarshipImportNewUseCase';
 export * from './import-foundation/contracts/IDriftDetectionService';
 export * from './import-foundation/services/DriftDetectionService';
 export * from './import-foundation/dtos/ExtractionDtos';

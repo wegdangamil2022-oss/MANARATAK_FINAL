@@ -107,6 +107,21 @@ export interface IScholarshipImportReviewDecisionPort {
   recordDecision(input: ScholarshipImportReviewDecisionRequest): Promise<ScholarshipImportReviewDecisionResult>;
 }
 
+export interface ScholarshipImportVerificationDecision {
+  recordId: string; state: ScholarshipImportVerificationState; actorId: string; reason: string; evidence?: Record<string, unknown>; correlationId?: string;
+}
+export interface IScholarshipImportVerificationDecisionPort {
+  record(input: ScholarshipImportVerificationDecision): Promise<{ decisionId: string; recordedAt: string }>;
+  latest(recordId: string): Promise<(ScholarshipImportVerificationDecision & { decisionId: string; recordedAt: string }) | null>;
+}
+export interface ScholarshipImportCanonicalResolutionDecision {
+  recordId: string; fieldOrRequirementKey: string; canonicalEntityType: string; canonicalId?: string; rawValue: string; resolutionType: 'RESOLVED' | 'NOT_APPLICABLE' | 'REJECTED'; actorId: string; reason?: string; correlationId?: string;
+}
+export interface IScholarshipImportCanonicalResolutionDecisionPort {
+  record(input: ScholarshipImportCanonicalResolutionDecision): Promise<{ decisionId: string; recordedAt: string }>;
+  list(recordId: string): Promise<Array<ScholarshipImportCanonicalResolutionDecision & { decisionId: string; recordedAt: string }>>;
+}
+
 export interface ScholarshipImportTransferRequest {
   recordId: string;
   actorId: string;
@@ -148,6 +163,7 @@ export interface ScholarshipImportCenterRecordView {
   importStatus: string;
   operationalClass: ScholarshipImportOperationalClass;
   rawPayload: unknown;
+  screeningOrigin: 'PERSISTED_HANDOFF' | 'LEGACY_RECOMPUTED' | 'NOT_AVAILABLE';
   parseState: 'VALID' | 'INVALID';
   parseIssues: string[];
   rawSourceTitle: string | null;

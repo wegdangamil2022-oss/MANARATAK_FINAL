@@ -24,8 +24,11 @@ import type {
   ScholarshipImportReviewDecisionRequest,
   ScholarshipImportTransferRequest,
   ScholarshipImportVerificationState,
+  IScholarshipImportVerificationDecisionPort,
+  IScholarshipImportCanonicalResolutionDecisionPort,
 } from './ScholarshipImportCenterContracts';
 import { readScholarshipImportReviewDecision } from './ScholarshipImportReviewDecisionCodec';
+import type { ScholarshipSourceRegistryService } from '../source-registry/ScholarshipSourceRegistryService';
 
 const OWNER_DOMAIN = 'SCHOLARSHIPS';
 const PAGE_SIZE = 100;
@@ -42,6 +45,9 @@ export class ScholarshipImportCenterUseCases {
     private readonly scholarshipRepository: IScholarshipRepository,
     private readonly reviewDecisionPort?: IScholarshipImportReviewDecisionPort,
     private readonly transferPort?: IScholarshipImportTransferPort,
+    private readonly sourceRegistry?: ScholarshipSourceRegistryService,
+    private readonly verificationDecisionPort?: IScholarshipImportVerificationDecisionPort,
+    private readonly canonicalResolutionDecisionPort?: IScholarshipImportCanonicalResolutionDecisionPort,
   ) {}
 
   async getOverview(
@@ -77,18 +83,7 @@ export class ScholarshipImportCenterUseCases {
     };
   }
 
-  async listSources(): Promise<{
-    registryState: 'OBSERVED_FROM_PHASE6_BATCHES';
-    sourceRegistryRuntime: 'PENDING_RUNTIME';
-    observedBatchLimit: 100;
-    completeRegistry: false;
-    sources: Array<{
-      sourceSystem: string;
-      batches: number;
-      totalRecords: number;
-      lastBatchAt: Date | string | null;
-    }>;
-  }> {
+  async listSources() {
     const batches = await this.gateway.listBatches({ dataType: OWNER_DOMAIN, limit: 100 });
     const grouped = new Map<string, { batches: number; totalRecords: number; lastBatchAt: Date | string | null }>();
     for (const batch of batches) {
@@ -100,13 +95,10 @@ export class ScholarshipImportCenterUseCases {
       }
       grouped.set(batch.sourceSystem, current);
     }
-    return {
-      registryState: 'OBSERVED_FROM_PHASE6_BATCHES',
-      sourceRegistryRuntime: 'PENDING_RUNTIME',
-      observedBatchLimit: 100,
-      completeRegistry: false,
-      sources: [...grouped.entries()].map(([sourceSystem, value]) => ({ sourceSystem, ...value })),
-    };
+    const observed = [...grouped.entries()].map(([sourceSystem, value]) => ({ sourceSystem, ...value }));
+    if (!this.sourceRegistry) return { registryState: 'NOT_CONFIGURED' as const, sourceRegistryRuntime: 'PENDING_RUNTIME' as const, completeRegistry: false, sources: [], observedStatistics: observed };
+    const sources = await this.sourceRegistry.list();
+    return { registryState: 'AUTHORITATIVE_SCHOLARSHIP_SOURCE_REGISTRY' as const, sourceRegistryRuntime: 'PENDING_RUNTIME' as const, completeRegistry: true, sources: sources.map((source) => ({ sourceId: source.sourceId, displayName: source.displayName, baseUrl: source.baseUrl, category: source.category, status: source.status, accessClassification: source.accessClassification, connectorId: source.connectorId, connectorVersion: source.connectorVersion, rateLimitPerMinute: source.rateLimitPerMinute ?? null, metadata: source.metadata ?? {} })), observedStatistics: observed };
   }
 
   async listRecords(query: ScholarshipImportCenterQuery = {}): Promise<{
@@ -325,6 +317,7 @@ export class ScholarshipImportCenterUseCases {
       importStatus: record.status,
       operationalClass,
       rawPayload: record.rawPayload,
+      screeningOrigin: Object.keys(this.object(raw._domainHandoff)).length ? ('PERSISTED_HANDOFF' as const) : ('LEGACY_RECOMPUTED' as const),
       transferred: Boolean(record.promotedEntityId),
       promotedEntityId: record.promotedEntityId ?? null,
       createdAt: record.createdAt ?? null,
@@ -335,6 +328,7 @@ export class ScholarshipImportCenterUseCases {
       return {
         ...base,
         parseState: 'INVALID',
+        screeningOrigin: 'NOT_AVAILABLE',
         parseIssues: parsed.error.issues.map((issue) => `${issue.path.join('.') || 'payload'}:${issue.code}`),
         rawSourceTitle: typeof raw.scholarshipName === 'string' ? raw.scholarshipName : null,
         cleanedScholarshipName: null,
@@ -356,20 +350,24 @@ export class ScholarshipImportCenterUseCases {
     }
 
     const metadata = this.object(parsed.data.metadata);
+    const persistedHandoff = this.object(raw._domainHandoff);
     const aliases = Array.isArray(metadata.sourceAliases)
       ? metadata.sourceAliases.filter((item): item is string => typeof item === 'string')
       : [];
-    const name = ScholarshipNamingService.clean(parsed.data.scholarshipName, aliases);
+    const persistedName = this.object(persistedHandoff.nameScreening);
+    const name = Object.keys(persistedName).length ? { rawSourceTitle: this.stringValue(persistedName.rawSourceTitle) ?? parsed.data.scholarshipName, cleanedScholarshipName: this.stringValue(persistedName.cleanedScholarshipName) ?? parsed.data.scholarshipName, sourceAliases: Array.isArray(persistedName.sourceAliases) ? persistedName.sourceAliases.filter((value): value is string => typeof value === 'string') : aliases, extracted: this.object(persistedName.extracted), detectedYear: this.stringValue(persistedName.detectedYear) } : ScholarshipNamingService.clean(parsed.data.scholarshipName, aliases);
     const providerCanonicalPublicId = this.stringValue(metadata.providerCanonicalPublicId);
     const sourceTraceable = this.sourceTraceable(parsed.data, batch);
-    const completeness = ScholarshipCompletenessClassifier.classify({
+    const calculatedCompleteness = ScholarshipCompletenessClassifier.classify({
       ...parsed.data,
       cleanedScholarshipName: name.cleanedScholarshipName,
       providerCanonicalPublicId,
       sourceTraceable,
-      extractedFundingTypeCode: name.extracted.fundingTypeCode,
-      extractedDegreeLevels: name.extracted.degreeLevelLabels,
+      extractedFundingTypeCode: this.stringValue(name.extracted.fundingTypeCode),
+      extractedDegreeLevels: this.stringArray(name.extracted.degreeLevelLabels, []),
     });
+    const persistedCompleteness = this.object(persistedHandoff.completeness);
+    const completeness = Object.keys(persistedCompleteness).length ? { ...calculatedCompleteness, state: (this.stringValue(persistedCompleteness.state) as ScholarshipCompletenessState) ?? calculatedCompleteness.state, missingFields: this.stringArray(persistedCompleteness.missingFields, calculatedCompleteness.missingFields), identityMissingFields: this.stringArray(persistedCompleteness.identityMissingFields, calculatedCompleteness.identityMissingFields), coreMissingFields: this.stringArray(persistedCompleteness.coreMissingFields, calculatedCompleteness.coreMissingFields), optionalMissingFields: this.stringArray(persistedCompleteness.optionalMissingFields, calculatedCompleteness.optionalMissingFields), identityReady: typeof persistedCompleteness.identityReady === 'boolean' ? persistedCompleteness.identityReady : calculatedCompleteness.identityReady } : calculatedCompleteness;
     const incomingSourceImportRecordId = record.id;
     const dedupeInput = {
       cleanedScholarshipName: name.cleanedScholarshipName,
@@ -389,14 +387,17 @@ export class ScholarshipImportCenterUseCases {
       canonicalDedupKey: existing.canonicalDedupKey,
       sourceImportRecordId: existing.sourceImportRecordId ?? null,
     }] : [];
-    const dedupe = completeness.identityReady
+    const calculatedDedupe = completeness.identityReady
       ? ScholarshipDeduplicationService.assess(dedupeInput, matches)
       : ScholarshipDeduplicationService.assess(dedupeInput);
+    const persistedDedupe = this.object(persistedHandoff.dedupe);
+    const dedupe = Object.keys(persistedDedupe).length ? { ...calculatedDedupe, duplicateKey: this.stringValue(persistedDedupe.duplicateKey) ?? calculatedDedupe.duplicateKey, state: (this.stringValue(persistedDedupe.state) as typeof calculatedDedupe.state) ?? calculatedDedupe.state, matches: Array.isArray(persistedDedupe.matches) ? persistedDedupe.matches as typeof calculatedDedupe.matches : calculatedDedupe.matches, requiresReview: typeof persistedDedupe.requiresReview === 'boolean' ? persistedDedupe.requiresReview : calculatedDedupe.requiresReview } : calculatedDedupe;
+    const persistedVerification = this.verificationDecisionPort ? await this.verificationDecisionPort.latest(record.id) : null;
     const verification = {
-      state: this.verificationState(raw),
+      state: persistedVerification?.state ?? this.verificationState(raw),
       sourceTraceable,
     };
-    const canonical = this.canonicalSummary(raw);
+    const canonical = this.canonicalSummary(raw, this.canonicalResolutionDecisionPort ? await this.canonicalResolutionDecisionPort.list(record.id) : []);
     const decision = readScholarshipImportReviewDecision(record.processingNotes);
     const mergeDecisionMatches = Boolean(
       existing &&
@@ -466,9 +467,10 @@ export class ScholarshipImportCenterUseCases {
     return [...reasons];
   }
 
-  private canonicalSummary(rawPayload: Record<string, unknown>): ScholarshipImportCenterCanonicalSummary {
+  private canonicalSummary(rawPayload: Record<string, unknown>, decisions: Array<{ fieldOrRequirementKey: string; resolutionType: string }> = []): ScholarshipImportCenterCanonicalSummary {
     const metadata = this.object(rawPayload.metadata);
-    const raw = Array.isArray(metadata.canonicalScreening)
+    const handoff = this.object(rawPayload._domainHandoff);
+    const raw = Array.isArray(handoff.canonicalScreening) ? handoff.canonicalScreening : Array.isArray(metadata.canonicalScreening)
       ? metadata.canonicalScreening
       : Array.isArray(rawPayload._canonicalScreening)
         ? rawPayload._canonicalScreening
@@ -480,7 +482,10 @@ export class ScholarshipImportCenterUseCases {
     let ambiguousCount = 0;
     let reviewRequiredCount = 0;
     for (const item of raw) {
-      const state = this.stringValue(this.object(item).state)?.toUpperCase();
+      const entry = this.object(item); const key = this.stringValue(entry.requirementKey) ?? this.stringValue(entry.fieldOrRequirementKey) ?? this.stringValue(entry.target);
+      const overridden = key ? decisions.some((decision) => decision.fieldOrRequirementKey === key && (decision.resolutionType === 'RESOLVED' || decision.resolutionType === 'NOT_APPLICABLE')) : false;
+      if (overridden) continue;
+      const state = this.stringValue(entry.state)?.toUpperCase();
       if (state === 'UNRESOLVED') unresolvedCount += 1;
       if (state === 'AMBIGUOUS') ambiguousCount += 1;
       if (state === 'REVIEW_REQUIRED') reviewRequiredCount += 1;
@@ -509,6 +514,8 @@ export class ScholarshipImportCenterUseCases {
     return candidates.some((value) => typeof value === 'string' && value.trim().length > 0)
       || Boolean(batch.sourceSystem?.trim());
   }
+
+  private stringArray(value: unknown, fallback: string[]): string[] { return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : fallback; }
 
   private operationalClass(rawPayload: unknown, sourceSystem: string): ScholarshipImportOperationalClass {
     const raw = this.object(rawPayload);

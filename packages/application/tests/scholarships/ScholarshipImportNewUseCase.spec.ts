@@ -1,0 +1,16 @@
+import { describe, expect, it, vi } from 'vitest';
+import { InMemoryImportRawSnapshotStore, InMemorySourceRegistryGateway } from '@manaratak/infrastructure';
+import { SourceConnectorCategory } from '@manaratak/domain';
+import { AcquireImportSourceUseCase, ScholarshipAcquisitionPlanner, ScholarshipImportNewUseCase, ScholarshipSourceRegistryService, SourceConnectorRegistry, type ISourceConnector } from '../../src';
+
+async function setup() {
+  const gateway = new InMemorySourceRegistryGateway(); const sources = new ScholarshipSourceRegistryService(gateway);
+  await sources.register({ sourceId: 'manual', sourceName: 'Manual', sourceType: 'MANUAL_FILE', status: 'ACTIVE', acquisitionMode: 'MANUAL_FILE', lastExecution: { state: 'NEVER_RUN' } });
+  const connector: ISourceConnector = { connectorId: 'manual-upload', connectorVersion: '2.0.0', category: SourceConnectorCategory.MANUAL_UPLOAD, supports: () => true, getSignature: vi.fn(), acquire: async (_source, request) => ({ sourceId: 'manual', connectorId: 'manual-upload', connectorVersion: '2.0.0', rawBytes: request.manualInput!.rawBytes, contentType: request.manualInput!.contentType, fetchedAt: new Date('2026-08-23T00:00:00Z') }) };
+  const acquisition = new AcquireImportSourceUseCase(new SourceConnectorRegistry([connector]), new InMemoryImportRawSnapshotStore()); const stageNormalizedRows = vi.fn(async () => ({ batch: { id: 'batch-1' }, summary: { stagedRecords: 1 } }));
+  return { execute: new ScholarshipImportNewUseCase(gateway, new ScholarshipAcquisitionPlanner(sources), acquisition, { stageNormalizedRows } as any), stageNormalizedRows };
+}
+describe('ScholarshipImportNewUseCase', () => {
+  it('uses source-selected connector, persists snapshot and stages structured JSON', async () => { const { execute, stageNormalizedRows } = await setup(); const result = await execute.execute({ sourceId: 'manual', manualInput: { structuredContent: { scholarshipName: 'Example' } }, parserHint: 'json' }); expect(result.state).toBe('STAGED'); expect(stageNormalizedRows).toHaveBeenCalledWith(expect.objectContaining({ ownerDomain: 'SCHOLARSHIPS', handoffContext: expect.objectContaining({ artifactId: expect.stringMatching(/^raw_/u) }) })); });
+  it('rejects unknown sources and does not stage unsupported HTML', async () => { const { execute, stageNormalizedRows } = await setup(); expect((await execute.execute({ sourceId: 'unknown', manualInput: { structuredContent: {} } })).state).toBe('REJECTED_SOURCE'); expect((await execute.execute({ sourceId: 'manual', manualInput: { rawBytes: new TextEncoder().encode('<html/>'), contentType: 'text/html' } })).state).toBe('ACQUIRED_AWAITING_EXTRACTION_MAPPING'); expect(stageNormalizedRows).not.toHaveBeenCalled(); });
+});

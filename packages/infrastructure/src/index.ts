@@ -17,6 +17,8 @@ export * from './event-foundation/PrismaAtomicPersistenceUnitOfWork';
 export class InMemoryWorkflowExecutionGateway {}
 export * from './universities/PrismaUniversityRepository';
 export * from './scholarships/PrismaScholarshipRepository';
+export * from './scholarships/PrismaScholarshipImportDecisionPorts';
+export * from './scholarships/InMemoryScholarshipImportDecisionPorts';
 export * from './scholarships/PrismaScholarshipCanonicalLookupGateway';
 export * from './majors/PrismaMajorRepository';
 export * from './majors/PrismaFellowshipDefinitionRepository';
@@ -177,6 +179,7 @@ export * from './auth/PrismaSessionManager';
 export * from './auth/PasswordHasher';
 export * from './auth/PrismaCredentialVerifier';
 export * from './import-foundation/InMemorySourceRegistryGateway';
+export * from './import-foundation/PrismaSourceRegistryGateway';
 export * from './import-foundation/connectors/BaseSourceConnector';
 export * from './import-foundation/connectors/OfficialApiSourceConnector';
 export * from './import-foundation/connectors/OfficialFeedSourceConnector';

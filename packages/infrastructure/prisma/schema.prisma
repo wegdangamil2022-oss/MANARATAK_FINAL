@@ -16,6 +16,52 @@ model Settings {
   updatedAt DateTime @updatedAt
 }
 
+model ImportSourceRegistryEntry {
+  sourceId             String   @id
+  displayName          String
+  baseUrl              String
+  category             String
+  accessClassification String
+  status               String
+  rateLimitPerMinute   Int?
+  robotsPolicyUrl      String?
+  connectorId          String
+  connectorVersion     String
+  metadata             Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([status])
+  @@index([category])
+}
+
+model ScholarshipImportVerificationDecision {
+  id            String   @id
+  recordId      String
+  state         String
+  actorId       String
+  reason        String
+  evidence      Json?
+  correlationId String?
+  createdAt     DateTime @default(now())
+  @@index([recordId, createdAt])
+}
+
+model ScholarshipImportCanonicalResolutionDecision {
+  id                 String   @id
+  recordId           String
+  fieldOrRequirementKey String
+  canonicalEntityType String
+  canonicalId        String?
+  rawValue           String
+  resolutionType     String
+  actorId            String
+  reason             String?
+  correlationId      String?
+  createdAt          DateTime @default(now())
+  @@index([recordId, createdAt])
+}
+
 // --- Settings Foundation ---
 
 model SettingDefinitionRecord {
