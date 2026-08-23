@@ -1,3 +1,7 @@
 import type { SourceAcquisitionResult } from './ISourceConnector';
-export interface StoredImportRawSnapshot { artifactId: string; rawArtifactReference: string; contentHash: string; byteSize: number; storedAt: Date; }
-export interface IImportRawSnapshotStore { store(result: SourceAcquisitionResult): Promise<StoredImportRawSnapshot>; }
+export interface StoredImportRawSnapshot {
+  artifactId: string; rawArtifactReference: string; contentHash: string; byteSize: number; storedAt: Date;
+  sourceId: string; connectorId: string; connectorVersion: string; fetchedAt: Date;
+  requestedUrl?: string; finalUrl?: string; statusCode?: number; contentType?: string; etag?: string; lastModified?: string;
+}
+export interface IImportRawSnapshotStore { store(result: SourceAcquisitionResult): Promise<StoredImportRawSnapshot>; get(artifactId: string): Promise<StoredImportRawSnapshot | null>; }

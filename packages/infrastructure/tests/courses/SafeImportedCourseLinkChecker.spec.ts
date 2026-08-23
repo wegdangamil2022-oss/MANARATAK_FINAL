@@ -18,6 +18,11 @@ describe('SafeImportedCourseLinkChecker', () => {
     })).rejects.toThrow('COURSE_LINK_PRIVATE_ADDRESS_BLOCKED');
   });
 
+  it('blocks IPv4-mapped IPv6 private literals', async () => {
+    const checker = new SafeImportedCourseLinkChecker();
+    await expect(checker.check({ url: 'https://[::ffff:127.0.0.1]/course', allowedDomains: ['[::ffff:127.0.0.1]'] })).rejects.toThrow('COURSE_LINK_PRIVATE_ADDRESS_BLOCKED');
+  });
+
   it('returns BLOCKED_DOMAIN before attempting a request outside provider policy', async () => {
     const checker = new SafeImportedCourseLinkChecker();
     const result = await checker.check({

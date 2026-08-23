@@ -1,6 +1,7 @@
 import { lookup } from 'dns/promises';
 import { request as httpsRequest } from 'https';
 import { isIP } from 'net';
+import { PublicNetworkAddressPolicy } from '../network/PublicNetworkAddressPolicy';
 import {
   IImportedCourseLinkChecker,
   ImportedCourseLinkCheckResult,
@@ -27,49 +28,7 @@ function domainAllowed(hostname: string, allowedDomains: string[]): boolean {
   });
 }
 
-function isPrivateIpv4(address: string): boolean {
-  const octets = address.split('.').map(Number);
-  if (octets.length !== 4 || octets.some((value) => !Number.isInteger(value) || value < 0 || value > 255)) return true;
-  const [a, b] = octets;
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    (a === 100 && b >= 64 && b <= 127) ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 0) ||
-    (a === 192 && b === 168) ||
-    (a === 198 && (b === 18 || b === 19)) ||
-    a >= 224
-  );
-}
-
-function isPrivateIpv6(address: string): boolean {
-  const normalized = address.toLowerCase();
-  return (
-    normalized === '::' ||
-    normalized === '::1' ||
-    normalized.startsWith('fc') ||
-    normalized.startsWith('fd') ||
-    normalized.startsWith('fe8') ||
-    normalized.startsWith('fe9') ||
-    normalized.startsWith('fea') ||
-    normalized.startsWith('feb') ||
-    normalized.startsWith('ff') ||
-    normalized.startsWith('2001:db8:') ||
-    normalized.startsWith('::ffff:127.') ||
-    normalized.startsWith('::ffff:10.') ||
-    normalized.startsWith('::ffff:192.168.')
-  );
-}
-
-function publicAddress(address: string): boolean {
-  const family = isIP(address);
-  if (family === 4) return !isPrivateIpv4(address);
-  if (family === 6) return !isPrivateIpv6(address);
-  return false;
-}
+const publicNetworkAddressPolicy = new PublicNetworkAddressPolicy();
 
 interface ResolvedAddress {
   address: string;
@@ -177,15 +136,16 @@ export class SafeImportedCourseLinkChecker implements IImportedCourseLinkChecker
   }
 
   private async resolvePublicAddress(hostname: string): Promise<ResolvedAddress> {
+    hostname = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
     const literalFamily = isIP(hostname);
     if (literalFamily) {
-      if (!publicAddress(hostname)) throw new Error('COURSE_LINK_PRIVATE_ADDRESS_BLOCKED');
+      if (!publicNetworkAddressPolicy.isPublic(hostname)) throw new Error('COURSE_LINK_PRIVATE_ADDRESS_BLOCKED');
       return { address: hostname, family: literalFamily as 4 | 6 };
     }
 
     const addresses = await lookup(hostname, { all: true, verbatim: true });
     if (!addresses.length) throw new Error('COURSE_LINK_DNS_EMPTY');
-    if (addresses.some((entry) => !publicAddress(entry.address))) {
+    if (addresses.some((entry) => !publicNetworkAddressPolicy.isPublic(entry.address))) {
       throw new Error('COURSE_LINK_PRIVATE_DNS_TARGET_BLOCKED');
     }
 

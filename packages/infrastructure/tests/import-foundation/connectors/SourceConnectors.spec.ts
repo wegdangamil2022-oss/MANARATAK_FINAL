@@ -15,4 +15,8 @@ describe('operational source connectors', () => {
     await expect(connector.acquire(configured, { targetUrl: 'https://example.com' })).rejects.toThrow('MANUAL_SOURCE_NETWORK_URL_FORBIDDEN');
     const result = await connector.acquire(configured, { manualInput: { rawBytes: new Uint8Array([1, 2]), fileName: 'safe.bin' } }); expect(result.contentLength).toBe(2);
   });
+  it('manual upload rejects a disabled source even when invoked directly', async () => {
+    const connector = new ManualUploadSourceConnector(); const active = source(connector.category, connector.connectorId, connector.connectorVersion); const disabled = new ImportSourceDefinition({ ...active, status: SourceStatus.DISABLED });
+    await expect(connector.acquire(disabled, { manualInput: { rawBytes: new Uint8Array([1]) } })).rejects.toThrow('SOURCE_CONNECTOR_UNSUPPORTED');
+  });
 });

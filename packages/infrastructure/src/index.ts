@@ -187,6 +187,7 @@ export * from './import-foundation/connectors/DocumentSourceConnector';
 export * from './import-foundation/connectors/BrowserAssistedSourceConnector';
 export * from './import-foundation/connectors/ManualUploadSourceConnector';
 export * from './import-foundation/network/SourceNetworkSecurityPolicy';
+export * from './network/PublicNetworkAddressPolicy';
 export * from './import-foundation/network/NodeSafeSourceHttpTransport';
 export * from './import-foundation/InMemoryImportRawSnapshotStore';
 export * from './import-foundation/LocalImportRawSnapshotStore';
