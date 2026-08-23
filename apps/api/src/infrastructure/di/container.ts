@@ -52,7 +52,8 @@ import {
   PrismaTransactionalOutboxStore,
   PrismaAtomicPersistenceUnitOfWork,
   PrismaAcademicTaxonomyRepository,
-  DegreeLevelRepository
+  DegreeLevelRepository,
+  PrismaScholarshipCanonicalLookupGateway
 , PrismaSessionManager, PrismaCredentialVerifier} from '@manaratak/infrastructure';
 
 // UseCases
@@ -87,6 +88,9 @@ import {
   ManageLocalizationsUseCase,
   AdminScholarshipUseCases,
   PublicScholarshipUseCases,
+  ScholarshipCanonicalResolutionService,
+  ScholarshipHandoffCanonicalScreeningService,
+  ScholarshipImportHandoffService,
   AdminUniversityUseCases,
   PublicUniversityUseCases,
   AdminMajorUseCases,
@@ -8064,6 +8068,7 @@ export function registerDependencies() {
     }).singleton(),
     // --- Repositories ---
     scholarshipRepository: asFunction(({ prisma }) => new PrismaScholarshipRepository(prisma)).singleton(),
+    scholarshipCanonicalLookupGateway: asFunction(({ prisma }) => new PrismaScholarshipCanonicalLookupGateway(prisma)).singleton(),
     universityRepository: asFunction(({ prisma }) => new PrismaUniversityRepository(prisma)).singleton(),
     majorRepository: asFunction(({ prisma }) => new PrismaMajorRepository(prisma)).singleton(),
     phase10CatalogRepository: asFunction(({ prisma }) => new Phase10CatalogRepository(prisma)).singleton(),
@@ -8162,6 +8167,13 @@ export function registerDependencies() {
     adminScholarshipUseCases: asFunction(({ scholarshipRepository, atomicDomainMutationCoordinator }) =>
       new AdminScholarshipUseCases(scholarshipRepository, atomicDomainMutationCoordinator)).scoped(),
     publicScholarshipUseCases: asFunction(({ scholarshipRepository }) => new PublicScholarshipUseCases(scholarshipRepository)).scoped(),
+    // WP12-3/4: Phase 12 owns the semantic consumer; Phase 6 supplies only UniversalImportHandoff data.
+    scholarshipCanonicalResolutionService: asFunction(({ scholarshipCanonicalLookupGateway }) =>
+      new ScholarshipCanonicalResolutionService(scholarshipCanonicalLookupGateway)).singleton(),
+    scholarshipHandoffCanonicalScreeningService: asFunction(({ scholarshipCanonicalResolutionService }) =>
+      new ScholarshipHandoffCanonicalScreeningService(scholarshipCanonicalResolutionService)).singleton(),
+    scholarshipImportHandoffConsumer: asFunction(({ scholarshipHandoffCanonicalScreeningService }) =>
+      new ScholarshipImportHandoffService(scholarshipHandoffCanonicalScreeningService)).scoped(),
     adminUniversityUseCases: asFunction(({ universityRepository, atomicDomainMutationCoordinator }) =>
       new AdminUniversityUseCases(universityRepository, atomicDomainMutationCoordinator)).scoped(),
     publicUniversityUseCases: asFunction(({ universityRepository }) => new PublicUniversityUseCases(universityRepository)).scoped(),

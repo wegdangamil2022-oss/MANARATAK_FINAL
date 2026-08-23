@@ -32,4 +32,15 @@ describe('WP12-4 Scholarship handoff source invariants', () => {
     expect(source).toContain('UniversalImportHandoff');
     expect(source).toContain('idempotencyKey');
   });
+
+  it('registers the canonical lookup, screening, and handoff consumer in production composition', () => {
+    const container = readFileSync(
+      resolve(process.cwd(), 'apps/api/src/infrastructure/di/container.ts'),
+      'utf8',
+    );
+    expect(container).toContain('PrismaScholarshipCanonicalLookupGateway');
+    expect(container).toContain('scholarshipCanonicalResolutionService');
+    expect(container).toContain('scholarshipHandoffCanonicalScreeningService');
+    expect(container).toContain('scholarshipImportHandoffConsumer');
+  });
 });
