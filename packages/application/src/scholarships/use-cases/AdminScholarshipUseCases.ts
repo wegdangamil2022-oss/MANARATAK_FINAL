@@ -27,6 +27,25 @@ export class AdminScholarshipUseCases {
     return scholarship;
   }
 
+  public async getScholarshipCatalogDetail(id: string): Promise<{
+    scholarship: ScholarshipDto;
+    completeness: ReturnType<typeof ScholarshipCompletenessClassifier.classify>;
+    unresolvedLinks: Array<{
+      area: 'COUNTRY' | 'STUDY_LANGUAGE' | 'DEGREE' | 'MAJOR' | 'UNIVERSITY' | 'INTERNATIONAL_TEST';
+      key: string;
+      rawValue: string | null;
+      canonicalId: string | null;
+      resolutionStatus: string;
+    }>;
+  }> {
+    const scholarship = await this.getScholarship(id);
+    return {
+      scholarship,
+      completeness: this.catalogCompleteness(scholarship),
+      unresolvedLinks: this.unresolvedLinks(scholarship),
+    };
+  }
+
   public async createScholarship(input: {
     displayName: string;
     fundingCoverage: string;
@@ -114,28 +133,12 @@ export class AdminScholarshipUseCases {
 
   public async updateScholarship(id: string, updates: UpdateScholarshipDto, context?: AtomicMutationRequestContext): Promise<ScholarshipDto> {
     const existing = await this.getScholarship(id);
-    
-    // Create a mock payload to run through classifier
-    const payloadForClassification: any = {
-      scholarshipName: updates.displayName ?? existing.displayName,
-      fundingCoverage: updates.fundingCoverage ?? existing.fundingCoverage,
-      coverageDetails: updates.coverageDetails ?? existing.coverageDetails,
-      eligibleMajorsOrFields: updates.eligibleMajorsOrFields ?? existing.eligibleMajorsOrFields,
-      degreeLevel: updates.degreeLevel ?? existing.degreeLevel,
-      applicationLink: updates.applicationLink !== undefined ? updates.applicationLink : existing.applicationLink,
-      officialSourceUrl: updates.officialSourceUrl !== undefined ? updates.officialSourceUrl : existing.officialSourceUrl,
-      officialWebsite: updates.officialSourceUrl !== undefined ? updates.officialSourceUrl : existing.officialSourceUrl,
-      studyCountry: updates.studyCountry !== undefined ? updates.studyCountry : existing.studyCountry,
-      description: updates.coverageDetails || updates.eligibilityCriteria || existing.coverageDetails || existing.eligibilityCriteria,
-    };
-    
-    const classification = ScholarshipCompletenessClassifier.classify(payloadForClassification);
-    
+    const canonicalSafeUpdates = this.preserveCanonicalReferences(existing, updates);
+    const classification = this.catalogCompleteness(existing, canonicalSafeUpdates);
     const dataToUpdate: UpdateScholarshipDto = {
-      ...updates,
-      completenessStatus: classification.state
+      ...canonicalSafeUpdates,
+      completenessStatus: classification.state,
     };
-    
     return this.mutate('SCHOLARSHIP_UPDATED', id, context, repository => repository.update(id, dataToUpdate));
   }
 
@@ -192,6 +195,205 @@ export class AdminScholarshipUseCases {
       workflowStatus: ScholarshipStatus.ARCHIVED,
       publicationStatus: ScholarshipPublicationStatus.ARCHIVED,
     }, context);
+  }
+
+  private preserveCanonicalReferences(existing: ScholarshipDto, updates: UpdateScholarshipDto): UpdateScholarshipDto {
+    const result: UpdateScholarshipDto = { ...updates };
+    const byKey = <T>(items: readonly T[] | undefined, key: (item: T) => string) =>
+      new Map((items ?? []).map(item => [key(item), item]));
+
+    if (updates.benefits !== undefined) {
+      const current = byKey(existing.benefits, item => item.benefitKey);
+      result.benefits = updates.benefits.map(item => {
+        const previous = current.get(item.benefitKey);
+        return {
+          ...item,
+          currencyReferenceId: previous?.currencyReferenceId,
+          metadata: previous?.metadata,
+        };
+      });
+    }
+    if (updates.degreeTargets !== undefined) {
+      const current = byKey(existing.degreeTargets, item => item.targetKey);
+      result.degreeTargets = updates.degreeTargets.map(item => {
+        const previous = current.get(item.targetKey);
+        return {
+          ...item,
+          degreeLevelId: previous?.degreeLevelId,
+          resolutionStatus: previous?.resolutionStatus ?? 'UNRESOLVED',
+          metadata: previous?.metadata,
+        };
+      });
+    }
+    if (updates.majorTargets !== undefined) {
+      const current = byKey(existing.majorTargets, item => item.targetKey);
+      result.majorTargets = updates.majorTargets.map(item => {
+        const previous = current.get(item.targetKey);
+        return {
+          ...item,
+          majorId: previous?.majorId,
+          resolutionStatus: previous?.resolutionStatus ?? 'UNRESOLVED',
+          metadata: previous?.metadata,
+        };
+      });
+    }
+    if (updates.eligibilityItems !== undefined) {
+      const current = byKey(existing.eligibilityItems, item => item.itemKey);
+      result.eligibilityItems = updates.eligibilityItems.map(item => {
+        const previous = current.get(item.itemKey);
+        return {
+          ...item,
+          countryReferenceId: previous?.countryReferenceId,
+          degreeLevelId: previous?.degreeLevelId,
+          majorId: previous?.majorId,
+          internationalTestId: previous?.internationalTestId,
+          resolutionStatus: previous?.resolutionStatus ?? 'UNRESOLVED',
+          metadata: previous?.metadata,
+        };
+      });
+    }
+    if (updates.requiredDocumentItems !== undefined) {
+      const current = byKey(existing.requiredDocumentItems, item => item.documentKey);
+      result.requiredDocumentItems = updates.requiredDocumentItems.map(item => {
+        const previous = current.get(item.documentKey);
+        return {
+          ...item,
+          internationalTestId: previous?.internationalTestId,
+          resolutionStatus: previous?.resolutionStatus ?? 'UNRESOLVED',
+          metadata: previous?.metadata,
+        };
+      });
+    }
+
+    // Catalog authoring never mutates immutable provenance/canonical collections
+    // through the generic PATCH boundary. Dedicated canonical/import flows own them.
+    delete result.sourceEvidence;
+    delete result.universityLinks;
+    delete result.countryReferenceId;
+    delete result.studyLanguageReferenceId;
+    delete result.studyLanguageResolutionStatus;
+    return result;
+  }
+
+  private catalogCompleteness(
+    existing: ScholarshipDto,
+    updates: UpdateScholarshipDto = {},
+  ): ReturnType<typeof ScholarshipCompletenessClassifier.classify> {
+    const merged = <K extends keyof ScholarshipDto>(key: K): ScholarshipDto[K] => {
+      const candidate = (updates as Partial<ScholarshipDto>)[key];
+      return (candidate !== undefined ? candidate : existing[key]) as ScholarshipDto[K];
+    };
+
+    const benefits = merged('benefits') ?? [];
+    const degreeTargets = merged('degreeTargets') ?? [];
+    const eligibilityItems = merged('eligibilityItems') ?? [];
+    const requiredDocumentItems = merged('requiredDocumentItems') ?? [];
+    const sourceEvidence = merged('sourceEvidence') ?? [];
+    const internationalTests = [
+      ...eligibilityItems.filter(item => Boolean(item.internationalTestId)),
+      ...requiredDocumentItems.filter(item => Boolean(item.internationalTestId)),
+    ];
+
+    const sourceTraceable = Boolean(
+      merged('officialSourceUrl') ||
+      merged('sourceUrl') ||
+      merged('officialWebsite') ||
+      merged('applicationUrl') ||
+      merged('applicationLink') ||
+      sourceEvidence.some(item => Boolean(item.sourceUrl)),
+    );
+
+    const deadline = merged('applicationDeadline');
+    const explicitlyUpdates = (key: keyof UpdateScholarshipDto) => Object.prototype.hasOwnProperty.call(updates, key);
+    return ScholarshipCompletenessClassifier.classify({
+      scholarshipName: merged('displayName'),
+      displayName: merged('displayName'),
+      providerName: merged('providerName') ?? merged('sponsorName'),
+      sourceTraceable,
+      isFullyFunded: merged('isFullyFunded'),
+      fundingCoverage: explicitlyUpdates('benefits') ? undefined : merged('fundingCoverage'),
+      coverageDetails: explicitlyUpdates('benefits') ? undefined : merged('coverageDetails'),
+      extractedFundingTypeCode: merged('fundingTypeCode'),
+      studyCountry: merged('studyCountry'),
+      degreeLevel: explicitlyUpdates('degreeTargets') ? undefined : merged('degreeLevel'),
+      extractedDegreeLevels: degreeTargets.map(item => item.sourceLabel ?? item.degreeLevelId ?? '').filter(Boolean),
+      eligibilityCriteria: explicitlyUpdates('eligibilityItems') ? undefined : merged('eligibilityCriteria'),
+      requiredDocuments: explicitlyUpdates('requiredDocumentItems') ? undefined : merged('requiredDocuments'),
+      applicationDeadline: deadline instanceof Date ? deadline.toISOString() : deadline ? String(deadline) : undefined,
+      officialSourceUrl: merged('officialSourceUrl') ?? undefined,
+      sourceUrl: merged('sourceUrl') ?? undefined,
+      officialWebsite: merged('officialWebsite') ?? undefined,
+      applicationLink: merged('applicationLink') ?? undefined,
+      eligibleMajorsOrFields: merged('eligibleMajorsOrFields'),
+      studyLanguage: merged('studyLanguage') ?? merged('studyLanguageSourceLabel') ?? undefined,
+      fundingAmount: merged('fundingAmount'),
+      amountMinorUnits: merged('amountMinorUnits') ?? undefined,
+      currency: merged('currency'),
+      amountCurrencyCode: merged('amountCurrencyCode') ?? undefined,
+      duration: merged('duration'),
+      metadata: {
+        fundingTypeCode: merged('fundingTypeCode'),
+        benefits,
+        countryReferenceId: merged('countryReferenceId'),
+        countryScope: merged('countryScope'),
+        degreeTargets,
+        eligibilityItems,
+        requiredDocumentItems,
+        internationalTests,
+        deadlineType: merged('deadlineType'),
+      },
+    });
+  }
+
+  private unresolvedLinks(scholarship: ScholarshipDto): Array<{
+    area: 'COUNTRY' | 'STUDY_LANGUAGE' | 'DEGREE' | 'MAJOR' | 'UNIVERSITY' | 'INTERNATIONAL_TEST';
+    key: string;
+    rawValue: string | null;
+    canonicalId: string | null;
+    resolutionStatus: string;
+  }> {
+    const result: Array<{
+      area: 'COUNTRY' | 'STUDY_LANGUAGE' | 'DEGREE' | 'MAJOR' | 'UNIVERSITY' | 'INTERNATIONAL_TEST';
+      key: string;
+      rawValue: string | null;
+      canonicalId: string | null;
+      resolutionStatus: string;
+    }> = [];
+    const unresolved = (status: string | null | undefined, canonicalId: string | null | undefined) =>
+      !canonicalId || !['RESOLVED', 'NOT_APPLICABLE'].includes(String(status ?? 'UNRESOLVED').toUpperCase());
+
+    if (scholarship.countrySourceLabel && !scholarship.countryReferenceId) {
+      result.push({ area: 'COUNTRY', key: 'country', rawValue: scholarship.countrySourceLabel, canonicalId: null, resolutionStatus: 'UNRESOLVED' });
+    }
+    if (scholarship.studyLanguageSourceLabel && unresolved(scholarship.studyLanguageResolutionStatus, scholarship.studyLanguageReferenceId)) {
+      result.push({
+        area: 'STUDY_LANGUAGE',
+        key: 'studyLanguage',
+        rawValue: scholarship.studyLanguageSourceLabel,
+        canonicalId: scholarship.studyLanguageReferenceId ?? null,
+        resolutionStatus: scholarship.studyLanguageResolutionStatus ?? 'UNRESOLVED',
+      });
+    }
+    for (const item of scholarship.degreeTargets ?? []) {
+      if (unresolved(item.resolutionStatus, item.degreeLevelId)) result.push({ area: 'DEGREE', key: item.targetKey, rawValue: item.sourceLabel ?? null, canonicalId: item.degreeLevelId ?? null, resolutionStatus: item.resolutionStatus ?? 'UNRESOLVED' });
+    }
+    for (const item of scholarship.majorTargets ?? []) {
+      if (unresolved(item.resolutionStatus, item.majorId)) result.push({ area: 'MAJOR', key: item.targetKey, rawValue: item.sourceLabel ?? null, canonicalId: item.majorId ?? null, resolutionStatus: item.resolutionStatus ?? 'UNRESOLVED' });
+    }
+    for (const item of scholarship.universityLinks ?? []) {
+      if (unresolved(item.resolutionStatus, item.universityId)) result.push({ area: 'UNIVERSITY', key: item.linkKey, rawValue: item.sourceLabel ?? null, canonicalId: item.universityId ?? null, resolutionStatus: item.resolutionStatus ?? 'UNRESOLVED' });
+    }
+    for (const item of scholarship.eligibilityItems ?? []) {
+      if (String(item.itemTypeCode).toUpperCase().includes('TEST') && unresolved(item.resolutionStatus, item.internationalTestId)) {
+        result.push({ area: 'INTERNATIONAL_TEST', key: item.itemKey, rawValue: item.valueText ?? null, canonicalId: item.internationalTestId ?? null, resolutionStatus: item.resolutionStatus ?? 'UNRESOLVED' });
+      }
+    }
+    for (const item of scholarship.requiredDocumentItems ?? []) {
+      if (String(item.documentTypeCode ?? '').toUpperCase().includes('TEST') && unresolved(item.resolutionStatus, item.internationalTestId)) {
+        result.push({ area: 'INTERNATIONAL_TEST', key: item.documentKey, rawValue: item.sourceLabel ?? item.displayName, canonicalId: item.internationalTestId ?? null, resolutionStatus: item.resolutionStatus ?? 'UNRESOLVED' });
+      }
+    }
+    return result;
   }
 
   private mutate<T>(action: string, id: string, context: AtomicMutationRequestContext | undefined, mutation: (repository: IScholarshipRepository) => Promise<T>): Promise<T> {

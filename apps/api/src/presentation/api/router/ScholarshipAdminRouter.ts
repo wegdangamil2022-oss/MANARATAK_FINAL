@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ScholarshipStatus, ScholarshipCompletenessState, UpdateScholarshipDto, type IScholarshipRepository } from '@manaratak/domain';
 import {
   AdminScholarshipUseCases,
+  ManageAuditRecordsUseCase,
   AtomicDomainMutationCoordinator,
   ImportAdminUseCases,
   ScholarshipImportAtomicTransferUseCase,
@@ -20,6 +21,7 @@ import {
 export class ScholarshipAdminRouter {
   public static create(cradle: {
     adminScholarshipUseCases: AdminScholarshipUseCases;
+    manageAuditRecordsUseCase?: ManageAuditRecordsUseCase;
     atomicDomainMutationCoordinator?: AtomicDomainMutationCoordinator;
     importAdminUseCases?: ImportAdminUseCases;
     importRepository?: IScholarshipImportCenterGateway;
@@ -33,6 +35,7 @@ export class ScholarshipAdminRouter {
     const router = Router();
     const {
       adminScholarshipUseCases,
+      manageAuditRecordsUseCase,
       atomicDomainMutationCoordinator,
       importAdminUseCases,
       importRepository,
@@ -112,28 +115,94 @@ export class ScholarshipAdminRouter {
       return scholarshipImportCenterUseCases;
     };
 
+    const nullableText = z.string().max(10000).nullable().optional();
+    const benefitSchema = z.object({
+      benefitKey: z.string().min(1),
+      benefitTypeCode: z.string().min(1),
+      coverageTypeCode: nullableText,
+      amount: z.union([z.string(), z.number()]).nullable().optional(),
+      valueText: nullableText,
+      durationText: nullableText,
+      frequencyCode: nullableText,
+      isCovered: z.boolean().optional(),
+      isOptional: z.boolean().optional(),
+      displayOrder: z.number().int().optional(),
+      notes: nullableText,
+    });
+    const degreeTargetSchema = z.object({
+      targetKey: z.string().min(1),
+      sourceLabel: nullableText,
+    });
+    const majorTargetSchema = z.object({
+      targetKey: z.string().min(1),
+      sourceLabel: nullableText,
+    });
+    const eligibilityItemSchema = z.object({
+      itemKey: z.string().min(1),
+      itemTypeCode: z.string().min(1),
+      operatorCode: nullableText,
+      valueText: nullableText,
+      minimumValue: z.union([z.string(), z.number()]).nullable().optional(),
+      maximumValue: z.union([z.string(), z.number()]).nullable().optional(),
+      isRequired: z.boolean().optional(),
+      priorityOrder: z.number().int().optional(),
+    });
+    const requiredDocumentSchema = z.object({
+      documentKey: z.string().min(1),
+      documentTypeCode: nullableText,
+      displayName: z.string().min(1),
+      description: nullableText,
+      sourceLabel: nullableText,
+      isRequired: z.boolean().optional(),
+      displayOrder: z.number().int().optional(),
+    });
+
+
     const updateBodySchema = z.object({
-      displayName: z.string().optional(),
+      displayName: z.string().min(1).optional(),
+      providerName: nullableText,
+      amountMinorUnits: nullableText,
+      amountCurrencyCode: nullableText,
+      isFullyFunded: z.boolean().optional(),
+      applicationDeadline: z.union([z.string(), z.date(), z.null()]).optional().transform(value => value ? new Date(value) : value === null ? null : undefined),
+      officialWebsite: nullableText,
+      sourceUrl: nullableText,
+      academicYear: nullableText,
+      cycleName: nullableText,
+      countrySourceLabel: nullableText,
+      countryScope: nullableText,
+      fundingTypeCode: nullableText,
+      deadlineType: nullableText,
+      applicationMethod: nullableText,
+      applicationUrl: nullableText,
+      officialSourceUrl: nullableText,
+      sourceLocale: nullableText,
+      studyLanguageSourceLabel: nullableText,
+      benefits: z.array(benefitSchema).optional(),
+      degreeTargets: z.array(degreeTargetSchema).optional(),
+      majorTargets: z.array(majorTargetSchema).optional(),
+      eligibilityItems: z.array(eligibilityItemSchema).optional(),
+      requiredDocumentItems: z.array(requiredDocumentSchema).optional(),
+
       fundingCoverage: z.string().optional(),
       coverageDetails: z.string().optional(),
       eligibleMajorsOrFields: z.union([z.string(), z.array(z.string())]).optional(),
       degreeLevel: z.string().optional(),
-      requiredDocuments: z.array(z.string()).optional(),
+      requiredDocuments: z.union([z.string(), z.array(z.string())]).optional(),
       eligibilityCriteria: z.string().optional(),
       studyLanguage: z.string().optional(),
-      applicationDeadline: z.union([z.string(), z.date()]).optional().transform(val => val ? new Date(val) : null),
       studyCountry: z.string().optional(),
       applicationLink: z.string().optional(),
-      officialSourceUrl: z.string().optional(),
       sponsorName: z.string().optional(),
       targetUniversities: z.array(z.string()).optional(),
       targetAcademicPrograms: z.array(z.string()).optional(),
-      fundingAmount: z.number().optional(),
+      fundingAmount: z.union([z.string(), z.number()]).optional(),
       currency: z.string().optional(),
       duration: z.string().optional(),
       localizedNames: z.record(z.string(), z.string()).optional(),
-      metadata: z.record(z.string(), z.any()).optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
     });
+
 
     // GET /admin/scholarships
     router.get('/', asyncHandler(async (req: Request, res: Response) => {
@@ -345,6 +414,28 @@ export class ScholarshipAdminRouter {
       res.status(201).json(result);
     }));
 
+    // WP12-9 canonical catalog detail. Audit records come from the same
+    // business-audit store written by AtomicDomainMutationCoordinator.
+    router.get('/:id/catalog-detail', asyncHandler(async (req: Request, res: Response) => {
+      const detail = await adminScholarshipUseCases.getScholarshipCatalogDetail(req.params.id);
+      const historyRecords = manageAuditRecordsUseCase
+        ? await manageAuditRecordsUseCase.queryAuditRecords({
+            targetId: req.params.id,
+            category: 'SCHOLARSHIPS_MUTATION',
+          })
+        : [];
+      const history = historyRecords.map(record => ({
+        id: record.getId().getValue(),
+        action: record.getAction().getValue(),
+        actorId: record.getActor().getActorId(),
+        actorType: record.getActor().getActorType(),
+        source: record.getSource().getValue(),
+        timestamp: record.getTimestamp().getValue().toISOString(),
+        correlationReference: record.getCorrelationReference()?.getValue(),
+      })).sort((left, right) => Date.parse(right.timestamp) - Date.parse(left.timestamp));
+      res.json({ ...detail, history, historyAvailable: Boolean(manageAuditRecordsUseCase) });
+    }));
+
     // GET /admin/scholarships/:id
     router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
       const scholarship = await adminScholarshipUseCases.getScholarship(req.params.id);
@@ -352,39 +443,15 @@ export class ScholarshipAdminRouter {
     }));
 
     // PATCH /admin/scholarships/:id
+    // WP12-9 writes the normalized Scholarship contract directly. Zod strips
+    // immutable/lifecycle fields that are not part of this authoring schema.
     router.patch('/:id', asyncHandler(async (req: Request, res: Response) => {
       const updates = updateBodySchema.parse(req.body);
-      
-      const optionalFields: Record<string, any> = {};
-      if (updates.requiredDocuments !== undefined) optionalFields.requiredDocuments = updates.requiredDocuments;
-      if (updates.eligibilityCriteria !== undefined) optionalFields.eligibilityCriteria = updates.eligibilityCriteria;
-      if (updates.studyLanguage !== undefined) optionalFields.studyLanguage = updates.studyLanguage;
-      if (updates.targetUniversities !== undefined) optionalFields.targetUniversities = updates.targetUniversities;
-      if (updates.targetAcademicPrograms !== undefined) optionalFields.targetAcademicPrograms = updates.targetAcademicPrograms;
-      if (updates.fundingAmount !== undefined) optionalFields.fundingAmount = updates.fundingAmount;
-      if (updates.currency !== undefined) optionalFields.currency = updates.currency;
-      if (updates.duration !== undefined) optionalFields.duration = updates.duration;
-      if (updates.localizedNames !== undefined) optionalFields.localizedNames = updates.localizedNames;
-      if (updates.metadata !== undefined) optionalFields.metadata = updates.metadata;
-
-      const dataToUpdate: UpdateScholarshipDto = {
-        displayName: updates.displayName,
-        fundingCoverage: updates.fundingCoverage,
-        coverageDetails: updates.coverageDetails,
-        eligibleMajorsOrFields: updates.eligibleMajorsOrFields,
-        degreeLevel: updates.degreeLevel,
-        applicationLink: updates.applicationLink,
-        officialSourceUrl: updates.officialSourceUrl,
-        sponsorName: updates.sponsorName,
-        studyCountry: updates.studyCountry,
-        applicationDeadline: updates.applicationDeadline,
-      };
-
-      if (Object.keys(optionalFields).length > 0) {
-        dataToUpdate.optionalFields = optionalFields;
-      }
-
-      const scholarship = await adminScholarshipUseCases.updateScholarship(req.params.id, dataToUpdate, mutationContext(req));
+      const scholarship = await adminScholarshipUseCases.updateScholarship(
+        req.params.id,
+        updates as UpdateScholarshipDto,
+        mutationContext(req),
+      );
       res.json(scholarship);
     }));
 
