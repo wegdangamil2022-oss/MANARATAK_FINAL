@@ -91,6 +91,7 @@ import {
   ScholarshipCanonicalResolutionService,
   ScholarshipHandoffCanonicalScreeningService,
   ScholarshipImportHandoffService,
+  ScholarshipRepositoryDuplicateLookup,
   ImportHandoffDispatcher,
   AdminUniversityUseCases,
   PublicUniversityUseCases,
@@ -8177,8 +8178,10 @@ export function registerDependencies() {
       new ScholarshipCanonicalResolutionService(scholarshipCanonicalLookupGateway)).singleton(),
     scholarshipHandoffCanonicalScreeningService: asFunction(({ scholarshipCanonicalResolutionService }) =>
       new ScholarshipHandoffCanonicalScreeningService(scholarshipCanonicalResolutionService)).singleton(),
-    scholarshipImportHandoffConsumer: asFunction(({ scholarshipHandoffCanonicalScreeningService }) =>
-      new ScholarshipImportHandoffService(scholarshipHandoffCanonicalScreeningService)).scoped(),
+    scholarshipDuplicateLookup: asFunction(({ scholarshipRepository }) =>
+      new ScholarshipRepositoryDuplicateLookup(scholarshipRepository)).scoped(),
+    scholarshipImportHandoffConsumer: asFunction(({ scholarshipHandoffCanonicalScreeningService, scholarshipDuplicateLookup }) =>
+      new ScholarshipImportHandoffService(scholarshipHandoffCanonicalScreeningService, scholarshipDuplicateLookup)).scoped(),
     adminUniversityUseCases: asFunction(({ universityRepository, atomicDomainMutationCoordinator }) =>
       new AdminUniversityUseCases(universityRepository, atomicDomainMutationCoordinator)).scoped(),
     publicUniversityUseCases: asFunction(({ universityRepository }) => new PublicUniversityUseCases(universityRepository)).scoped(),
