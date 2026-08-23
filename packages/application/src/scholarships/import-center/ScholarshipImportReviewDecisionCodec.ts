@@ -74,6 +74,37 @@ export function appendScholarshipImportTransferReceipt(
   return appendEnvelope(processingNotes, TRANSFER_MARKER, receipt);
 }
 
+export function readScholarshipImportTransferReceipt(
+  processingNotes: string | null | undefined,
+): ScholarshipImportTransferReceipt | null {
+  if (!processingNotes) return null;
+  const lines = processingNotes.split(/\r?\n/u);
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index];
+    if (!line.startsWith(TRANSFER_MARKER)) continue;
+    try {
+      const parsed = JSON.parse(line.slice(TRANSFER_MARKER.length)) as Partial<ScholarshipImportTransferReceipt>;
+      if (
+        parsed.version === 1 &&
+        nonEmpty(parsed.recordId) &&
+        nonEmpty(parsed.scholarshipId) &&
+        nonEmpty(parsed.actorId) &&
+        nonEmpty(parsed.transferredAt) &&
+        !Number.isNaN(Date.parse(parsed.transferredAt)) &&
+        (parsed.mode === 'CREATE' || parsed.mode === 'MERGE') &&
+        (parsed.correlationId === undefined || nonEmpty(parsed.correlationId))
+      ) return parsed as ScholarshipImportTransferReceipt;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function nonEmpty(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 function appendEnvelope(
   processingNotes: string | null | undefined,
   marker: string,

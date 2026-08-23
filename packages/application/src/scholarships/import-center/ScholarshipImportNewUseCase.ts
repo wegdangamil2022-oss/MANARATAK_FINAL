@@ -1,5 +1,6 @@
 import { CsvImportStreamParser } from '../../import-foundation/parsers/CsvImportStreamParser';
 import { NdjsonImportStreamParser } from '../../import-foundation/parsers/NdjsonImportStreamParser';
+import { InlineDataParser } from '../../import-foundation/parsers/InlineDataParser';
 import type { IImportRawSnapshotStore, ISourceRegistryGateway, AcquireImportSourceUseCase, ImportAdminUseCases } from '@manaratak/application';
 import { ImportParseError, ParsedImportRow, type ImportSourceDefinition } from '@manaratak/domain';
 import type { ScholarshipAcquisitionPlanner } from '../source-registry/ScholarshipAcquisitionPlanner';
@@ -39,7 +40,7 @@ export class ScholarshipImportNewUseCase {
   }
   private async rows(bytes: Uint8Array, hint?: 'json' | 'ndjson' | 'csv', contentType?: string): Promise<Array<Record<string, unknown>> | null> {
     const format = hint ?? (contentType?.includes('ndjson') ? 'ndjson' : contentType?.includes('csv') ? 'csv' : contentType?.includes('json') ? 'json' : undefined);
-    if (format === 'json') { try { const value = JSON.parse(new TextDecoder().decode(bytes)) as unknown; return Array.isArray(value) && value.every((row) => row && typeof row === 'object' && !Array.isArray(row)) ? value as Array<Record<string, unknown>> : value && typeof value === 'object' && !Array.isArray(value) ? [value as Record<string, unknown>] : null; } catch { return null; } }
+    if (format === 'json') { try { const value = await InlineDataParser.parse(new TextDecoder().decode(bytes)) as unknown[]; return value.length > 0 && value.every((row) => row && typeof row === 'object' && !Array.isArray(row)) ? value as Array<Record<string, unknown>> : null; } catch { return null; } }
     const parser = format === 'csv' ? new CsvImportStreamParser() : format === 'ndjson' ? new NdjsonImportStreamParser() : null;
     if (!parser) return null;
     const stream = { async *[Symbol.asyncIterator]() { yield bytes; } };

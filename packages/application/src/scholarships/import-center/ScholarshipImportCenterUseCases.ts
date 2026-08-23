@@ -27,7 +27,7 @@ import type {
   IScholarshipImportVerificationDecisionPort,
   IScholarshipImportCanonicalResolutionDecisionPort,
 } from './ScholarshipImportCenterContracts';
-import { readScholarshipImportReviewDecision } from './ScholarshipImportReviewDecisionCodec';
+import { readScholarshipImportReviewDecision, readScholarshipImportTransferReceipt } from './ScholarshipImportReviewDecisionCodec';
 import type { ScholarshipSourceRegistryService } from '../source-registry/ScholarshipSourceRegistryService';
 
 const OWNER_DOMAIN = 'SCHOLARSHIPS';
@@ -233,12 +233,14 @@ export class ScholarshipImportCenterUseCases {
       (left, right) => this.timestamp(right.updatedAt) - this.timestamp(left.updatedAt),
     );
     const events = (await Promise.all(data.map(async (record) => {
+      const stored = await this.gateway.getRecordById(record.id);
       const events: import('./ScholarshipImportCenterContracts').ScholarshipImportHistoryEvent[] = [{ recordId: record.id, eventType: 'STAGED_RECORD', occurredAt: record.createdAt ?? record.updatedAt ?? new Date(0), data: { batchId: record.batchId, status: record.importStatus } }];
       if (this.verificationDecisionPort) for (const decision of await this.verificationDecisionPort.list(record.id)) events.push({ recordId: record.id, eventType: 'VERIFICATION_DECISION', occurredAt: decision.recordedAt, data: { state: decision.state, reason: decision.reason, actorId: decision.actorId } });
       if (this.canonicalResolutionDecisionPort) for (const decision of await this.canonicalResolutionDecisionPort.list(record.id)) events.push({ recordId: record.id, eventType: 'CANONICAL_RESOLUTION_DECISION', occurredAt: decision.recordedAt, data: { fieldOrRequirementKey: decision.fieldOrRequirementKey, resolutionType: decision.resolutionType, canonicalId: decision.canonicalId ?? null } });
-      const review = readScholarshipImportReviewDecision((record as unknown as { processingNotes?: string }).processingNotes);
-      if (review) events.push({ recordId: record.id, eventType: 'REVIEW_DECISION', occurredAt: record.updatedAt ?? record.createdAt ?? new Date(0), data: { action: review.action, decisionId: review.decisionId } });
-      if (record.transferred) events.push({ recordId: record.id, eventType: 'TRANSFER_RECEIPT', occurredAt: record.updatedAt ?? record.createdAt ?? new Date(0), data: { promotedEntityId: record.promotedEntityId } });
+      const review = readScholarshipImportReviewDecision(stored?.processingNotes);
+      if (review?.recordId === record.id) events.push({ recordId: record.id, eventType: 'REVIEW_DECISION', occurredAt: review.recordedAt, data: { decisionId: review.decisionId, action: review.action, actorId: review.actorId, reason: review.reason, duplicateKey: review.duplicateKey, targetScholarshipId: review.targetScholarshipId, correlationId: review.correlationId } });
+      const receipt = readScholarshipImportTransferReceipt(stored?.processingNotes);
+      if (receipt?.recordId === record.id) events.push({ recordId: record.id, eventType: 'TRANSFER_RECEIPT', occurredAt: receipt.transferredAt, data: { scholarshipId: receipt.scholarshipId, actorId: receipt.actorId, mode: receipt.mode, correlationId: receipt.correlationId } });
       return events;
     }))).flat().sort((a, b) => this.timestamp(b.occurredAt) - this.timestamp(a.occurredAt));
     return { ...this.scanResult(scan, data), events };

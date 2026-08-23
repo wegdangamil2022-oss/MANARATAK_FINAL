@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { IScholarshipRepository, ScholarshipDto } from '@manaratak/domain';
 import {
   ScholarshipImportCenterUseCases,
+  appendScholarshipImportReviewDecision,
+  appendScholarshipImportTransferReceipt,
   type IScholarshipImportCenterGateway,
   type ScholarshipImportCenterBatchRecord,
   type ScholarshipImportCenterStoredRecord,
@@ -179,6 +181,25 @@ describe('WP12-7 ScholarshipImportCenterUseCases', () => {
     const localGateway = gateway(); localGateway.getRecordById = async (id) => changed.find((record) => record.id === id) ?? null;
     const view = await new ScholarshipImportCenterUseCases(localGateway, scholarshipRepository(), undefined, undefined, undefined, undefined, decisions).getRecord('rec-real-ready');
     expect(view.canonical.state).toBe('REVIEW_REQUIRED');
+  });
+
+  it('builds History only from real review/transfer envelopes and structured decisions', async () => {
+    const processingNotes = appendScholarshipImportTransferReceipt(appendScholarshipImportReviewDecision(null, {
+      version: 1, decisionId: 'decision-1', recordId: 'rec-real-ready', action: 'KEEP_CURRENT', actorId: 'reviewer-1', reason: 'checked', recordedAt: '2026-08-20T02:00:00.000Z', duplicateKey: null, targetScholarshipId: null, correlationId: 'corr-review', reviewFingerprint: 'fingerprint',
+    }), { version: 1, recordId: 'rec-real-ready', scholarshipId: 'sch-1', actorId: 'transfer-1', transferredAt: '2026-08-20T05:00:00.000Z', mode: 'CREATE', correlationId: 'corr-transfer' });
+    const stored = records.map((record) => record.id === 'rec-real-ready' ? { ...record, processingNotes } : record.id === 'rec-test' ? { ...record, promotedEntityId: 'legacy-without-receipt' } : record);
+    const localGateway = gateway();
+    localGateway.getRecordById = async (id) => stored.find((record) => record.id === id) ?? null;
+    localGateway.listRecords = async (filters) => { const selected = stored.filter((record) => !filters?.dataType || batches.find((batch) => batch.id === record.batchId)?.dataType === filters.dataType); return { data: selected, total: selected.length, page: 1, pageSize: filters?.pageSize ?? 100 }; };
+    const verification = { async record() { return { decisionId: 'v', recordedAt: '' }; }, async latest() { return null; }, async list(recordId: string) { return recordId === 'rec-real-ready' ? [{ decisionId: 'v1', recordId, state: 'VERIFIED' as const, actorId: 'verifier', reason: 'official', recordedAt: '2026-08-20T03:00:00.000Z' }] : []; } };
+    const canonical = { async record() { return { decisionId: 'c', recordedAt: '' }; }, async list(recordId: string) { return recordId === 'rec-real-ready' ? [{ decisionId: 'c1', recordId, fieldOrRequirementKey: 'COUNTRY', canonicalEntityType: 'COUNTRY', canonicalId: 'ctr-1', rawValue: 'Qatar', resolutionType: 'RESOLVED' as const, actorId: 'resolver', recordedAt: '2026-08-20T04:00:00.000Z' }] : []; } };
+    const history = await new ScholarshipImportCenterUseCases(localGateway, scholarshipRepository(), undefined, undefined, undefined, verification, canonical).listHistory();
+    const review = history.events?.find((event) => event.eventType === 'REVIEW_DECISION'); const transfer = history.events?.find((event) => event.eventType === 'TRANSFER_RECEIPT');
+    expect(review).toMatchObject({ occurredAt: '2026-08-20T02:00:00.000Z', data: { decisionId: 'decision-1', action: 'KEEP_CURRENT', actorId: 'reviewer-1' } });
+    expect(transfer).toMatchObject({ occurredAt: '2026-08-20T05:00:00.000Z', data: { scholarshipId: 'sch-1', actorId: 'transfer-1', mode: 'CREATE' } });
+    expect(history.events?.some((event) => event.eventType === 'VERIFICATION_DECISION')).toBe(true); expect(history.events?.some((event) => event.eventType === 'CANONICAL_RESOLUTION_DECISION')).toBe(true);
+    expect(history.events?.filter((event) => event.eventType === 'TRANSFER_RECEIPT')).toHaveLength(1);
+    expect(history.events?.[0].occurredAt).toBe('2026-08-20T05:00:00.000Z');
   });
 
   it('builds a read-only incoming/current diff when a canonical Scholarship exists', async () => {
