@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { IImportQueueGateway } from '../gateways/IImportQueueGateway';
 import { InlineDataParser } from '../parsers/InlineDataParser';
 import { ImportSourceIdentity } from '../services/ImportSourceIdentity';
+import { ImportHandoffDispatcher } from '../services/ImportHandoffDispatcher';
 
 type ImportRepository = {
   createBatch(data: Record<string, unknown>): Promise<any>;
@@ -19,12 +20,14 @@ export interface StageImportRowsInput {
   sourceSystem: string;
   rows: Array<Readonly<Record<string, unknown>>>;
   validationIssues?: Array<readonly unknown[]>;
+  handoffContext?: { artifactId?: string; rawArtifactReference?: string; correlationId?: string; executionId?: string; importSessionId?: string; attempt?: number; dryRun?: boolean; referenceMetadata?: Record<string, string> };
 }
 
 export class ImportAdminUseCases {
   constructor(
     private readonly importRepository: ImportRepository,
     private readonly importQueueGateway?: IImportQueueGateway,
+    private readonly handoffDispatcher?: ImportHandoffDispatcher,
   ) {}
 
   async importData(input: { dataText: string; sourceSystem?: string; dataType?: string }) {
@@ -98,6 +101,18 @@ export class ImportAdminUseCases {
             continue;
           }
           seenDedupKeys.add(identity.sourceDedupKey);
+          const validationState = !validObject ? 'INVALID' : issues.length ? 'NEEDS_REVIEW' : 'VALID';
+          const handoff = this.handoffDispatcher ? await this.handoffDispatcher.dispatch({
+            handoffId: `handoff:${identity.sourceDedupKey}`,
+            ownerDomain: input.ownerDomain,
+            artifact: { sourceId: input.sourceSystem, artifactId: input.handoffContext?.artifactId ?? batch.id, rawArtifactReference: input.handoffContext?.rawArtifactReference ?? '' },
+            normalizedPayload: payload,
+            provenance: { sourceSystem: input.sourceSystem, acquiredAt: new Date(), sourceRowNumber, contentHash: identity.payloadFingerprint },
+            validation: { state: validationState, issues: (issues as string[]).map((message) => ({ code: 'PHASE6_VALIDATION', message, severity: 'WARNING' as const })) },
+            execution: { executionId: input.handoffContext?.executionId ?? batch.id, importSessionId: input.handoffContext?.importSessionId, dryRun: input.handoffContext?.dryRun ?? false, attempt: input.handoffContext?.attempt ?? 1, idempotencyKey: identity.sourceDedupKey },
+            correlationId: input.handoffContext?.correlationId,
+            referenceMetadata: input.handoffContext?.referenceMetadata,
+          }) : null;
           records.push({
             id: `rec-${uuidv4().substring(0, 8)}`,
             batchId: batch.id,
@@ -106,6 +121,7 @@ export class ImportAdminUseCases {
               ...payload,
               _sourceRowNumber: sourceRowNumber,
               _payloadFingerprint: identity.payloadFingerprint,
+              ...(handoff ? { _domainHandoff: handoff } : {}),
             },
             validationErrors:
               issues.length > 0 ? issues : validObject ? null : ['EMPTY_NORMALIZED_PAYLOAD'],

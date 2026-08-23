@@ -91,6 +91,7 @@ import {
   ScholarshipCanonicalResolutionService,
   ScholarshipHandoffCanonicalScreeningService,
   ScholarshipImportHandoffService,
+  ImportHandoffDispatcher,
   AdminUniversityUseCases,
   PublicUniversityUseCases,
   AdminMajorUseCases,
@@ -8095,6 +8096,10 @@ export function registerDependencies() {
     academicTaxonomyRepository: asFunction(({ prisma }) => new PrismaAcademicTaxonomyRepository(prisma)).singleton(),
     degreeLevelRepository: asFunction(({ prisma }) => new DegreeLevelRepository(prisma)).singleton(),
     degreeLevelUseCases: asFunction(({ degreeLevelRepository }) => new DegreeLevelUseCases(degreeLevelRepository)).scoped(),
+    importHandoffDispatcher: asFunction(({ scholarshipImportHandoffConsumer }) => new ImportHandoffDispatcher({
+      SCHOLARSHIPS: scholarshipImportHandoffConsumer,
+      SCHOLARSHIP: scholarshipImportHandoffConsumer,
+    })).scoped(),
     importQueueGateway: asFunction(({ prisma }) => isPrisma
       ? new PrismaImportQueueGateway(prisma)
       : new InMemoryImportQueueGateway()).singleton(),
@@ -8229,7 +8234,7 @@ export function registerDependencies() {
     ).scoped(),
     internationalTestPublicUseCases: asFunction(({ internationalTestRepository }) => new InternationalTestPublicUseCases(internationalTestRepository)).scoped(),
     aiExecutionUseCases: asFunction(({ aiExecutionRepository, aiProviderGateway }) => new AIExecutionUseCases(aiExecutionRepository, aiProviderGateway)).scoped(),
-    importAdminUseCases: asFunction(({ importRepository, importQueueGateway }) => new ImportAdminUseCases(importRepository, importQueueGateway)).scoped(),
+    importAdminUseCases: asFunction(({ importRepository, importQueueGateway, importHandoffDispatcher }) => new ImportAdminUseCases(importRepository, importQueueGateway, importHandoffDispatcher)).scoped(),
     majorImportStagingUseCase: asFunction(({ importAdminUseCases }) => new MajorImportStagingUseCase(importAdminUseCases)).scoped(),
     ingestAssetUseCase: asFunction(({ assetRecordRepository, assetStorageGateway }) => new IngestAssetUseCase(assetRecordRepository, assetStorageGateway)).scoped(),
     processAssetLifecycleUseCase: asFunction(({ assetRecordRepository, assetStorageGateway, assetUsageRegistryGateway, assetMalwareScannerGateway, assetSanitizationGateway }) => new ProcessAssetLifecycleUseCase(assetRecordRepository, assetStorageGateway, assetUsageRegistryGateway, assetMalwareScannerGateway, assetSanitizationGateway)).scoped(),

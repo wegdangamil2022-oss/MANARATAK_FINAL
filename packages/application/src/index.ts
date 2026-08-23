@@ -155,6 +155,7 @@ export * from './import-foundation/dtos/ImportOperationsDtos';
 export * from './import-foundation/contracts/IImportOperationsReadService';
 export * from './import-foundation/services/ImportOperationsReadService';
 export * from './import-foundation/services/ImportSourceIdentity';
+export * from './import-foundation/services/ImportHandoffDispatcher';
 
 // Academic Taxonomy Exports
 export * from './academic-taxonomy';
