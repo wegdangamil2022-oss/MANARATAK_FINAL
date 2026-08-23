@@ -217,11 +217,12 @@ export class AdminScholarshipUseCases {
       const current = byKey(existing.degreeTargets, item => item.targetKey);
       result.degreeTargets = updates.degreeTargets.map(item => {
         const previous = current.get(item.targetKey);
+        const equivalent = Boolean(previous && this.semanticEquivalent(previous.sourceLabel, item.sourceLabel));
         return {
           ...item,
-          degreeLevelId: previous?.degreeLevelId,
-          resolutionStatus: previous?.resolutionStatus ?? 'UNRESOLVED',
-          metadata: previous?.metadata,
+          degreeLevelId: equivalent ? previous?.degreeLevelId : null,
+          resolutionStatus: equivalent ? previous?.resolutionStatus ?? 'UNRESOLVED' : 'UNRESOLVED',
+          metadata: equivalent ? previous?.metadata : undefined,
         };
       });
     }
@@ -229,11 +230,12 @@ export class AdminScholarshipUseCases {
       const current = byKey(existing.majorTargets, item => item.targetKey);
       result.majorTargets = updates.majorTargets.map(item => {
         const previous = current.get(item.targetKey);
+        const equivalent = Boolean(previous && this.semanticEquivalent(previous.sourceLabel, item.sourceLabel));
         return {
           ...item,
-          majorId: previous?.majorId,
-          resolutionStatus: previous?.resolutionStatus ?? 'UNRESOLVED',
-          metadata: previous?.metadata,
+          majorId: equivalent ? previous?.majorId : null,
+          resolutionStatus: equivalent ? previous?.resolutionStatus ?? 'UNRESOLVED' : 'UNRESOLVED',
+          metadata: equivalent ? previous?.metadata : undefined,
         };
       });
     }
@@ -241,14 +243,19 @@ export class AdminScholarshipUseCases {
       const current = byKey(existing.eligibilityItems, item => item.itemKey);
       result.eligibilityItems = updates.eligibilityItems.map(item => {
         const previous = current.get(item.itemKey);
+        const equivalent = Boolean(previous && this.semanticFingerprint([
+          previous.itemTypeCode, previous.operatorCode, previous.valueText, previous.minimumValue, previous.maximumValue,
+        ]) === this.semanticFingerprint([
+          item.itemTypeCode, item.operatorCode, item.valueText, item.minimumValue, item.maximumValue,
+        ]));
         return {
           ...item,
-          countryReferenceId: previous?.countryReferenceId,
-          degreeLevelId: previous?.degreeLevelId,
-          majorId: previous?.majorId,
-          internationalTestId: previous?.internationalTestId,
-          resolutionStatus: previous?.resolutionStatus ?? 'UNRESOLVED',
-          metadata: previous?.metadata,
+          countryReferenceId: equivalent ? previous?.countryReferenceId : null,
+          degreeLevelId: equivalent ? previous?.degreeLevelId : null,
+          majorId: equivalent ? previous?.majorId : null,
+          internationalTestId: equivalent ? previous?.internationalTestId : null,
+          resolutionStatus: equivalent ? previous?.resolutionStatus ?? 'UNRESOLVED' : 'UNRESOLVED',
+          metadata: equivalent ? previous?.metadata : undefined,
         };
       });
     }
@@ -256,11 +263,16 @@ export class AdminScholarshipUseCases {
       const current = byKey(existing.requiredDocumentItems, item => item.documentKey);
       result.requiredDocumentItems = updates.requiredDocumentItems.map(item => {
         const previous = current.get(item.documentKey);
+        const equivalent = Boolean(previous && this.semanticFingerprint([
+          previous.documentTypeCode, previous.displayName, previous.sourceLabel,
+        ]) === this.semanticFingerprint([
+          item.documentTypeCode, item.displayName, item.sourceLabel,
+        ]));
         return {
           ...item,
-          internationalTestId: previous?.internationalTestId,
-          resolutionStatus: previous?.resolutionStatus ?? 'UNRESOLVED',
-          metadata: previous?.metadata,
+          internationalTestId: equivalent ? previous?.internationalTestId : null,
+          resolutionStatus: equivalent ? previous?.resolutionStatus ?? 'UNRESOLVED' : 'UNRESOLVED',
+          metadata: equivalent ? previous?.metadata : undefined,
         };
       });
     }
@@ -269,10 +281,32 @@ export class AdminScholarshipUseCases {
     // through the generic PATCH boundary. Dedicated canonical/import flows own them.
     delete result.sourceEvidence;
     delete result.universityLinks;
-    delete result.countryReferenceId;
-    delete result.studyLanguageReferenceId;
-    delete result.studyLanguageResolutionStatus;
+    if (Object.prototype.hasOwnProperty.call(updates, 'countrySourceLabel')) {
+      result.countryReferenceId = this.semanticEquivalent(existing.countrySourceLabel, updates.countrySourceLabel)
+        ? existing.countryReferenceId ?? null : null;
+    } else delete result.countryReferenceId;
+    if (Object.prototype.hasOwnProperty.call(updates, 'studyLanguageSourceLabel')) {
+      const equivalent = this.semanticEquivalent(existing.studyLanguageSourceLabel, updates.studyLanguageSourceLabel);
+      result.studyLanguageReferenceId = equivalent ? existing.studyLanguageReferenceId ?? null : null;
+      result.studyLanguageResolutionStatus = equivalent ? existing.studyLanguageResolutionStatus ?? 'UNRESOLVED' : 'UNRESOLVED';
+    } else {
+      delete result.studyLanguageReferenceId;
+      delete result.studyLanguageResolutionStatus;
+    }
     return result;
+  }
+
+  private semanticNormalize(value: unknown): string {
+    if (value === null || value === undefined) return '';
+    return String(value).normalize('NFKC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('und');
+  }
+
+  private semanticEquivalent(left: unknown, right: unknown): boolean {
+    return this.semanticNormalize(left) === this.semanticNormalize(right);
+  }
+
+  private semanticFingerprint(values: readonly unknown[]): string {
+    return values.map(value => this.semanticNormalize(value)).join('\u001f');
   }
 
   private catalogCompleteness(
@@ -304,33 +338,25 @@ export class AdminScholarshipUseCases {
     );
 
     const deadline = merged('applicationDeadline');
-    const explicitlyUpdates = (key: keyof UpdateScholarshipDto) => Object.prototype.hasOwnProperty.call(updates, key);
     return ScholarshipCompletenessClassifier.classify({
       scholarshipName: merged('displayName'),
       displayName: merged('displayName'),
-      providerName: merged('providerName') ?? merged('sponsorName'),
+      providerName: merged('providerName') ?? undefined,
       sourceTraceable,
       isFullyFunded: merged('isFullyFunded'),
-      fundingCoverage: explicitlyUpdates('benefits') ? undefined : merged('fundingCoverage'),
-      coverageDetails: explicitlyUpdates('benefits') ? undefined : merged('coverageDetails'),
       extractedFundingTypeCode: merged('fundingTypeCode'),
-      studyCountry: merged('studyCountry'),
-      degreeLevel: explicitlyUpdates('degreeTargets') ? undefined : merged('degreeLevel'),
+      studyCountry: merged('countrySourceLabel') ?? undefined,
       extractedDegreeLevels: degreeTargets.map(item => item.sourceLabel ?? item.degreeLevelId ?? '').filter(Boolean),
-      eligibilityCriteria: explicitlyUpdates('eligibilityItems') ? undefined : merged('eligibilityCriteria'),
-      requiredDocuments: explicitlyUpdates('requiredDocumentItems') ? undefined : merged('requiredDocuments'),
       applicationDeadline: deadline instanceof Date ? deadline.toISOString() : deadline ? String(deadline) : undefined,
       officialSourceUrl: merged('officialSourceUrl') ?? undefined,
       sourceUrl: merged('sourceUrl') ?? undefined,
       officialWebsite: merged('officialWebsite') ?? undefined,
-      applicationLink: merged('applicationLink') ?? undefined,
-      eligibleMajorsOrFields: merged('eligibleMajorsOrFields'),
-      studyLanguage: merged('studyLanguage') ?? merged('studyLanguageSourceLabel') ?? undefined,
-      fundingAmount: merged('fundingAmount'),
+      applicationLink: merged('applicationUrl') ?? undefined,
+      eligibleMajorsOrFields: (merged('majorTargets') ?? []).map(item => item.sourceLabel ?? item.majorId ?? '').filter(Boolean),
+      studyLanguage: merged('studyLanguageSourceLabel') ?? undefined,
       amountMinorUnits: merged('amountMinorUnits') ?? undefined,
-      currency: merged('currency'),
       amountCurrencyCode: merged('amountCurrencyCode') ?? undefined,
-      duration: merged('duration'),
+      duration: benefits.map(item => item.durationText ?? '').filter(Boolean).join(' '),
       metadata: {
         fundingTypeCode: merged('fundingTypeCode'),
         benefits,

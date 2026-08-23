@@ -56,6 +56,14 @@ assert(!combined.includes('@prisma/client'), 'Presentation/Admin must not use Pr
 assert(page.includes('canonicalLocked'), 'canonical-reference protection note missing');
 assert(!page.includes('onChange={(canonicalId)'), 'raw canonical id editor detected');
 assert(useCases.includes('preserveCanonicalReferences'), 'Application canonical-reference preservation gate missing');
+assert(useCases.includes("normalize('NFKC')"), 'NFKC semantic normalization missing');
+assert(useCases.includes('semanticEquivalent(previous.sourceLabel, item.sourceLabel)'), 'Degree/Major semantic invalidation gate missing');
+assert(useCases.includes('semanticFingerprint(['), 'Eligibility/Document semantic fingerprint missing');
+assert(useCases.includes("degreeLevelId: equivalent ? previous?.degreeLevelId : null"), 'Degree semantic change can retain stale ID');
+assert(useCases.includes("majorId: equivalent ? previous?.majorId : null"), 'Major semantic change can retain stale ID');
+assert(useCases.includes("internationalTestId: equivalent ? previous?.internationalTestId : null"), 'Test semantic change can retain stale ID');
+assert(useCases.includes("result.countryReferenceId = this.semanticEquivalent"), 'Country semantic invalidation missing');
+assert(useCases.includes("result.studyLanguageReferenceId = equivalent ? existing.studyLanguageReferenceId"), 'Study Language semantic invalidation missing');
 assert(useCases.includes('delete result.countryReferenceId'), 'generic catalog update can still replace country reference');
 assert(useCases.includes('delete result.studyLanguageReferenceId'), 'generic catalog update can still replace language reference');
 assert(!router.includes('countryReferenceId: nullableText'), 'router exposes blind country-reference authoring');
@@ -65,8 +73,22 @@ assert(!router.includes('majorId: nullableText'), 'router exposes blind Major id
 assert(!router.includes('universityId: nullableText'), 'router exposes blind University id authoring');
 assert(page.includes('compatibilityNote'), 'legacy compatibility must be explicitly non-SSoT');
 
+const completenessStart = useCases.indexOf('  private catalogCompleteness(');
+const completenessEnd = useCases.indexOf('  private unresolvedLinks(', completenessStart);
+assert(completenessStart >= 0 && completenessEnd > completenessStart, 'catalog completeness source block missing');
+const completeness = useCases.slice(completenessStart, completenessEnd);
+for (const legacyField of ['fundingCoverage', 'coverageDetails', "merged('studyCountry')", "merged('degreeLevel')", 'eligibilityCriteria', 'requiredDocuments', "merged('studyLanguage')", "merged('fundingAmount')", "merged('currency')", "merged('duration')", 'optionalFields']) {
+  assert(!completeness.includes(legacyField), `legacy compatibility field drives completeness: ${legacyField}`);
+}
+assert(completeness.includes("merged('benefits')"), 'normalized Benefits completeness missing');
+assert(completeness.includes("merged('degreeTargets')"), 'normalized Degree completeness missing');
+assert(completeness.includes("merged('eligibilityItems')"), 'normalized Eligibility completeness missing');
+assert(completeness.includes("merged('requiredDocumentItems')"), 'normalized Document completeness missing');
+
 console.log('WP12_9_SCHOLARSHIP_CATALOG_DETAIL_SOURCE = PASS');
 console.log('NORMALIZED_MODEL_AUTHORING = PASS');
+console.log('NORMALIZED_ONLY_COMPLETENESS = PASS');
+console.log('CANONICAL_SEMANTIC_INVALIDATION = PASS');
 console.log('OPTIONAL_FIELDS_SSO_T = 0');
 console.log('CANONICAL_REFERENCE_BLIND_WRITES = 0');
 console.log('DOCUMENT_TEST_INTEGRATION = PASS');
@@ -77,3 +99,4 @@ console.log('PRODUCTION_PREVIEW_FALLBACK = 0');
 console.log('FAKE_STATUS_TIMEOUTS = 0');
 console.log('DIRECT_PRISMA_REFERENCES = 0');
 console.log('DIRECT_FETCH_IN_PAGE = 0');
+console.log('WP12_10_CHANGES = 0');

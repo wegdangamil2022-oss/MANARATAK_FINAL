@@ -82,7 +82,7 @@ describe('WP12-9 AdminScholarshipUseCases catalog detail', () => {
       expect.objectContaining({ area: 'STUDY_LANGUAGE', rawValue: 'English', canonicalId: null }),
     ]));
   });
-  it('preserves existing canonical references and rejects blind reference replacement through generic update', async () => {
+  it('preserves canonical references only for semantically equivalent source values', async () => {
     const current = scholarship({
       degreeTargets: [{ targetKey: 'd1', degreeLevelId: 'degree-existing', sourceLabel: 'Bachelor', resolutionStatus: 'RESOLVED' }],
       requiredDocumentItems: [{ documentKey: 'doc1', displayName: 'IELTS', internationalTestId: 'test-existing', resolutionStatus: 'RESOLVED', isRequired: true }],
@@ -90,8 +90,8 @@ describe('WP12-9 AdminScholarshipUseCases catalog detail', () => {
     const repo = repository(current);
     const service = new AdminScholarshipUseCases(repo);
     await service.updateScholarship('sch-1', {
-      degreeTargets: [{ targetKey: 'd1', degreeLevelId: 'degree-fake', sourceLabel: 'Updated Bachelor', resolutionStatus: 'RESOLVED' }],
-      requiredDocumentItems: [{ documentKey: 'doc1', displayName: 'IELTS Academic', internationalTestId: 'test-fake', resolutionStatus: 'RESOLVED', isRequired: true }],
+      degreeTargets: [{ targetKey: 'd1', degreeLevelId: 'degree-fake', sourceLabel: '  BACHELOR  ', resolutionStatus: 'RESOLVED' }],
+      requiredDocumentItems: [{ documentKey: 'doc1', displayName: '  ielts ', internationalTestId: 'test-fake', resolutionStatus: 'RESOLVED', isRequired: false, displayOrder: 9 }],
       countryReferenceId: 'country-fake',
     });
     expect(repo.update).toHaveBeenCalledWith('sch-1', expect.objectContaining({
@@ -100,6 +100,45 @@ describe('WP12-9 AdminScholarshipUseCases catalog detail', () => {
     }));
     const saved = (repo.update as any).mock.calls[0][1];
     expect(saved.countryReferenceId).toBeUndefined();
+  });
+
+  it('invalidates stale Degree/Major references and strips ids from new rows', async () => {
+    const current = scholarship({ majorTargets: [{ targetKey: 'm1', sourceLabel: 'Computer Science', majorId: 'major-old', resolutionStatus: 'RESOLVED' }] });
+    const repo = repository(current); const service = new AdminScholarshipUseCases(repo);
+    await service.updateScholarship('sch-1', { degreeTargets: [{ targetKey: 'd1', sourceLabel: 'Master', degreeLevelId: 'degree-fake', resolutionStatus: 'RESOLVED' }], majorTargets: [{ targetKey: 'm1', sourceLabel: 'Mechanical Engineering', majorId: 'major-fake', resolutionStatus: 'RESOLVED' }, { targetKey: 'm2', sourceLabel: 'Physics', majorId: 'injected', resolutionStatus: 'RESOLVED' }] });
+    const saved = (repo.update as any).mock.calls[0][1];
+    expect(saved.degreeTargets[0]).toMatchObject({ sourceLabel: 'Master', degreeLevelId: null, resolutionStatus: 'UNRESOLVED' });
+    expect(saved.majorTargets[0]).toMatchObject({ sourceLabel: 'Mechanical Engineering', majorId: null, resolutionStatus: 'UNRESOLVED' });
+    expect(saved.majorTargets[1]).toMatchObject({ majorId: null, resolutionStatus: 'UNRESOLVED' });
+  });
+
+  it('invalidates Country and Study Language only when their source semantics change', async () => {
+    const current = scholarship({ studyLanguageSourceLabel: 'English', studyLanguageReferenceId: 'lang-en', studyLanguageResolutionStatus: 'RESOLVED' });
+    const changedRepo = repository(current); await new AdminScholarshipUseCases(changedRepo).updateScholarship('sch-1', { countrySourceLabel: 'Germany', countryReferenceId: 'injected', studyLanguageSourceLabel: 'French', studyLanguageReferenceId: 'injected', studyLanguageResolutionStatus: 'RESOLVED' });
+    expect((changedRepo.update as any).mock.calls[0][1]).toMatchObject({ countryReferenceId: null, studyLanguageReferenceId: null, studyLanguageResolutionStatus: 'UNRESOLVED' });
+    const sameRepo = repository(current); await new AdminScholarshipUseCases(sameRepo).updateScholarship('sch-1', { countrySourceLabel: ' qATAR ', studyLanguageSourceLabel: ' ENGLISH ' });
+    expect((sameRepo.update as any).mock.calls[0][1]).toMatchObject({ countryReferenceId: 'country-1', studyLanguageReferenceId: 'lang-en', studyLanguageResolutionStatus: 'RESOLVED' });
+  });
+
+  it('uses semantic fingerprints for eligibility and embedded test documents', async () => {
+    const current = scholarship({ eligibilityItems: [{ itemKey: 'e1', itemTypeCode: 'TEST_SCORE', operatorCode: 'GTE', valueText: 'IELTS', minimumValue: 6.5, internationalTestId: 'test-old', countryReferenceId: 'country-old', resolutionStatus: 'RESOLVED', isRequired: true, priorityOrder: 1 }], requiredDocumentItems: [{ documentKey: 'doc1', documentTypeCode: 'TEST_SCORE', displayName: 'IELTS', sourceLabel: 'IELTS Academic', internationalTestId: 'test-old', resolutionStatus: 'RESOLVED', isRequired: true, displayOrder: 1 }] });
+    const adminRepo = repository(current); await new AdminScholarshipUseCases(adminRepo).updateScholarship('sch-1', { eligibilityItems: [{ ...current.eligibilityItems![0], isRequired: false, priorityOrder: 8 }], requiredDocumentItems: [{ ...current.requiredDocumentItems![0], isRequired: false, displayOrder: 8 }] });
+    const adminSaved = (adminRepo.update as any).mock.calls[0][1]; expect(adminSaved.eligibilityItems[0]).toMatchObject({ internationalTestId: 'test-old', countryReferenceId: 'country-old', resolutionStatus: 'RESOLVED' }); expect(adminSaved.requiredDocumentItems[0]).toMatchObject({ internationalTestId: 'test-old', resolutionStatus: 'RESOLVED' });
+    const changedRepo = repository(current); await new AdminScholarshipUseCases(changedRepo).updateScholarship('sch-1', { eligibilityItems: [{ ...current.eligibilityItems![0], valueText: 'TOEFL', internationalTestId: 'injected' }], requiredDocumentItems: [{ ...current.requiredDocumentItems![0], displayName: 'TOEFL', sourceLabel: 'TOEFL iBT', internationalTestId: 'injected' }, { documentKey: 'doc2', displayName: 'PTE', internationalTestId: 'injected', resolutionStatus: 'RESOLVED' }] });
+    const changed = (changedRepo.update as any).mock.calls[0][1]; expect(changed.eligibilityItems[0]).toMatchObject({ internationalTestId: null, countryReferenceId: null, resolutionStatus: 'UNRESOLVED' }); expect(changed.requiredDocumentItems[0]).toMatchObject({ internationalTestId: null, resolutionStatus: 'UNRESOLVED' }); expect(changed.requiredDocumentItems[1]).toMatchObject({ internationalTestId: null, resolutionStatus: 'UNRESOLVED' });
+  });
+
+  it('legacy compatibility fields cannot make normalized catalog completeness COMPLETE', async () => {
+    const legacy = scholarship({ benefits: [], degreeTargets: [], eligibilityItems: [], requiredDocumentItems: [], fundingTypeCode: null, isFullyFunded: undefined, countryReferenceId: null, countrySourceLabel: null, countryScope: null, fundingCoverage: 'Full', coverageDetails: 'Everything', studyCountry: 'Qatar', degreeLevel: 'Bachelor', eligibilityCriteria: 'Merit', requiredDocuments: ['Transcript'], studyLanguage: 'English', fundingAmount: '1000', currency: 'USD', duration: '4 years', optionalFields: { fundingCoverage: 'Full' } });
+    const detail = await new AdminScholarshipUseCases(repository(legacy)).getScholarshipCatalogDetail('sch-1'); expect(detail.completeness.state).not.toBe(ScholarshipCompletenessState.COMPLETE);
+  });
+
+  it.each([
+    ['requiredDocumentItems', { requiredDocumentItems: [], requiredDocuments: ['Legacy transcript'] }],
+    ['degreeTargets', { degreeTargets: [], degreeLevel: 'Legacy degree' }],
+    ['eligibilityItems', { eligibilityItems: [], eligibilityCriteria: 'Legacy eligibility' }],
+  ])('clearing normalized %s downgrades completeness despite legacy data', async (_name, updates) => {
+    const repo = repository(scholarship()); await new AdminScholarshipUseCases(repo).updateScholarship('sch-1', updates as any); expect((repo.update as any).mock.calls[0][1].completenessStatus).not.toBe(ScholarshipCompletenessState.COMPLETE);
   });
 
 });
