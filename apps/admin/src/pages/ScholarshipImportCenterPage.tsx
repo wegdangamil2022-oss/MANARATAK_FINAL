@@ -360,6 +360,28 @@ const sourceTypes: ScholarshipSourceType[] = [
   'SCHOLARSHIP_WEBSITE', 'GOVERNMENT_SCHOLARSHIP_PORTAL', 'FOUNDATION_DONOR_PORTAL', 'AGGREGATOR', 'MANUAL_FILE',
 ];
 const acquisitionModes: ScholarshipAcquisitionMode[] = ['WEBSITE', 'SITEMAP', 'FEED', 'API', 'MANUAL_FILE'];
+const networkSourceTypes: Exclude<ScholarshipSourceType, 'MANUAL_FILE'>[] = ['SCHOLARSHIP_WEBSITE', 'GOVERNMENT_SCHOLARSHIP_PORTAL', 'FOUNDATION_DONOR_PORTAL', 'AGGREGATOR'];
+const networkAcquisitionModes: Exclude<ScholarshipAcquisitionMode, 'MANUAL_FILE'>[] = ['WEBSITE', 'SITEMAP', 'FEED', 'API'];
+
+function sourceTypeChange(sourceType: ScholarshipSourceType, currentMode: ScholarshipAcquisitionMode) {
+  return { sourceType, acquisitionMode: sourceType === 'MANUAL_FILE' ? 'MANUAL_FILE' as const : currentMode === 'MANUAL_FILE' ? 'WEBSITE' as const : currentMode };
+}
+
+function acquisitionModeChange(acquisitionMode: ScholarshipAcquisitionMode, currentType: ScholarshipSourceType) {
+  return { acquisitionMode, sourceType: acquisitionMode === 'MANUAL_FILE' ? 'MANUAL_FILE' as const : currentType === 'MANUAL_FILE' ? 'SCHOLARSHIP_WEBSITE' as const : currentType };
+}
+
+function validSourceModePair(sourceType: ScholarshipSourceType, acquisitionMode: ScholarshipAcquisitionMode): boolean {
+  return sourceType === 'MANUAL_FILE'
+    ? acquisitionMode === 'MANUAL_FILE'
+    : networkSourceTypes.includes(sourceType) && networkAcquisitionModes.includes(acquisitionMode as Exclude<ScholarshipAcquisitionMode, 'MANUAL_FILE'>);
+}
+
+function mutableSourceStatus(status: ScholarshipSourceRegistryItem['status']): 'ACTIVE' | 'DISABLED' | null {
+  if (status === 'ACTIVE') return 'DISABLED';
+  if (status === 'DISABLED') return 'ACTIVE';
+  return null;
+}
 
 function cls(value: string): string {
   const normalized = value.toUpperCase();
@@ -446,7 +468,9 @@ function canonicalItems(record: ScholarshipImportCenterRecordView): Array<{
     ? handoff.canonicalScreening
     : Array.isArray(metadata.canonicalScreening)
       ? metadata.canonicalScreening
-      : [];
+      : Array.isArray(raw._canonicalScreening)
+        ? raw._canonicalScreening
+        : [];
   return candidate.map(objectValue).flatMap((entry) => {
     const key = stringValue(entry.requirementKey) ?? stringValue(entry.fieldOrRequirementKey) ?? stringValue(entry.target);
     const target = stringValue(entry.canonicalEntityType) ?? stringValue(entry.target);
@@ -482,6 +506,7 @@ function SourceRegistryPanel({
   const submit = async () => {
     setSaving(true); setFormError(null);
     try {
+      if (!validSourceModePair(form.sourceType, form.acquisitionMode)) throw new Error('SOURCE_TYPE_ACQUISITION_MODE_MISMATCH');
       const network = form.acquisitionMode !== 'MANUAL_FILE';
       const origins = form.allowedOrigins.split(/\r?\n/u).map((item) => item.trim()).filter(Boolean);
       if (network && (!form.baseUrl.trim() || origins.length === 0)) throw new Error('NETWORK_SOURCE_REQUIRES_BASE_URL_AND_ALLOWED_ORIGIN');
@@ -519,7 +544,8 @@ function SourceRegistryPanel({
   const changeStatus = async (source: ScholarshipSourceRegistryItem) => {
     setSaving(true); setFormError(null);
     try {
-      const next = source.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
+      const next = mutableSourceStatus(source.status);
+      if (!next) throw new Error('SOURCE_STATUS_MUTATION_NOT_ALLOWED');
       await scholarshipImportCenterApi.setSourceStatus(source.sourceId, next);
       await onRefresh();
     } catch (error) { setFormError(error instanceof Error ? error.message : 'SOURCE_STATUS_FAILED'); }
@@ -545,8 +571,8 @@ function SourceRegistryPanel({
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <Field label={text.sourceId}><input value={form.sourceId} onChange={(event) => setForm({ ...form, sourceId: event.target.value })} className="w-full rounded-lg border px-3 py-2" /></Field>
             <Field label={text.sourceName}><input value={form.sourceName} onChange={(event) => setForm({ ...form, sourceName: event.target.value })} className="w-full rounded-lg border px-3 py-2" /></Field>
-            <Field label={text.sourceType}><select value={form.sourceType} onChange={(event) => { const sourceType = event.target.value as ScholarshipSourceType; setForm({ ...form, sourceType, ...(sourceType === 'MANUAL_FILE' ? { acquisitionMode: 'MANUAL_FILE' as ScholarshipAcquisitionMode } : {}) }); }} className="w-full rounded-lg border px-3 py-2">{sourceTypes.map((item) => <option key={item}>{item}</option>)}</select></Field>
-            <Field label={text.acquisitionMode}><select value={form.acquisitionMode} onChange={(event) => { const acquisitionMode = event.target.value as ScholarshipAcquisitionMode; setForm({ ...form, acquisitionMode, ...(acquisitionMode === 'MANUAL_FILE' ? { sourceType: 'MANUAL_FILE' as ScholarshipSourceType } : form.sourceType === 'MANUAL_FILE' ? { sourceType: 'SCHOLARSHIP_WEBSITE' as ScholarshipSourceType } : {}) }); }} className="w-full rounded-lg border px-3 py-2">{acquisitionModes.map((item) => <option key={item}>{item}</option>)}</select></Field>
+            <Field label={text.sourceType}><select value={form.sourceType} onChange={(event) => setForm({ ...form, ...sourceTypeChange(event.target.value as ScholarshipSourceType, form.acquisitionMode) })} className="w-full rounded-lg border px-3 py-2">{sourceTypes.map((item) => <option key={item}>{item}</option>)}</select></Field>
+            <Field label={text.acquisitionMode}><select value={form.acquisitionMode} onChange={(event) => setForm({ ...form, ...acquisitionModeChange(event.target.value as ScholarshipAcquisitionMode, form.sourceType) })} className="w-full rounded-lg border px-3 py-2">{acquisitionModes.map((item) => <option key={item}>{item}</option>)}</select></Field>
             <Field label={text.status}><select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as 'ACTIVE' | 'DISABLED' | 'NOT_CONFIGURED' })} className="w-full rounded-lg border px-3 py-2"><option>ACTIVE</option><option>DISABLED</option><option>NOT_CONFIGURED</option></select></Field>
             {form.acquisitionMode !== 'MANUAL_FILE' ? <Field label={text.baseUrl}><input value={form.baseUrl} onChange={(event) => setForm({ ...form, baseUrl: event.target.value })} placeholder="https://..." className="w-full rounded-lg border px-3 py-2" /></Field> : null}
           </div>
@@ -572,7 +598,8 @@ function SourceRegistryPanel({
           <tbody className="divide-y divide-slate-100">
             {value.sources.map((source) => {
               const observed = value.observedStatistics.find((item) => item.sourceSystem === source.sourceId);
-              return <tr key={source.sourceId}><td className="px-4 py-3 font-mono text-xs">{source.sourceId}</td><td className="px-4 py-3 font-medium">{source.displayName}</td><td className="px-4 py-3"><Badge value={sourceMode(source) ?? source.category} /></td><td className="px-4 py-3 text-xs">{source.connectorId}@{source.connectorVersion}</td><td className="px-4 py-3"><Badge value={source.status} /></td><td className="px-4 py-3 text-xs">{observed ? `${observed.batches} batches · ${observed.totalRecords} records` : '—'}</td><td className="px-4 py-3"><button disabled={saving || busy} type="button" onClick={() => void changeStatus(source)} className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-50">{source.status === 'ACTIVE' ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}{source.status === 'ACTIVE' ? text.disable : text.activate}</button></td></tr>;
+              const nextStatus = mutableSourceStatus(source.status);
+              return <tr key={source.sourceId}><td className="px-4 py-3 font-mono text-xs">{source.sourceId}</td><td className="px-4 py-3 font-medium">{source.displayName}</td><td className="px-4 py-3"><Badge value={sourceMode(source) ?? source.category} /></td><td className="px-4 py-3 text-xs">{source.connectorId}@{source.connectorVersion}</td><td className="px-4 py-3"><Badge value={source.status} /></td><td className="px-4 py-3 text-xs">{observed ? `${observed.batches} batches · ${observed.totalRecords} records` : '—'}</td><td className="px-4 py-3">{nextStatus ? <button disabled={saving || busy} type="button" onClick={() => void changeStatus(source)} className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-50">{nextStatus === 'DISABLED' ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}{nextStatus === 'DISABLED' ? text.disable : text.activate}</button> : <span className="text-xs text-slate-500">{source.status === 'BLOCKED' ? 'Blocked' : 'Requires source review'}</span>}</td></tr>;
             })}
             {value.sources.length === 0 ? <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">{text.noRecords}</td></tr> : null}
           </tbody>

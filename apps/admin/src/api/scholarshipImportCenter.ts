@@ -35,6 +35,7 @@ export type ScholarshipSourceType =
 
 export type ScholarshipAcquisitionMode = 'WEBSITE' | 'SITEMAP' | 'FEED' | 'API' | 'MANUAL_FILE';
 export type ScholarshipSourceStatus = 'ACTIVE' | 'DISABLED' | 'NOT_CONFIGURED';
+export type ScholarshipRegistrySourceStatus = 'ACTIVE' | 'NEEDS_REVIEW' | 'DISABLED' | 'BLOCKED';
 
 export interface ScholarshipImportCenterRecordView {
   id: string;
@@ -110,7 +111,7 @@ export interface ScholarshipSourceRegistryItem {
   displayName: string;
   baseUrl: string;
   category: string;
-  status: string;
+  status: ScholarshipRegistrySourceStatus;
   accessClassification: string;
   connectorId: string;
   connectorVersion: string;

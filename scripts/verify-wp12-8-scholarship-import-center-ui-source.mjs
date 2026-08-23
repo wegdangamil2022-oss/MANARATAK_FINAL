@@ -51,6 +51,24 @@ assert(page.includes('ACQUIRED_AWAITING_EXTRACTION_MAPPING') || api.includes('AC
 assert(page.includes('countsExact'), 'exact/partial count signal not rendered');
 assert(page.includes('scanTruncated'), 'scan truncation signal not rendered');
 assert(!page.includes('automaticMergePerformed = true'), 'UI must not synthesize automatic merge');
+assert(page.includes('Array.isArray(raw._canonicalScreening)'), 'legacy _canonicalScreening fallback missing');
+const handoffIndex = page.indexOf('Array.isArray(handoff.canonicalScreening)');
+const metadataIndex = page.indexOf('Array.isArray(metadata.canonicalScreening)', handoffIndex);
+const legacyIndex = page.indexOf('Array.isArray(raw._canonicalScreening)', metadataIndex);
+assert(handoffIndex >= 0 && metadataIndex > handoffIndex && legacyIndex > metadataIndex, 'canonical screening precedence must be handoff -> metadata -> legacy');
+
+assert(api.includes("'ACTIVE' | 'NEEDS_REVIEW' | 'DISABLED' | 'BLOCKED'"), 'registry source status contract is incomplete');
+assert(page.includes("if (status === 'ACTIVE') return 'DISABLED'"), 'ACTIVE must only expose disable');
+assert(page.includes("if (status === 'DISABLED') return 'ACTIVE'"), 'DISABLED must only expose activate');
+assert(page.includes('return null;'), 'non-mutable source statuses must have no action');
+assert(page.includes("source.status === 'BLOCKED' ? 'Blocked' : 'Requires source review'"), 'BLOCKED/NEEDS_REVIEW neutral status rendering missing');
+assert(!page.includes("source.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE'"), 'generic non-ACTIVE activation logic remains');
+
+assert(page.includes("sourceType === 'MANUAL_FILE' ? 'MANUAL_FILE' as const"), 'manual source must force manual mode');
+assert(page.includes("acquisitionMode === 'MANUAL_FILE' ? 'MANUAL_FILE' as const"), 'manual mode must force manual source');
+assert(page.includes("currentMode === 'MANUAL_FILE' ? 'WEBSITE' as const"), 'manual to network source transition does not reset mode');
+assert(page.includes('validSourceModePair(form.sourceType, form.acquisitionMode)'), 'submit-time source/mode invariant missing');
+assert(page.includes("throw new Error('SOURCE_TYPE_ACQUISITION_MODE_MISMATCH')"), 'invalid source/mode pair is not rejected locally');
 
 for (const obsolete of [
   "registryState: 'OBSERVED_FROM_PHASE6_BATCHES'",
@@ -72,6 +90,9 @@ assert(api.includes("const BASE = '/admin/scholarships/import-center'"), 'adapte
 assert(!api.includes("registryState: 'OBSERVED_FROM_PHASE6_BATCHES'"), 'API adapter still models old observed-only sources');
 
 console.log('WP12_8_IMPORT_CENTER_UI_SOURCE = PASS');
+console.log('LEGACY_CANONICAL_SCREENING_UI = PASS');
+console.log('SAFE_SOURCE_STATUS_ACTIONS = PASS');
+console.log('SOURCE_FORM_MODE_INVARIANTS = PASS');
 console.log('AUTHORITATIVE_SOURCE_REGISTRY_UI = PASS');
 console.log('IMPORT_NEW_UI = PASS');
 console.log('VERIFICATION_COMMAND_UI = PASS');
