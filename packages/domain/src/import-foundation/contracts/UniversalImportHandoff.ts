@@ -9,13 +9,13 @@ export interface ImportValidationIssue {
 
 export interface ImportArtifactIdentity {
   sourceId: string;
-  artifactId: string;
-  rawArtifactReference: string;
+  artifactId?: string;
+  rawArtifactReference?: string;
 }
 
 export interface ImportProvenance {
   sourceSystem: string;
-  acquiredAt: Date;
+  acquiredAt?: Date;
   sourceRowNumber?: number;
   contentHash?: string;
 }

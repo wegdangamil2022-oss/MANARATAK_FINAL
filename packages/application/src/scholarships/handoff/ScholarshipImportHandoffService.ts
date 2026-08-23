@@ -74,7 +74,7 @@ export class ScholarshipImportHandoffService
       providerCanonicalPublicId,
       year: this.stringMetadata(parsed.data.metadata?.academicYear) ?? nameScreening.detectedYear,
       incomingSourceImportRecordId:
-        handoff.referenceMetadata?.importRecordId ?? handoff.artifact.artifactId,
+        handoff.referenceMetadata?.importRecordId ?? handoff.execution.idempotencyKey,
     };
     const dedupe = await this.assessDuplicate(dedupeInput, completeness.identityReady);
 

@@ -102,12 +102,12 @@ export class ImportAdminUseCases {
           }
           seenDedupKeys.add(identity.sourceDedupKey);
           const validationState = !validObject ? 'INVALID' : issues.length ? 'NEEDS_REVIEW' : 'VALID';
-          const handoff = this.handoffDispatcher ? await this.handoffDispatcher.dispatch({
+          const handoff = this.handoffDispatcher && validationState !== 'INVALID' ? await this.handoffDispatcher.dispatch({
             handoffId: `handoff:${identity.sourceDedupKey}`,
             ownerDomain: input.ownerDomain,
-            artifact: { sourceId: input.sourceSystem, artifactId: input.handoffContext?.artifactId ?? batch.id, rawArtifactReference: input.handoffContext?.rawArtifactReference ?? '' },
+            artifact: { sourceId: input.sourceSystem, ...(input.handoffContext?.artifactId ? { artifactId: input.handoffContext.artifactId } : {}), ...(input.handoffContext?.rawArtifactReference ? { rawArtifactReference: input.handoffContext.rawArtifactReference } : {}) },
             normalizedPayload: payload,
-            provenance: { sourceSystem: input.sourceSystem, acquiredAt: new Date(), sourceRowNumber, contentHash: identity.payloadFingerprint },
+            provenance: { sourceSystem: input.sourceSystem, sourceRowNumber, contentHash: identity.payloadFingerprint },
             validation: { state: validationState, issues: (issues as string[]).map((message) => ({ code: 'PHASE6_VALIDATION', message, severity: 'WARNING' as const })) },
             execution: { executionId: input.handoffContext?.executionId ?? batch.id, importSessionId: input.handoffContext?.importSessionId, dryRun: input.handoffContext?.dryRun ?? false, attempt: input.handoffContext?.attempt ?? 1, idempotencyKey: identity.sourceDedupKey },
             correlationId: input.handoffContext?.correlationId,
