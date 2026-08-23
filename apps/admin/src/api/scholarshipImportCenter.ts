@@ -15,6 +15,26 @@ export type ScholarshipImportDuplicateState =
   | 'COLLISION_REVIEW';
 
 export type ScholarshipImportReviewAction = 'MERGE' | 'KEEP_CURRENT' | 'SPLIT';
+export type ScholarshipImportVerificationState = 'PENDING' | 'VERIFIED' | 'FAILED';
+export type ScholarshipCanonicalTarget =
+  | 'PROVIDER_UNIVERSITY'
+  | 'UNIVERSITY'
+  | 'COUNTRY'
+  | 'LANGUAGE'
+  | 'CURRENCY'
+  | 'DEGREE_LEVEL'
+  | 'MAJOR'
+  | 'INTERNATIONAL_TEST';
+
+export type ScholarshipSourceType =
+  | 'SCHOLARSHIP_WEBSITE'
+  | 'GOVERNMENT_SCHOLARSHIP_PORTAL'
+  | 'FOUNDATION_DONOR_PORTAL'
+  | 'AGGREGATOR'
+  | 'MANUAL_FILE';
+
+export type ScholarshipAcquisitionMode = 'WEBSITE' | 'SITEMAP' | 'FEED' | 'API' | 'MANUAL_FILE';
+export type ScholarshipSourceStatus = 'ACTIVE' | 'DISABLED' | 'NOT_CONFIGURED';
 
 export interface ScholarshipImportCenterRecordView {
   id: string;
@@ -24,6 +44,7 @@ export interface ScholarshipImportCenterRecordView {
   importStatus: string;
   operationalClass: ScholarshipImportOperationalClass;
   rawPayload: unknown;
+  screeningOrigin: 'PERSISTED_HANDOFF' | 'LEGACY_RECOMPUTED' | 'NOT_AVAILABLE';
   parseState: 'VALID' | 'INVALID';
   parseIssues: string[];
   rawSourceTitle: string | null;
@@ -44,7 +65,7 @@ export interface ScholarshipImportCenterRecordView {
     requiresReview: boolean;
   };
   verification: {
-    state: 'PENDING' | 'VERIFIED' | 'FAILED';
+    state: ScholarshipImportVerificationState;
     sourceTraceable: boolean;
   };
   canonical: {
@@ -84,17 +105,32 @@ export interface ScholarshipImportCenterOverview {
   };
 }
 
+export interface ScholarshipSourceRegistryItem {
+  sourceId: string;
+  displayName: string;
+  baseUrl: string;
+  category: string;
+  status: string;
+  accessClassification: string;
+  connectorId: string;
+  connectorVersion: string;
+  rateLimitPerMinute: number | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface ScholarshipObservedSourceStatistic {
+  sourceSystem: string;
+  batches: number;
+  totalRecords: number;
+  lastBatchAt: string | null;
+}
+
 export interface ScholarshipImportCenterSources {
-  registryState: 'OBSERVED_FROM_PHASE6_BATCHES';
+  registryState: 'AUTHORITATIVE_SCHOLARSHIP_SOURCE_REGISTRY' | 'NOT_CONFIGURED';
   sourceRegistryRuntime: 'PENDING_RUNTIME';
-  observedBatchLimit: 100;
-  completeRegistry: false;
-  sources: Array<{
-    sourceSystem: string;
-    batches: number;
-    totalRecords: number;
-    lastBatchAt: string | null;
-  }>;
+  completeRegistry: boolean;
+  sources: ScholarshipSourceRegistryItem[];
+  observedStatistics: ScholarshipObservedSourceStatistic[];
 }
 
 export interface ScholarshipImportCenterRecordList {
@@ -108,12 +144,25 @@ export interface ScholarshipImportCenterRecordList {
   scannedRecords: number;
 }
 
+export interface ScholarshipImportHistoryEvent {
+  recordId: string;
+  eventType:
+    | 'STAGED_RECORD'
+    | 'VERIFICATION_DECISION'
+    | 'CANONICAL_RESOLUTION_DECISION'
+    | 'REVIEW_DECISION'
+    | 'TRANSFER_RECEIPT';
+  occurredAt: string;
+  data: Record<string, unknown>;
+}
+
 export interface ScholarshipImportCenterScanResult {
   data: ScholarshipImportCenterRecordView[];
   countsExact: boolean;
   scanTruncated: boolean;
   scannedRecords: number;
   sourceTotal: number;
+  events?: ScholarshipImportHistoryEvent[];
 }
 
 export interface ScholarshipImportCenterDiff {
@@ -139,6 +188,95 @@ export interface ScholarshipImportCenterMergeProposal {
   automaticMergePerformed: false;
 }
 
+export interface ScholarshipSourceCreateInput {
+  sourceId: string;
+  sourceName: string;
+  baseUrl?: string;
+  sourceType: ScholarshipSourceType;
+  status: ScholarshipSourceStatus;
+  acquisitionMode: ScholarshipAcquisitionMode;
+  allowedUrlScope?: {
+    allowedOrigins: string[];
+    allowedPathPrefixes?: string[];
+    allowSubdomains?: boolean;
+  };
+  rateLimitPolicy?: {
+    requestsPerMinute: number;
+    burstLimit?: number;
+    minimumDelayMs?: number;
+  };
+  lastExecution: { state: 'NEVER_RUN' };
+}
+
+export interface ScholarshipSourceRegistrationPlan {
+  source: {
+    sourceId: string;
+    displayName: string;
+    baseUrl: string;
+    category: string;
+    accessClassification: string;
+    status: string;
+    connectorId: string;
+    connectorVersion: string;
+    rateLimitPerMinute?: number;
+    metadata?: Record<string, unknown>;
+  };
+  rawSnapshotRequiredBeforeSemanticTransform: true;
+  phase6UrlAllowListRequired: true;
+  liveConnectorProof: 'PENDING_RUNTIME';
+}
+
+export interface ScholarshipImportNewRequest {
+  sourceId: string;
+  targetUrl?: string;
+  parserHint?: 'json' | 'ndjson' | 'csv';
+  structuredContent?: unknown;
+  fileName?: string;
+  contentType?: string;
+  approvedAssetReference?: string;
+}
+
+export type ScholarshipImportNewResult =
+  | {
+      state: 'STAGED';
+      snapshot: {
+        artifactId: string;
+        rawArtifactReference: string;
+        contentHash: string;
+        byteSize: number;
+        storedAt: string;
+      };
+      staging: unknown;
+    }
+  | {
+      state: 'ACQUIRED_AWAITING_EXTRACTION_MAPPING';
+      snapshot: {
+        artifactId: string;
+        rawArtifactReference: string;
+        contentHash: string;
+        byteSize: number;
+        storedAt: string;
+      };
+      reason: string;
+    }
+  | { state: 'REJECTED_SOURCE'; reason: string }
+  | { state: 'FAILED'; reason: string };
+
+export interface ScholarshipVerificationDecisionInput {
+  state: Exclude<ScholarshipImportVerificationState, 'PENDING'>;
+  reason: string;
+  evidence?: Record<string, unknown>;
+}
+
+export interface ScholarshipCanonicalResolutionInput {
+  fieldOrRequirementKey: string;
+  canonicalEntityType: ScholarshipCanonicalTarget;
+  canonicalId?: string;
+  rawValue: string;
+  resolutionType: 'RESOLVED' | 'NOT_APPLICABLE' | 'REJECTED';
+  reason?: string;
+}
+
 function queryString(params: Record<string, string | number | undefined>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -159,6 +297,27 @@ export const scholarshipImportCenterApi = {
 
   sources() {
     return adminApiClient.request<ScholarshipImportCenterSources>(`${BASE}/sources`);
+  },
+
+  createSource(input: ScholarshipSourceCreateInput) {
+    return adminApiClient.request<ScholarshipSourceRegistrationPlan>(`${BASE}/sources`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
+  setSourceStatus(sourceId: string, status: 'ACTIVE' | 'DISABLED') {
+    return adminApiClient.request<{ sourceId: string; status: 'ACTIVE' | 'DISABLED' }>(
+      `${BASE}/sources/${encodeURIComponent(sourceId)}/status`,
+      { method: 'PATCH', body: JSON.stringify({ status }) },
+    );
+  },
+
+  importNew(input: ScholarshipImportNewRequest) {
+    return adminApiClient.request<ScholarshipImportNewResult>(`${BASE}/import-new`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
   },
 
   records(input: {
@@ -217,6 +376,20 @@ export const scholarshipImportCenterApi = {
       method: 'POST',
       body: JSON.stringify({ action, reason }),
     });
+  },
+
+  recordVerification(id: string, input: ScholarshipVerificationDecisionInput) {
+    return adminApiClient.request<{ decisionId: string; recordedAt: string }>(
+      `${BASE}/records/${encodeURIComponent(id)}/verification`,
+      { method: 'POST', body: JSON.stringify(input) },
+    );
+  },
+
+  recordCanonicalResolution(id: string, input: ScholarshipCanonicalResolutionInput) {
+    return adminApiClient.request<{ decisionId: string; recordedAt: string }>(
+      `${BASE}/records/${encodeURIComponent(id)}/canonical-resolution`,
+      { method: 'POST', body: JSON.stringify(input) },
+    );
   },
 
   transfer(id: string) {

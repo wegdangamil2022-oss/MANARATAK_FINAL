@@ -12,37 +12,71 @@ function assert(condition, message) {
 }
 
 for (const token of [
-  '/overview', '/sources', '/records', 'screening', 'duplicates', 'missing-data',
-  'verification', 'review-queue', 'ready-to-transfer', 'history', '/diff',
-  '/merge-proposal', '/decision', '/transfer',
+  '/overview', '/sources', '/import-new', '/records', 'screening', 'duplicates',
+  'missing-data', 'verification', 'canonical-resolution', 'review-queue',
+  'ready-to-transfer', 'history', '/diff', '/merge-proposal', '/decision', '/transfer',
 ]) {
   assert(api.includes(token), `missing API surface ${token}`);
 }
 
+for (const call of [
+  'scholarshipImportCenterApi.overview',
+  'scholarshipImportCenterApi.sources',
+  'scholarshipImportCenterApi.createSource',
+  'scholarshipImportCenterApi.setSourceStatus',
+  'scholarshipImportCenterApi.importNew',
+  'scholarshipImportCenterApi.records',
+  'scholarshipImportCenterApi.scan',
+  'scholarshipImportCenterApi.recordVerification',
+  'scholarshipImportCenterApi.recordCanonicalResolution',
+  'scholarshipImportCenterApi.decision',
+  'scholarshipImportCenterApi.transfer',
+]) {
+  assert(page.includes(call), `page does not consume ${call}`);
+}
+
 assert(app.includes('path="/imports/scholarships"'), 'missing canonical admin route');
 assert(app.includes('href="/imports/scholarships"'), 'missing admin navigation entry');
-assert(page.includes("reviewDecisionPersistence === 'CONFIGURED'"), 'review decision capability gate missing');
-assert(page.includes("atomicTransfer === 'CONFIGURED'"), 'atomic transfer capability gate missing');
+assert(api.includes("'AUTHORITATIVE_SCHOLARSHIP_SOURCE_REGISTRY'"), 'authoritative source registry contract missing');
+assert(api.includes('observedStatistics'), 'observed statistics must remain separate from source registry');
+assert(api.includes('screeningOrigin'), 'persisted/legacy screening-origin contract missing');
+assert(api.includes('ScholarshipImportHistoryEvent'), 'history event contract missing');
+assert(page.includes('response.events ?? []'), 'history must render backend event stream');
+assert(page.includes("reviewDecisionPersistence === 'CONFIGURED'"), 'review capability gate missing');
+assert(page.includes("atomicTransfer === 'CONFIGURED'"), 'transfer capability gate missing');
+assert(page.includes('record.readyToTransfer'), 'transfer readiness gate missing');
+assert(page.includes("item.target === 'PROVIDER_UNIVERSITY' && providerNonUniversity"), 'NOT_APPLICABLE UI gate must be narrow');
+assert(page.includes('MANUAL_HTTP_CONTRACT_SUPPORTS_STRUCTURED_JSON_ONLY'), 'manual input contract limitation must be explicit');
+assert(page.includes('ACQUIRED_AWAITING_EXTRACTION_MAPPING') || api.includes('ACQUIRED_AWAITING_EXTRACTION_MAPPING'), 'acquisition-only result must be represented');
 assert(page.includes('countsExact'), 'exact/partial count signal not rendered');
 assert(page.includes('scanTruncated'), 'scan truncation signal not rendered');
-assert(page.includes('sourceRegistryRuntime'), 'source registry runtime state not rendered');
 assert(!page.includes('automaticMergePerformed = true'), 'UI must not synthesize automatic merge');
 
-for (const token of [
-  '@prisma/client', 'PrismaClient', 'prisma.', 'mockScholarship', 'mockRecords',
-  'fakeRecords', 'sampleRecords', 'Math.random()',
+for (const obsolete of [
+  "registryState: 'OBSERVED_FROM_PHASE6_BATCHES'",
+  'observedBatchLimit: 100',
+  'This is an observed source list from recent Phase 6 batches, not a complete runtime registry.',
 ]) {
-  assert(!combined.includes(token), `forbidden UI/source token ${token}`);
+  assert(!combined.includes(obsolete), `obsolete pre-WP12-7 contract remains: ${obsolete}`);
+}
+
+for (const forbidden of [
+  '@prisma/client', 'PrismaClient', 'prisma.', 'mockScholarship', 'mockRecords',
+  'fakeRecords', 'sampleRecords', 'Math.random()', 'setTimeout(() =>',
+]) {
+  assert(!combined.includes(forbidden), `forbidden UI/source token ${forbidden}`);
 }
 
 assert(!page.includes('fetch('), 'page must use typed API adapter, not direct fetch');
-assert(api.includes("const BASE = '/admin/scholarships/import-center'"), 'API adapter must target WP12-7 backend');
-assert(page.includes('scholarshipImportCenterApi.overview'), 'overview must be API-backed');
-assert(page.includes('scholarshipImportCenterApi.sources'), 'sources must be API-backed');
-assert(page.includes('scholarshipImportCenterApi.records'), 'incoming records must be API-backed');
-assert(page.includes('scholarshipImportCenterApi.scan'), 'segmented queues must be API-backed');
+assert(api.includes("const BASE = '/admin/scholarships/import-center'"), 'adapter must target WP12-7 backend');
+assert(!api.includes("registryState: 'OBSERVED_FROM_PHASE6_BATCHES'"), 'API adapter still models old observed-only sources');
 
 console.log('WP12_8_IMPORT_CENTER_UI_SOURCE = PASS');
+console.log('AUTHORITATIVE_SOURCE_REGISTRY_UI = PASS');
+console.log('IMPORT_NEW_UI = PASS');
+console.log('VERIFICATION_COMMAND_UI = PASS');
+console.log('CANONICAL_REVIEW_UI = PASS');
+console.log('HISTORY_EVENT_UI = PASS');
 console.log('DIRECT_PRISMA_REFERENCES = 0');
 console.log('DIRECT_FETCH_IN_PAGE = 0');
 console.log('LOCAL_RECORD_FIXTURES = 0');
