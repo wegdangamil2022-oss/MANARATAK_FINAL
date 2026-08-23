@@ -44,6 +44,7 @@ model ScholarshipImportVerificationDecision {
   evidence      Json?
   correlationId String?
   createdAt     DateTime @default(now())
+  record        ImportRecord @relation("ScholarshipVerificationDecisionRecord", fields: [recordId], references: [id], onDelete: Cascade)
   @@index([recordId, createdAt])
 }
 
@@ -59,6 +60,7 @@ model ScholarshipImportCanonicalResolutionDecision {
   reason             String?
   correlationId      String?
   createdAt          DateTime @default(now())
+  record             ImportRecord @relation("ScholarshipCanonicalDecisionRecord", fields: [recordId], references: [id], onDelete: Cascade)
   @@index([recordId, createdAt])
 }
 
@@ -151,6 +153,8 @@ model ImportRecord {
   updatedAt          DateTime  @updatedAt
 
   batch ImportBatch @relation(fields: [batchId], references: [id])
+  scholarshipVerificationDecisions ScholarshipImportVerificationDecision[] @relation("ScholarshipVerificationDecisionRecord")
+  scholarshipCanonicalResolutionDecisions ScholarshipImportCanonicalResolutionDecision[] @relation("ScholarshipCanonicalDecisionRecord")
 
   @@unique([batchId, sourceDedupKey])
   @@index([batchId])

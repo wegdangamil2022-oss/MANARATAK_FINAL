@@ -67,7 +67,7 @@ export class InMemorySourceRegistryGateway implements ISourceRegistryGateway {
       robotsPolicyUrl: source.robotsPolicyUrl,
       connectorId: source.connectorId,
       connectorVersion: source.connectorVersion,
-      metadata: source.metadata
+      metadata: { ...(source.metadata ?? {}), ...(source.metadata?.ownerDomain === 'SCHOLARSHIPS' ? { scholarshipSourceStatus: status === SourceStatus.ACTIVE ? 'ACTIVE' : 'DISABLED' } : {}) }
     });
 
     this.registry.set(sourceId, updatedSource);

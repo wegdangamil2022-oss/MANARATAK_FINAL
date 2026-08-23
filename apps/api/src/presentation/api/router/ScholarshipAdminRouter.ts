@@ -9,7 +9,7 @@ import {
   ScholarshipImportCenterUseCases,
   ScholarshipImportNewUseCase,
   ScholarshipSourceRegistryService,
-  ScholarshipCanonicalResolutionService,
+  ScholarshipImportDecisionUseCases,
   type IScholarshipImportVerificationDecisionPort,
   type IScholarshipImportCanonicalResolutionDecisionPort,
   type IScholarshipImportAtomicGateway,
@@ -28,7 +28,7 @@ export class ScholarshipAdminRouter {
     scholarshipImportNewUseCase?: ScholarshipImportNewUseCase;
     scholarshipImportVerificationDecisionPort?: IScholarshipImportVerificationDecisionPort;
     scholarshipImportCanonicalResolutionDecisionPort?: IScholarshipImportCanonicalResolutionDecisionPort;
-    scholarshipCanonicalResolutionService?: ScholarshipCanonicalResolutionService;
+    scholarshipImportDecisionUseCases?: ScholarshipImportDecisionUseCases;
   }): Router {
     const router = Router();
     const {
@@ -41,7 +41,7 @@ export class ScholarshipAdminRouter {
       scholarshipImportNewUseCase,
       scholarshipImportVerificationDecisionPort,
       scholarshipImportCanonicalResolutionDecisionPort,
-      scholarshipCanonicalResolutionService,
+      scholarshipImportDecisionUseCases,
     } = cradle;
     const atomicImportGateway = importRepository as (IScholarshipImportCenterGateway & Partial<IScholarshipImportAtomicGateway>) | undefined;
     const atomicTransfer = atomicImportGateway && scholarshipRepository && atomicDomainMutationCoordinator && typeof atomicImportGateway.withTransaction === 'function'
@@ -269,14 +269,13 @@ export class ScholarshipAdminRouter {
     }));
 
     router.post('/import-center/records/:id/verification', asyncHandler(async (req: Request, res: Response) => {
-      if (!scholarshipImportVerificationDecisionPort) throw new Error('SCHOLARSHIP_IMPORT_VERIFICATION_NOT_CONFIGURED'); const payload = verificationSchema.parse(req.body); const context = mutationContext(req);
-      res.status(201).json(await scholarshipImportVerificationDecisionPort.record({ recordId: req.params.id, state: payload.state, actorId: context.actorId, reason: payload.reason, evidence: payload.evidence, correlationId: context.correlationId }));
+      if (!scholarshipImportDecisionUseCases) throw new Error('SCHOLARSHIP_IMPORT_VERIFICATION_NOT_CONFIGURED'); const payload = verificationSchema.parse(req.body); const context = mutationContext(req);
+      res.status(201).json(await scholarshipImportDecisionUseCases.recordVerification({ recordId: req.params.id, state: payload.state, actorId: context.actorId, reason: payload.reason, evidence: payload.evidence, correlationId: context.correlationId }));
     }));
 
     router.post('/import-center/records/:id/canonical-resolution', asyncHandler(async (req: Request, res: Response) => {
-      if (!scholarshipImportCanonicalResolutionDecisionPort || !scholarshipCanonicalResolutionService) throw new Error('SCHOLARSHIP_IMPORT_CANONICAL_RESOLUTION_NOT_CONFIGURED'); const payload = canonicalResolutionSchema.parse(req.body); const context = mutationContext(req);
-      if (payload.resolutionType === 'RESOLVED') { const resolution = await scholarshipCanonicalResolutionService.resolve({ target: payload.canonicalEntityType, rawValue: payload.rawValue, canonicalId: payload.canonicalId }); if (resolution.state !== 'RESOLVED') throw new Error('SCHOLARSHIP_CANONICAL_RESOLUTION_NOT_EXISTING_OR_AMBIGUOUS'); }
-      res.status(201).json(await scholarshipImportCanonicalResolutionDecisionPort.record({ recordId: req.params.id, ...payload, actorId: context.actorId, correlationId: context.correlationId }));
+      if (!scholarshipImportDecisionUseCases) throw new Error('SCHOLARSHIP_IMPORT_CANONICAL_RESOLUTION_NOT_CONFIGURED'); const payload = canonicalResolutionSchema.parse(req.body); const context = mutationContext(req);
+      res.status(201).json(await scholarshipImportDecisionUseCases.recordCanonical({ recordId: req.params.id, ...payload, actorId: context.actorId, correlationId: context.correlationId }));
     }));
 
     router.get('/import-center/review-queue', asyncHandler(async (req: Request, res: Response) => {

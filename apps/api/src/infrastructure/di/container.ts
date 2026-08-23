@@ -142,7 +142,7 @@ import {
 
 // These are directly from src instead of index for some reason
 import { ManageNotificationTemplatesUseCase } from '@manaratak/application';
-import { SourceConnectorRegistry, AcquireImportSourceUseCase, ScholarshipSourceRegistryService, ScholarshipAcquisitionPlanner, ScholarshipImportNewUseCase } from '@manaratak/application';
+import { SourceConnectorRegistry, AcquireImportSourceUseCase, ScholarshipSourceRegistryService, ScholarshipAcquisitionPlanner, ScholarshipImportNewUseCase, ScholarshipImportDecisionUseCases } from '@manaratak/application';
 import { ManageNotificationIntentsUseCase } from '@manaratak/application';
 import { ManageAuditRecordsUseCase } from '@manaratak/application';
 
@@ -8126,6 +8126,7 @@ export function registerDependencies() {
       new ScholarshipImportNewUseCase(sourceRegistryGateway, scholarshipAcquisitionPlanner, acquireImportSourceUseCase, importAdminUseCases)).scoped(),
     scholarshipImportVerificationDecisionPort: asFunction(({ prisma }) => isPrisma ? new PrismaScholarshipImportVerificationDecisionPort(prisma) : new InMemoryScholarshipImportVerificationDecisionPort()).singleton(),
     scholarshipImportCanonicalResolutionDecisionPort: asFunction(({ prisma }) => isPrisma ? new PrismaScholarshipImportCanonicalResolutionDecisionPort(prisma) : new InMemoryScholarshipImportCanonicalResolutionDecisionPort()).singleton(),
+    scholarshipImportDecisionUseCases: asFunction(({ importRepository, scholarshipImportVerificationDecisionPort, scholarshipImportCanonicalResolutionDecisionPort, scholarshipCanonicalResolutionService }) => new ScholarshipImportDecisionUseCases(importRepository, scholarshipImportVerificationDecisionPort, scholarshipImportCanonicalResolutionDecisionPort, scholarshipCanonicalResolutionService)).scoped(),
     assetRecordRepository: asFunction(({ prisma }) => new PrismaAssetRecordRepository(prisma)).singleton(),
     assetStorageGateway: asClass(LocalAssetStorageGateway).singleton(),
     assetMalwareScannerGateway: asClass(NoopAssetMalwareScannerGateway).singleton(),

@@ -113,6 +113,7 @@ export interface ScholarshipImportVerificationDecision {
 export interface IScholarshipImportVerificationDecisionPort {
   record(input: ScholarshipImportVerificationDecision): Promise<{ decisionId: string; recordedAt: string }>;
   latest(recordId: string): Promise<(ScholarshipImportVerificationDecision & { decisionId: string; recordedAt: string }) | null>;
+  list(recordId: string): Promise<Array<ScholarshipImportVerificationDecision & { decisionId: string; recordedAt: string }>>;
 }
 export interface ScholarshipImportCanonicalResolutionDecision {
   recordId: string; fieldOrRequirementKey: string; canonicalEntityType: string; canonicalId?: string; rawValue: string; resolutionType: 'RESOLVED' | 'NOT_APPLICABLE' | 'REJECTED'; actorId: string; reason?: string; correlationId?: string;
@@ -202,7 +203,9 @@ export interface ScholarshipImportCenterScanResult {
   scanTruncated: boolean;
   scannedRecords: number;
   sourceTotal: number;
+  events?: ScholarshipImportHistoryEvent[];
 }
+export interface ScholarshipImportHistoryEvent { recordId: string; eventType: 'STAGED_RECORD' | 'VERIFICATION_DECISION' | 'CANONICAL_RESOLUTION_DECISION' | 'REVIEW_DECISION' | 'TRANSFER_RECEIPT'; occurredAt: Date | string; data: Record<string, unknown>; }
 
 export interface ScholarshipImportCenterOverview {
   operationalClass: ScholarshipImportOperationalClass;

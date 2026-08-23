@@ -1,5 +1,7 @@
+import { CsvImportStreamParser } from '../../import-foundation/parsers/CsvImportStreamParser';
+import { NdjsonImportStreamParser } from '../../import-foundation/parsers/NdjsonImportStreamParser';
 import type { IImportRawSnapshotStore, ISourceRegistryGateway, AcquireImportSourceUseCase, ImportAdminUseCases } from '@manaratak/application';
-import type { ImportSourceDefinition } from '@manaratak/domain';
+import { ImportParseError, ParsedImportRow, type ImportSourceDefinition } from '@manaratak/domain';
 import type { ScholarshipAcquisitionPlanner } from '../source-registry/ScholarshipAcquisitionPlanner';
 import type { ScholarshipSourceConfiguration } from '../source-registry/ScholarshipSourceRegistryContracts';
 
@@ -26,20 +28,26 @@ export class ScholarshipImportNewUseCase {
         ? { rawBytes: new TextEncoder().encode(JSON.stringify(input.manualInput.structuredContent)), fileName: input.manualInput.fileName, contentType: input.manualInput.contentType ?? 'application/json', assetReference: input.manualInput.approvedAssetReference }
         : input.manualInput?.rawBytes ? { rawBytes: input.manualInput.rawBytes, fileName: input.manualInput.fileName, contentType: input.manualInput.contentType, assetReference: input.manualInput.approvedAssetReference } : undefined;
       const acquired = await this.acquisition.execute(source, { targetUrl: plan.targetUrl ?? undefined, manualInput });
-      const rows = this.rows(acquired.acquisition.rawBytes, input.parserHint, acquired.acquisition.contentType);
+      const rows = await this.rows(acquired.acquisition.rawBytes, input.parserHint, acquired.acquisition.contentType);
       if (!rows) return { state: 'ACQUIRED_AWAITING_EXTRACTION_MAPPING', snapshot: acquired.snapshot, reason: 'NO_APPROVED_GENERIC_EXTRACTION_MAPPING' };
       const staging = await this.importAdmin.stageNormalizedRows({ ownerDomain: 'SCHOLARSHIPS', sourceSystem: source.sourceId, rows, handoffContext: { artifactId: acquired.snapshot.artifactId, rawArtifactReference: acquired.snapshot.rawArtifactReference, correlationId: input.correlationId, executionId: input.executionId, importSessionId: input.importSessionId, attempt: acquired.attempts, referenceMetadata: { contentHash: acquired.snapshot.contentHash } } });
       return { state: 'STAGED', snapshot: acquired.snapshot, staging };
     } catch (error) { return { state: 'FAILED', reason: error instanceof Error ? error.message : 'SCHOLARSHIP_IMPORT_NEW_FAILED' }; }
   }
   private configuration(source: ImportSourceDefinition): ScholarshipSourceConfiguration {
-    const metadata = source.metadata ?? {}; return { sourceId: source.sourceId, sourceName: source.displayName, baseUrl: source.baseUrl.startsWith('manual://') ? undefined : source.baseUrl, sourceType: (metadata.scholarshipSourceType as ScholarshipSourceConfiguration['sourceType']) ?? 'MANUAL_FILE', status: (metadata.scholarshipSourceStatus as ScholarshipSourceConfiguration['status']) ?? (source.status === 'ACTIVE' ? 'ACTIVE' : 'DISABLED'), acquisitionMode: (metadata.acquisitionMode as ScholarshipSourceConfiguration['acquisitionMode']) ?? 'MANUAL_FILE', allowedUrlScope: metadata.allowedUrlScope as ScholarshipSourceConfiguration['allowedUrlScope'], rateLimitPolicy: metadata.rateLimitPolicy as ScholarshipSourceConfiguration['rateLimitPolicy'], lastExecution: (metadata.lastExecution as ScholarshipSourceConfiguration['lastExecution']) ?? { state: 'NEVER_RUN' } };
+    const metadata = source.metadata ?? {}; return { sourceId: source.sourceId, sourceName: source.displayName, baseUrl: source.baseUrl.startsWith('manual://') ? undefined : source.baseUrl, sourceType: (metadata.scholarshipSourceType as ScholarshipSourceConfiguration['sourceType']) ?? 'MANUAL_FILE', status: source.status === 'ACTIVE' ? 'ACTIVE' : 'DISABLED', acquisitionMode: (metadata.acquisitionMode as ScholarshipSourceConfiguration['acquisitionMode']) ?? 'MANUAL_FILE', allowedUrlScope: metadata.allowedUrlScope as ScholarshipSourceConfiguration['allowedUrlScope'], rateLimitPolicy: metadata.rateLimitPolicy as ScholarshipSourceConfiguration['rateLimitPolicy'], lastExecution: (metadata.lastExecution as ScholarshipSourceConfiguration['lastExecution']) ?? { state: 'NEVER_RUN' } };
   }
-  private rows(bytes: Uint8Array, hint?: 'json' | 'ndjson' | 'csv', contentType?: string): Array<Record<string, unknown>> | null {
-    const text = new TextDecoder().decode(bytes).trim(); const parser = hint ?? (contentType?.includes('ndjson') ? 'ndjson' : contentType?.includes('csv') ? 'csv' : contentType?.includes('json') ? 'json' : undefined);
-    if (parser === 'json') { try { const parsed = JSON.parse(text) as unknown; if (Array.isArray(parsed) && parsed.every((row) => row && typeof row === 'object' && !Array.isArray(row))) return parsed as Array<Record<string, unknown>>; if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return [parsed as Record<string, unknown>]; } catch { return null; } }
-    if (parser === 'ndjson') { try { const rows = text.split(/\r?\n/u).filter(Boolean).map((line) => JSON.parse(line) as unknown); return rows.every((row) => row && typeof row === 'object' && !Array.isArray(row)) ? rows as Array<Record<string, unknown>> : null; } catch { return null; } }
-    if (parser === 'csv') { const lines = text.split(/\r?\n/u).filter(Boolean); if (lines.length < 2) return null; const headers = lines[0].split(',').map((header) => header.trim()); if (headers.some((header) => !header)) return null; return lines.slice(1).map((line) => Object.fromEntries(headers.map((header, index) => [header, line.split(',')[index]?.trim() ?? '']))); }
-    return null;
+  private async rows(bytes: Uint8Array, hint?: 'json' | 'ndjson' | 'csv', contentType?: string): Promise<Array<Record<string, unknown>> | null> {
+    const format = hint ?? (contentType?.includes('ndjson') ? 'ndjson' : contentType?.includes('csv') ? 'csv' : contentType?.includes('json') ? 'json' : undefined);
+    if (format === 'json') { try { const value = JSON.parse(new TextDecoder().decode(bytes)) as unknown; return Array.isArray(value) && value.every((row) => row && typeof row === 'object' && !Array.isArray(row)) ? value as Array<Record<string, unknown>> : value && typeof value === 'object' && !Array.isArray(value) ? [value as Record<string, unknown>] : null; } catch { return null; } }
+    const parser = format === 'csv' ? new CsvImportStreamParser() : format === 'ndjson' ? new NdjsonImportStreamParser() : null;
+    if (!parser) return null;
+    const stream = { async *[Symbol.asyncIterator]() { yield bytes; } };
+    const rows: Array<Record<string, unknown>> = [];
+    for await (const output of parser.parse(stream, { batchId: 'scholarship-import-new' })) {
+      if (output instanceof ImportParseError) return null;
+      if (output instanceof ParsedImportRow) rows.push(output.raw);
+    }
+    return rows.length ? rows : null;
   }
 }

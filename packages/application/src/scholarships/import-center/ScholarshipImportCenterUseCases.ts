@@ -229,9 +229,19 @@ export class ScholarshipImportCenterUseCases {
 
   async listHistory(query: ScholarshipImportCenterQuery = {}): Promise<ScholarshipImportCenterScanResult> {
     const scan = await this.scan(query, MAX_OVERVIEW_SCAN);
-    return this.scanResult(scan, [...scan.records].sort(
+    const data = [...scan.records].sort(
       (left, right) => this.timestamp(right.updatedAt) - this.timestamp(left.updatedAt),
-    ));
+    );
+    const events = (await Promise.all(data.map(async (record) => {
+      const events: import('./ScholarshipImportCenterContracts').ScholarshipImportHistoryEvent[] = [{ recordId: record.id, eventType: 'STAGED_RECORD', occurredAt: record.createdAt ?? record.updatedAt ?? new Date(0), data: { batchId: record.batchId, status: record.importStatus } }];
+      if (this.verificationDecisionPort) for (const decision of await this.verificationDecisionPort.list(record.id)) events.push({ recordId: record.id, eventType: 'VERIFICATION_DECISION', occurredAt: decision.recordedAt, data: { state: decision.state, reason: decision.reason, actorId: decision.actorId } });
+      if (this.canonicalResolutionDecisionPort) for (const decision of await this.canonicalResolutionDecisionPort.list(record.id)) events.push({ recordId: record.id, eventType: 'CANONICAL_RESOLUTION_DECISION', occurredAt: decision.recordedAt, data: { fieldOrRequirementKey: decision.fieldOrRequirementKey, resolutionType: decision.resolutionType, canonicalId: decision.canonicalId ?? null } });
+      const review = readScholarshipImportReviewDecision((record as unknown as { processingNotes?: string }).processingNotes);
+      if (review) events.push({ recordId: record.id, eventType: 'REVIEW_DECISION', occurredAt: record.updatedAt ?? record.createdAt ?? new Date(0), data: { action: review.action, decisionId: review.decisionId } });
+      if (record.transferred) events.push({ recordId: record.id, eventType: 'TRANSFER_RECEIPT', occurredAt: record.updatedAt ?? record.createdAt ?? new Date(0), data: { promotedEntityId: record.promotedEntityId } });
+      return events;
+    }))).flat().sort((a, b) => this.timestamp(b.occurredAt) - this.timestamp(a.occurredAt));
+    return { ...this.scanResult(scan, data), events };
   }
 
   async recordDecision(input: ScholarshipImportReviewDecisionRequest) {
@@ -412,8 +422,10 @@ export class ScholarshipImportCenterUseCases {
       (dedupe.state === 'DUPLICATE' || dedupe.state === 'UPDATE') && mergeDecisionMatches
     );
     const readyToTransfer =
+      completeness.state === ScholarshipCompletenessState.COMPLETE &&
       completeness.identityReady &&
       dedupeReady &&
+      !dedupe.requiresReview &&
       verification.state === 'VERIFIED' &&
       canonical.state === 'CLEAR' &&
       !base.transferred;
@@ -467,7 +479,7 @@ export class ScholarshipImportCenterUseCases {
     return [...reasons];
   }
 
-  private canonicalSummary(rawPayload: Record<string, unknown>, decisions: Array<{ fieldOrRequirementKey: string; resolutionType: string }> = []): ScholarshipImportCenterCanonicalSummary {
+  private canonicalSummary(rawPayload: Record<string, unknown>, decisions: Array<{ fieldOrRequirementKey: string; resolutionType: string; recordedAt?: string }> = []): ScholarshipImportCenterCanonicalSummary {
     const metadata = this.object(rawPayload.metadata);
     const handoff = this.object(rawPayload._domainHandoff);
     const raw = Array.isArray(handoff.canonicalScreening) ? handoff.canonicalScreening : Array.isArray(metadata.canonicalScreening)
@@ -478,12 +490,20 @@ export class ScholarshipImportCenterUseCases {
     if (!raw) {
       return { state: 'NOT_EXECUTED', unresolvedCount: 0, ambiguousCount: 0, reviewRequiredCount: 0 };
     }
+    // This is an append-only decision ledger: only the newest decision for a
+    // screening key is effective; an older approval cannot hide a later reject.
+    const effective = new Map<string, { resolutionType: string; recordedAt?: string }>();
+    for (const decision of decisions) {
+      const current = effective.get(decision.fieldOrRequirementKey);
+      if (!current || String(decision.recordedAt ?? '') >= String(current.recordedAt ?? '')) effective.set(decision.fieldOrRequirementKey, decision);
+    }
     let unresolvedCount = 0;
     let ambiguousCount = 0;
     let reviewRequiredCount = 0;
     for (const item of raw) {
       const entry = this.object(item); const key = this.stringValue(entry.requirementKey) ?? this.stringValue(entry.fieldOrRequirementKey) ?? this.stringValue(entry.target);
-      const overridden = key ? decisions.some((decision) => decision.fieldOrRequirementKey === key && (decision.resolutionType === 'RESOLVED' || decision.resolutionType === 'NOT_APPLICABLE')) : false;
+      const latest = key ? effective.get(key) : undefined;
+      const overridden = latest?.resolutionType === 'RESOLVED' || latest?.resolutionType === 'NOT_APPLICABLE';
       if (overridden) continue;
       const state = this.stringValue(entry.state)?.toUpperCase();
       if (state === 'UNRESOLVED') unresolvedCount += 1;

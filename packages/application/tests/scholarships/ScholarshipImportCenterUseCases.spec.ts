@@ -162,6 +162,25 @@ describe('WP12-7 ScholarshipImportCenterUseCases', () => {
     })).rejects.toThrow('SCHOLARSHIP_IMPORT_TRANSFER_DEFERRED_TO_WP12_10');
   });
 
+  it('never marks NEEDS_REVIEW ready merely because its identity is available', async () => {
+    const changed = records.map((record) => record.id === 'rec-real-ready' ? { ...record, rawPayload: completePayload({ _domainHandoff: { completeness: { state: 'NEEDS_REVIEW', identityReady: true, coreMissingFields: ['fundingCoverage'] }, canonicalScreening: [] } }) } : record);
+    const localGateway = gateway();
+    localGateway.getRecordById = async (id) => changed.find((record) => record.id === id) ?? null;
+    localGateway.listRecords = async (filters) => ({ data: changed.filter((record) => !filters?.batchId || record.batchId === filters.batchId).slice(0, filters?.pageSize ?? 50), total: changed.length, page: filters?.page ?? 1, pageSize: filters?.pageSize ?? 50 });
+    expect((await new ScholarshipImportCenterUseCases(localGateway, scholarshipRepository()).getRecord('rec-real-ready')).readyToTransfer).toBe(false);
+  });
+
+  it('uses only the latest canonical decision for a requirement', async () => {
+    const decisions = { async record() { return { decisionId: 'x', recordedAt: '' }; }, async list() { return [
+      { fieldOrRequirementKey: 'COUNTRY', resolutionType: 'RESOLVED', recordedAt: '2026-01-01T00:00:00.000Z' },
+      { fieldOrRequirementKey: 'COUNTRY', resolutionType: 'REJECTED', recordedAt: '2026-01-02T00:00:00.000Z' },
+    ] as any; } };
+    const changed = records.map((record) => record.id === 'rec-real-ready' ? { ...record, rawPayload: completePayload({ _domainHandoff: { canonicalScreening: [{ requirementKey: 'COUNTRY', state: 'UNRESOLVED' }] } }) } : record);
+    const localGateway = gateway(); localGateway.getRecordById = async (id) => changed.find((record) => record.id === id) ?? null;
+    const view = await new ScholarshipImportCenterUseCases(localGateway, scholarshipRepository(), undefined, undefined, undefined, undefined, decisions).getRecord('rec-real-ready');
+    expect(view.canonical.state).toBe('REVIEW_REQUIRED');
+  });
+
   it('builds a read-only incoming/current diff when a canonical Scholarship exists', async () => {
     const probeService = new ScholarshipImportCenterUseCases(gateway(), scholarshipRepository());
     const probe = await probeService.getRecord('rec-real-ready');
