@@ -41,7 +41,7 @@ export * from './students/PrismaStudentWorkspaceRepository';
 export * from './audit/AuditSecretSanitizer';
 export * from './audit/PrismaAuditRecordRepository';
 export * from './audit/InMemoryAuditRecordRepository';
-export class PrismaCertificateRepository {}
+export * from './certificates/PrismaCertificateRepository';
 export class PrismaServiceCatalogRepository {}
 export class PrismaCareerPathRepository {}
 export * from './courses/PrismaCourseRepository';

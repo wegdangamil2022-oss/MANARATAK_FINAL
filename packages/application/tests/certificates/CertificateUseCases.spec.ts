@@ -7,7 +7,7 @@ import {
   CourseAccessType,
   CourseImportCompletenessState,
   CourseOriginType,
-  CourseStatus
+  CourseStatus,
 } from '@manaratak/domain';
 import { CertificateUseCases } from '../../src/certificates/use-cases/CertificateUseCases';
 
@@ -30,7 +30,7 @@ describe('CertificateUseCases', () => {
     completenessStatus: CourseImportCompletenessState.COMPLETE,
     certificateAvailable: true,
     createdAt: new Date(),
-    updatedAt: new Date()
+    updatedAt: new Date(),
   };
 
   beforeEach(() => {
@@ -43,8 +43,10 @@ describe('CertificateUseCases', () => {
         status: CertificateTemplateStatus.ACTIVE,
         issuerName: 'MANARATAK',
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       }),
+      updateTemplate: vi.fn(),
+      findTemplateById: vi.fn(),
       findActiveTemplateByName: vi.fn().mockResolvedValue({
         id: 'template-1',
         publicId: 'template-public-1',
@@ -53,22 +55,30 @@ describe('CertificateUseCases', () => {
         status: CertificateTemplateStatus.ACTIVE,
         issuerName: 'MANARATAK',
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       }),
       listTemplates: vi.fn(),
-      issue: vi.fn().mockImplementation((data) => Promise.resolve({
-        id: 'certificate-1',
-        ...data,
-        issuedAt: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date()
-      })),
+      issue: vi.fn().mockImplementation((data) =>
+        Promise.resolve({
+          id: 'certificate-1',
+          ...data,
+          issuedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+      ),
       findById: vi.fn(),
       findByCourseCompletionId: vi.fn().mockResolvedValue(null),
       findByVerificationCode: vi.fn(),
       findBySerialNumber: vi.fn(),
       listByStudent: vi.fn(),
+      list: vi.fn(),
+      analytics: vi.fn(),
       revoke: vi.fn(),
+      reissue: vi.fn(),
+      archive: vi.fn(),
+      recordVerification: vi.fn(),
+      listLedger: vi.fn(),
     };
 
     courseRepository = {
@@ -96,16 +106,18 @@ describe('CertificateUseCases', () => {
       completionId: 'completion-1',
       eligibleForCertificate: true,
       certificateOwnerPhase: 'Phase 14 - Enterprise Certificates Platform',
-      sourcePhase: 'Phase 13 - Learning Platform'
+      sourcePhase: 'Phase 13 - Learning Platform',
     });
 
     expect(certificate.status).toBe(CertificateStatus.ACTIVE);
     expect(certificate.courseDisplayName).toBe('Native Course');
-    expect(certificateRepository.issue).toHaveBeenCalledWith(expect.objectContaining({
-      courseCompletionId: 'completion-1',
-      studentReferenceId: 'student-1',
-      metadata: expect.objectContaining({ issuedFromEvent: 'CourseCompleted' })
-    }));
+    expect(certificateRepository.issue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        courseCompletionId: 'completion-1',
+        studentReferenceId: 'student-1',
+        metadata: expect.objectContaining({ issuedFromEvent: 'CourseCompleted' }),
+      }),
+    );
   });
 
   it('does not issue duplicate certificates for the same completion', async () => {
@@ -122,7 +134,7 @@ describe('CertificateUseCases', () => {
       courseCompletedAt: new Date(),
       issuedAt: new Date(),
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     });
 
     const certificate = await useCases.issueFromCourseCompletion({
@@ -132,7 +144,7 @@ describe('CertificateUseCases', () => {
       completionId: 'completion-1',
       eligibleForCertificate: true,
       certificateOwnerPhase: 'Phase 14 - Enterprise Certificates Platform',
-      sourcePhase: 'Phase 13 - Learning Platform'
+      sourcePhase: 'Phase 13 - Learning Platform',
     });
 
     expect(certificate.id).toBe('existing-certificate');
@@ -140,14 +152,42 @@ describe('CertificateUseCases', () => {
   });
 
   it('rejects non-eligible course completions', async () => {
-    await expect(useCases.issueFromCourseCompletion({
-      courseId: 'course-1',
-      studentReferenceId: 'student-1',
-      completedAt: new Date(),
-      completionId: 'completion-1',
-      eligibleForCertificate: false,
-      certificateOwnerPhase: 'Phase 14 - Enterprise Certificates Platform',
-      sourcePhase: 'Phase 13 - Learning Platform'
-    })).rejects.toThrow('not eligible');
+    await expect(
+      useCases.issueFromCourseCompletion({
+        courseId: 'course-1',
+        studentReferenceId: 'student-1',
+        completedAt: new Date(),
+        completionId: 'completion-1',
+        eligibleForCertificate: false,
+        certificateOwnerPhase: 'Phase 14 - Enterprise Certificates Platform',
+        sourcePhase: 'Phase 13 - Learning Platform',
+      }),
+    ).rejects.toThrow('not eligible');
+  });
+
+  it('rejects raw asset paths in certificate templates', async () => {
+    await expect(
+      useCases.updateTemplate('template-1', {
+        logoAssetId: 'https://cdn.example.com/logo.png',
+      }),
+    ).rejects.toThrow('RAW_ASSET_FORBIDDEN');
+  });
+
+  it('enforces the governed template lifecycle', async () => {
+    (certificateRepository.findTemplateById as any).mockResolvedValue({
+      id: 'template-1',
+      status: CertificateTemplateStatus.DRAFT,
+    });
+    (certificateRepository.updateTemplate as any).mockResolvedValue({
+      id: 'template-1',
+      status: CertificateTemplateStatus.PENDING_APPROVAL,
+    });
+    await useCases.transitionTemplate('template-1', CertificateTemplateStatus.PENDING_APPROVAL);
+    expect(certificateRepository.updateTemplate).toHaveBeenCalledWith('template-1', {
+      status: CertificateTemplateStatus.PENDING_APPROVAL,
+    });
+    await expect(
+      useCases.transitionTemplate('template-1', CertificateTemplateStatus.ACTIVE),
+    ).rejects.toThrow('TRANSITION_INVALID');
   });
 });

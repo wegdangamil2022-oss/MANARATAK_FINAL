@@ -478,6 +478,73 @@ export interface CertificateVerificationDto {
   revokedAt?: string | null;
   revocationReason?: string | null;
   isValid: boolean;
+  verificationHash: string;
+  certificateType: string;
+  expiresAt?: string | null;
+  issuerName?: string | null;
+  grade?: string | null;
+  skills: string[];
+  competencies: string[];
+  templateVersion?: string | null;
+  integrityVerified: boolean;
+}
+
+export interface AdminCertificateDto extends CertificateVerificationDto {
+  id: string;
+  studentReferenceId: string;
+  courseId: string;
+  courseCompletionId: string;
+  validityPolicy: string;
+  templateId?: string | null;
+  certificatePdfAssetId?: string | null;
+  previewImageAssetId?: string | null;
+  verificationQrAssetId?: string | null;
+  digitalSignature?: string | null;
+  signingKeyReference?: string | null;
+  score?: number | null;
+  archivedAt?: string | null;
+  replacesCertificateId?: string | null;
+  replacedByCertificateId?: string | null;
+}
+
+export interface AdminCertificateTemplateDto {
+  id: string;
+  publicId: string;
+  code: string;
+  name: string;
+  nameAr: string;
+  nameEn: string;
+  templateVersion: string;
+  status: string;
+  issuerName: string;
+  issuerReferenceId?: string | null;
+  language: 'ARABIC' | 'ENGLISH' | 'BILINGUAL';
+  layout: 'LANDSCAPE' | 'PORTRAIT';
+  accentColor: string;
+  secondaryColor: string;
+  titleAr: string;
+  titleEn: string;
+  bodyAr: string;
+  bodyEn: string;
+  signatoryNameAr?: string | null;
+  signatoryNameEn?: string | null;
+  signatoryTitleAr?: string | null;
+  signatoryTitleEn?: string | null;
+  logoAssetId?: string | null;
+  sealAssetId?: string | null;
+  signatureAssetId?: string | null;
+  designAssetId?: string | null;
+  updatedAt: string;
+}
+
+export interface CertificateAnalyticsDto {
+  total: number;
+  active: number;
+  revoked: number;
+  archived: number;
+  expiringSoon: number;
+  templates: number;
+  verifications: number;
 }
 
 export interface StudentWorkspaceDto {
@@ -1160,6 +1227,90 @@ export class ApiClient {
         (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
           'Failed to verify certificate',
       );
+    }
+    return res.json();
+  }
+
+  static async getAdminCertificates(
+    params: { search?: string; status?: string; page?: number; pageSize?: number } = {},
+  ): Promise<{ data: AdminCertificateDto[]; total: number; page: number; pageSize: number }> {
+    const query = new URLSearchParams(
+      Object.entries(params)
+        .filter(([, value]) => value !== undefined && value !== '')
+        .map(([key, value]) => [key, String(value)]),
+    );
+    return this.adminCertificateRequest(`/admin/certificates?${query}`);
+  }
+  static async getAdminCertificateAnalytics(): Promise<CertificateAnalyticsDto> {
+    return this.adminCertificateRequest('/admin/certificates/analytics');
+  }
+  static async getAdminCertificate(id: string): Promise<AdminCertificateDto> {
+    return this.adminCertificateRequest(`/admin/certificates/${encodeURIComponent(id)}`);
+  }
+  static async getAdminCertificateLedger(
+    id: string,
+  ): Promise<{
+    data: Array<{
+      id: string;
+      action: string;
+      actorId: string;
+      reason?: string;
+      occurredAt: string;
+    }>;
+  }> {
+    return this.adminCertificateRequest(`/admin/certificates/${encodeURIComponent(id)}/ledger`);
+  }
+  static async getAdminCertificateTemplates(): Promise<{ data: AdminCertificateTemplateDto[] }> {
+    return this.adminCertificateRequest('/admin/certificates/templates');
+  }
+  static async createAdminCertificateTemplate(
+    payload: Omit<AdminCertificateTemplateDto, 'id' | 'publicId' | 'status' | 'updatedAt'>,
+  ): Promise<AdminCertificateTemplateDto> {
+    return this.adminCertificateRequest('/admin/certificates/templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  }
+  static async updateAdminCertificateTemplate(
+    id: string,
+    payload: Partial<AdminCertificateTemplateDto>,
+  ): Promise<AdminCertificateTemplateDto> {
+    return this.adminCertificateRequest(`/admin/certificates/templates/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  }
+  static async transitionAdminCertificateTemplate(
+    id: string,
+    status: string,
+  ): Promise<AdminCertificateTemplateDto> {
+    return this.adminCertificateRequest(
+      `/admin/certificates/templates/${encodeURIComponent(id)}/transition`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      },
+    );
+  }
+  static async certificateAction(
+    id: string,
+    action: 'revoke' | 'reissue' | 'archive',
+    payload: Record<string, unknown>,
+  ): Promise<AdminCertificateDto> {
+    return this.adminCertificateRequest(`/admin/certificates/${encodeURIComponent(id)}/${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  }
+  private static async adminCertificateRequest(path: string, init?: RequestInit): Promise<any> {
+    const res = await apiFetch(`${API_BASE_URL}${path}`, init);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || 'تعذر تنفيذ عملية الشهادات');
     }
     return res.json();
   }

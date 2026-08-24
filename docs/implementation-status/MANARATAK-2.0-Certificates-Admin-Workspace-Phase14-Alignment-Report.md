@@ -3,7 +3,7 @@
 **Date:** July 28, 2026  
 **Phase Target:** Phase 23 (Enterprise Administration Portal) & Phase 14 (Certificates Engine Platform)  
 **Related Domain Phases:** Phase 13 (Courses & Learning Platform), Phase 15 (Student Workspace & Profile), Phase 05 (EAP Enterprise Assets Platform), Phase 24 (Enterprise Public Platform Composition)  
-**Status:** COMPLETE & VERIFIED  
+**Status:** SUPERSEDED BY SOURCE-CLOSURE IMPLEMENTATION
 
 ---
 
@@ -36,6 +36,7 @@ The workspace establishes a secure, compliant control-plane surface for issuing,
 ## 3. Implemented Components & Routes
 
 ### 3.1 Components Created
+
 - `apps/web/src/features/admin-preview/AdminCertificatesPreviewPage.tsx`
   - Main Certificate Registry List with lightweight, vertical row layout (Certificate ID/Number, Student Name & Ref, Source Program/Course, Issue Date, Status Badge, View Details).
   - Top 5 Summary Metrics: Total Certificates, Issued & Verifiable, Pending Requests, Revoked, Active Templates.
@@ -59,6 +60,7 @@ The workspace establishes a secure, compliant control-plane surface for issuing,
   - **Governance Warning Notice**: Explicitly highlights prohibition of permanent deletion and requirement of revocation reasons.
 
 ### 3.2 Registered Router Routes
+
 - `/admin/certificates` -> `AdminCertificatesPreviewPage`
 - `/admin/certificates/:id` -> `AdminCertificateDetailPage`
 
@@ -76,6 +78,7 @@ The workspace establishes a secure, compliant control-plane surface for issuing,
 ## 5. Documentation Alignment
 
 The following Phase 23 specification documents have been updated:
+
 1. `docs/phases/phase-23-enterprise-administration-portal/phase-23-01-enterprise-administration-portal-architecture-specification.md` (Added Section 23.A.12)
 2. `docs/phases/phase-23-enterprise-administration-portal/phase-23-02-enterprise-administration-portal-structure-contracts.md` (Added Section 23.B.14 TypeScript Contracts)
 3. `docs/phases/phase-23-enterprise-administration-portal/phase-23-03-enterprise-administration-portal-workflows-operational-experience.md` (Added Section 23.C.18 Operational Workflows)
@@ -83,4 +86,4 @@ The following Phase 23 specification documents have been updated:
 ---
 
 **Approval:** Chief Enterprise Architect & ARB  
-**Status:** APPROVED & DEPLOYED IN PREVIEW
+**Status:** Historical preview report. See `MANARATAK-2.0-Phase14-Source-Closure-and-Google-Studio-Runbook.md` for the real persistence-backed implementation and deferred runtime activation steps.

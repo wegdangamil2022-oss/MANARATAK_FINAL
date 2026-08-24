@@ -1,12 +1,13 @@
 import React, { FormEvent, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { Award, CheckCircle2, Search, ShieldCheck, XCircle } from 'lucide-react';
 import { ApiClient, CertificateVerificationDto } from '../../api/client';
 import { Button } from '@manaratak/ui';
 import { Seo } from '../../components/Seo';
-import { useTranslation } from "../../i18n/I18nProvider";
+import { useTranslation } from '../../i18n/I18nProvider';
 
 export function CertificateVerificationPage() {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCode = searchParams.get('code') || '';
   const [verificationCode, setVerificationCode] = useState(initialCode);
@@ -39,34 +40,53 @@ export function CertificateVerificationPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto">
-      <Seo title={t('verify_certificate')} description={t('verify_issued_manaratak_certificates_using_a_publi')} />
-      <Link to="/" className="mb-4 inline-block text-sm font-bold text-blue-700 hover:underline">
-        {t('lt_back_to_home_1')}</Link>
+    <div dir="rtl" className="max-w-6xl mx-auto text-right">
+      <Seo
+        title={t('verify_certificate')}
+        description={t('verify_issued_manaratak_certificates_using_a_publi')}
+      />
+      <Link to="/" className="mb-4 inline-block text-sm font-bold text-emerald-700 hover:underline">
+        {t('lt_back_to_home_1')}
+      </Link>
 
-      <section className="bg-gradient-to-br from-blue-50 to-white border rounded-3xl p-5 sm:p-8 md:p-12 mb-6">
+      <section className="bg-gradient-to-l from-emerald-950 via-emerald-800 to-teal-700 text-white border rounded-3xl p-5 sm:p-8 md:p-12 mb-6 shadow-xl overflow-hidden">
         <div className="max-w-3xl">
-          <p className="text-sm font-semibold text-blue-700 uppercase tracking-wide mb-3">{t('certificate_verification')}</p>
-          <h1 className="text-3xl font-black tracking-tight sm:text-4xl mb-4">{t('verify_a_manaratak_certificate')}</h1>
-          <p className="text-base leading-8 text-gray-700 sm:text-lg">
-            {t('enter_the_verification_code_printed_on_the_certifi')}</p>
+          <div className="mb-4 flex items-center gap-3">
+            <Award className="h-9 w-9 text-amber-300" />
+            <p className="text-sm font-semibold text-emerald-100">منصة التحقق من الشهادات</p>
+          </div>
+          <h1 className="text-3xl font-black tracking-tight sm:text-4xl mb-4">
+            {t('verify_a_manaratak_certificate')}
+          </h1>
+          <p className="text-base leading-8 text-emerald-100 sm:text-lg">
+            أدخل الرمز المطبوع على الشهادة أو امسح QR للتأكد من سلامة الختم الرقمي وحالة الاعتماد
+            لحظيًا.
+          </p>
         </div>
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
-          <form onSubmit={handleSubmit} className="bg-white rounded-2xl border shadow-sm p-5 sm:p-6 space-y-4">
+          <form
+            onSubmit={handleSubmit}
+            className="bg-white rounded-2xl border shadow-sm p-5 sm:p-6 space-y-4"
+          >
             <label className="block">
-              <span className="text-sm font-semibold text-gray-700">{t('verification_code')}</span>
+              <span className="text-sm font-semibold text-gray-700">رمز التحقق من الشهادة</span>
               <input
                 value={verificationCode}
                 onChange={(event) => setVerificationCode(event.target.value)}
                 placeholder={t('example_mnr_abc123')}
-                className="mt-2 w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="mt-2 w-full border rounded-xl px-4 py-3 font-mono text-left focus:outline-none focus:ring-2 focus:ring-emerald-600"
               />
             </label>
-            <Button type="submit" disabled={loading || !normalizedCode} className="w-full">
-              {loading ? 'Verifying...' : 'Verify Certificate'}
+            <Button
+              type="submit"
+              disabled={loading || !normalizedCode}
+              className="w-full bg-emerald-700 hover:bg-emerald-800"
+            >
+              <Search className="ml-2 h-4 w-4" />
+              {loading ? 'جارٍ التحقق...' : 'تحقق من الشهادة'}
             </Button>
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
@@ -76,21 +96,25 @@ export function CertificateVerificationPage() {
           </form>
 
           <div className="mt-6 bg-gray-50 border rounded-2xl p-5 text-sm text-gray-600">
-            <h2 className="font-bold text-gray-900 mb-2">{t('trust_note')}</h2>
+            <h2 className="font-bold text-gray-900 mb-2">الثقة والخصوصية</h2>
             <p>
-              {t('certificate_files_qr_codes_signatures_and_visual_a')}</p>
+              يتم فحص الحالة والختم المشفر مباشرة من سجل Phase 14. لا نعرض البريد أو بيانات الاتصال
+              أو أي معلومات طالب خاصة.
+            </p>
           </div>
         </div>
 
         <div className="lg:col-span-2">
           {!result && !loading && (
             <div className="bg-white rounded-2xl border border-dashed p-10 text-center text-gray-500">
-              {t('enter_a_verification_code_to_display_certificate_d')}</div>
+              أدخل رمز التحقق لعرض نتيجة موثوقة من سجل الشهادات.
+            </div>
           )}
 
           {loading && (
             <div className="bg-white rounded-2xl border p-10 text-center text-gray-500">
-              {t('checking_certificate_registry')}</div>
+              {t('checking_certificate_registry')}
+            </div>
           )}
 
           {result && (
@@ -99,28 +123,70 @@ export function CertificateVerificationPage() {
                 <div>
                   <p className="text-sm text-gray-500">{t('certificate_status')}</p>
                   <h2 className="text-3xl font-bold mt-1">
-                    {result.isValid ? 'Valid Certificate' : 'Certificate Not Valid'}
+                    {result.isValid ? 'شهادة صحيحة وموثقة' : 'الشهادة غير صالحة'}
                   </h2>
                 </div>
-                <span className={`inline-flex px-4 py-2 rounded-full text-sm font-semibold ${result.isValid ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                <span
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold ${result.isValid ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}
+                >
+                  {result.isValid ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : (
+                    <XCircle className="h-4 w-4" />
+                  )}
                   {result.status}
                 </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <Info label={t('course')} value={result.courseDisplayName} />
-                <Info label={t('recipient')} value={result.recipientDisplayName || 'Protected student reference'} />
-                <Info label={t('serial_number')} value={result.serialNumber} />
-                <Info label={t('verification_code')} value={result.verificationCode} />
-                <Info label={t('issued_at')} value={formatDate(result.issuedAt)} />
-                <Info label={t('course_completed_at')} value={formatDate(result.courseCompletedAt)} />
+                <Info label="الدورة أو البرنامج" value={result.courseDisplayName} />
+                <Info
+                  label="صاحب الشهادة"
+                  value={result.recipientDisplayName || 'مرجع طالب محمي'}
+                />
+                <Info label="رقم الشهادة" value={result.serialNumber} />
+                <Info label="الجهة المصدرة" value={result.issuerName || 'MANARATAK'} />
+                <Info label="تاريخ الإصدار" value={formatDate(result.issuedAt)} />
+                <Info label="تاريخ الإكمال" value={formatDate(result.courseCompletedAt)} />
               </div>
+
+              <div
+                className={`mt-6 flex items-center gap-3 rounded-xl border p-4 ${result.integrityVerified ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800'}`}
+              >
+                <ShieldCheck className="h-6 w-6" />
+                <div>
+                  <strong className="block">
+                    {result.integrityVerified ? 'الختم الرقمي سليم' : 'تعذر إثبات سلامة الختم'}
+                  </strong>
+                  <span className="text-xs">
+                    تمت مقارنة البيانات المختومة مع البصمة المشفرة المحفوظة في سجل الشهادات.
+                  </span>
+                </div>
+              </div>
+
+              {result.skills.length ? (
+                <div className="mt-6">
+                  <h3 className="mb-2 text-sm font-bold">المهارات المثبتة</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {result.skills.map((skill) => (
+                      <span
+                        key={skill}
+                        className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
               {result.revokedAt && (
                 <div className="mt-6 bg-red-50 border border-red-200 rounded-xl p-4">
                   <h3 className="font-bold text-red-800">{t('revocation_details')}</h3>
                   <p className="text-red-700 text-sm mt-1">
-                    {t('revoked_at')}{formatDate(result.revokedAt)}. {result.revocationReason ? `Reason: ${result.revocationReason}` : ''}
+                    {t('revoked_at')}
+                    {formatDate(result.revokedAt)}.{' '}
+                    {result.revocationReason ? `Reason: ${result.revocationReason}` : ''}
                   </p>
                 </div>
               )}
@@ -148,6 +214,6 @@ function formatDate(value: string | null | undefined): string {
   return new Intl.DateTimeFormat('en', {
     year: 'numeric',
     month: 'short',
-    day: '2-digit'
+    day: '2-digit',
   }).format(new Date(value));
 }
