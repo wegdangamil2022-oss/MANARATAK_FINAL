@@ -217,6 +217,12 @@ export type UpdateScholarshipDto = Partial<
   Omit<CreateScholarshipDto, 'publicId' | 'slug' | 'canonicalName' | 'canonicalDedupKey'>
 >;
 
+// Internal persistence shape. canonicalDedupKey is derived by Application and
+// is deliberately absent from UpdateScholarshipDto/API authoring contracts.
+export type ScholarshipRepositoryUpdateDto = UpdateScholarshipDto & {
+  canonicalDedupKey?: string;
+};
+
 export interface ScholarshipFilters {
   status?: ScholarshipStatus;
   completenessStatus?: ScholarshipCompletenessState;
@@ -252,7 +258,7 @@ export type PublicScholarshipDto = Omit<
 
 export interface IScholarshipRepository {
   create(data: CreateScholarshipDto): Promise<ScholarshipDto>;
-  update(id: string, updates: UpdateScholarshipDto): Promise<ScholarshipDto>;
+  update(id: string, updates: ScholarshipRepositoryUpdateDto): Promise<ScholarshipDto>;
   findByDedupKey(key: string): Promise<ScholarshipDto | null>;
   findById(id: string): Promise<ScholarshipDto | null>;
   findBySlug(slug: string): Promise<ScholarshipDto | null>;

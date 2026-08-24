@@ -10,8 +10,8 @@ import {
   ScholarshipPage,
   ScholarshipStatus,
   ScholarshipPublicationStatus,
+  ScholarshipRepositoryUpdateDto,
   ScholarshipVerificationStatus,
-  UpdateScholarshipDto,
 } from '@manaratak/domain';
 
 interface ScholarshipTransactionContext extends AtomicPersistenceContext {
@@ -138,7 +138,7 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
     return this.mapToDto(record);
   }
 
-  async update(id: string, updates: UpdateScholarshipDto): Promise<ScholarshipDto> {
+  async update(id: string, updates: ScholarshipRepositoryUpdateDto): Promise<ScholarshipDto> {
     const existing = await this.prisma.scholarship.findUnique({ where: { id } });
     if (!existing) {
       throw new Error(`SCHOLARSHIP_NOT_FOUND:${id}`);
@@ -149,6 +149,7 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
       updates,
     );
     const updateData = {
+      canonicalDedupKey: updates.canonicalDedupKey,
       displayName: updates.displayName,
       providerName: updates.providerName,
       status: updates.status,

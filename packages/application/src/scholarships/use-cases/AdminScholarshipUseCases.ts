@@ -8,7 +8,10 @@ import {
   ScholarshipCompletenessState,
   ScholarshipFilters,
   PaginatedResult,
-  ScholarshipCompletenessClassifier
+  ScholarshipCompletenessClassifier,
+  ScholarshipDeduplicationService,
+  ScholarshipNamingService,
+  ScholarshipRepositoryUpdateDto,
 } from '@manaratak/domain';
 import { AtomicDomainMutationCoordinator, AtomicMutationRequestContext } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
 
@@ -135,11 +138,28 @@ export class AdminScholarshipUseCases {
     const existing = await this.getScholarship(id);
     const canonicalSafeUpdates = this.preserveCanonicalReferences(existing, updates);
     const classification = this.catalogCompleteness(existing, canonicalSafeUpdates);
-    const dataToUpdate: UpdateScholarshipDto = {
+    const dataToUpdate: ScholarshipRepositoryUpdateDto = {
       ...canonicalSafeUpdates,
       completenessStatus: classification.state,
     };
-    return this.mutate('SCHOLARSHIP_UPDATED', id, context, repository => repository.update(id, dataToUpdate));
+    const identityChanged =
+      (updates.providerName !== undefined && !this.semanticEquivalent(existing.providerName, updates.providerName)) ||
+      (updates.academicYear !== undefined && !this.semanticEquivalent(existing.academicYear, updates.academicYear));
+    if (identityChanged) {
+      const cleanedName = ScholarshipNamingService.clean(existing.canonicalName).cleanedScholarshipName;
+      dataToUpdate.canonicalDedupKey = ScholarshipDeduplicationService.buildKey({
+        cleanedScholarshipName: cleanedName,
+        providerName: canonicalSafeUpdates.providerName !== undefined ? canonicalSafeUpdates.providerName : existing.providerName,
+        year: canonicalSafeUpdates.academicYear !== undefined ? canonicalSafeUpdates.academicYear : existing.academicYear,
+      }).duplicateKey;
+    }
+    return this.mutate('SCHOLARSHIP_UPDATED', id, context, async repository => {
+      if (dataToUpdate.canonicalDedupKey && dataToUpdate.canonicalDedupKey !== existing.canonicalDedupKey) {
+        const owner = await repository.findByDedupKey(dataToUpdate.canonicalDedupKey);
+        if (owner && owner.id !== existing.id) throw new Error('SCHOLARSHIP_CANONICAL_DEDUPE_COLLISION');
+      }
+      return repository.update(id, dataToUpdate);
+    });
   }
 
   public async markReadyToReview(id: string, context?: AtomicMutationRequestContext): Promise<void> {
@@ -281,9 +301,14 @@ export class AdminScholarshipUseCases {
     // through the generic PATCH boundary. Dedicated canonical/import flows own them.
     delete result.sourceEvidence;
     delete result.universityLinks;
-    if (Object.prototype.hasOwnProperty.call(updates, 'countrySourceLabel')) {
-      result.countryReferenceId = this.semanticEquivalent(existing.countrySourceLabel, updates.countrySourceLabel)
-        ? existing.countryReferenceId ?? null : null;
+    const countrySemanticsUpdated = Object.prototype.hasOwnProperty.call(updates, 'countrySourceLabel') ||
+      Object.prototype.hasOwnProperty.call(updates, 'countryScope');
+    if (countrySemanticsUpdated) {
+      const nextLabel = updates.countrySourceLabel !== undefined ? updates.countrySourceLabel : existing.countrySourceLabel;
+      const nextScope = updates.countryScope !== undefined ? updates.countryScope : existing.countryScope;
+      result.countryReferenceId = this.countrySemanticsCompatible(
+        existing.countrySourceLabel, existing.countryScope, nextLabel, nextScope,
+      ) ? existing.countryReferenceId ?? null : null;
     } else delete result.countryReferenceId;
     if (Object.prototype.hasOwnProperty.call(updates, 'studyLanguageSourceLabel')) {
       const equivalent = this.semanticEquivalent(existing.studyLanguageSourceLabel, updates.studyLanguageSourceLabel);
@@ -307,6 +332,23 @@ export class AdminScholarshipUseCases {
 
   private semanticFingerprint(values: readonly unknown[]): string {
     return values.map(value => this.semanticNormalize(value)).join('\u001f');
+  }
+
+  private isNonSingleCountryScope(scope: unknown): boolean {
+    const normalized = this.semanticNormalize(scope).replace(/[\s-]+/gu, '_');
+    return new Set(['global', 'worldwide', 'multi_country', 'multiple_countries', 'international']).has(normalized);
+  }
+
+  private isExplicitSingleCountryScope(scope: unknown): boolean {
+    const normalized = this.semanticNormalize(scope).replace(/[\s-]+/gu, '_');
+    return !normalized || new Set(['single_country', 'country', 'specific_country', 'national', 'domestic']).has(normalized);
+  }
+
+  private countrySemanticsCompatible(oldLabel: unknown, oldScope: unknown, nextLabel: unknown, nextScope: unknown): boolean {
+    if (this.isNonSingleCountryScope(nextScope) || this.isNonSingleCountryScope(oldScope)) return false;
+    if (!this.semanticEquivalent(oldLabel, nextLabel)) return false;
+    return this.semanticEquivalent(oldScope, nextScope) ||
+      (this.isExplicitSingleCountryScope(oldScope) && this.isExplicitSingleCountryScope(nextScope));
   }
 
   private catalogCompleteness(
@@ -388,7 +430,10 @@ export class AdminScholarshipUseCases {
     const unresolved = (status: string | null | undefined, canonicalId: string | null | undefined) =>
       !canonicalId || !['RESOLVED', 'NOT_APPLICABLE'].includes(String(status ?? 'UNRESOLVED').toUpperCase());
 
-    if (scholarship.countrySourceLabel && !scholarship.countryReferenceId) {
+    const nonSingleCountry = this.isNonSingleCountryScope(scholarship.countryScope);
+    if (nonSingleCountry && scholarship.countryReferenceId) {
+      result.push({ area: 'COUNTRY', key: 'country', rawValue: scholarship.countrySourceLabel ?? scholarship.countryScope ?? null, canonicalId: scholarship.countryReferenceId, resolutionStatus: 'INCONSISTENT_SCOPE' });
+    } else if (!nonSingleCountry && scholarship.countrySourceLabel && !scholarship.countryReferenceId) {
       result.push({ area: 'COUNTRY', key: 'country', rawValue: scholarship.countrySourceLabel, canonicalId: null, resolutionStatus: 'UNRESOLVED' });
     }
     if (scholarship.studyLanguageSourceLabel && unresolved(scholarship.studyLanguageResolutionStatus, scholarship.studyLanguageReferenceId)) {

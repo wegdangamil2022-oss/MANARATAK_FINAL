@@ -44,6 +44,7 @@ function scholarship(overrides: Partial<ScholarshipDto> = {}): ScholarshipDto {
 function repository(current: ScholarshipDto): IScholarshipRepository {
   return {
     findById: vi.fn(async () => current),
+    findByDedupKey: vi.fn(async () => null),
     update: vi.fn(async (_id, updates) => ({ ...current, ...updates, updatedAt: new Date() })),
   } as unknown as IScholarshipRepository;
 }
@@ -118,6 +119,68 @@ describe('WP12-9 AdminScholarshipUseCases catalog detail', () => {
     expect((changedRepo.update as any).mock.calls[0][1]).toMatchObject({ countryReferenceId: null, studyLanguageReferenceId: null, studyLanguageResolutionStatus: 'UNRESOLVED' });
     const sameRepo = repository(current); await new AdminScholarshipUseCases(sameRepo).updateScholarship('sch-1', { countrySourceLabel: ' qATAR ', studyLanguageSourceLabel: ' ENGLISH ' });
     expect((sameRepo.update as any).mock.calls[0][1]).toMatchObject({ countryReferenceId: 'country-1', studyLanguageReferenceId: 'lang-en', studyLanguageResolutionStatus: 'RESOLVED' });
+  });
+
+  it('uses Country label and scope together and never retains a specific id for global scope', async () => {
+    const current = scholarship({ countrySourceLabel: 'Qatar', countryScope: 'SINGLE_COUNTRY', countryReferenceId: 'country-qa' });
+    const changedLabel = repository(current);
+    await new AdminScholarshipUseCases(changedLabel).updateScholarship('sch-1', { countrySourceLabel: 'Germany' });
+    expect((changedLabel.update as any).mock.calls[0][1].countryReferenceId).toBeNull();
+
+    const global = repository(current);
+    await new AdminScholarshipUseCases(global).updateScholarship('sch-1', { countryScope: 'GLOBAL', countryReferenceId: 'injected' });
+    expect((global.update as any).mock.calls[0][1].countryReferenceId).toBeNull();
+
+    const equivalent = repository(current);
+    await new AdminScholarshipUseCases(equivalent).updateScholarship('sch-1', { countrySourceLabel: '  qATAR ', countryScope: ' single-country ' });
+    expect((equivalent.update as any).mock.calls[0][1].countryReferenceId).toBe('country-qa');
+  });
+
+  it('reports Country health correctly for global, specific unresolved, and inconsistent records', async () => {
+    const global = await new AdminScholarshipUseCases(repository(scholarship({ countryScope: 'GLOBAL', countrySourceLabel: null, countryReferenceId: null }))).getScholarshipCatalogDetail('sch-1');
+    expect(global.unresolvedLinks).not.toEqual(expect.arrayContaining([expect.objectContaining({ area: 'COUNTRY' })]));
+
+    const specific = await new AdminScholarshipUseCases(repository(scholarship({ countryScope: 'SINGLE_COUNTRY', countrySourceLabel: 'Germany', countryReferenceId: null }))).getScholarshipCatalogDetail('sch-1');
+    expect(specific.unresolvedLinks).toEqual(expect.arrayContaining([expect.objectContaining({ area: 'COUNTRY', resolutionStatus: 'UNRESOLVED' })]));
+
+    const inconsistent = await new AdminScholarshipUseCases(repository(scholarship({ countryScope: 'INTERNATIONAL', countrySourceLabel: 'Qatar', countryReferenceId: 'country-qa' }))).getScholarshipCatalogDetail('sch-1');
+    expect(inconsistent.unresolvedLinks).toEqual(expect.arrayContaining([expect.objectContaining({ area: 'COUNTRY', canonicalId: 'country-qa', resolutionStatus: 'INCONSISTENT_SCOPE' })]));
+  });
+
+  it('rekeys provider/year identity with the authoritative algorithm while preserving aggregate ids', async () => {
+    const current = scholarship({ providerName: 'Provider A', academicYear: '2027', canonicalDedupKey: 'provider a|sample scholarship|2027' });
+    const repo = repository(current);
+    const updated = await new AdminScholarshipUseCases(repo).updateScholarship('sch-1', { providerName: 'Provider B', academicYear: '2028' });
+    expect(repo.findByDedupKey).toHaveBeenCalledWith('provider b|sample scholarship|2028');
+    expect(repo.update).toHaveBeenCalledWith('sch-1', expect.objectContaining({ canonicalDedupKey: 'provider b|sample scholarship|2028' }));
+    expect(updated.id).toBe(current.id);
+    expect(updated.publicId).toBe(current.publicId);
+  });
+
+  it('does not rekey equivalent or unchanged identity edits', async () => {
+    const current = scholarship({ providerName: 'Provider A', academicYear: '2027' });
+    const equivalent = repository(current);
+    await new AdminScholarshipUseCases(equivalent).updateScholarship('sch-1', { providerName: '  provider A  ', academicYear: ' 2027 ' });
+    expect(equivalent.findByDedupKey).not.toHaveBeenCalled();
+    expect((equivalent.update as any).mock.calls[0][1].canonicalDedupKey).toBeUndefined();
+
+    const unchanged = repository(current);
+    await new AdminScholarshipUseCases(unchanged).updateScholarship('sch-1', { displayName: 'Editorial title' });
+    expect(unchanged.findByDedupKey).not.toHaveBeenCalled();
+  });
+
+  it('rejects a dedupe collision but allows lookup of the same Scholarship id', async () => {
+    const current = scholarship({ providerName: 'Provider A', academicYear: '2027' });
+    const collision = repository(current);
+    (collision.findByDedupKey as any).mockResolvedValue(scholarship({ id: 'sch-other' }));
+    await expect(new AdminScholarshipUseCases(collision).updateScholarship('sch-1', { academicYear: '2028' }))
+      .rejects.toThrow('SCHOLARSHIP_CANONICAL_DEDUPE_COLLISION');
+    expect(collision.update).not.toHaveBeenCalled();
+
+    const same = repository(current);
+    (same.findByDedupKey as any).mockResolvedValue(current);
+    await expect(new AdminScholarshipUseCases(same).updateScholarship('sch-1', { academicYear: '2028' })).resolves.toMatchObject({ id: 'sch-1', publicId: 'SCH-1' });
+    expect(same.update).toHaveBeenCalledTimes(1);
   });
 
   it('uses semantic fingerprints for eligibility and embedded test documents', async () => {

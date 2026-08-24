@@ -6,6 +6,8 @@ const page = readFileSync(resolve(root, 'apps/admin/src/pages/ScholarshipCatalog
 const api = readFileSync(resolve(root, 'apps/admin/src/api/scholarshipCatalog.ts'), 'utf8');
 const router = readFileSync(resolve(root, 'apps/api/src/presentation/api/router/ScholarshipAdminRouter.ts'), 'utf8');
 const useCases = readFileSync(resolve(root, 'packages/application/src/scholarships/use-cases/AdminScholarshipUseCases.ts'), 'utf8');
+const contracts = readFileSync(resolve(root, 'packages/domain/src/scholarships/contracts.ts'), 'utf8');
+const repository = readFileSync(resolve(root, 'packages/infrastructure/src/scholarships/PrismaScholarshipRepository.ts'), 'utf8');
 const app = readFileSync(resolve(root, 'apps/admin/src/App.tsx'), 'utf8');
 const combined = `${page}\n${api}\n${router}\n${useCases}\n${app}`;
 
@@ -62,7 +64,10 @@ assert(useCases.includes('semanticFingerprint(['), 'Eligibility/Document semanti
 assert(useCases.includes("degreeLevelId: equivalent ? previous?.degreeLevelId : null"), 'Degree semantic change can retain stale ID');
 assert(useCases.includes("majorId: equivalent ? previous?.majorId : null"), 'Major semantic change can retain stale ID');
 assert(useCases.includes("internationalTestId: equivalent ? previous?.internationalTestId : null"), 'Test semantic change can retain stale ID');
-assert(useCases.includes("result.countryReferenceId = this.semanticEquivalent"), 'Country semantic invalidation missing');
+assert(useCases.includes('countrySemanticsCompatible('), 'Country label/scope semantic invalidation missing');
+assert(useCases.includes('isNonSingleCountryScope(nextScope)'), 'global/multi-country Country guard missing');
+assert(useCases.includes("resolutionStatus: 'INCONSISTENT_SCOPE'"), 'inconsistent Country scope/reference health missing');
+assert(useCases.includes('else if (!nonSingleCountry && scholarship.countrySourceLabel'), 'global Country unresolved behavior missing');
 assert(useCases.includes("result.studyLanguageReferenceId = equivalent ? existing.studyLanguageReferenceId"), 'Study Language semantic invalidation missing');
 assert(useCases.includes('delete result.countryReferenceId'), 'generic catalog update can still replace country reference');
 assert(useCases.includes('delete result.studyLanguageReferenceId'), 'generic catalog update can still replace language reference');
@@ -71,6 +76,12 @@ assert(!router.includes('internationalTestId: nullableText'), 'router exposes bl
 assert(!router.includes('degreeLevelId: nullableText'), 'router exposes blind Degree id authoring');
 assert(!router.includes('majorId: nullableText'), 'router exposes blind Major id authoring');
 assert(!router.includes('universityId: nullableText'), 'router exposes blind University id authoring');
+assert(!router.includes('canonicalDedupKey:'), 'router exposes canonicalDedupKey authoring');
+assert(contracts.includes("Omit<CreateScholarshipDto, 'publicId' | 'slug' | 'canonicalName' | 'canonicalDedupKey'>"), 'API update contract can write canonicalDedupKey');
+assert(useCases.includes('ScholarshipDeduplicationService.buildKey({'), 'Application does not derive canonical dedupe key');
+assert(useCases.includes('repository.findByDedupKey(dataToUpdate.canonicalDedupKey)'), 'dedupe collision lookup missing');
+assert(useCases.includes('SCHOLARSHIP_CANONICAL_DEDUPE_COLLISION'), 'explicit dedupe collision error missing');
+assert(repository.includes('canonicalDedupKey: updates.canonicalDedupKey'), 'internally derived rekey is not persisted');
 assert(page.includes('compatibilityNote'), 'legacy compatibility must be explicitly non-SSoT');
 
 const completenessStart = useCases.indexOf('  private catalogCompleteness(');
@@ -89,6 +100,9 @@ console.log('WP12_9_SCHOLARSHIP_CATALOG_DETAIL_SOURCE = PASS');
 console.log('NORMALIZED_MODEL_AUTHORING = PASS');
 console.log('NORMALIZED_ONLY_COMPLETENESS = PASS');
 console.log('CANONICAL_SEMANTIC_INVALIDATION = PASS');
+console.log('COUNTRY_SCOPE_CANONICAL_INTEGRITY = PASS');
+console.log('CANONICAL_DEDUPE_REKEY = PASS');
+console.log('CANONICAL_DEDUPE_COLLISION_GUARD = PASS');
 console.log('OPTIONAL_FIELDS_SSO_T = 0');
 console.log('CANONICAL_REFERENCE_BLIND_WRITES = 0');
 console.log('DOCUMENT_TEST_INTEGRATION = PASS');
