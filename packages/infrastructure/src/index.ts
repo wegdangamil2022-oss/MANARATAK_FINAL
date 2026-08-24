@@ -101,7 +101,7 @@ export class InMemoryIntegrationRepository { constructor(..._args: any[]) {} }
 export class InMemoryLocalizationRepository { constructor(..._args: any[]) {} }
 export * from './courses/PrismaCourseCurriculumRepository';
 export * from './courses/PrismaCourseProgressRepository';
-export class PrismaCmsRepository { constructor(..._args: any[]) {} }
+export * from './cms/PrismaCmsRepository';
 export class PrismaStudentToolRegistryRepository { constructor(..._args: any[]) {} }
 export * from './reference-data/PrismaReferenceDataRepository';
 export * from './academic-taxonomy/PrismaAcademicTaxonomyRepository';

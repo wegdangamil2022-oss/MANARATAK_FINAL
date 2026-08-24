@@ -2468,6 +2468,215 @@ model StudentWorkspaceEventInbox {
   @@index([processedAt, receivedAt])
 }
 
+// --- Phase 16 Enterprise CMS ---
+
+model CmsContentNode {
+  id                String   @id @default(uuid())
+  publicId          String   @unique
+  slug              String   @unique
+  siteIdentifier    String   @default("MANARATAK")
+  primaryLocale     String   @default("ar")
+  contentType       String
+  status            String   @default("DRAFT")
+  title             String
+  summary           String?
+  categoryId        String?
+  categorySlug      String?
+  authorId          String
+  ownerId           String
+  version           Int      @default(1)
+  featuredAssetId   String?
+  seoMetadata       Json?
+  editorialMetadata Json?
+  metadata          Json?
+  scheduledAt       DateTime?
+  publishedAt       DateTime?
+  archivedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  category           CmsCategory?              @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  localizedPayloads  CmsLocalizedContent[]
+  publishedPayloads  CmsPublishedContent[]
+  ledger              CmsEditorialLedger[]
+
+  @@index([status, updatedAt])
+  @@index([contentType, status])
+  @@index([categoryId, status])
+  @@index([siteIdentifier, status])
+  @@index([authorId])
+  @@index([ownerId])
+}
+
+model CmsLocalizedContent {
+  id                 String   @id @default(uuid())
+  contentId          String
+  locale             String
+  localizedSlug      String
+  state              String   @default("DRAFT")
+  version            Int      @default(1)
+  title              String
+  summary            String?
+  body                String
+  readingTimeMinutes Int?
+  featuredAssetId    String?
+  seoMetadata        Json?
+  metadata           Json?
+  lastModifiedBy     String
+  scheduledAt        DateTime?
+  publishedAt        DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  content     CmsContentNode        @relation(fields: [contentId], references: [id], onDelete: Restrict)
+  tags        CmsContentTag[]
+  attachments CmsContentAttachment[]
+  reviews     CmsWorkflowReview[]
+  revisions   CmsContentRevision[]
+
+  @@unique([contentId, locale])
+  @@unique([locale, localizedSlug])
+  @@index([state, scheduledAt])
+  @@index([contentId, state])
+}
+
+model CmsCategory {
+  id                 String   @id @default(uuid())
+  slug               String   @unique
+  nameAr             String
+  nameEn             String
+  descriptionAr      String?
+  descriptionEn      String?
+  parentCategoryId   String?
+  status             String   @default("ACTIVE")
+  metadata           Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  parent   CmsCategory?  @relation("CmsCategoryTree", fields: [parentCategoryId], references: [id], onDelete: SetNull)
+  children CmsCategory[] @relation("CmsCategoryTree")
+  contents CmsContentNode[]
+
+  @@index([status])
+  @@index([parentCategoryId])
+}
+
+model CmsTag {
+  id              String   @id @default(uuid())
+  normalizedValue String   @unique
+  labelAr         String
+  labelEn         String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  contents CmsContentTag[]
+}
+
+model CmsContentTag {
+  localizedContentId String
+  tagId              String
+
+  localizedContent CmsLocalizedContent @relation(fields: [localizedContentId], references: [id], onDelete: Cascade)
+  tag              CmsTag              @relation(fields: [tagId], references: [id], onDelete: Restrict)
+
+  @@id([localizedContentId, tagId])
+  @@index([tagId])
+}
+
+model CmsContentAttachment {
+  id                 String @id @default(uuid())
+  localizedContentId String
+  assetId            String
+  role               String @default("ATTACHMENT")
+  sortOrder          Int    @default(0)
+  caption            String?
+
+  localizedContent CmsLocalizedContent @relation(fields: [localizedContentId], references: [id], onDelete: Cascade)
+
+  @@unique([localizedContentId, assetId, role])
+  @@index([assetId])
+}
+
+model CmsWorkflowReview {
+  id                 String   @id @default(uuid())
+  localizedContentId String
+  status             String   @default("PENDING")
+  requestedBy        String
+  requestedAt        DateTime @default(now())
+  reviewedBy         String?
+  reviewedAt         DateTime?
+  comments           String?
+
+  localizedContent CmsLocalizedContent @relation(fields: [localizedContentId], references: [id], onDelete: Restrict)
+
+  @@index([localizedContentId, status])
+  @@index([status, requestedAt])
+}
+
+model CmsContentRevision {
+  id                 String   @id @default(uuid())
+  localizedContentId String
+  versionNumber      Int
+  reason             String
+  payload            Json
+  capturedBy         String
+  capturedAt         DateTime @default(now())
+
+  localizedContent CmsLocalizedContent @relation(fields: [localizedContentId], references: [id], onDelete: Restrict)
+
+  @@unique([localizedContentId, versionNumber])
+  @@index([localizedContentId, capturedAt])
+}
+
+model CmsPublishedContent {
+  id                 String   @id @default(uuid())
+  contentId          String
+  publicId           String
+  siteIdentifier     String
+  locale             String
+  slug               String
+  canonicalUrl       String
+  contentType        String
+  title              String
+  summary            String?
+  body                String
+  categorySlug       String?
+  featuredAssetId    String?
+  attachmentAssetIds Json
+  tags               Json
+  seoMetadata        Json
+  versionNumber      Int
+  status             String   @default("PUBLISHED")
+  publishedAt        DateTime
+  archivedAt         DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  content CmsContentNode @relation(fields: [contentId], references: [id], onDelete: Restrict)
+
+  @@unique([contentId, locale])
+  @@unique([locale, slug])
+  @@index([siteIdentifier, locale, status, publishedAt])
+  @@index([contentType, locale, status])
+  @@index([categorySlug, locale, status])
+}
+
+model CmsEditorialLedger {
+  id         String   @id @default(uuid())
+  contentId  String
+  localizedContentId String?
+  action     String
+  actorId    String
+  payload    Json?
+  occurredAt DateTime @default(now())
+
+  content CmsContentNode @relation(fields: [contentId], references: [id], onDelete: Restrict)
+
+  @@index([contentId, occurredAt])
+  @@index([localizedContentId, occurredAt])
+  @@index([action, occurredAt])
+}
+
 // --- Identity Foundation ---
 
 model IdentityRecord {

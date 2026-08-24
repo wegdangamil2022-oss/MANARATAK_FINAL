@@ -126,6 +126,7 @@ export * from './cms/entities/CmsContent';
 export * from './cms/enums/CmsCategoryStatus';
 export * from './cms/enums/CmsContentStatus';
 export * from './cms/enums/CmsContentType';
+export * from './cms/services/CmsPublishingPolicy';
 export * from './configuration/aggregates/Configuration';
 export * from './configuration/enums/ConfigurationLifecycleState';
 export * from './configuration/events/ConfigurationEvents';

@@ -722,6 +722,7 @@ export interface CmsLocalizedPayloadDto {
   id: string;
   contentId: string;
   locale: string;
+  localizedSlug: string;
   title: string;
   summary?: string | null;
   body: string;
@@ -734,15 +735,32 @@ export interface CmsLocalizedPayloadDto {
 
 export interface PublicCmsContentDto {
   publicId: string;
+  contentId: string;
+  siteIdentifier: string;
+  locale: string;
   slug: string;
+  canonicalUrl: string;
   contentType: string;
   title: string;
   summary?: string | null;
+  body: string;
   categorySlug?: string | null;
   featuredAssetId?: string | null;
-  publishedAt?: string | null;
+  attachmentAssetIds: string[];
+  tags: Array<{ normalizedValue: string; label: string }>;
+  publishedAt: string;
+  versionNumber: number;
+  availableLocales: Array<{ locale: string; slug: string }>;
   localizedPayload?: CmsLocalizedPayloadDto | null;
-  seoMetadata?: Record<string, unknown> | null;
+  seoMetadata: {
+    title: string;
+    description: string;
+    canonicalUrl?: string | null;
+    keywords: string[];
+    noIndex: boolean;
+    noFollow: boolean;
+    openGraphAssetId?: string | null;
+  };
 }
 
 export interface PublicStudentToolDto {
@@ -1488,7 +1506,7 @@ export class ApiClient {
     return res.json();
   }
 
-  static async getCmsContentBySlug(slug: string, locale = 'en'): Promise<PublicCmsContentDto> {
+  static async getCmsContentBySlug(slug: string, locale = 'ar'): Promise<PublicCmsContentDto> {
     const res = await apiFetch(
       `${API_BASE_URL}/public/cms/content/${encodeURIComponent(slug)}?locale=${encodeURIComponent(locale)}`,
     );

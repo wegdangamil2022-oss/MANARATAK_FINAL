@@ -1,336 +1,1145 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Archive,
+  CheckCircle2,
+  Clock3,
+  Eye,
+  FilePenLine,
+  FolderTree,
+  Loader2,
+  Plus,
+  Search,
+  Send,
+  Tags,
+} from 'lucide-react';
 import { adminApiClient } from '../api/client';
-import { Archive, CheckCircle2, Edit3, Filter, Loader2, Plus, Send } from 'lucide-react';
-import { useTranslation } from "../i18n/I18nProvider";
 
-interface CmsContent {
+type Locale = 'ar' | 'en';
+interface Content {
   id: string;
   publicId: string;
   slug: string;
+  siteIdentifier: string;
+  primaryLocale: Locale;
   contentType: string;
   status: string;
   title: string;
   summary?: string | null;
-  categorySlug?: string | null;
+  categoryId?: string | null;
   featuredAssetId?: string | null;
-  publishedAt?: string | null;
+  version: number;
   updatedAt: string;
 }
-
-interface CmsListResponse {
-  data: CmsContent[];
+interface Localized {
+  id: string;
+  locale: Locale;
+  localizedSlug: string;
+  title: string;
+  summary?: string | null;
+  body: string;
+  readingTimeMinutes?: number | null;
+  featuredAssetId?: string | null;
+  attachmentAssetIds?: string[];
+  tagIds?: string[];
+  seoMetadata?: Seo | null;
+  state: string;
+  version: number;
+  scheduledAt?: string | null;
+}
+interface Detail extends Content {
+  localizedPayloads: Localized[];
+  tags: Tag[];
+  revisions: Array<{ id: string; versionNumber: number; reason: string; capturedAt: string }>;
+  readiness: Record<string, { ready: boolean; missing: string[]; warnings: string[] }>;
+}
+interface Category {
+  id: string;
+  slug: string;
+  nameAr: string;
+  nameEn: string;
+  status: string;
+}
+interface Tag {
+  id: string;
+  normalizedValue: string;
+  labelAr: string;
+  labelEn: string;
+}
+interface Seo {
+  title: string;
+  description: string;
+  canonicalUrl?: string | null;
+  keywords: string[];
+  noIndex: boolean;
+  noFollow: boolean;
+  openGraphTitle?: string | null;
+  openGraphDescription?: string | null;
+  openGraphAssetId?: string | null;
+}
+interface ListResponse {
+  data: Content[];
   total: number;
   page: number;
   pageSize: number;
   totalPages: number;
 }
+interface EditorState {
+  localizedSlug: string;
+  title: string;
+  summary: string;
+  body: string;
+  readingTimeMinutes: string;
+  featuredAssetId: string;
+  attachmentAssetIds: string;
+  tagIds: string[];
+  seoTitle: string;
+  seoDescription: string;
+  canonicalUrl: string;
+  keywords: string;
+  openGraphAssetId: string;
+  noIndex: boolean;
+  noFollow: boolean;
+  version?: number;
+}
+interface TaxonomyState {
+  categorySlug: string;
+  categoryAr: string;
+  categoryEn: string;
+  tagValue: string;
+  tagAr: string;
+  tagEn: string;
+}
+
+const blankEditor = (): EditorState => ({
+  localizedSlug: '',
+  title: '',
+  summary: '',
+  body: '',
+  readingTimeMinutes: '5',
+  featuredAssetId: '',
+  attachmentAssetIds: '',
+  tagIds: [],
+  seoTitle: '',
+  seoDescription: '',
+  canonicalUrl: '',
+  keywords: '',
+  openGraphAssetId: '',
+  noIndex: false,
+  noFollow: false,
+});
+const contentTypes = [
+  'ARTICLE',
+  'NEWS',
+  'STATIC_PAGE',
+  'STUDY_GUIDE',
+  'FAQ',
+  'CHECKLIST',
+  'ANNOUNCEMENT',
+  'LANDING_PAGE',
+  'CONTENT_BLOCK',
+];
+const workflow = [
+  'قائمة المحتوى',
+  'إنشاء المحتوى',
+  'التحرير',
+  'الوسائط',
+  'تهيئة SEO',
+  'المعاينة',
+  'المراجعة',
+  'النشر',
+];
 
 export function CmsAdminPage() {
-    const { t } = useTranslation();
-  const [content, setContent] = useState<CmsListResponse | null>(null);
-  const [selectedContent, setSelectedContent] = useState<CmsContent | null>(null);
+  const [list, setList] = useState<ListResponse | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [selected, setSelected] = useState<Detail | null>(null);
+  const [locale, setLocale] = useState<Locale>('ar');
+  const [editors, setEditors] = useState<Record<Locale, EditorState>>({
+    ar: blankEditor(),
+    en: blankEditor(),
+  });
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const [createForm, setCreateForm] = useState({
+  const [create, setCreate] = useState({
     title: '',
     slug: '',
     contentType: 'ARTICLE',
-    summary: '',
+    categoryId: '',
+    featuredAssetId: '',
+  });
+  const [taxonomy, setTaxonomy] = useState({
     categorySlug: '',
-    featuredAssetId: ''
+    categoryAr: '',
+    categoryEn: '',
+    tagValue: '',
+    tagAr: '',
+    tagEn: '',
   });
 
-  const [localizedForm, setLocalizedForm] = useState({
-    locale: 'en',
-    title: '',
-    summary: '',
-    body: '',
-    readingTimeMinutes: '5'
-  });
-
-  const loadContent = async () => {
+  const loadDashboard = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ page: '1', pageSize: '20' });
-      if (statusFilter) params.append('status', statusFilter);
-      if (typeFilter) params.append('contentType', typeFilter);
-      const response = await adminApiClient.request<CmsListResponse>(`/admin/cms/content?${params.toString()}`);
-      setContent(response);
-    } catch (err: any) {
-      setError(err.message || 'Unable to load CMS content.');
+      const params = new URLSearchParams({ page: '1', pageSize: '50' });
+      if (query.trim()) params.set('q', query.trim());
+      if (status) params.set('status', status);
+      const [contentResult, categoryResult, tagResult] = await Promise.all([
+        adminApiClient.request<ListResponse>(`/admin/cms/content?${params}`),
+        adminApiClient.request<{ data: Category[] }>('/admin/cms/categories'),
+        adminApiClient.request<{ data: Tag[] }>('/admin/cms/tags'),
+      ]);
+      setList(contentResult);
+      setCategories(categoryResult.data);
+      setTags(tagResult.data);
+    } catch (reason) {
+      setError(messageOf(reason));
     } finally {
       setLoading(false);
     }
-  };
+  }, [query, status]);
 
   useEffect(() => {
-    loadContent();
-  }, [statusFilter, typeFilter]);
+    void loadDashboard();
+  }, [loadDashboard]);
+
+  const openContent = async (id: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const detail = await adminApiClient.request<Detail>(`/admin/cms/content/${id}`);
+      setSelected(detail);
+      setEditors({
+        ar: toEditor(
+          detail.localizedPayloads.find((entry) => entry.locale === 'ar'),
+          detail.slug,
+        ),
+        en: toEditor(
+          detail.localizedPayloads.find((entry) => entry.locale === 'en'),
+          detail.slug,
+        ),
+      });
+    } catch (reason) {
+      setError(messageOf(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const createContent = async (event: FormEvent) => {
     event.preventDefault();
-    setSaving(true);
+    setBusy(true);
     setError(null);
-    setMessage(null);
+    setNotice(null);
     try {
-      const created = await adminApiClient.request<CmsContent>('/admin/cms/content', {
+      const created = await adminApiClient.request<Content>('/admin/cms/content', {
         method: 'POST',
         body: JSON.stringify({
-          title: createForm.title.trim(),
-          slug: createForm.slug.trim(),
-          contentType: createForm.contentType,
-          summary: createForm.summary.trim() || null,
-          categorySlug: createForm.categorySlug.trim() || null,
-          featuredAssetId: createForm.featuredAssetId.trim() || null
-        })
+          title: create.title.trim(),
+          slug: create.slug.trim(),
+          contentType: create.contentType,
+          siteIdentifier: 'manaratak',
+          primaryLocale: 'ar',
+          categoryId: create.categoryId || null,
+          featuredAssetId: create.featuredAssetId.trim() || null,
+        }),
       });
-      setMessage(`Created CMS content: ${created.title}`);
-      setSelectedContent(created);
-      setLocalizedForm((current) => ({
-        ...current,
-        title: created.title,
-        summary: created.summary || ''
-      }));
-      setCreateForm({ title: '', slug: '', contentType: 'ARTICLE', summary: '', categorySlug: '', featuredAssetId: '' });
-      await loadContent();
-    } catch (err: any) {
-      setError(err.message || 'Unable to create CMS content.');
-    } finally {
-      setSaving(false);
+      setCreate({
+        title: '',
+        slug: '',
+        contentType: 'ARTICLE',
+        categoryId: '',
+        featuredAssetId: '',
+      });
+      setNotice('تم إنشاء المسودة. أكمل النسختين العربية والإنجليزية ثم أرسلها للمراجعة.');
+      await Promise.all([openContent(created.id), loadDashboard()]);
+    } catch (reason) {
+      setError(messageOf(reason));
+      setBusy(false);
     }
   };
 
-  const saveLocalizedPayload = async (event: FormEvent) => {
+  const currentEditor = editors[locale];
+  const updateEditor = (change: Partial<EditorState>) =>
+    setEditors((value) => ({ ...value, [locale]: { ...value[locale], ...change } }));
+  const saveLocale = async (event: FormEvent) => {
     event.preventDefault();
-    if (!selectedContent) return;
-    setSaving(true);
+    if (!selected) return;
+    setBusy(true);
     setError(null);
-    setMessage(null);
+    setNotice(null);
     try {
-      await adminApiClient.request(`/admin/cms/content/${selectedContent.id}/localized`, {
+      await adminApiClient.request(`/admin/cms/content/${selected.id}/localized`, {
         method: 'PUT',
         body: JSON.stringify({
-          locale: localizedForm.locale.trim(),
-          title: localizedForm.title.trim(),
-          summary: localizedForm.summary.trim() || null,
-          body: localizedForm.body,
-          readingTimeMinutes: localizedForm.readingTimeMinutes ? Number(localizedForm.readingTimeMinutes) : null
-        })
+          locale,
+          localizedSlug: currentEditor.localizedSlug.trim(),
+          title: currentEditor.title.trim(),
+          summary: currentEditor.summary.trim() || null,
+          body: currentEditor.body,
+          readingTimeMinutes: Number(currentEditor.readingTimeMinutes) || null,
+          featuredAssetId: currentEditor.featuredAssetId.trim() || null,
+          attachmentAssetIds: splitValues(currentEditor.attachmentAssetIds),
+          tagIds: currentEditor.tagIds,
+          expectedVersion: currentEditor.version,
+          seoMetadata: {
+            title: currentEditor.seoTitle.trim(),
+            description: currentEditor.seoDescription.trim(),
+            canonicalUrl: currentEditor.canonicalUrl.trim() || null,
+            keywords: splitValues(currentEditor.keywords),
+            noIndex: currentEditor.noIndex,
+            noFollow: currentEditor.noFollow,
+            openGraphAssetId: currentEditor.openGraphAssetId.trim() || null,
+          },
+        }),
       });
-      setMessage(`Localized payload saved for ${selectedContent.title}`);
-    } catch (err: any) {
-      setError(err.message || 'Unable to save localized payload.');
-    } finally {
-      setSaving(false);
+      setNotice(
+        `تم حفظ النسخة ${locale === 'ar' ? 'العربية' : 'الإنجليزية'} في الخادم مع نسخة مراجعة جديدة.`,
+      );
+      await openContent(selected.id);
+    } catch (reason) {
+      setError(messageOf(reason));
+      setBusy(false);
     }
   };
 
-  const publishContent = async (id: string) => {
-    await transitionContent(id, 'publish');
-  };
-
-  const archiveContent = async (id: string) => {
-    await transitionContent(id, 'archive');
-  };
-
-  const transitionContent = async (id: string, action: 'publish' | 'archive') => {
-    setSaving(true);
+  const runWorkflow = async (
+    action: 'submit-review' | 'approve' | 'publish' | 'archive' | 'reject',
+  ) => {
+    if (!selected) return;
+    const comments = action === 'reject' ? window.prompt('سبب الرفض (إلزامي):') : null;
+    if (action === 'reject' && !comments?.trim()) return;
+    setBusy(true);
     setError(null);
-    setMessage(null);
+    setNotice(null);
     try {
-      const updated = await adminApiClient.request<CmsContent>(`/admin/cms/content/${id}/${action}`, { method: 'POST' });
-      setMessage(`${action === 'publish' ? 'Published' : 'Archived'}: ${updated.title}`);
-      setSelectedContent(updated);
-      await loadContent();
-    } catch (err: any) {
-      setError(err.message || `Unable to ${action} CMS content.`);
-    } finally {
-      setSaving(false);
+      await adminApiClient.request(`/admin/cms/content/${selected.id}/${action}`, {
+        method: 'POST',
+        body: JSON.stringify({ locale, expectedVersion: currentEditor.version, comments }),
+      });
+      setNotice(
+        action === 'submit-review'
+          ? 'أُرسلت النسخة للمراجعة.'
+          : action === 'approve'
+            ? 'اعتمدها الناشر وأصبحت جاهزة للنشر.'
+            : action === 'publish'
+              ? 'نُشرت النسخة بنجاح.'
+              : action === 'archive'
+                ? 'أُرشفت النسخة.'
+                : 'أُعيدت للمحرر مع سبب الرفض.',
+      );
+      await Promise.all([openContent(selected.id), loadDashboard()]);
+    } catch (reason) {
+      setError(messageOf(reason));
+      setBusy(false);
     }
   };
 
-  const selectContent = (item: CmsContent) => {
-    setSelectedContent(item);
-    setLocalizedForm({
-      locale: 'en',
-      title: item.title,
-      summary: item.summary || '',
-      body: '',
-      readingTimeMinutes: '5'
-    });
+  const schedule = async () => {
+    if (!selected) return;
+    const value = window.prompt('موعد النشر بصيغة ISO، مثال: 2026-09-01T08:00:00Z');
+    if (!value) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await adminApiClient.request(`/admin/cms/content/${selected.id}/schedule`, {
+        method: 'POST',
+        body: JSON.stringify({
+          locale,
+          expectedVersion: currentEditor.version,
+          scheduledAt: value,
+        }),
+      });
+      setNotice('تمت الجدولة دون نشر تلقائي من الواجهة؛ عامل الجدولة ينفذها في بيئة التشغيل.');
+      await openContent(selected.id);
+    } catch (reason) {
+      setError(messageOf(reason));
+      setBusy(false);
+    }
   };
+
+  const createTaxonomy = async (kind: 'category' | 'tag') => {
+    setBusy(true);
+    setError(null);
+    try {
+      if (kind === 'category')
+        await adminApiClient.request('/admin/cms/categories', {
+          method: 'POST',
+          body: JSON.stringify({
+            slug: taxonomy.categorySlug,
+            nameAr: taxonomy.categoryAr,
+            nameEn: taxonomy.categoryEn,
+            status: 'ACTIVE',
+          }),
+        });
+      else
+        await adminApiClient.request('/admin/cms/tags', {
+          method: 'POST',
+          body: JSON.stringify({
+            normalizedValue: taxonomy.tagValue,
+            labelAr: taxonomy.tagAr,
+            labelEn: taxonomy.tagEn,
+          }),
+        });
+      setNotice(kind === 'category' ? 'تم إنشاء التصنيف.' : 'تم إنشاء الوسم.');
+      await loadDashboard();
+    } catch (reason) {
+      setError(messageOf(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const readiness = selected?.readiness?.[locale];
+  const preview = useMemo(
+    () => ({
+      title: currentEditor.title,
+      summary: currentEditor.summary,
+      body: currentEditor.body,
+    }),
+    [currentEditor],
+  );
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold">{t('cms_editorial_content')}</h2>
-          <p className="text-sm text-gray-500 mt-1">{t('create_and_publish_articles_guides_faqs_and_static')}</p>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <div className="relative">
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="appearance-none bg-white border border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-black">
-              <option value="">{t('all_statuses')}</option>
-              <option value="DRAFT">{t('draft')}</option>
-              <option value="IN_REVIEW">{t('in_review')}</option>
-              <option value="PUBLISHED">{t('published')}</option>
-              <option value="ARCHIVED">{t('archived')}</option>
-            </select>
-            <Filter className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
+    <main dir="rtl" className="mx-auto max-w-[1500px] space-y-6 font-sans text-slate-900">
+      <header className="overflow-hidden rounded-3xl bg-gradient-to-l from-emerald-950 via-emerald-800 to-teal-700 p-6 text-white shadow-xl sm:p-8">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="mb-2 text-sm font-bold text-emerald-200">منصة المحتوى المؤسسية</p>
+            <h1 className="text-3xl font-black">إدارة المحتوى والنشر</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-emerald-50">
+              تحرير ثنائي اللغة، وسائط من منصة الأصول، SEO، مراجعة مستقلة، وجدولة ونشر موثوق.
+            </p>
           </div>
-
-          <div className="relative">
-            <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="appearance-none bg-white border border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-black">
-              <option value="">{t('all_types')}</option>
-              <option value="ARTICLE">{t('article')}</option>
-              <option value="STUDY_GUIDE">{t('study_guide')}</option>
-              <option value="NEWS">{t('news')}</option>
-              <option value="FAQ">{t('faq')}</option>
-              <option value="CHECKLIST">{t('checklist')}</option>
-              <option value="STATIC_PAGE">{t('static_page')}</option>
-            </select>
-            <Filter className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <Metric value={list?.total ?? 0} label="إجمالي المحتوى" />
+            <Metric
+              value={list?.data.filter((x) => x.status === 'PUBLISHED').length ?? 0}
+              label="منشور"
+            />
+            <Metric
+              value={list?.data.filter((x) => x.status === 'IN_REVIEW').length ?? 0}
+              label="قيد المراجعة"
+            />
           </div>
         </div>
-      </div>
+      </header>
 
-      {message && <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">{message}</div>}
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>}
+      <nav
+        aria-label="مسار النشر"
+        className="grid grid-cols-2 gap-2 rounded-2xl border border-emerald-100 bg-white p-3 shadow-sm sm:grid-cols-4 xl:grid-cols-8"
+      >
+        {workflow.map((label, index) => (
+          <div
+            key={label}
+            className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-900"
+          >
+            <span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-700 text-white">
+              {index + 1}
+            </span>
+            {label}
+          </div>
+        ))}
+      </nav>
+      {notice && <Alert tone="success">{notice}</Alert>}
+      {error && <Alert tone="error">{error}</Alert>}
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-          {loading && !content ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-            </div>
-          ) : (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500">
-                  <th className="px-6 py-3 font-medium">{t('content')}</th>
-                  <th className="px-6 py-3 font-medium">{t('type')}</th>
-                  <th className="px-6 py-3 font-medium">{t('status')}</th>
-                  <th className="px-6 py-3 font-medium">{t('updated')}</th>
-                  <th className="px-6 py-3 font-medium text-right">{t('actions')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 text-sm">
-                {content?.data.length ? content.data.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{item.title}</div>
-                      <div className="text-xs text-gray-500">/{item.slug}</div>
-                    </td>
-                    <td className="px-6 py-4">{formatLabel(item.contentType)}</td>
-                    <td className="px-6 py-4"><StatusBadge status={item.status} /></td>
-                    <td className="px-6 py-4 text-gray-500">{formatDate(item.updatedAt)}</td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-3">
-                        <button onClick={() => selectContent(item)} className="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
-                          <Edit3 className="h-4 w-4" /> {t('edit')}</button>
-                        <button onClick={() => publishContent(item.id)} disabled={saving || item.status === 'PUBLISHED'} className="text-green-600 hover:text-green-800 disabled:opacity-40 inline-flex items-center gap-1">
-                          <Send className="h-4 w-4" /> {t('publish')}</button>
-                        <button onClick={() => archiveContent(item.id)} disabled={saving || item.status === 'ARCHIVED'} className="text-red-600 hover:text-red-800 disabled:opacity-40 inline-flex items-center gap-1">
-                          <Archive className="h-4 w-4" /> {t('archive')}</button>
-                      </div>
-                    </td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-10 text-center text-gray-500">{t('no_cms_content_yet')}</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          <form onSubmit={createContent} className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <Plus className="h-5 w-5 text-blue-600" />
-              <h3 className="font-bold">{t('create_content')}</h3>
-            </div>
-            <Field label={t('title')} value={createForm.title} onChange={(value) => setCreateForm({ ...createForm, title: value, slug: createForm.slug || slugify(value) })} />
-            <Field label={t('slug')} value={createForm.slug} onChange={(value) => setCreateForm({ ...createForm, slug: value })} />
-            <label className="block">
-              <span className="text-sm font-medium text-gray-700">{t('content_type')}</span>
-              <select value={createForm.contentType} onChange={(event) => setCreateForm({ ...createForm, contentType: event.target.value })} className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                <option value="ARTICLE">{t('article')}</option>
-                <option value="STUDY_GUIDE">{t('study_guide')}</option>
-                <option value="NEWS">{t('news')}</option>
-                <option value="FAQ">{t('faq')}</option>
-                <option value="CHECKLIST">{t('checklist')}</option>
-                <option value="STATIC_PAGE">{t('static_page')}</option>
+      <section className="grid gap-6 xl:grid-cols-[1.1fr_1.9fr]">
+        <aside className="space-y-6">
+          <Panel title="قائمة المحتوى" icon={<FilePenLine className="h-5 w-5" />}>
+            <div className="mb-4 flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute right-3 top-3 h-4 w-4 text-slate-400" />
+                <input
+                  aria-label="بحث المحتوى"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="input pr-9"
+                  placeholder="العنوان أو الرابط..."
+                />
+              </div>
+              <select
+                aria-label="تصفية الحالة"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="input w-36"
+              >
+                <option value="">كل الحالات</option>
+                {[
+                  'DRAFT',
+                  'IN_REVIEW',
+                  'READY_TO_PUBLISH',
+                  'SCHEDULED',
+                  'PUBLISHED',
+                  'ARCHIVED',
+                ].map((x) => (
+                  <option key={x}>{x}</option>
+                ))}
               </select>
-            </label>
-            <TextArea label={t('summary')} value={createForm.summary} onChange={(value) => setCreateForm({ ...createForm, summary: value })} rows={3} />
-            <Field label={t('category_slug')} value={createForm.categorySlug} onChange={(value) => setCreateForm({ ...createForm, categorySlug: value })} optional />
-            <Field label={t('featured_asset_id')} value={createForm.featuredAssetId} onChange={(value) => setCreateForm({ ...createForm, featuredAssetId: value })} optional />
-            <button type="submit" disabled={saving || !createForm.title || !createForm.slug} className="w-full inline-flex items-center justify-center gap-2 bg-black text-white rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-              {t('create_draft')}</button>
-          </form>
+            </div>
+            {loading ? (
+              <Loading />
+            ) : list?.data.length ? (
+              <div className="max-h-[430px] space-y-2 overflow-y-auto">
+                {list.data.map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    onClick={() => void openContent(item.id)}
+                    className={`w-full rounded-xl border p-3 text-right transition hover:border-emerald-400 hover:bg-emerald-50 ${selected?.id === item.id ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-bold">{item.title}</p>
+                        <p dir="ltr" className="mt-1 text-right text-xs text-slate-500">
+                          /{item.slug}
+                        </p>
+                      </div>
+                      <Status value={item.status} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <Empty text="لا يوجد محتوى مطابق." />
+            )}
+          </Panel>
+          <Panel title="إنشاء مسودة" icon={<Plus className="h-5 w-5" />}>
+            <form onSubmit={createContent} className="space-y-3">
+              <Field
+                label="العنوان العربي"
+                value={create.title}
+                onChange={(v) => setCreate({ ...create, title: v })}
+                required
+              />
+              <Field
+                label="الرابط الثابت بالإنجليزية"
+                dir="ltr"
+                value={create.slug}
+                onChange={(v) => setCreate({ ...create, slug: v })}
+                required
+              />
+              <Select
+                label="نوع المحتوى"
+                value={create.contentType}
+                onChange={(v) => setCreate({ ...create, contentType: v })}
+                options={contentTypes.map((x) => ({ value: x, label: labelOf(x) }))}
+              />
+              <Select
+                label="التصنيف"
+                value={create.categoryId}
+                onChange={(v) => setCreate({ ...create, categoryId: v })}
+                options={[
+                  { value: '', label: 'اختر لاحقًا' },
+                  ...categories.map((x) => ({ value: x.id, label: x.nameAr })),
+                ]}
+              />
+              <Field
+                label="معرّف الصورة البارزة من منصة الأصول"
+                dir="ltr"
+                value={create.featuredAssetId}
+                onChange={(v) => setCreate({ ...create, featuredAssetId: v })}
+              />
+              <PrimaryButton disabled={busy || !create.title || !create.slug}>
+                <Plus className="h-4 w-4" />
+                إنشاء المسودة
+              </PrimaryButton>
+            </form>
+          </Panel>
+          <TaxonomyPanel
+            taxonomy={taxonomy}
+            setTaxonomy={setTaxonomy}
+            createTaxonomy={createTaxonomy}
+            busy={busy}
+          />
+        </aside>
 
-          <form onSubmit={saveLocalizedPayload} className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 space-y-4">
-            <h3 className="font-bold">{t('localized_payload')}</h3>
-            <p className="text-xs text-gray-500">{selectedContent ? `Editing: ${selectedContent.title}` : 'Select or create content first.'}</p>
-            <Field label={t('locale')} value={localizedForm.locale} onChange={(value) => setLocalizedForm({ ...localizedForm, locale: value })} />
-            <Field label={t('localized_title')} value={localizedForm.title} onChange={(value) => setLocalizedForm({ ...localizedForm, title: value })} />
-            <TextArea label={t('localized_summary')} value={localizedForm.summary} onChange={(value) => setLocalizedForm({ ...localizedForm, summary: value })} rows={3} />
-            <TextArea label={t('body')} value={localizedForm.body} onChange={(value) => setLocalizedForm({ ...localizedForm, body: value })} rows={8} />
-            <Field label={t('reading_time_minutes')} value={localizedForm.readingTimeMinutes} onChange={(value) => setLocalizedForm({ ...localizedForm, readingTimeMinutes: value })} />
-            <button type="submit" disabled={saving || !selectedContent || !localizedForm.body} className="w-full inline-flex items-center justify-center gap-2 border border-gray-300 rounded-md px-4 py-2 text-sm font-medium bg-white hover:bg-gray-50 disabled:opacity-50">
-              {t('save_localized_content')}</button>
-          </form>
-        </div>
-      </div>
+        <section className="space-y-6">
+          {!selected ? (
+            <Panel title="محرر المحتوى" icon={<FilePenLine className="h-5 w-5" />}>
+              <Empty text="اختر محتوى من القائمة أو أنشئ مسودة جديدة للبدء." />
+            </Panel>
+          ) : (
+            <>
+              <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-black">{selected.title}</h2>
+                      <Status value={selected.status} />
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {selected.publicId} · الإصدار {selected.version}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <LocaleButton active={locale === 'ar'} onClick={() => setLocale('ar')}>
+                      العربية
+                    </LocaleButton>
+                    <LocaleButton active={locale === 'en'} onClick={() => setLocale('en')}>
+                      English
+                    </LocaleButton>
+                  </div>
+                </div>
+              </div>
+              <form onSubmit={saveLocale} className="grid gap-6 2xl:grid-cols-2">
+                <Panel
+                  title={`المحرر — ${locale === 'ar' ? 'العربية' : 'English'}`}
+                  icon={<FilePenLine className="h-5 w-5" />}
+                >
+                  <div className="space-y-4">
+                    <Field
+                      label="الرابط المحلي"
+                      dir="ltr"
+                      value={currentEditor.localizedSlug}
+                      onChange={(v) => updateEditor({ localizedSlug: v })}
+                      required
+                    />
+                    <Field
+                      label="العنوان"
+                      value={currentEditor.title}
+                      onChange={(v) => updateEditor({ title: v })}
+                      required
+                    />
+                    <TextArea
+                      label="الملخص"
+                      value={currentEditor.summary}
+                      onChange={(v) => updateEditor({ summary: v })}
+                      rows={3}
+                    />
+                    <TextArea
+                      label="نص المحتوى"
+                      value={currentEditor.body}
+                      onChange={(v) => updateEditor({ body: v })}
+                      rows={15}
+                      required
+                    />
+                    <Field
+                      label="مدة القراءة بالدقائق"
+                      dir="ltr"
+                      value={currentEditor.readingTimeMinutes}
+                      onChange={(v) => updateEditor({ readingTimeMinutes: v })}
+                    />
+                  </div>
+                </Panel>
+                <div className="space-y-6">
+                  <Panel title="الوسائط والتصنيف" icon={<Eye className="h-5 w-5" />}>
+                    <div className="space-y-4">
+                      <Field
+                        label="الصورة البارزة — Asset ID"
+                        dir="ltr"
+                        value={currentEditor.featuredAssetId}
+                        onChange={(v) => updateEditor({ featuredAssetId: v })}
+                      />
+                      <TextArea
+                        label="المرفقات — Asset IDs مفصولة بفاصلة"
+                        dir="ltr"
+                        value={currentEditor.attachmentAssetIds}
+                        onChange={(v) => updateEditor({ attachmentAssetIds: v })}
+                        rows={2}
+                      />
+                      <fieldset>
+                        <legend className="mb-2 text-sm font-bold">الوسوم</legend>
+                        <div className="flex flex-wrap gap-2">
+                          {tags.map((tag) => (
+                            <label
+                              key={tag.id}
+                              className="flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-xs"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={currentEditor.tagIds.includes(tag.id)}
+                                onChange={(e) =>
+                                  updateEditor({
+                                    tagIds: e.target.checked
+                                      ? [...currentEditor.tagIds, tag.id]
+                                      : currentEditor.tagIds.filter((id) => id !== tag.id),
+                                  })
+                                }
+                              />
+                              {locale === 'ar' ? tag.labelAr : tag.labelEn}
+                            </label>
+                          ))}
+                        </div>
+                      </fieldset>
+                    </div>
+                  </Panel>
+                  <Panel title="تهيئة محركات البحث" icon={<Search className="h-5 w-5" />}>
+                    <div className="space-y-4">
+                      <Field
+                        label="عنوان SEO"
+                        value={currentEditor.seoTitle}
+                        onChange={(v) => updateEditor({ seoTitle: v })}
+                        required
+                      />
+                      <TextArea
+                        label="وصف SEO"
+                        value={currentEditor.seoDescription}
+                        onChange={(v) => updateEditor({ seoDescription: v })}
+                        rows={3}
+                        required
+                      />
+                      <Field
+                        label="Canonical URL (اختياري)"
+                        dir="ltr"
+                        value={currentEditor.canonicalUrl}
+                        onChange={(v) => updateEditor({ canonicalUrl: v })}
+                      />
+                      <Field
+                        label="الكلمات المفتاحية"
+                        value={currentEditor.keywords}
+                        onChange={(v) => updateEditor({ keywords: v })}
+                      />
+                      <Field
+                        label="صورة Open Graph — Asset ID"
+                        dir="ltr"
+                        value={currentEditor.openGraphAssetId}
+                        onChange={(v) => updateEditor({ openGraphAssetId: v })}
+                      />
+                      <div className="flex gap-5 text-sm">
+                        <Check
+                          label="منع الفهرسة"
+                          checked={currentEditor.noIndex}
+                          onChange={(v) => updateEditor({ noIndex: v })}
+                        />
+                        <Check
+                          label="منع تتبع الروابط"
+                          checked={currentEditor.noFollow}
+                          onChange={(v) => updateEditor({ noFollow: v })}
+                        />
+                      </div>
+                    </div>
+                  </Panel>
+                </div>
+                <div className="2xl:col-span-2">
+                  <PrimaryButton
+                    disabled={
+                      busy ||
+                      !currentEditor.title ||
+                      !currentEditor.body ||
+                      !currentEditor.seoTitle ||
+                      !currentEditor.seoDescription
+                    }
+                  >
+                    {busy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4" />
+                    )}
+                    حفظ النسخة على الخادم
+                  </PrimaryButton>
+                </div>
+              </form>
+              <div className="grid gap-6 2xl:grid-cols-2">
+                <Panel title="المعاينة" icon={<Eye className="h-5 w-5" />}>
+                  <article className="rounded-2xl border bg-slate-50 p-6">
+                    <p className="text-xs font-bold text-emerald-700">معاينة مسودة غير عامة</p>
+                    <h3 className="mt-3 text-3xl font-black">{preview.title || 'العنوان'}</h3>
+                    {preview.summary && <p className="mt-3 text-slate-600">{preview.summary}</p>}
+                    <div className="mt-6 whitespace-pre-wrap leading-8 text-slate-800">
+                      {preview.body || 'اكتب المحتوى لتظهر المعاينة هنا.'}
+                    </div>
+                  </article>
+                </Panel>
+                <Panel title="الجاهزية والمراجعة والنشر" icon={<Send className="h-5 w-5" />}>
+                  <div className="space-y-4">
+                    {readiness ? (
+                      <div
+                        className={`rounded-xl border p-4 ${readiness.ready ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}
+                      >
+                        <p className="font-bold">
+                          {readiness.ready ? 'جاهز للإرسال للمراجعة' : 'توجد حقول مطلوبة'}
+                        </p>
+                        {readiness.missing.length > 0 && (
+                          <p className="mt-2 text-sm">الناقص: {readiness.missing.join('، ')}</p>
+                        )}
+                        {readiness.warnings.length > 0 && (
+                          <p className="mt-2 text-sm">تنبيهات: {readiness.warnings.join('، ')}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500">احفظ هذه اللغة لإظهار فحص الجاهزية.</p>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <Action
+                        onClick={() => void runWorkflow('submit-review')}
+                        disabled={busy || !readiness?.ready}
+                      >
+                        <Send className="h-4 w-4" />
+                        إرسال للمراجعة
+                      </Action>
+                      <Action onClick={() => void runWorkflow('approve')} disabled={busy}>
+                        <CheckCircle2 className="h-4 w-4" />
+                        اعتماد كناشر
+                      </Action>
+                      <Action onClick={schedule} disabled={busy}>
+                        <Clock3 className="h-4 w-4" />
+                        جدولة
+                      </Action>
+                      <Action onClick={() => void runWorkflow('publish')} disabled={busy}>
+                        <Send className="h-4 w-4" />
+                        نشر الآن
+                      </Action>
+                      <Action onClick={() => void runWorkflow('reject')} disabled={busy}>
+                        إعادة للمحرر
+                      </Action>
+                      <Action onClick={() => void runWorkflow('archive')} disabled={busy}>
+                        <Archive className="h-4 w-4" />
+                        أرشفة
+                      </Action>
+                    </div>
+                    <p className="text-xs leading-6 text-slate-500">
+                      لا يستطيع منشئ النسخة اعتمادها بنفسه. يلزم حساب ناشر آخر، ولا يحدث نشر تلقائي
+                      عند الحفظ أو المراجعة.
+                    </p>
+                    {selected.revisions.length > 0 && (
+                      <div>
+                        <p className="mb-2 text-sm font-bold">آخر النسخ</p>
+                        {selected.revisions.slice(0, 5).map((revision) => (
+                          <div key={revision.id} className="border-t py-2 text-xs">
+                            الإصدار {revision.versionNumber} · {revision.reason} ·{' '}
+                            {formatDate(revision.capturedAt)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </Panel>
+              </div>
+            </>
+          )}
+        </section>
+      </section>
+    </main>
+  );
+}
+
+function Panel({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 className="mb-5 flex items-center gap-2 text-lg font-black text-emerald-950">
+        {icon}
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+function Metric({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+      <p className="text-2xl font-black">{value}</p>
+      <p className="text-xs text-emerald-100">{label}</p>
     </div>
   );
 }
-
-function Field({ label, value, onChange, optional }: { label: string; value: string; onChange: (value: string) => void; optional?: boolean }) {
+function Alert({ tone, children }: { tone: 'success' | 'error'; children: React.ReactNode }) {
+  return (
+    <div
+      role="alert"
+      className={`rounded-xl border p-4 text-sm font-bold ${tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'}`}
+    >
+      {children}
+    </div>
+  );
+}
+function Field({
+  label,
+  value,
+  onChange,
+  required,
+  dir,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  dir?: 'ltr';
+}) {
   return (
     <label className="block">
-      <span className="text-sm font-medium text-gray-700">{label}{optional ? ' (optional)' : ''}</span>
-      <input value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black" />
+      <span className="mb-1 block text-sm font-bold">{label}</span>
+      <input
+        dir={dir}
+        required={required}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="input"
+      />
     </label>
   );
 }
-
-function TextArea({ label, value, onChange, rows }: { label: string; value: string; onChange: (value: string) => void; rows: number }) {
+function TextArea({
+  label,
+  value,
+  onChange,
+  rows,
+  required,
+  dir,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  rows: number;
+  required?: boolean;
+  dir?: 'ltr';
+}) {
   return (
     <label className="block">
-      <span className="text-sm font-medium text-gray-700">{label}</span>
-      <textarea value={value} rows={rows} onChange={(event) => onChange(event.target.value)} className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black" />
+      <span className="mb-1 block text-sm font-bold">{label}</span>
+      <textarea
+        dir={dir}
+        required={required}
+        value={value}
+        rows={rows}
+        onChange={(e) => onChange(e.target.value)}
+        className="input resize-y leading-7"
+      />
     </label>
   );
 }
-
-function StatusBadge({ status }: { status: string }) {
-  const color = status === 'PUBLISHED' ? 'bg-green-100 text-green-700' : status === 'ARCHIVED' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700';
-  return <span className={`px-2 py-1 rounded-full text-xs font-semibold ${color}`}>{formatLabel(status)}</span>;
+function Select({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-sm font-bold">{label}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="input">
+        {options.map((x) => (
+          <option key={x.value} value={x.value}>
+            {x.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+function Check({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      {label}
+    </label>
+  );
+}
+function PrimaryButton({ children, disabled }: { children: React.ReactNode; disabled?: boolean }) {
+  return (
+    <button
+      type="submit"
+      disabled={disabled}
+      className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 font-bold text-white hover:bg-emerald-800 disabled:opacity-40"
+    >
+      {children}
+    </button>
+  );
+}
+function Action({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-50 disabled:opacity-40"
+    >
+      {children}
+    </button>
+  );
+}
+function LocaleButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl px-5 py-2 text-sm font-bold ${active ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600'}`}
+    >
+      {children}
+    </button>
+  );
+}
+function Status({ value }: { value: string }) {
+  const color =
+    value === 'PUBLISHED'
+      ? 'bg-emerald-100 text-emerald-800'
+      : value === 'IN_REVIEW' || value === 'READY_TO_PUBLISH'
+        ? 'bg-amber-100 text-amber-800'
+        : value === 'ARCHIVED'
+          ? 'bg-slate-200 text-slate-700'
+          : 'bg-blue-100 text-blue-800';
+  return (
+    <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-black ${color}`}>
+      {labelOf(value)}
+    </span>
+  );
+}
+function Loading() {
+  return (
+    <div className="grid min-h-40 place-items-center">
+      <Loader2 className="h-7 w-7 animate-spin text-emerald-700" />
+    </div>
+  );
+}
+function Empty({ text }: { text: string }) {
+  return (
+    <div className="rounded-xl border border-dashed p-10 text-center text-sm text-slate-500">
+      {text}
+    </div>
+  );
+}
+function TaxonomyPanel({
+  taxonomy,
+  setTaxonomy,
+  createTaxonomy,
+  busy,
+}: {
+  taxonomy: TaxonomyState;
+  setTaxonomy: (value: TaxonomyState) => void;
+  createTaxonomy: (kind: 'category' | 'tag') => Promise<void>;
+  busy: boolean;
+}) {
+  return (
+    <Panel title="التصنيفات والوسوم" icon={<FolderTree className="h-5 w-5" />}>
+      <div className="space-y-5">
+        <div className="space-y-2">
+          <p className="flex items-center gap-2 text-sm font-bold">
+            <FolderTree className="h-4 w-4" />
+            تصنيف جديد
+          </p>
+          <Field
+            label="الرابط"
+            dir="ltr"
+            value={taxonomy.categorySlug}
+            onChange={(v) => setTaxonomy({ ...taxonomy, categorySlug: v })}
+          />
+          <Field
+            label="الاسم العربي"
+            value={taxonomy.categoryAr}
+            onChange={(v) => setTaxonomy({ ...taxonomy, categoryAr: v })}
+          />
+          <Field
+            label="الاسم الإنجليزي"
+            dir="ltr"
+            value={taxonomy.categoryEn}
+            onChange={(v) => setTaxonomy({ ...taxonomy, categoryEn: v })}
+          />
+          <Action disabled={busy} onClick={() => void createTaxonomy('category')}>
+            إضافة التصنيف
+          </Action>
+        </div>
+        <div className="space-y-2 border-t pt-4">
+          <p className="flex items-center gap-2 text-sm font-bold">
+            <Tags className="h-4 w-4" />
+            وسم جديد
+          </p>
+          <Field
+            label="القيمة المطبّعة"
+            dir="ltr"
+            value={taxonomy.tagValue}
+            onChange={(v) => setTaxonomy({ ...taxonomy, tagValue: v })}
+          />
+          <Field
+            label="العربي"
+            value={taxonomy.tagAr}
+            onChange={(v) => setTaxonomy({ ...taxonomy, tagAr: v })}
+          />
+          <Field
+            label="English"
+            dir="ltr"
+            value={taxonomy.tagEn}
+            onChange={(v) => setTaxonomy({ ...taxonomy, tagEn: v })}
+          />
+          <Action disabled={busy} onClick={() => void createTaxonomy('tag')}>
+            إضافة الوسم
+          </Action>
+        </div>
+      </div>
+    </Panel>
+  );
 }
 
-function formatLabel(value: string): string {
-  return value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+function toEditor(value: Localized | undefined, fallbackSlug: string): EditorState {
+  if (!value) return { ...blankEditor(), localizedSlug: fallbackSlug };
+  const seo = value.seoMetadata;
+  return {
+    localizedSlug: value.localizedSlug,
+    title: value.title,
+    summary: value.summary ?? '',
+    body: value.body,
+    readingTimeMinutes: String(value.readingTimeMinutes ?? 5),
+    featuredAssetId: value.featuredAssetId ?? '',
+    attachmentAssetIds: (value.attachmentAssetIds ?? []).join(', '),
+    tagIds: value.tagIds ?? [],
+    seoTitle: seo?.title ?? '',
+    seoDescription: seo?.description ?? '',
+    canonicalUrl: seo?.canonicalUrl ?? '',
+    keywords: seo?.keywords?.join(', ') ?? '',
+    openGraphAssetId: seo?.openGraphAssetId ?? '',
+    noIndex: seo?.noIndex ?? false,
+    noFollow: seo?.noFollow ?? false,
+    version: value.version,
+  };
 }
-
+function splitValues(value: string): string[] {
+  return [
+    ...new Set(
+      value
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+function messageOf(reason: unknown): string {
+  return reason instanceof Error ? reason.message : 'تعذر إكمال العملية.';
+}
+function labelOf(value: string): string {
+  return value.replaceAll('_', ' ');
+}
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('en', { year: 'numeric', month: 'short', day: '2-digit' }).format(new Date(value));
-}
-
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  return new Intl.DateTimeFormat('ar', { dateStyle: 'medium', timeStyle: 'short' }).format(
+    new Date(value),
+  );
 }
