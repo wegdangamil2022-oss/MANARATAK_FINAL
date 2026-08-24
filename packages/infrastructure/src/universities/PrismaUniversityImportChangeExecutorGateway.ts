@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient } from '@prisma/client';
+import { UniversityCanonicalRelationshipValidator } from './UniversityCanonicalRelationshipValidator';
 import type {
   UniversityImportChangeExecutorGateway,
   UniversityImportChangePlan,
@@ -124,7 +125,11 @@ export class PrismaUniversityImportChangeExecutorGateway implements UniversityIm
           campusType: this.string(after.campusType),
           address: this.string(after.address),
           sourceReferenceId,
+          countryReferenceId: this.string(after.countryReferenceId),
+          regionReferenceId: this.string(after.regionReferenceId),
+          cityReferenceId: this.string(after.cityReferenceId),
         };
+        await new UniversityCanonicalRelationshipValidator(transaction).validateCampus(data);
         const record = before
           ? await transaction.universityCampus.update({ where: { id: before.id }, data })
           : await transaction.universityCampus.create({
@@ -160,6 +165,13 @@ export class PrismaUniversityImportChangeExecutorGateway implements UniversityIm
         const status = this.string(after.status) ?? (degreeLevelId ? 'DRAFT' : 'REVIEW_REQUIRED');
         if (status !== 'REVIEW_REQUIRED' && !degreeLevelId)
           throw new Error('CANONICAL_DEGREE_LEVEL_REQUIRED');
+        if (degreeLevelId) {
+          await new UniversityCanonicalRelationshipValidator(transaction).validateProgram(
+            degreeLevelId,
+            this.string(after.majorId),
+            this.string(after.majorMappingState),
+          );
+        }
         const before = await transaction.universityAcademicProgram.findFirst({
           where: { universityId: university.id, sourceReferenceId },
         });
@@ -180,7 +192,10 @@ export class PrismaUniversityImportChangeExecutorGateway implements UniversityIm
         const record = before
           ? await transaction.universityAcademicProgram.update({ where: { id: before.id }, data })
           : await transaction.universityAcademicProgram.create({
-              data: { universityId: university.id, ...data } as Prisma.UniversityAcademicProgramUncheckedCreateInput,
+              data: {
+                universityId: university.id,
+                ...data,
+              } as Prisma.UniversityAcademicProgramUncheckedCreateInput,
             });
         return this.applied(university.id, record.id, before, record);
       }
@@ -192,6 +207,11 @@ export class PrismaUniversityImportChangeExecutorGateway implements UniversityIm
         const internationalTestId = this.requiredString(
           after.internationalTestId,
           'CANONICAL_INTERNATIONAL_TEST_REQUIRED',
+        );
+        await new UniversityCanonicalRelationshipValidator(transaction).validateTest(
+          internationalTestId,
+          this.string(after.testVariantId),
+          this.string(after.testVersionId),
         );
         const before = await transaction.universityProgramAdmissionRequirement.findFirst({
           where: {
@@ -239,7 +259,10 @@ export class PrismaUniversityImportChangeExecutorGateway implements UniversityIm
         const record = before
           ? await transaction.universityTuitionProfile.update({ where: { id: before.id }, data })
           : await transaction.universityTuitionProfile.create({
-              data: { universityId: university.id, ...data } as Prisma.UniversityTuitionProfileUncheckedCreateInput,
+              data: {
+                universityId: university.id,
+                ...data,
+              } as Prisma.UniversityTuitionProfileUncheckedCreateInput,
             });
         return this.applied(university.id, record.id, before, record);
       }
@@ -277,7 +300,10 @@ export class PrismaUniversityImportChangeExecutorGateway implements UniversityIm
               data,
             })
           : await transaction.universityAccommodationProfile.create({
-              data: { universityId: university.id, ...data } as Prisma.UniversityAccommodationProfileUncheckedCreateInput,
+              data: {
+                universityId: university.id,
+                ...data,
+              } as Prisma.UniversityAccommodationProfileUncheckedCreateInput,
             });
         return this.applied(university.id, record.id, before, record);
       }

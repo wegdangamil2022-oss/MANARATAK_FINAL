@@ -18,10 +18,17 @@ describe('WP12-9 ScholarshipAdminRouter normalized catalog detail', () => {
     };
     const app = express();
     app.use(express.json());
-    app.use('/admin/scholarships', ScholarshipAdminRouter.create({
-      adminScholarshipUseCases: adminScholarshipUseCases as any,
-      manageAuditRecordsUseCase: manageAuditRecordsUseCase as any,
-    }));
+    app.use((req, _res, next) => {
+      req.authUserId = 'admin-X';
+      next();
+    });
+    app.use(
+      '/admin/scholarships',
+      ScholarshipAdminRouter.create({
+        adminScholarshipUseCases: adminScholarshipUseCases as any,
+        manageAuditRecordsUseCase: manageAuditRecordsUseCase as any,
+      }),
+    );
     return { app, adminScholarshipUseCases, manageAuditRecordsUseCase };
   }
 
@@ -39,13 +46,30 @@ describe('WP12-9 ScholarshipAdminRouter normalized catalog detail', () => {
 
   it('passes normalized nested structures directly instead of repacking optionalFields', async () => {
     const env = setup();
-    const response = await request(env.app).patch('/admin/scholarships/sch-1').send({
-      displayName: 'Updated',
-      fundingTypeCode: 'FULLY_FUNDED',
-      benefits: [{ benefitKey: 'b1', benefitTypeCode: 'TUITION' }],
-      degreeTargets: [{ targetKey: 'd1', sourceLabel: 'Bachelor', degreeLevelId: 'injected-degree', resolutionStatus: 'RESOLVED' }],
-      requiredDocumentItems: [{ documentKey: 'doc1', displayName: 'Transcript', internationalTestId: 'injected-test', resolutionStatus: 'RESOLVED', isRequired: true }],
-    });
+    const response = await request(env.app)
+      .patch('/admin/scholarships/sch-1')
+      .send({
+        displayName: 'Updated',
+        fundingTypeCode: 'FULLY_FUNDED',
+        benefits: [{ benefitKey: 'b1', benefitTypeCode: 'TUITION' }],
+        degreeTargets: [
+          {
+            targetKey: 'd1',
+            sourceLabel: 'Bachelor',
+            degreeLevelId: 'injected-degree',
+            resolutionStatus: 'RESOLVED',
+          },
+        ],
+        requiredDocumentItems: [
+          {
+            documentKey: 'doc1',
+            displayName: 'Transcript',
+            internationalTestId: 'injected-test',
+            resolutionStatus: 'RESOLVED',
+            isRequired: true,
+          },
+        ],
+      });
     expect(response.status).toBe(200);
     expect(env.adminScholarshipUseCases.updateScholarship).toHaveBeenCalledWith(
       'sch-1',
@@ -53,7 +77,9 @@ describe('WP12-9 ScholarshipAdminRouter normalized catalog detail', () => {
         fundingTypeCode: 'FULLY_FUNDED',
         benefits: [{ benefitKey: 'b1', benefitTypeCode: 'TUITION' }],
         degreeTargets: [{ targetKey: 'd1', sourceLabel: 'Bachelor' }],
-        requiredDocumentItems: [{ documentKey: 'doc1', displayName: 'Transcript', isRequired: true }],
+        requiredDocumentItems: [
+          { documentKey: 'doc1', displayName: 'Transcript', isRequired: true },
+        ],
       }),
       expect.any(Object),
     );

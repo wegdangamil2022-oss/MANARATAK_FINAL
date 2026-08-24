@@ -14,7 +14,12 @@ class FakeGateway implements IScholarshipCanonicalLookupGateway {
     target: ScholarshipCanonicalLookupTarget,
     request: ScholarshipCanonicalResolutionRequest,
   ): Promise<ScholarshipCanonicalCandidate[]> {
-    const key = [target, request.canonicalId ?? '', request.standardCode ?? '', request.rawValue ?? ''].join('|');
+    const key = [
+      target,
+      request.canonicalId ?? '',
+      request.standardCode ?? '',
+      request.rawValue ?? '',
+    ].join('|');
     return this.results[key] ?? [];
   }
 }
@@ -36,23 +41,34 @@ const candidate = (
 describe('ScholarshipCanonicalResolutionService', () => {
   it('resolves University only from an exact existing INS public identity', async () => {
     const gateway = new FakeGateway({
-      'UNIVERSITY|INS-YEM-0001||': [candidate('UNIVERSITY', 'u-1', { publicId: 'INS-YEM-0001', method: 'EXACT_PUBLIC_ID' })],
+      'UNIVERSITY|INS-YEM-0001||': [
+        candidate('UNIVERSITY', 'u-1', { publicId: 'INS-YEM-0001', method: 'EXACT_PUBLIC_ID' }),
+      ],
     });
-    const result = await new ScholarshipCanonicalResolutionService(gateway).resolve({ target: 'UNIVERSITY', canonicalId: 'INS-YEM-0001' });
+    const result = await new ScholarshipCanonicalResolutionService(gateway).resolve({
+      target: 'UNIVERSITY',
+      canonicalId: 'INS-YEM-0001',
+    });
     expect(result.state).toBe('RESOLVED');
     expect(result.canonicalPublicId).toBe('INS-YEM-0001');
     expect(gateway.createdEntities).toBe(0);
   });
 
   it('keeps a University name-only source value reviewable', async () => {
-    const result = await new ScholarshipCanonicalResolutionService(new FakeGateway()).resolve({ target: 'UNIVERSITY', rawValue: 'Sample University' });
+    const result = await new ScholarshipCanonicalResolutionService(new FakeGateway()).resolve({
+      target: 'UNIVERSITY',
+      rawValue: 'Sample University',
+    });
     expect(result.state).toBe('REVIEW_REQUIRED');
     expect(result.rawValue).toBe('Sample University');
   });
 
   it('returns NOT_APPLICABLE only when provider is explicitly non-University', async () => {
     const result = await new ScholarshipCanonicalResolutionService(new FakeGateway()).resolve({
-      target: 'PROVIDER_UNIVERSITY', rawValue: 'Example Foundation', providerKind: 'NON_UNIVERSITY', optional: true,
+      target: 'PROVIDER_UNIVERSITY',
+      rawValue: 'Example Foundation',
+      providerKind: 'NON_UNIVERSITY',
+      optional: true,
     });
     expect(result.state).toBe('NOT_APPLICABLE');
     expect(result.rawValue).toBe('Example Foundation');
@@ -60,7 +76,9 @@ describe('ScholarshipCanonicalResolutionService', () => {
 
   it('keeps an unknown provider name in REVIEW_REQUIRED rather than assuming it is not a University', async () => {
     const result = await new ScholarshipCanonicalResolutionService(new FakeGateway()).resolve({
-      target: 'PROVIDER_UNIVERSITY', rawValue: 'Example University Foundation', providerKind: 'UNKNOWN',
+      target: 'PROVIDER_UNIVERSITY',
+      rawValue: 'Example University Foundation',
+      providerKind: 'UNKNOWN',
     });
     expect(result.state).toBe('REVIEW_REQUIRED');
   });
@@ -72,46 +90,82 @@ describe('ScholarshipCanonicalResolutionService', () => {
     ['DEGREE_LEVEL', 'BACHELOR', 'degree-bachelor'],
   ] as const)('resolves %s from an exact standard code', async (target, code, id) => {
     const gateway = new FakeGateway({
-      [`${target}||${code}|`]: [candidate(target, id, { standardCode: code, method: 'EXACT_STANDARD_CODE' })],
+      [`${target}||${code}|`]: [
+        candidate(target, id, { standardCode: code, method: 'EXACT_STANDARD_CODE' }),
+      ],
     });
-    const result = await new ScholarshipCanonicalResolutionService(gateway).resolve({ target, standardCode: code });
+    const result = await new ScholarshipCanonicalResolutionService(gateway).resolve({
+      target,
+      standardCode: code,
+    });
     expect(result.state).toBe('RESOLVED');
     expect(result.canonicalReferenceId).toBe(id);
   });
 
   it('resolves an existing Major public identity without regenerating it', async () => {
     const gateway = new FakeGateway({
-      'MAJOR|MJR-0843||Planetary Health': [candidate('MAJOR', 'major-843', { publicId: 'MJR-0843', method: 'EXACT_PUBLIC_ID' })],
+      'MAJOR|MJR-0843||Planetary Health': [
+        candidate('MAJOR', 'major-843', { publicId: 'MJR-0843', method: 'EXACT_PUBLIC_ID' }),
+      ],
     });
-    const result = await new ScholarshipCanonicalResolutionService(gateway).resolve({ target: 'MAJOR', canonicalId: 'MJR-0843', rawValue: 'Planetary Health' });
+    const result = await new ScholarshipCanonicalResolutionService(gateway).resolve({
+      target: 'MAJOR',
+      canonicalId: 'MJR-0843',
+      rawValue: 'Planetary Health',
+    });
     expect(result.state).toBe('RESOLVED');
     expect(result.rawValue).toBe('Planetary Health');
     expect(result.canonicalPublicId).toBe('MJR-0843');
   });
 
-  it('rejects a non-Major protected identity rather than attaching it as a Major', async () => {
-    const result = await new ScholarshipCanonicalResolutionService(new FakeGateway()).resolve({ target: 'MAJOR', canonicalId: 'FEL-0001', rawValue: 'Fellowship' });
-    expect(result.state).toBe('REVIEW_REQUIRED');
+  it('resolves an existing Fellowship public identity as a canonical Major target', async () => {
+    const gateway = new FakeGateway({
+      'MAJOR|FEL-0001||Fellowship': [
+        candidate('MAJOR', 'major-fellowship-1', {
+          publicId: 'FEL-0001',
+          method: 'EXACT_PUBLIC_ID',
+        }),
+      ],
+    });
+    const result = await new ScholarshipCanonicalResolutionService(gateway).resolve({
+      target: 'MAJOR',
+      canonicalId: 'FEL-0001',
+      rawValue: 'Fellowship',
+    });
+    expect(result.state).toBe('RESOLVED');
+    expect(result.canonicalPublicId).toBe('FEL-0001');
   });
 
   it('preserves unresolved Major text', async () => {
-    const result = await new ScholarshipCanonicalResolutionService(new FakeGateway()).resolve({ target: 'MAJOR', rawValue: 'Unknown New Major' });
+    const result = await new ScholarshipCanonicalResolutionService(new FakeGateway()).resolve({
+      target: 'MAJOR',
+      rawValue: 'Unknown New Major',
+    });
     expect(result.state).toBe('UNRESOLVED');
     expect(result.rawValue).toBe('Unknown New Major');
   });
 
   it('returns AMBIGUOUS when multiple exact International Test candidates remain', async () => {
     const gateway = new FakeGateway({
-      'INTERNATIONAL_TEST|||Academic Test': [candidate('INTERNATIONAL_TEST', 'test-a'), candidate('INTERNATIONAL_TEST', 'test-b')],
+      'INTERNATIONAL_TEST|||Academic Test': [
+        candidate('INTERNATIONAL_TEST', 'test-a'),
+        candidate('INTERNATIONAL_TEST', 'test-b'),
+      ],
     });
-    const result = await new ScholarshipCanonicalResolutionService(gateway).resolve({ target: 'INTERNATIONAL_TEST', rawValue: 'Academic Test' });
+    const result = await new ScholarshipCanonicalResolutionService(gateway).resolve({
+      target: 'INTERNATIONAL_TEST',
+      rawValue: 'Academic Test',
+    });
     expect(result.state).toBe('AMBIGUOUS');
     expect(result.candidates).toHaveLength(2);
     expect(result.rawValue).toBe('Academic Test');
   });
 
   it('returns NOT_APPLICABLE for an omitted optional value', async () => {
-    const result = await new ScholarshipCanonicalResolutionService(new FakeGateway()).resolve({ target: 'LANGUAGE', optional: true });
+    const result = await new ScholarshipCanonicalResolutionService(new FakeGateway()).resolve({
+      target: 'LANGUAGE',
+      optional: true,
+    });
     expect(result.state).toBe('NOT_APPLICABLE');
   });
 });

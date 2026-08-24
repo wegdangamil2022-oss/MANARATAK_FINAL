@@ -15,14 +15,17 @@ export class UniversityAdminRouter {
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
     };
-    const mutationContext = (req: Request) => ({
-      actorId: (req as any).user?.id || (req as any).user?.identityId || 'SYSTEM',
-      actorType: (req as any).user?.type || 'IDENTITY',
-      correlationId:
-        (req.headers['x-correlation-id'] as string | undefined) ||
-        (req.headers['x-request-id'] as string | undefined),
-      source: 'admin-university-api',
-    });
+    const mutationContext = (req: Request) => {
+      if (!req.authUserId) throw new Error('AUTHENTICATED_ADMIN_ACTOR_REQUIRED');
+      return {
+        actorId: req.authUserId,
+        actorType: 'IDENTITY',
+        correlationId:
+          (req.headers['x-correlation-id'] as string | undefined) ||
+          (req.headers['x-request-id'] as string | undefined),
+        source: 'admin-university-api',
+      };
+    };
 
     const listQuerySchema = z.object({
       status: z.nativeEnum(UniversityStatus).optional(),

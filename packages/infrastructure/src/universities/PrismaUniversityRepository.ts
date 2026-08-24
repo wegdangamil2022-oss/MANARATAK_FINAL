@@ -16,6 +16,7 @@ import {
   UniversityLocalizedTextTargetType,
   UpdateUniversityDto,
 } from '@manaratak/domain';
+import { UniversityCanonicalRelationshipValidator } from './UniversityCanonicalRelationshipValidator';
 
 const universityDetails = {
   campuses: true,
@@ -69,8 +70,8 @@ function asMetadata(value: Prisma.JsonValue | null): Record<string, unknown> | u
 export class PrismaUniversityRepository implements ITransactionalUniversityRepository {
   constructor(
     private readonly prisma: PrismaClient,
-    private readonly legacyCountryTextFiltersEnabled =
-      process.env.MANARATAK_UNIVERSITY_LEGACY_COUNTRY_FILTERS === 'true',
+    private readonly legacyCountryTextFiltersEnabled = process.env
+      .MANARATAK_UNIVERSITY_LEGACY_COUNTRY_FILTERS === 'true',
   ) {}
 
   withTransaction(context: AtomicPersistenceContext): IUniversityRepository {
@@ -236,7 +237,8 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
     const where: Prisma.UniversityWhereInput = {};
     if (filters.status) where.status = filters.status;
     if (filters.countryReferenceId) where.countryReferenceId = filters.countryReferenceId;
-    else if (filters.country && this.legacyCountryTextFiltersEnabled) where.country = filters.country;
+    else if (filters.country && this.legacyCountryTextFiltersEnabled)
+      where.country = filters.country;
     if (filters.institutionType) where.institutionType = filters.institutionType;
     if (filters.city) where.city = filters.city;
     if (filters.search) {
@@ -405,6 +407,7 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
     details: UniversityNormalizedDetailsUpdate,
   ): Promise<UniversityDto> {
     await this.prisma.university.findUniqueOrThrow({ where: { id }, select: { id: true } });
+    await new UniversityCanonicalRelationshipValidator(this.prisma).validate(details);
     if (details.campuses !== undefined && details.academicPrograms === undefined) {
       throw new Error('UNIVERSITY_PROGRAMS_REQUIRED_WHEN_REPLACING_CAMPUSES');
     }
@@ -546,18 +549,21 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
 
     if (details.tuitionProfiles?.length)
       await this.prisma.universityTuitionProfile.createMany({
-        data: details.tuitionProfiles.map((item) => ({
-          universityId: id,
-          profileType: item.profileType,
-          organizationUnitName: item.organizationUnitName,
-          amount: item.amount,
-          currencyCode: item.currencyCode,
-          currencyReferenceId: item.currencyReferenceId,
-          officialSourceUrl: item.officialSourceUrl,
-          effectiveFrom: item.effectiveFrom,
-          effectiveTo: item.effectiveTo,
-          metadata: item.metadata as Prisma.InputJsonObject | undefined,
-        } as Prisma.UniversityTuitionProfileUncheckedCreateInput)),
+        data: details.tuitionProfiles.map(
+          (item) =>
+            ({
+              universityId: id,
+              profileType: item.profileType,
+              organizationUnitName: item.organizationUnitName,
+              amount: item.amount,
+              currencyCode: item.currencyCode,
+              currencyReferenceId: item.currencyReferenceId,
+              officialSourceUrl: item.officialSourceUrl,
+              effectiveFrom: item.effectiveFrom,
+              effectiveTo: item.effectiveTo,
+              metadata: item.metadata as Prisma.InputJsonObject | undefined,
+            }) as Prisma.UniversityTuitionProfileUncheckedCreateInput,
+        ),
       });
     if (details.accommodationProfiles?.length)
       await this.prisma.universityAccommodationProfile.createMany({

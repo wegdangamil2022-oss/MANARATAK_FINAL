@@ -20,23 +20,38 @@ describe('ScholarshipAdminRouter', () => {
   const createApp = (useCases: any) => {
     const app = express();
     app.use(express.json());
-    app.use('/admin/scholarships', ScholarshipAdminRouter.create({ adminScholarshipUseCases: useCases as any }));
+    app.use((req, _res, next) => {
+      req.authUserId = 'admin-X';
+      next();
+    });
+    app.use(
+      '/admin/scholarships',
+      ScholarshipAdminRouter.create({ adminScholarshipUseCases: useCases as any }),
+    );
     return app;
   };
 
   it('GET /admin/scholarships calls listScholarships with parsed filters', async () => {
     const useCases = createMockUseCases();
-    useCases.listScholarships.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
+    useCases.listScholarships.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+      totalPages: 0,
+    });
     const app = createApp(useCases);
 
-    const res = await request(app).get('/admin/scholarships?status=READY_TO_REVIEW&country=Saudi%20Arabia&page=2');
-    
+    const res = await request(app).get(
+      '/admin/scholarships?status=READY_TO_REVIEW&country=Saudi%20Arabia&page=2',
+    );
+
     expect(res.status).toBe(200);
     expect(useCases.listScholarships).toHaveBeenCalledWith({
       status: ScholarshipStatus.READY_TO_REVIEW,
       country: 'Saudi Arabia',
       page: 2,
-      pageSize: 20
+      pageSize: 20,
     });
   });
 
@@ -48,11 +63,15 @@ describe('ScholarshipAdminRouter', () => {
     const res = await request(app)
       .patch('/admin/scholarships/schol-1')
       .send({ displayName: 'New Name' });
-    
+
     expect(res.status).toBe(200);
-    expect(useCases.updateScholarship).toHaveBeenCalledWith('schol-1', expect.objectContaining({
-      displayName: 'New Name'
-    }), expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-scholarship-api' }));
+    expect(useCases.updateScholarship).toHaveBeenCalledWith(
+      'schol-1',
+      expect.objectContaining({
+        displayName: 'New Name',
+      }),
+      expect.objectContaining({ actorId: 'admin-X', source: 'admin-scholarship-api' }),
+    );
   });
 
   it('PATCH /admin/scholarships/:id strips readonly fields', async () => {
@@ -63,11 +82,15 @@ describe('ScholarshipAdminRouter', () => {
     await request(app)
       .patch('/admin/scholarships/schol-1')
       .send({ id: 'injected-id', publicId: 'injected-pub', displayName: 'New Name' });
-    
-    expect(useCases.updateScholarship).toHaveBeenCalledWith('schol-1', expect.not.objectContaining({
-      id: 'injected-id',
-      publicId: 'injected-pub'
-    }), expect.any(Object));
+
+    expect(useCases.updateScholarship).toHaveBeenCalledWith(
+      'schol-1',
+      expect.not.objectContaining({
+        id: 'injected-id',
+        publicId: 'injected-pub',
+      }),
+      expect.any(Object),
+    );
   });
 
   it('POST /admin/scholarships/:id/publish calls publish', async () => {
@@ -76,9 +99,12 @@ describe('ScholarshipAdminRouter', () => {
     const app = createApp(useCases);
 
     const res = await request(app).post('/admin/scholarships/schol-1/publish');
-    
+
     expect(res.status).toBe(200);
-    expect(useCases.publish).toHaveBeenCalledWith('schol-1', expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-scholarship-api' }));
+    expect(useCases.publish).toHaveBeenCalledWith(
+      'schol-1',
+      expect.objectContaining({ actorId: 'admin-X', source: 'admin-scholarship-api' }),
+    );
   });
 
   it('returns 400 on use case error', async () => {
@@ -87,7 +113,7 @@ describe('ScholarshipAdminRouter', () => {
     const app = createApp(useCases);
 
     const res = await request(app).post('/admin/scholarships/schol-1/publish');
-    
+
     expect(res.status).toBe(400);
     expect(res.body).toEqual({ error: 'Only READY_TO_PUBLISH' });
   });

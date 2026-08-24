@@ -9,7 +9,7 @@ import type {
 } from './ScholarshipCanonicalResolutionContracts';
 
 const UNIVERSITY_PUBLIC_ID = /^INS-[A-Z0-9]{2,8}-\d+$/i;
-const MAJOR_PUBLIC_ID = /^(MJR|MAS|DOC)-\d+$/i;
+const MAJOR_PUBLIC_ID = /^(MJR|MAS|DOC|FEL)-\d+$/i;
 
 export class ScholarshipCanonicalResolutionService {
   constructor(private readonly gateway: IScholarshipCanonicalLookupGateway) {}

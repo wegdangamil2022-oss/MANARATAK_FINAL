@@ -14,16 +14,18 @@ describe('Major translation workspace route', () => {
     const useCases = { updateMajor } as any;
     const app = express();
     app.use(express.json());
+    app.use((req, _res, next) => {
+      req.authUserId = 'admin-X';
+      next();
+    });
     app.use('/admin/majors', MajorAdminRouter.create({ adminMajorUseCases: useCases }));
 
-    const response = await request(app)
-      .patch('/admin/majors/major-1')
-      .send({
-        localizedNameAr: 'علوم الحاسوب',
-        localizedNameEn: 'Computer Science',
-        id: 'different-id',
-        publicId: 'MJR-9999',
-      });
+    const response = await request(app).patch('/admin/majors/major-1').send({
+      localizedNameAr: 'علوم الحاسوب',
+      localizedNameEn: 'Computer Science',
+      id: 'different-id',
+      publicId: 'MJR-9999',
+    });
 
     expect(response.status).toBe(200);
     expect(updateMajor).toHaveBeenCalledTimes(1);

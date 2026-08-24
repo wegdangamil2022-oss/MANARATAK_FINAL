@@ -28,23 +28,38 @@ describe('MajorAdminRouter', () => {
   const createApp = (useCases: ReturnType<typeof createMockUseCases>) => {
     const app = express();
     app.use(express.json());
-    app.use('/admin/majors', MajorAdminRouter.create({ adminMajorUseCases: useCases as unknown as AdminMajorUseCases }));
+    app.use((req, _res, next) => {
+      req.authUserId = 'admin-X';
+      next();
+    });
+    app.use(
+      '/admin/majors',
+      MajorAdminRouter.create({ adminMajorUseCases: useCases as unknown as AdminMajorUseCases }),
+    );
     return app;
   };
 
   it('GET /admin/majors calls listMajors with parsed filters', async () => {
     const useCases = createMockUseCases();
-    useCases.listMajors.mockResolvedValue({ data: [], total: 0, page: 2, pageSize: 20, totalPages: 0 });
+    useCases.listMajors.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 2,
+      pageSize: 20,
+      totalPages: 0,
+    });
     const app = createApp(useCases);
 
-    const res = await request(app).get('/admin/majors?status=READY_TO_REVIEW&degreeLevel=Bachelor&page=2');
+    const res = await request(app).get(
+      '/admin/majors?status=READY_TO_REVIEW&degreeLevel=Bachelor&page=2',
+    );
 
     expect(res.status).toBe(200);
     expect(useCases.listMajors).toHaveBeenCalledWith({
       status: MajorStatus.READY_TO_REVIEW,
       degreeLevel: 'Bachelor',
       page: 2,
-      pageSize: 50
+      pageSize: 50,
     });
   });
 
@@ -53,24 +68,30 @@ describe('MajorAdminRouter', () => {
     useCases.updateMajor.mockResolvedValue({ id: 'major-1' });
     const app = createApp(useCases);
 
-    const res = await request(app)
-      .patch('/admin/majors/major-1')
-      .send({
-        id: 'injected',
-        publicId: 'injected-public',
-        displayName: 'Updated Computer Science',
-        degreeLevel: 'Bachelor'
-      });
+    const res = await request(app).patch('/admin/majors/major-1').send({
+      id: 'injected',
+      publicId: 'injected-public',
+      displayName: 'Updated Computer Science',
+      degreeLevel: 'Bachelor',
+    });
 
     expect(res.status).toBe(200);
-    expect(useCases.updateMajor).toHaveBeenCalledWith('major-1', expect.objectContaining({
-      displayName: 'Updated Computer Science',
-      degreeLevel: 'Bachelor'
-    }), expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-major-api' }));
-    expect(useCases.updateMajor).toHaveBeenCalledWith('major-1', expect.not.objectContaining({
-      id: 'injected',
-      publicId: 'injected-public'
-    }), expect.any(Object));
+    expect(useCases.updateMajor).toHaveBeenCalledWith(
+      'major-1',
+      expect.objectContaining({
+        displayName: 'Updated Computer Science',
+        degreeLevel: 'Bachelor',
+      }),
+      expect.objectContaining({ actorId: 'admin-X', source: 'admin-major-api' }),
+    );
+    expect(useCases.updateMajor).toHaveBeenCalledWith(
+      'major-1',
+      expect.not.objectContaining({
+        id: 'injected',
+        publicId: 'injected-public',
+      }),
+      expect.any(Object),
+    );
   });
 
   it('POST /admin/majors/:id/publish calls publish', async () => {
@@ -81,7 +102,10 @@ describe('MajorAdminRouter', () => {
     const res = await request(app).post('/admin/majors/major-1/publish');
 
     expect(res.status).toBe(200);
-    expect(useCases.publish).toHaveBeenCalledWith('major-1', expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-major-api' }));
+    expect(useCases.publish).toHaveBeenCalledWith(
+      'major-1',
+      expect.objectContaining({ actorId: 'admin-X', source: 'admin-major-api' }),
+    );
   });
 
   it('GET /admin/majors/:id/versions returns import versions', async () => {
@@ -98,7 +122,9 @@ describe('MajorAdminRouter', () => {
 
   it('GET /admin/majors/:id/profiles returns level profiles', async () => {
     const useCases = createMockUseCases();
-    useCases.listLevelProfiles.mockResolvedValue([{ id: 'profile-1', level: 'BACHELOR', code: 'MJR-0001' }]);
+    useCases.listLevelProfiles.mockResolvedValue([
+      { id: 'profile-1', level: 'BACHELOR', code: 'MJR-0001' },
+    ]);
     const app = createApp(useCases);
 
     const res = await request(app).get('/admin/majors/major-1/profiles');
@@ -110,13 +136,17 @@ describe('MajorAdminRouter', () => {
 
   it('GET /admin/majors/:id/content-sections returns detail dossier sections', async () => {
     const useCases = createMockUseCases();
-    useCases.listContentSections.mockResolvedValue([{ id: 'section-1', sectionKey: '01-overview', title: 'النبذة' }]);
+    useCases.listContentSections.mockResolvedValue([
+      { id: 'section-1', sectionKey: '01-overview', title: 'النبذة' },
+    ]);
     const app = createApp(useCases);
 
     const res = await request(app).get('/admin/majors/major-1/content-sections');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ data: [{ id: 'section-1', sectionKey: '01-overview', title: 'النبذة' }] });
+    expect(res.body).toEqual({
+      data: [{ id: 'section-1', sectionKey: '01-overview', title: 'النبذة' }],
+    });
     expect(useCases.listContentSections).toHaveBeenCalledWith('major-1');
   });
 
@@ -158,7 +188,9 @@ describe('MajorAdminRouter', () => {
 
   it('GET /admin/majors/:id/classification-mappings returns taxonomy mappings', async () => {
     const useCases = createMockUseCases();
-    useCases.listClassificationMappings.mockResolvedValue([{ id: 'map-1', taxonomyNodeId: 'taxonomy-1' }]);
+    useCases.listClassificationMappings.mockResolvedValue([
+      { id: 'map-1', taxonomyNodeId: 'taxonomy-1' },
+    ]);
     const app = createApp(useCases);
 
     const res = await request(app).get('/admin/majors/major-1/classification-mappings');

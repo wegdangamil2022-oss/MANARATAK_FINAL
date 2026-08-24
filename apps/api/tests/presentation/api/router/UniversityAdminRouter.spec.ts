@@ -22,6 +22,10 @@ describe('UniversityAdminRouter', () => {
   const createApp = (useCases: ReturnType<typeof createMockUseCases>) => {
     const app = express();
     app.use(express.json());
+    app.use((req, _res, next) => {
+      req.authUserId = 'admin-X';
+      next();
+    });
     app.use(
       '/admin/universities',
       UniversityAdminRouter.create({ adminUniversityUseCases: useCases as any }),
@@ -72,7 +76,7 @@ describe('UniversityAdminRouter', () => {
         displayName: 'Updated Qatar University',
         officialWebsite: 'https://www.qu.edu.qa',
       }),
-      expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-university-api' }),
+      expect.objectContaining({ actorId: 'admin-X', source: 'admin-university-api' }),
     );
     expect(useCases.updateUniversity).toHaveBeenCalledWith(
       'uni-1',
@@ -94,7 +98,7 @@ describe('UniversityAdminRouter', () => {
     expect(res.status).toBe(200);
     expect(useCases.publish).toHaveBeenCalledWith(
       'uni-1',
-      expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-university-api' }),
+      expect.objectContaining({ actorId: 'admin-X', source: 'admin-university-api' }),
     );
   });
 
@@ -129,7 +133,7 @@ describe('UniversityAdminRouter', () => {
     expect(useCases.replaceNormalizedDetails).toHaveBeenCalledWith(
       'uni-1',
       details,
-      expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-university-api' }),
+      expect.objectContaining({ actorId: 'admin-X', source: 'admin-university-api' }),
     );
   });
 
