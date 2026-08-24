@@ -390,6 +390,7 @@ export class PrismaUniversityImportChangeExecutorGateway implements UniversityIm
       completenessStatus: 'NEEDS_REVIEW',
       status: 'READY_TO_REVIEW',
     };
+    await new UniversityCanonicalRelationshipValidator(transaction).validateCampus(data);
     const record = before
       ? await transaction.university.update({ where: { id: before.id }, data })
       : await transaction.university.create({

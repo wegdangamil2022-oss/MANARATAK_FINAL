@@ -160,7 +160,7 @@ export class InternationalTestAdminUseCases {
     return this.mutate('INTERNATIONAL_TEST_SCORE_SCALE_UPSERTED', testId, context, repository => repository.upsertScoreScale!(testId, data));
   }
 
-  public async upsertFeeMetadata(testId: string, data: UpsertInternationalTestFeeMetadataDto & { id?: string }, context?: AtomicMutationRequestContext): Promise<InternationalTestFeeMetadataDto> {
+  public async upsertFeeMetadata(testId: string, data: Omit<UpsertInternationalTestFeeMetadataDto, 'currencyReferenceId'> & { currencyReferenceId?: string; id?: string }, context?: AtomicMutationRequestContext): Promise<InternationalTestFeeMetadataDto> {
     await this.get(testId);
     if (data.amount < 0) {
       throw new Error('Fee amount cannot be negative');
@@ -169,17 +169,25 @@ export class InternationalTestAdminUseCases {
       throw new Error('Currency code is required for fee metadata');
     }
     if (!this.referenceResolver) throw new Error('Canonical Reference resolver is not configured');
-    const currency = await this.referenceResolver.resolveCurrency({
-      id: data.currencyReferenceId,
-      standardCode: data.currencyCode
-    });
+    const currency = await this.referenceResolver.resolveCurrency({ standardCode: data.currencyCode });
     if (!currency?.active) throw new Error(`Active canonical Currency not found: ${data.currencyCode}`);
+    if (data.currencyReferenceId) {
+      const requestedCurrency = await this.referenceResolver.resolveCurrency({ id: data.currencyReferenceId });
+      if (!requestedCurrency?.active || requestedCurrency.id !== currency.id) {
+        throw new Error('CURRENCY_REFERENCE_ID_CODE_MISMATCH');
+      }
+    }
     const rawData = data as unknown as Record<string, unknown>;
     if (rawData.paymentGatewayId || rawData.chargeToken || rawData.paymentStatus || rawData.executePayment) {
       throw new Error('Payment execution fields are not supported in fee metadata');
     }
     if (!this.repository.upsertFeeMetadata) throw new Error('Repository method upsertFeeMetadata not implemented');
-    return this.mutate('INTERNATIONAL_TEST_FEE_UPSERTED', testId, context, repository => repository.upsertFeeMetadata!(testId, data));
+    const canonicalData: UpsertInternationalTestFeeMetadataDto & { id?: string } = {
+      ...data,
+      currencyCode: currency.standardCode ?? data.currencyCode.trim().toUpperCase(),
+      currencyReferenceId: currency.id,
+    };
+    return this.mutate('INTERNATIONAL_TEST_FEE_UPSERTED', testId, context, repository => repository.upsertFeeMetadata!(testId, canonicalData));
   }
 
   public async upsertOfficialLink(testId: string, data: UpsertInternationalTestOfficialLinkDto & { id?: string }, context?: AtomicMutationRequestContext): Promise<InternationalTestOfficialLinkDto> {

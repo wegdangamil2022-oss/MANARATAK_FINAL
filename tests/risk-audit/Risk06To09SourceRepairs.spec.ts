@@ -7,8 +7,8 @@ const source = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf
 describe('RISK-06 through RISK-09 source closure', () => {
   it('fails production or staging bootstrap when the mandatory database is unavailable', () => {
     const app = source('apps/api/src/app.ts');
-    expect(app).toContain("if (isProductionOrStaging) throw error");
-    expect(app).toContain("DATABASE_URL is required in production and staging");
+    expect(app).toContain("if (databaseRequired) throw error");
+    expect(app).toContain("DATABASE_URL is required for this runtime mode");
   });
 
   it('does not hide Major catalog DB enrichment failures in runtime environments', () => {

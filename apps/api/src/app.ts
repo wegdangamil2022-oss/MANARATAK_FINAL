@@ -2,6 +2,7 @@ import * as awilix from 'awilix';
 import express, { Router, Express, Request, Response } from 'express';
 import * as path from 'path';
 import { container, registerDependencies } from './infrastructure/di/container.js';
+import { isDatabaseRequiredForRuntime } from './infrastructure/di/RuntimeDependencyPolicy.js';
 import { 
   PrismaConnection,
   AsyncLogContext,
@@ -95,6 +96,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
 
       const nodeEnv = config.getOptional<string>('NODE_ENV') || currentEnv.NODE_ENV;
       const isProductionOrStaging = nodeEnv === 'production' || nodeEnv === 'staging';
+      const databaseRequired = isDatabaseRequiredForRuntime(currentEnv);
 
       if (isProductionOrStaging && (!productionReadinessReport.ready || productionReadinessReport.blockerCount > 0)) {
         const blockerDetails = productionReadinessReport.findings
@@ -177,6 +179,9 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     });
 
     // Establish Database Connection if available
+    if (databaseRequired && !currentEnv.DATABASE_URL) {
+      throw new Error('DATABASE_URL is required for this runtime mode');
+    }
     const databaseUrl = config.getOptional<string>('DATABASE_URL') || currentEnv.DATABASE_URL;
     if (databaseUrl) {
       try {
@@ -191,7 +196,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
         });
       } catch (error: any) {
         logger.error("[Database] Could not connect to Prisma instance", error);
-        if (isProductionOrStaging) throw error;
+        if (databaseRequired) throw error;
         monitoringService.registerIndicator({
           name: 'database',
           isOptional: false,
@@ -203,7 +208,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
         });
       }
     } else {
-      if (isProductionOrStaging) throw new Error('DATABASE_URL is required in production and staging');
+      if (databaseRequired) throw new Error('DATABASE_URL is required for this runtime mode');
       monitoringService.registerIndicator({
         name: 'database',
         isOptional: false,
@@ -214,6 +219,18 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
         })
       });
     }
+
+    monitoringService.registerIndicator({
+      name: 'asset-platform',
+      isOptional: false,
+      checkHealth: async () => ({
+        status: isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.UP,
+        timestamp: new Date().toISOString(),
+        ...(isProductionOrStaging
+          ? { error: 'ASSET_RUNTIME_PROVIDER_NOT_CONFIGURED' }
+          : {}),
+      }),
+    });
 
     // Register Redis Health Indicator if available
     const redisUrl = config.getOptional<string>('REDIS_URL') || currentEnv.REDIS_URL;

@@ -281,6 +281,26 @@ describe('InternationalTestAdminUseCases', () => {
       expect(mockRepository.upsertFeeMetadata).not.toHaveBeenCalled();
     });
 
+    it('canonicalizes currencyCode and persists the resolved Currency id without client UUID', async () => {
+      mockRepository.findById.mockResolvedValue(parentTest);
+      mockRepository.upsertFeeMetadata.mockResolvedValue({});
+      await useCases.upsertFeeMetadata('test-1', {
+        feeType: 'REGISTRATION', amount: 200, currencyCode: 'USD', hasRegionalVariation: false,
+      });
+      expect(mockRepository.upsertFeeMetadata).toHaveBeenCalledWith('test-1', expect.objectContaining({
+        currencyCode: 'USD', currencyReferenceId: 'currency-USD',
+      }));
+      expect(mockRepository.upsertFeeMetadata.mock.calls[0][1].currencyReferenceId).toBeDefined();
+    });
+
+    it('rejects a client currency id that mismatches the exact currency code', async () => {
+      mockRepository.findById.mockResolvedValue(parentTest);
+      await expect(useCases.upsertFeeMetadata('test-1', {
+        feeType: 'REGISTRATION', amount: 200, currencyCode: 'USD', currencyReferenceId: 'currency-EUR', hasRegionalVariation: false,
+      })).rejects.toThrow('CURRENCY_REFERENCE_ID_CODE_MISMATCH');
+      expect(mockRepository.upsertFeeMetadata).not.toHaveBeenCalled();
+    });
+
     it('upsertFeeMetadata does not accept payment execution fields', async () => {
       mockRepository.findById.mockResolvedValue(parentTest);
 

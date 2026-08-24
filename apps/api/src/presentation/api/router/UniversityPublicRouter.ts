@@ -15,6 +15,7 @@ export class UniversityPublicRouter {
 
     const listQuerySchema = z.object({
       country: z.string().optional(),
+      countryIso2Code: z.string().trim().length(2).transform((value) => value.toUpperCase()).optional(),
       institutionType: z.string().optional(),
       city: z.string().optional(),
       page: z.string().optional().transform((val) => val ? parseInt(val, 10) : 1),
@@ -24,10 +25,14 @@ export class UniversityPublicRouter {
     router.get('/', asyncHandler(async (req: Request, res: Response) => {
       const { locale, ...filters } = listQuerySchema.parse(req.query);
       let resolvedFilters: PublicUniversityFilters = filters;
-      if (filters.country) {
-        const country = await cradle.referenceDataRepository.getCountry(filters.country.toUpperCase());
-        if (!country) throw new Error('COUNTRY_FILTER_NOT_FOUND');
-        const { country: _country, ...rest } = filters;
+      if (filters.countryIso2Code || filters.country) {
+        const country = filters.countryIso2Code
+          ? await cradle.referenceDataRepository.getCountry(filters.countryIso2Code)
+          : (await cradle.referenceDataRepository.listCountries({ activeOnly: true })).find(
+              (item) => item.name.trim().toLocaleLowerCase('en-US') === filters.country!.trim().toLocaleLowerCase('en-US'),
+            );
+        if (!country) return res.status(400).json({ error: 'UNKNOWN_COUNTRY_FILTER' });
+        const { country: _country, countryIso2Code: _countryIso2Code, ...rest } = filters;
         resolvedFilters = { ...rest, countryReferenceId: country.id };
       }
       res.json(await localized.listUniversities(resolvedFilters, locale));

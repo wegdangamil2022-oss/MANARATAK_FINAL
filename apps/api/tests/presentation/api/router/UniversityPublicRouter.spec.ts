@@ -11,9 +11,11 @@ const university = {
 
 describe('UniversityPublicRouter locale contract', () => {
   const createRepository = () => ({ listPublished: vi.fn(), findBySlug: vi.fn() });
-  const createApp = (repository: ReturnType<typeof createRepository>) => {
+  const createApp = (repository: ReturnType<typeof createRepository>, referenceDataRepository = {
+    getCountry: vi.fn().mockResolvedValue({ id: 'country-qa', iso2Code: 'QA' }),
+    listCountries: vi.fn().mockResolvedValue([{ id: 'country-qa', iso2Code: 'QA', name: 'Qatar', isActive: true }, { id: 'country-ye', iso2Code: 'YE', name: 'Yemen', isActive: true }]),
+  }) => {
     const app = express();
-    const referenceDataRepository = { getCountry: vi.fn().mockResolvedValue({ id: 'country-qa', iso2Code: 'QA' }) };
     app.use('/public/universities', UniversityPublicRouter.create({ universityRepository: repository as any, referenceDataRepository: referenceDataRepository as any }));
     return app;
   };
@@ -25,6 +27,30 @@ describe('UniversityPublicRouter locale contract', () => {
     expect(res.status).toBe(200);
     expect(res.body.data[0].displayName).toBe('جامعة قطر');
     expect(repository.listPublished).toHaveBeenCalledWith(expect.objectContaining({ countryReferenceId: 'country-qa' }));
+  });
+
+  it.each([['QA', 'country-qa'], ['YE', 'country-ye']])('resolves countryIso2Code=%s to countryReferenceId', async (code, id) => {
+    const repository = createRepository(); repository.listPublished.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
+    const refs = { getCountry: vi.fn().mockResolvedValue({ id, iso2Code: code }), listCountries: vi.fn() };
+    expect((await request(createApp(repository, refs)).get(`/public/universities?countryIso2Code=${code}`)).status).toBe(200);
+    expect(repository.listPublished).toHaveBeenCalledWith(expect.objectContaining({ countryReferenceId: id }));
+  });
+
+  it('returns client-safe errors for invalid and unknown country filters', async () => {
+    const repository = createRepository();
+    expect((await request(createApp(repository)).get('/public/universities?countryIso2Code=QATAR')).status).toBe(400);
+    const refs = { getCountry: vi.fn().mockResolvedValue(null), listCountries: vi.fn().mockResolvedValue([]) };
+    expect((await request(createApp(repository, refs)).get('/public/universities?countryIso2Code=ZZ')).status).toBe(400);
+    const response = await request(createApp(repository, refs)).get('/public/universities?country=Atlantis');
+    expect(response.status).toBe(400);
+    expect(repository.listPublished).not.toHaveBeenCalled();
+  });
+
+  it.each([['Qatar', 'country-qa'], ['Yemen', 'country-ye']])('resolves exact legacy country=%s deterministically', async (name, id) => {
+    const repository = createRepository(); repository.listPublished.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
+    const response = await request(createApp(repository)).get(`/public/universities?country=${name}`);
+    expect(response.status).toBe(200);
+    expect(repository.listPublished).toHaveBeenCalledWith(expect.objectContaining({ countryReferenceId: id }));
   });
 
   it('rejects unsupported locale', async () => {

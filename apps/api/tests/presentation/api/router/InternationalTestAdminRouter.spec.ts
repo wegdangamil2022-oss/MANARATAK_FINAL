@@ -32,6 +32,7 @@ describe('InternationalTestAdminRouter', () => {
   const createApp = (useCases: any) => {
     const app = express();
     app.use(express.json());
+    app.use((req, _res, next) => { req.authUserId = 'admin-X'; next(); });
     app.use('/admin/international-tests', InternationalTestAdminRouter.create({ internationalTestAdminUseCases: useCases as any }));
     return app;
   };
@@ -68,7 +69,7 @@ describe('InternationalTestAdminRouter', () => {
       canonicalName: 'TOEFL iBT',
       providerName: 'ETS',
       testCategory: 'LANGUAGE_PROFICIENCY'
-    }, expect.objectContaining({ actorId: 'SYSTEM', source: 'admin-international-tests-api' }));
+    }, expect.objectContaining({ actorId: 'admin-X', source: 'admin-international-tests-api' }));
   });
 
   it('POST /admin/international-tests/upsert calls upsertTest', async () => {

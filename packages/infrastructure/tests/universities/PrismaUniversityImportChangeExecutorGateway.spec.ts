@@ -2,6 +2,26 @@ import { describe, expect, it, vi } from 'vitest';
 import { PrismaUniversityImportChangeExecutorGateway } from '../../src/universities/PrismaUniversityImportChangeExecutorGateway';
 
 describe('PrismaUniversityImportChangeExecutorGateway', () => {
+  it('rejects a root University whose valid geography ids have incompatible parents', async () => {
+    const transaction = {
+      universityImportChangeSet: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn(), update: vi.fn() },
+      universityImportChange: { create: vi.fn() },
+      university: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn() },
+      referenceCountry: { findUnique: vi.fn().mockResolvedValue({ iso2Code: 'YE' }) },
+      administrativeRegion: { findUnique: vi.fn().mockResolvedValue({ countryIso2Code: 'SA' }) },
+      referenceCity: { findUnique: vi.fn().mockResolvedValue({ countryIso2Code: 'YE', administrativeRegionId: 'region-ye' }) },
+    };
+    const prisma = { $transaction: vi.fn(async (work) => work(transaction)) };
+    const gateway = new PrismaUniversityImportChangeExecutorGateway(prisma as never);
+    const plan = {
+      changeSetId: 'STAGE_1:bad-geography', stage: 'STAGE_1' as const, sourceArtifactId: 'artifact', validationIssues: [], databaseWrites: 0 as const,
+      changes: [{ sequence: 1, sourceReferenceId: 'INS-YEM-0001', entityType: 'UNIVERSITY' as const, entityKey: 'INS-YEM-0001', operation: 'CREATE' as const,
+        afterState: { officialEnglishName: 'Yemen University', countryReferenceId: 'country-ye', regionReferenceId: 'region-sa', cityReferenceId: 'city-ye' } }],
+    };
+    await expect(gateway.apply(plan, 'admin-1')).rejects.toThrow('UNIVERSITY_CAMPUS_REGION_COUNTRY_MISMATCH');
+    expect(transaction.university.create).not.toHaveBeenCalled();
+  });
+
   it('applies university, provenance, audit, and outbox in one transaction', async () => {
     const transaction = {
       universityImportChangeSet: {

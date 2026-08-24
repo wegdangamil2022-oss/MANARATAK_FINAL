@@ -137,6 +137,11 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
     } = data;
 
     const safeOptionalFields = sanitizeUniversityOptionalFields(optionalFields);
+    await new UniversityCanonicalRelationshipValidator(this.prisma).validateCampus({
+      countryReferenceId: countryReferenceId ?? undefined,
+      regionReferenceId: regionReferenceId ?? undefined,
+      cityReferenceId: cityReferenceId ?? undefined,
+    });
 
     const record = await this.prisma.university.create({
       data: {
@@ -189,6 +194,11 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
     } = updates;
 
     const existing = await this.prisma.university.findUnique({ where: { id } });
+    await new UniversityCanonicalRelationshipValidator(this.prisma).validateCampus({
+      countryReferenceId: countryReferenceId === undefined ? existing?.countryReferenceId ?? undefined : countryReferenceId ?? undefined,
+      regionReferenceId: regionReferenceId === undefined ? existing?.regionReferenceId ?? undefined : regionReferenceId ?? undefined,
+      cityReferenceId: cityReferenceId === undefined ? existing?.cityReferenceId ?? undefined : cityReferenceId ?? undefined,
+    });
     const existingOptional = sanitizeUniversityOptionalFields(existing?.optionalFields);
 
     const safeOptionalFields = {

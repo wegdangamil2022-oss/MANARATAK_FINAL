@@ -9,12 +9,15 @@ export class InternationalTestAdminRouter {
     const { internationalTestAdminUseCases } = cradle;
     type AsyncRouteHandler = (req: Request, res: Response, next: NextFunction) => Promise<unknown> | unknown;
     const asyncHandler = (fn: AsyncRouteHandler) => (req: Request, res: Response, next: NextFunction) => Promise.resolve(fn(req, res, next)).catch(next);
-    const mutationContext = (req: Request) => ({
-      actorId: req.authUserId || 'SYSTEM',
+    const mutationContext = (req: Request) => {
+      if (!req.authUserId) throw new Error('AUTHENTICATED_ADMIN_ACTOR_REQUIRED');
+      return {
+      actorId: req.authUserId,
       actorType: 'IDENTITY',
       correlationId: (req.headers['x-correlation-id'] as string | undefined) || (req.headers['x-request-id'] as string | undefined),
       source: 'admin-international-tests-api',
-    });
+      };
+    };
 
     const querySchema = z.object({
       status: z.nativeEnum(InternationalTestStatus).optional(),

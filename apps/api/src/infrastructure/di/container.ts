@@ -9,6 +9,7 @@ import {
 import { createContainer, InjectionMode, asClass, asValue, asFunction } from 'awilix';
 import { Router } from 'express';
 import { ConfigurationRegistry } from '@manaratak/config';
+import { createAssetStorageGatewayForRuntime } from './RuntimeDependencyPolicy';
 
 // Repositories & Gateways
 import {
@@ -8128,7 +8129,7 @@ export function registerDependencies() {
     scholarshipImportCanonicalResolutionDecisionPort: asFunction(({ prisma }) => isPrisma ? new PrismaScholarshipImportCanonicalResolutionDecisionPort(prisma) : new InMemoryScholarshipImportCanonicalResolutionDecisionPort()).singleton(),
     scholarshipImportDecisionUseCases: asFunction(({ importRepository, scholarshipImportVerificationDecisionPort, scholarshipImportCanonicalResolutionDecisionPort, scholarshipCanonicalResolutionService }) => new ScholarshipImportDecisionUseCases(importRepository, scholarshipImportVerificationDecisionPort, scholarshipImportCanonicalResolutionDecisionPort, scholarshipCanonicalResolutionService)).scoped(),
     assetRecordRepository: asFunction(({ prisma }) => new PrismaAssetRecordRepository(prisma)).singleton(),
-    assetStorageGateway: asClass(LocalAssetStorageGateway).singleton(),
+    assetStorageGateway: asFunction(() => createAssetStorageGatewayForRuntime(process.env)).singleton(),
     assetMalwareScannerGateway: asClass(NoopAssetMalwareScannerGateway).singleton(),
     assetSanitizationGateway: asClass(NoopAssetSanitizationGateway).singleton(),
     assetUsageRegistryGateway: asFunction(() => createUnavailableCapability('assetUsageRegistry')).singleton(),

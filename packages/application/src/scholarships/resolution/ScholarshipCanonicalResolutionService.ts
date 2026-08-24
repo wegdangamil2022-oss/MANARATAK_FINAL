@@ -60,7 +60,7 @@ export class ScholarshipCanonicalResolutionService {
     ) {
       return this.result(normalized, {
         state: 'REVIEW_REQUIRED',
-        reason: 'Major canonical identity must use an existing MJR-*, MAS-* or DOC-* public id.',
+        reason: 'Major canonical identity must use an existing MJR-*, MAS-*, DOC-* or FEL-* public id.',
       });
     }
 
