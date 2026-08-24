@@ -103,6 +103,17 @@ export interface CourseQuizDto extends Required<Omit<CreateCourseQuizDto, 'modul
   updatedAt: Date;
 }
 
+export interface UpdateCourseQuizDto {
+  moduleId?: string | null;
+  lessonId?: string | null;
+  title?: string;
+  instructions?: string | null;
+  position?: number;
+  passingScore?: number | null;
+  maxAttempts?: number | null;
+  status?: CourseContentStatus;
+}
+
 export interface CreateCourseQuestionBankDto {
   courseId: string;
   title: string;
@@ -116,6 +127,12 @@ export interface CourseQuestionBankDto extends Required<Omit<CreateCourseQuestio
   status: CourseContentStatus;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface UpdateCourseQuestionBankDto {
+  title?: string;
+  description?: string | null;
+  status?: CourseContentStatus;
 }
 
 export interface CreateCourseQuestionDto {
@@ -143,4 +160,22 @@ export interface CourseQuestionDto extends Required<Omit<CreateCourseQuestionDto
   status: CourseContentStatus;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface UpdateCourseQuestionDto {
+  quizId?: string | null;
+  questionBankId?: string | null;
+  questionType?: CourseQuestionType;
+  prompt?: string;
+  choices?: Record<string, unknown> | readonly unknown[] | null;
+  correctAnswer?: Record<string, unknown> | readonly unknown[] | string | boolean | number | null;
+  explanation?: string | null;
+  points?: number;
+  position?: number;
+  status?: CourseContentStatus;
+}
+
+export interface CoursePositionUpdateDto {
+  id: string;
+  position: number;
 }

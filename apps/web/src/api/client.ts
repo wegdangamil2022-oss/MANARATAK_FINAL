@@ -45,7 +45,12 @@ export interface ReferenceCountryFilters {
   activeOnly?: boolean;
 }
 
-export type AcademicTaxonomyNodeType = 'ACADEMIC_FIELD' | 'DISCIPLINE' | 'PROGRAM_AREA' | 'SPECIALIZATION_CATEGORY' | 'STANDARD_CLASSIFICATION';
+export type AcademicTaxonomyNodeType =
+  | 'ACADEMIC_FIELD'
+  | 'DISCIPLINE'
+  | 'PROGRAM_AREA'
+  | 'SPECIALIZATION_CATEGORY'
+  | 'STANDARD_CLASSIFICATION';
 export type AcademicTaxonomyStatus = 'DRAFT' | 'READY_TO_REVIEW' | 'ACTIVE' | 'ARCHIVED';
 export type AcademicStandardType = 'ISCED' | 'CIP' | 'CUSTOM_NATIONAL';
 
@@ -129,6 +134,140 @@ export interface CourseFilters {
   pageSize?: number;
 }
 
+export type NativeCourseStatus =
+  'DRAFT' | 'READY_TO_REVIEW' | 'READY_TO_PUBLISH' | 'PUBLISHED' | 'REJECTED' | 'ARCHIVED';
+export interface NativeCourseDto {
+  id: string;
+  publicId: string;
+  slug: string;
+  displayName: string;
+  canonicalName: string;
+  originType: 'NATIVE_MANARATAK_COURSE';
+  status: NativeCourseStatus;
+  directCourseUrl: string;
+  learningLanguage?: string;
+  category?: string;
+  difficultyLevel?: string;
+  studyDuration?: string;
+  certificateAvailable?: boolean;
+  thumbnailAssetId?: string;
+  optionalFields?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface CreateNativeCourseInput {
+  titleAr: string;
+  titleEn?: string;
+  learningLanguage?: string;
+  category?: string;
+  difficultyLevel?: string;
+}
+export interface UpdateNativeCourseInput {
+  displayName?: string;
+  learningLanguage?: string | null;
+  category?: string | null;
+  difficultyLevel?: string | null;
+  studyDuration?: string | null;
+  certificateAvailable?: boolean | null;
+  thumbnailAssetId?: string | null;
+  description?: string;
+  courseContent?: string;
+  titleEn?: string;
+  instructor?: string;
+  prerequisites?: string[];
+  targetAudience?: string[];
+  learningOutcomes?: string[];
+  promotionalVideoAssetId?: string;
+  completionCriteria?: Record<string, unknown>;
+}
+export interface CourseModuleDto {
+  id: string;
+  courseId: string;
+  title: string;
+  description?: string | null;
+  position: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface CourseLessonDto {
+  id: string;
+  courseId: string;
+  moduleId: string;
+  title: string;
+  summary?: string | null;
+  lessonType: string;
+  position: number;
+  estimatedDurationMinutes?: number | null;
+  contentText?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface CourseLessonAssetDto {
+  id: string;
+  lessonId: string;
+  assetId: string;
+  assetReference?: string | null;
+  title?: string | null;
+  assetType: string;
+  position: number;
+  isRequired: boolean;
+  metadata?: Record<string, unknown> | null;
+}
+export interface CourseQuizDto {
+  id: string;
+  courseId: string;
+  moduleId?: string | null;
+  lessonId?: string | null;
+  title: string;
+  instructions?: string | null;
+  position: number;
+  passingScore?: number | null;
+  maxAttempts?: number | null;
+  status: string;
+}
+export interface CourseQuestionBankDto {
+  id: string;
+  courseId: string;
+  title: string;
+  description?: string | null;
+  status: string;
+}
+export interface CourseQuestionDto {
+  id: string;
+  courseId: string;
+  quizId?: string | null;
+  questionBankId?: string | null;
+  questionType: string;
+  prompt: string;
+  choices?: unknown;
+  correctAnswer?: unknown;
+  explanation?: string | null;
+  points: number;
+  position: number;
+  status: string;
+}
+export interface CourseCurriculumSnapshotDto {
+  modules: CourseModuleDto[];
+  lessons: CourseLessonDto[];
+  assets: CourseLessonAssetDto[];
+  quizzes: CourseQuizDto[];
+  questionBanks: CourseQuestionBankDto[];
+  questions: CourseQuestionDto[];
+}
+export interface NativeCourseReadinessDto {
+  ready: boolean;
+  percentage: number;
+  checks: Array<{
+    key: string;
+    label: string;
+    state: 'COMPLETE' | 'INCOMPLETE' | 'OPTIONAL';
+    message?: string;
+    targetSection?: string;
+  }>;
+}
+
 export interface CmsFilters {
   contentType?: string;
   categorySlug?: string;
@@ -192,7 +331,7 @@ export interface PublicScholarshipDto {
   coverageDetails: string;
   eligibleMajorsOrFields: string | string[];
   degreeLevel: string;
-  
+
   requiredDocuments?: string;
   eligibilityCriteria?: string;
   studyLanguage?: string;
@@ -207,7 +346,7 @@ export interface PublicScholarshipDto {
   currency?: string;
   duration?: string;
   localizedNames?: any;
-  
+
   updatedAt: string;
 }
 
@@ -568,26 +707,26 @@ export interface PublicInternationalTestDto {
   testCode?: string;
   testCategory: string;
   providerName: string;
-  
+
   status: string;
   isPubliclyVisible?: boolean;
   completenessStatus?: string;
-  
+
   variants?: PublicInternationalTestVariantDto[];
   scoreScale?: PublicInternationalTestScoreScaleDto;
   sections?: PublicInternationalTestSectionDto[];
   fees?: PublicInternationalTestFeeMetadataDto[];
-  
+
   registrationRequirements?: string;
   identificationRequirements?: string;
   retakePolicy?: string;
   cancellationReschedulingNotes?: string;
   accessibilityNotes?: string;
-  
+
   availability?: PublicInternationalTestAvailabilityDto;
   officialLinks?: PublicInternationalTestOfficialLinkDto[];
   preparationMaterials?: PublicInternationalTestPreparationMaterialDto[];
-  
+
   [key: string]: unknown;
 }
 
@@ -603,7 +742,10 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 const csrfManager = CsrfClientManager.getInstance(API_BASE_URL);
 
-export async function apiFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
+export async function apiFetch(
+  input: string | URL | Request,
+  init?: RequestInit,
+): Promise<Response> {
   return csrfManager.fetchWithCsrf(input, init);
 }
 
@@ -613,6 +755,25 @@ function getAdminHeaders(extraHeaders: Record<string, string> = {}): Record<stri
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...extraHeaders,
   };
+}
+
+async function adminCourseRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await apiFetch(`${API_BASE_URL}/admin/courses${path}`, {
+    ...init,
+    headers: getAdminHeaders({
+      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(init?.headers as Record<string, string> | undefined),
+    }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(
+      (typeof body.error === 'string' ? body.error : body.error?.message) ||
+        `Course request failed (${response.status})`,
+    );
+  }
+  if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
 }
 
 async function parseErrorMessage(res: Response, fallback: string): Promise<string> {
@@ -632,7 +793,9 @@ async function parseErrorMessage(res: Response, fallback: string): Promise<strin
 }
 
 export class ApiClient {
-  static async getReferenceCountries(filters: ReferenceCountryFilters = {}): Promise<ReferenceCountryDto[]> {
+  static async getReferenceCountries(
+    filters: ReferenceCountryFilters = {},
+  ): Promise<ReferenceCountryDto[]> {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -650,7 +813,9 @@ export class ApiClient {
   }
 
   static async getReferenceCountry(iso2Code: string): Promise<ReferenceCountryDto> {
-    const res = await apiFetch(`${API_BASE_URL}/reference-data/countries/${encodeURIComponent(iso2Code)}`);
+    const res = await apiFetch(
+      `${API_BASE_URL}/reference-data/countries/${encodeURIComponent(iso2Code)}`,
+    );
     if (!res.ok) {
       if (res.status === 404) throw new Error('Country not found');
       const msg = await parseErrorMessage(res, 'Failed to fetch country');
@@ -659,14 +824,19 @@ export class ApiClient {
     return res.json();
   }
 
-  static async getAdminReferenceCountries(filters: ReferenceCountryFilters = {}): Promise<ReferenceCountryDto[]> {
+  static async getAdminReferenceCountries(
+    filters: ReferenceCountryFilters = {},
+  ): Promise<ReferenceCountryDto[]> {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') params.append(key, String(value));
     });
-    const res = await apiFetch(`${API_BASE_URL}/admin/reference-data/countries?${params.toString()}`, {
-      headers: getAdminHeaders(),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/reference-data/countries?${params.toString()}`,
+      {
+        headers: getAdminHeaders(),
+      },
+    );
     if (!res.ok) {
       const msg = await parseErrorMessage(res, 'Failed to fetch admin countries');
       throw new Error(msg);
@@ -676,9 +846,12 @@ export class ApiClient {
   }
 
   static async getAdminReferenceCountry(iso2Code: string): Promise<ReferenceCountryDto> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/reference-data/countries/${encodeURIComponent(iso2Code)}`, {
-      headers: getAdminHeaders(),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/reference-data/countries/${encodeURIComponent(iso2Code)}`,
+      {
+        headers: getAdminHeaders(),
+      },
+    );
     if (!res.ok) {
       if (res.status === 404) throw new Error('Country not found');
       const msg = await parseErrorMessage(res, 'Failed to fetch admin country');
@@ -687,7 +860,9 @@ export class ApiClient {
     return res.json();
   }
 
-  static async listReferenceCities(filters: { countryIso2Code?: string; q?: string; region?: string } = {}): Promise<ReferenceCityDto[]> {
+  static async listReferenceCities(
+    filters: { countryIso2Code?: string; q?: string; region?: string } = {},
+  ): Promise<ReferenceCityDto[]> {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') params.append(key, String(value));
@@ -701,14 +876,19 @@ export class ApiClient {
     return payload.data || [];
   }
 
-  static async getAdminAcademicTaxonomyNodes(filters: AcademicTaxonomyFilters = {}): Promise<AcademicTaxonomyNodeDto[]> {
+  static async getAdminAcademicTaxonomyNodes(
+    filters: AcademicTaxonomyFilters = {},
+  ): Promise<AcademicTaxonomyNodeDto[]> {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value) params.append(key, value);
     });
-    const res = await apiFetch(`${API_BASE_URL}/admin/academic-taxonomy/nodes?${params.toString()}`, {
-      headers: getAdminHeaders(),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/academic-taxonomy/nodes?${params.toString()}`,
+      {
+        headers: getAdminHeaders(),
+      },
+    );
     if (!res.ok) {
       const msg = await parseErrorMessage(res, 'Failed to fetch academic taxonomy nodes');
       throw new Error(msg);
@@ -718,9 +898,12 @@ export class ApiClient {
   }
 
   static async getAdminAcademicTaxonomyNode(nodeId: string): Promise<AcademicTaxonomyNodeDto> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/academic-taxonomy/nodes/${encodeURIComponent(nodeId)}`, {
-      headers: getAdminHeaders(),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/academic-taxonomy/nodes/${encodeURIComponent(nodeId)}`,
+      {
+        headers: getAdminHeaders(),
+      },
+    );
     if (!res.ok) {
       const msg = await parseErrorMessage(res, 'Academic taxonomy node not found');
       throw new Error(msg);
@@ -728,10 +911,15 @@ export class ApiClient {
     return res.json();
   }
 
-  static async getAdminAcademicTaxonomyChildren(nodeId: string): Promise<AcademicTaxonomyNodeDto[]> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/academic-taxonomy/nodes/${encodeURIComponent(nodeId)}/children`, {
-      headers: getAdminHeaders(),
-    });
+  static async getAdminAcademicTaxonomyChildren(
+    nodeId: string,
+  ): Promise<AcademicTaxonomyNodeDto[]> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/academic-taxonomy/nodes/${encodeURIComponent(nodeId)}/children`,
+      {
+        headers: getAdminHeaders(),
+      },
+    );
     if (!res.ok) {
       const msg = await parseErrorMessage(res, 'Failed to fetch taxonomy children');
       throw new Error(msg);
@@ -741,9 +929,12 @@ export class ApiClient {
   }
 
   static async getAdminAcademicTaxonomyParents(nodeId: string): Promise<AcademicTaxonomyNodeDto[]> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/academic-taxonomy/nodes/${encodeURIComponent(nodeId)}/parents`, {
-      headers: getAdminHeaders(),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/academic-taxonomy/nodes/${encodeURIComponent(nodeId)}/parents`,
+      {
+        headers: getAdminHeaders(),
+      },
+    );
     if (!res.ok) {
       const msg = await parseErrorMessage(res, 'Failed to fetch taxonomy parents');
       throw new Error(msg);
@@ -752,10 +943,15 @@ export class ApiClient {
     return payload.data || [];
   }
 
-  static async getAdminAcademicTaxonomyAliases(nodeId: string): Promise<AcademicTaxonomyAliasDto[]> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/academic-taxonomy/nodes/${encodeURIComponent(nodeId)}/aliases`, {
-      headers: getAdminHeaders(),
-    });
+  static async getAdminAcademicTaxonomyAliases(
+    nodeId: string,
+  ): Promise<AcademicTaxonomyAliasDto[]> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/academic-taxonomy/nodes/${encodeURIComponent(nodeId)}/aliases`,
+      {
+        headers: getAdminHeaders(),
+      },
+    );
     if (!res.ok) {
       const msg = await parseErrorMessage(res, 'Failed to fetch taxonomy aliases');
       throw new Error(msg);
@@ -764,10 +960,15 @@ export class ApiClient {
     return payload.data || [];
   }
 
-  static async getAdminAcademicTaxonomyMappings(nodeId: string): Promise<AcademicStandardMappingDto[]> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/academic-taxonomy/nodes/${encodeURIComponent(nodeId)}/mappings`, {
-      headers: getAdminHeaders(),
-    });
+  static async getAdminAcademicTaxonomyMappings(
+    nodeId: string,
+  ): Promise<AcademicStandardMappingDto[]> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/academic-taxonomy/nodes/${encodeURIComponent(nodeId)}/mappings`,
+      {
+        headers: getAdminHeaders(),
+      },
+    );
     if (!res.ok) {
       const msg = await parseErrorMessage(res, 'Failed to fetch taxonomy mappings');
       throw new Error(msg);
@@ -795,14 +996,19 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to execute search');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to execute search',
+      );
     }
     return res.json();
   }
 
-  static async getScholarships(filters: ScholarshipFilters): Promise<PaginatedResult<PublicScholarshipDto>> {
+  static async getScholarships(
+    filters: ScholarshipFilters,
+  ): Promise<PaginatedResult<PublicScholarshipDto>> {
     const params = new URLSearchParams();
-    
+
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         params.append(key, value.toString());
@@ -812,7 +1018,10 @@ export class ApiClient {
     const res = await apiFetch(`${API_BASE_URL}/public/scholarships?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch scholarships');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch scholarships',
+      );
     }
     return res.json();
   }
@@ -824,12 +1033,17 @@ export class ApiClient {
         throw new Error('Scholarship not found');
       }
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch scholarship');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch scholarship',
+      );
     }
     return res.json();
   }
 
-  static async getUniversities(filters: UniversityFilters): Promise<PaginatedResult<PublicUniversityDto>> {
+  static async getUniversities(
+    filters: UniversityFilters,
+  ): Promise<PaginatedResult<PublicUniversityDto>> {
     const params = new URLSearchParams();
 
     Object.entries(filters).forEach(([key, value]) => {
@@ -841,7 +1055,10 @@ export class ApiClient {
     const res = await apiFetch(`${API_BASE_URL}/public/universities?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch universities');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch universities',
+      );
     }
     return res.json();
   }
@@ -853,7 +1070,10 @@ export class ApiClient {
         throw new Error('University not found');
       }
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch university');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch university',
+      );
     }
     return res.json();
   }
@@ -870,7 +1090,10 @@ export class ApiClient {
     const res = await apiFetch(`${API_BASE_URL}/public/majors?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch majors');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch majors',
+      );
     }
     return res.json();
   }
@@ -882,7 +1105,10 @@ export class ApiClient {
         throw new Error('Major not found');
       }
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch major');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch major',
+      );
     }
     return res.json();
   }
@@ -899,7 +1125,10 @@ export class ApiClient {
     const res = await apiFetch(`${API_BASE_URL}/public/courses?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch courses');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch courses',
+      );
     }
     return res.json();
   }
@@ -911,7 +1140,10 @@ export class ApiClient {
         throw new Error('Course not found');
       }
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch course');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch course',
+      );
     }
     return res.json();
   }
@@ -924,34 +1156,59 @@ export class ApiClient {
         throw new Error('Certificate not found');
       }
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to verify certificate');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to verify certificate',
+      );
     }
     return res.json();
   }
 
-  static async getStudentDashboard(studentReferenceId: string): Promise<StudentDashboardSummaryDto> {
-    const res = await apiFetch(`${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/dashboard`);
+  static async getStudentDashboard(
+    studentReferenceId: string,
+  ): Promise<StudentDashboardSummaryDto> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/dashboard`,
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch student dashboard');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch student dashboard',
+      );
     }
     return res.json();
   }
 
-  static async getStudentInvoices(studentReferenceId: string): Promise<PaginatedResult<StudentFinanceInvoiceDto>> {
-    const res = await apiFetch(`${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/finance/invoices`);
+  static async getStudentInvoices(
+    studentReferenceId: string,
+  ): Promise<PaginatedResult<StudentFinanceInvoiceDto>> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/finance/invoices`,
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch student invoices');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch student invoices',
+      );
     }
     return res.json();
   }
 
-  static async getStudentInvoicePayments(studentReferenceId: string, invoiceId: string): Promise<StudentFinancePaymentDto[]> {
-    const res = await apiFetch(`${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/finance/invoices/${encodeURIComponent(invoiceId)}/payments`);
+  static async getStudentInvoicePayments(
+    studentReferenceId: string,
+    invoiceId: string,
+  ): Promise<StudentFinancePaymentDto[]> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/finance/invoices/${encodeURIComponent(invoiceId)}/payments`,
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch student invoice payments');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch student invoice payments',
+      );
     }
     const payload = await res.json();
     return payload.data;
@@ -969,19 +1226,27 @@ export class ApiClient {
     const res = await apiFetch(`${API_BASE_URL}/public/cms/content?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch CMS content');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch CMS content',
+      );
     }
     return res.json();
   }
 
   static async getCmsContentBySlug(slug: string, locale = 'en'): Promise<PublicCmsContentDto> {
-    const res = await apiFetch(`${API_BASE_URL}/public/cms/content/${encodeURIComponent(slug)}?locale=${encodeURIComponent(locale)}`);
+    const res = await apiFetch(
+      `${API_BASE_URL}/public/cms/content/${encodeURIComponent(slug)}?locale=${encodeURIComponent(locale)}`,
+    );
     if (!res.ok) {
       if (res.status === 404) {
         throw new Error('CMS content not found');
       }
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch CMS content');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch CMS content',
+      );
     }
     return res.json();
   }
@@ -998,27 +1263,41 @@ export class ApiClient {
     const res = await apiFetch(`${API_BASE_URL}/public/student-tools?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch student tools');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch student tools',
+      );
     }
 
     const payload = await res.json();
     return payload.data;
   }
 
-  static async executeStudentTool(toolKey: string, input: string): Promise<StudentToolExecutionResponseDto> {
-    const res = await apiFetch(`${API_BASE_URL}/public/student-tools/${encodeURIComponent(toolKey)}/execute`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input })
-    });
+  static async executeStudentTool(
+    toolKey: string,
+    input: string,
+  ): Promise<StudentToolExecutionResponseDto> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/public/student-tools/${encodeURIComponent(toolKey)}/execute`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input }),
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to execute student tool');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to execute student tool',
+      );
     }
     return res.json();
   }
 
-  static async getServices(filters: ServiceFilters): Promise<PaginatedResult<PublicServiceCatalogItemDto>> {
+  static async getServices(
+    filters: ServiceFilters,
+  ): Promise<PaginatedResult<PublicServiceCatalogItemDto>> {
     const params = new URLSearchParams();
 
     Object.entries(filters).forEach(([key, value]) => {
@@ -1030,7 +1309,10 @@ export class ApiClient {
     const res = await apiFetch(`${API_BASE_URL}/public/services?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch services');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch services',
+      );
     }
     return res.json();
   }
@@ -1042,12 +1324,17 @@ export class ApiClient {
         throw new Error('Service not found');
       }
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch service');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch service',
+      );
     }
     return res.json();
   }
 
-  static async getInternationalTests(filters: InternationalTestFilters): Promise<PaginatedResult<PublicInternationalTestDto>> {
+  static async getInternationalTests(
+    filters: InternationalTestFilters,
+  ): Promise<PaginatedResult<PublicInternationalTestDto>> {
     const params = new URLSearchParams();
 
     Object.entries(filters).forEach(([key, value]) => {
@@ -1059,52 +1346,77 @@ export class ApiClient {
     const res = await apiFetch(`${API_BASE_URL}/public/international-tests?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch international tests');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch international tests',
+      );
     }
     return res.json();
   }
 
   static async getInternationalTestBySlug(slug: string): Promise<PublicInternationalTestDto> {
-    const res = await apiFetch(`${API_BASE_URL}/public/international-tests/${encodeURIComponent(slug)}`);
+    const res = await apiFetch(
+      `${API_BASE_URL}/public/international-tests/${encodeURIComponent(slug)}`,
+    );
     if (!res.ok) {
       if (res.status === 404) {
         throw new Error('International test not found');
       }
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch international test');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch international test',
+      );
     }
     return res.json();
   }
 
   static async getStudentWorkspace(studentReferenceId: string): Promise<StudentWorkspaceDto> {
-    const res = await apiFetch(`${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/workspace`);
+    const res = await apiFetch(
+      `${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/workspace`,
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch student workspace');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch student workspace',
+      );
     }
     return res.json();
   }
 
-  static async saveStudentItem(studentReferenceId: string, item: {
-    entityType: string;
-    entityId: string;
-    entitySlug?: string | null;
-    displayName?: string | null;
-    notes?: string | null;
-  }): Promise<StudentSavedItemDto> {
-    const res = await apiFetch(`${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/saved-items`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(item)
-    });
+  static async saveStudentItem(
+    studentReferenceId: string,
+    item: {
+      entityType: string;
+      entityId: string;
+      entitySlug?: string | null;
+      displayName?: string | null;
+      notes?: string | null;
+    },
+  ): Promise<StudentSavedItemDto> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/saved-items`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item),
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to save item');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to save item',
+      );
     }
     return res.json();
   }
 
-  static async getAdminUniversities(filters: any, signal?: AbortSignal): Promise<PaginatedResult<any>> {
+  static async getAdminUniversities(
+    filters: any,
+    signal?: AbortSignal,
+  ): Promise<PaginatedResult<any>> {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -1117,7 +1429,10 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch admin universities');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch admin universities',
+      );
     }
     return res.json();
   }
@@ -1128,19 +1443,28 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch university');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch university',
+      );
     }
     return res.json();
   }
 
   static async executeAdminUniversityAction(id: string, action: string): Promise<void> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/universities/${encodeURIComponent(id)}/${action}`, {
-      method: 'POST',
-      headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/universities/${encodeURIComponent(id)}/${action}`,
+      {
+        method: 'POST',
+        headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || `Failed to execute ${action}`);
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          `Failed to execute ${action}`,
+      );
     }
   }
 
@@ -1157,7 +1481,10 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch admin majors');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch admin majors',
+      );
     }
     return res.json();
   }
@@ -1168,15 +1495,23 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch major');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch major',
+      );
     }
     return res.json();
   }
 
-  static async getAdminMajorCollegeFacets(degreeLevel?: string): Promise<{ data: Array<{ name: string; supportedDegrees: string[]; majorCount: number }> }> {
+  static async getAdminMajorCollegeFacets(
+    degreeLevel?: string,
+  ): Promise<{ data: Array<{ name: string; supportedDegrees: string[]; majorCount: number }> }> {
     const params = new URLSearchParams();
     if (degreeLevel) params.set('degreeLevel', degreeLevel);
-    const res = await apiFetch(`${API_BASE_URL}/admin/majors/facets/colleges?${params.toString()}`, { headers: getAdminHeaders() });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/majors/facets/colleges?${params.toString()}`,
+      { headers: getAdminHeaders() },
+    );
     if (!res.ok) throw new Error('Failed to fetch documented college contexts');
     return res.json();
   }
@@ -1187,18 +1522,27 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch major profiles');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch major profiles',
+      );
     }
     return res.json();
   }
 
   static async getAdminMajorContentSections(id: string): Promise<{ data: any[] }> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/majors/${encodeURIComponent(id)}/content-sections`, {
-      headers: getAdminHeaders(),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/majors/${encodeURIComponent(id)}/content-sections`,
+      {
+        headers: getAdminHeaders(),
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch major content sections');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch major content sections',
+      );
     }
     return res.json();
   }
@@ -1209,29 +1553,44 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch major aliases');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch major aliases',
+      );
     }
     return res.json();
   }
 
   static async getAdminMajorRelationships(id: string): Promise<{ data: any[] }> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/majors/${encodeURIComponent(id)}/relationships`, {
-      headers: getAdminHeaders(),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/majors/${encodeURIComponent(id)}/relationships`,
+      {
+        headers: getAdminHeaders(),
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch major relationships');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch major relationships',
+      );
     }
     return res.json();
   }
 
   static async getAdminMajorClassificationMappings(id: string): Promise<{ data: any[] }> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/majors/${encodeURIComponent(id)}/classification-mappings`, {
-      headers: getAdminHeaders(),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/majors/${encodeURIComponent(id)}/classification-mappings`,
+      {
+        headers: getAdminHeaders(),
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch major classification mappings');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch major classification mappings',
+      );
     }
     return res.json();
   }
@@ -1242,7 +1601,10 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch major versions');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch major versions',
+      );
     }
     return res.json();
   }
@@ -1253,35 +1615,55 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch major sources');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch major sources',
+      );
     }
     return res.json();
   }
 
   static async importMajorCatalogFromWorkspace(catalogKind: string): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/imports/major-catalogs/workspace/${encodeURIComponent(catalogKind)}`, {
-      method: 'POST',
-      headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/imports/major-catalogs/workspace/${encodeURIComponent(catalogKind)}`,
+      {
+        method: 'POST',
+        headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to import major catalog');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to import major catalog',
+      );
     }
     return res.json();
   }
 
   static async previewMajorCatalogFromWorkspace(catalogKind: string): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/imports/major-catalogs/workspace/${encodeURIComponent(catalogKind)}/preview`, {
-      headers: getAdminHeaders(),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/imports/major-catalogs/workspace/${encodeURIComponent(catalogKind)}/preview`,
+      {
+        headers: getAdminHeaders(),
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to preview major catalog');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to preview major catalog',
+      );
     }
     return res.json();
   }
 
-  static async previewMajorCatalogText(payload: { catalogKind: string; dataText: string; sourceFileName?: string; sourceSystem?: string }): Promise<any> {
+  static async previewMajorCatalogText(payload: {
+    catalogKind: string;
+    dataText: string;
+    sourceFileName?: string;
+    sourceSystem?: string;
+  }): Promise<any> {
     const res = await apiFetch(`${API_BASE_URL}/admin/imports/major-catalogs/preview`, {
       method: 'POST',
       headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
@@ -1289,12 +1671,19 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to preview major catalog');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to preview major catalog',
+      );
     }
     return res.json();
   }
 
-  static async importMajorCatalogFiles(payload: { catalogKind: string; sourceSystem?: string; files: Array<{ dataText: string; sourceFileName?: string; sourceSystem?: string }> }): Promise<any> {
+  static async importMajorCatalogFiles(payload: {
+    catalogKind: string;
+    sourceSystem?: string;
+    files: Array<{ dataText: string; sourceFileName?: string; sourceSystem?: string }>;
+  }): Promise<any> {
     const res = await apiFetch(`${API_BASE_URL}/admin/imports/major-catalogs/bulk`, {
       method: 'POST',
       headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
@@ -1302,12 +1691,19 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to import major catalog files');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to import major catalog files',
+      );
     }
     return res.json();
   }
 
-  static async previewMajorCatalogFiles(payload: { catalogKind: string; sourceSystem?: string; files: Array<{ dataText: string; sourceFileName?: string; sourceSystem?: string }> }): Promise<any> {
+  static async previewMajorCatalogFiles(payload: {
+    catalogKind: string;
+    sourceSystem?: string;
+    files: Array<{ dataText: string; sourceFileName?: string; sourceSystem?: string }>;
+  }): Promise<any> {
     const res = await apiFetch(`${API_BASE_URL}/admin/imports/major-catalogs/bulk/preview`, {
       method: 'POST',
       headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
@@ -1315,35 +1711,55 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to preview major catalog files');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to preview major catalog files',
+      );
     }
     return res.json();
   }
 
   static async importMajorDetailDossierFromWorkspace(catalogKind: string): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/imports/major-detail-dossiers/workspace/${encodeURIComponent(catalogKind)}`, {
-      method: 'POST',
-      headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/imports/major-detail-dossiers/workspace/${encodeURIComponent(catalogKind)}`,
+      {
+        method: 'POST',
+        headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to import major detail dossier');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to import major detail dossier',
+      );
     }
     return res.json();
   }
 
   static async previewMajorDetailDossierFromWorkspace(catalogKind: string): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/imports/major-detail-dossiers/workspace/${encodeURIComponent(catalogKind)}/preview`, {
-      headers: getAdminHeaders(),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/imports/major-detail-dossiers/workspace/${encodeURIComponent(catalogKind)}/preview`,
+      {
+        headers: getAdminHeaders(),
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to preview major detail dossier');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to preview major detail dossier',
+      );
     }
     return res.json();
   }
 
-  static async previewMajorDetailDossierText(payload: { catalogKind: string; dataText: string; sourceFileName?: string; sourceSystem?: string }): Promise<any> {
+  static async previewMajorDetailDossierText(payload: {
+    catalogKind: string;
+    dataText: string;
+    sourceFileName?: string;
+    sourceSystem?: string;
+  }): Promise<any> {
     const res = await apiFetch(`${API_BASE_URL}/admin/imports/major-detail-dossiers/preview`, {
       method: 'POST',
       headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
@@ -1351,12 +1767,19 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to preview major detail dossier');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to preview major detail dossier',
+      );
     }
     return res.json();
   }
 
-  static async importMajorDetailDossierFiles(payload: { catalogKind: string; sourceSystem?: string; files: Array<{ dataText: string; sourceFileName?: string; sourceSystem?: string }> }): Promise<any> {
+  static async importMajorDetailDossierFiles(payload: {
+    catalogKind: string;
+    sourceSystem?: string;
+    files: Array<{ dataText: string; sourceFileName?: string; sourceSystem?: string }>;
+  }): Promise<any> {
     const res = await apiFetch(`${API_BASE_URL}/admin/imports/major-detail-dossiers/bulk`, {
       method: 'POST',
       headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
@@ -1364,12 +1787,19 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to import major detail dossier files');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to import major detail dossier files',
+      );
     }
     return res.json();
   }
 
-  static async previewMajorDetailDossierFiles(payload: { catalogKind: string; sourceSystem?: string; files: Array<{ dataText: string; sourceFileName?: string; sourceSystem?: string }> }): Promise<any> {
+  static async previewMajorDetailDossierFiles(payload: {
+    catalogKind: string;
+    sourceSystem?: string;
+    files: Array<{ dataText: string; sourceFileName?: string; sourceSystem?: string }>;
+  }): Promise<any> {
     const res = await apiFetch(`${API_BASE_URL}/admin/imports/major-detail-dossiers/bulk/preview`, {
       method: 'POST',
       headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
@@ -1377,7 +1807,10 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to preview major detail dossier files');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to preview major detail dossier files',
+      );
     }
     return res.json();
   }
@@ -1389,7 +1822,10 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || `Failed to execute ${action}`);
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          `Failed to execute ${action}`,
+      );
     }
   }
 
@@ -1405,95 +1841,284 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch admin international tests');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch admin international tests',
+      );
     }
     return res.json();
   }
 
   static async getAdminInternationalTestById(id: string): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/international-tests/${encodeURIComponent(id)}`, {
-      headers: getAdminHeaders(),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/international-tests/${encodeURIComponent(id)}`,
+      {
+        headers: getAdminHeaders(),
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch international test');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch international test',
+      );
     }
     return res.json();
   }
 
   static async getAdminInternationalTestVersions(id: string): Promise<unknown[]> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/international-tests/${encodeURIComponent(id)}/import-versions`, {
-      headers: getAdminHeaders(),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/international-tests/${encodeURIComponent(id)}/import-versions`,
+      {
+        headers: getAdminHeaders(),
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch international test versions');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch international test versions',
+      );
     }
     const data: unknown = await res.json();
     return Array.isArray(data) ? data : [];
   }
 
   static async executeAdminInternationalTestAction(id: string, action: string): Promise<void> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/international-tests/${encodeURIComponent(id)}/${action}`, {
-      method: 'POST',
-      headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/international-tests/${encodeURIComponent(id)}/${action}`,
+      {
+        method: 'POST',
+        headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || `Failed to execute ${action}`);
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          `Failed to execute ${action}`,
+      );
     }
   }
 
-  static async getAdminNativeCourses(filters: any): Promise<PaginatedResult<any>> {
+  static async getAdminNativeCourses(
+    filters: Partial<CourseFilters> & { status?: NativeCourseStatus } = {},
+  ): Promise<PaginatedResult<NativeCourseDto>> {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         params.append(key, value as string);
       }
     });
-    const res = await apiFetch(`${API_BASE_URL}/admin/courses/native?${params.toString()}`);
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch native courses');
-    }
-    return res.json();
+    params.set('originType', 'NATIVE_MANARATAK_COURSE');
+    return adminCourseRequest<PaginatedResult<NativeCourseDto>>(`?${params.toString()}`);
   }
 
-  static async getAdminNativeCourseById(id: string): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/courses/native/${encodeURIComponent(id)}`);
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch native course details');
-    }
-    return res.json();
+  static getAdminNativeCourseById(id: string): Promise<NativeCourseDto> {
+    return adminCourseRequest<NativeCourseDto>(`/${encodeURIComponent(id)}`);
   }
 
-  static async executeAdminNativeCourseAction(id: string, action: string, payload?: any): Promise<void> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/courses/native/${encodeURIComponent(id)}/${action}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: payload ? JSON.stringify(payload) : undefined
+  static createAdminNativeCourse(input: CreateNativeCourseInput): Promise<NativeCourseDto> {
+    return adminCourseRequest<NativeCourseDto>('', { method: 'POST', body: JSON.stringify(input) });
+  }
+
+  static updateAdminNativeCourse(
+    id: string,
+    input: UpdateNativeCourseInput,
+  ): Promise<NativeCourseDto> {
+    return adminCourseRequest<NativeCourseDto>(`/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
     });
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || `Failed to execute course action ${action}`);
-    }
   }
 
-  static async createAdminNativeCourse(courseData: any): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/courses/native`, {
+  static getAdminNativeCourseCurriculum(id: string): Promise<CourseCurriculumSnapshotDto> {
+    return adminCourseRequest<CourseCurriculumSnapshotDto>(`/${encodeURIComponent(id)}/curriculum`);
+  }
+
+  static getNativeCourseReadiness(id: string): Promise<NativeCourseReadinessDto> {
+    return adminCourseRequest<NativeCourseReadinessDto>(`/${encodeURIComponent(id)}/readiness`);
+  }
+
+  static createCourseModule(
+    courseId: string,
+    input: { title: string; description?: string; position: number },
+  ): Promise<CourseModuleDto> {
+    return adminCourseRequest<CourseModuleDto>(`/${encodeURIComponent(courseId)}/modules`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(courseData)
+      body: JSON.stringify(input),
     });
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to create native course');
-    }
-    return res.json();
   }
 
-  static async getAdminScholarships(filters: ScholarshipFilters & { status?: string; completenessStatus?: string }): Promise<PaginatedResult<any>> {
+  static updateCourseModule(
+    courseId: string,
+    moduleId: string,
+    input: Partial<{ title: string; description: string | null; position: number; status: string }>,
+  ): Promise<CourseModuleDto> {
+    return adminCourseRequest<CourseModuleDto>(
+      `/${encodeURIComponent(courseId)}/modules/${encodeURIComponent(moduleId)}`,
+      { method: 'PATCH', body: JSON.stringify(input) },
+    );
+  }
+
+  static deleteCourseModule(courseId: string, moduleId: string): Promise<void> {
+    return adminCourseRequest<void>(
+      `/${encodeURIComponent(courseId)}/modules/${encodeURIComponent(moduleId)}`,
+      { method: 'DELETE' },
+    );
+  }
+
+  static reorderCourseModules(
+    courseId: string,
+    positions: Array<{ id: string; position: number }>,
+  ): Promise<void> {
+    return adminCourseRequest<void>(`/${encodeURIComponent(courseId)}/modules/reorder`, {
+      method: 'PUT',
+      body: JSON.stringify({ positions }),
+    });
+  }
+
+  static createCourseLesson(
+    courseId: string,
+    moduleId: string,
+    input: {
+      title: string;
+      summary?: string;
+      lessonType: string;
+      position: number;
+      estimatedDurationMinutes?: number;
+      contentText?: string;
+    },
+  ): Promise<CourseLessonDto> {
+    return adminCourseRequest<CourseLessonDto>(
+      `/${encodeURIComponent(courseId)}/modules/${encodeURIComponent(moduleId)}/lessons`,
+      { method: 'POST', body: JSON.stringify(input) },
+    );
+  }
+
+  static updateCourseLesson(
+    courseId: string,
+    lessonId: string,
+    input: Partial<{
+      title: string;
+      summary: string | null;
+      lessonType: string;
+      position: number;
+      estimatedDurationMinutes: number | null;
+      contentText: string | null;
+      status: string;
+    }>,
+  ): Promise<CourseLessonDto> {
+    return adminCourseRequest<CourseLessonDto>(
+      `/${encodeURIComponent(courseId)}/lessons/${encodeURIComponent(lessonId)}`,
+      { method: 'PATCH', body: JSON.stringify(input) },
+    );
+  }
+
+  static deleteCourseLesson(courseId: string, lessonId: string): Promise<void> {
+    return adminCourseRequest<void>(
+      `/${encodeURIComponent(courseId)}/lessons/${encodeURIComponent(lessonId)}`,
+      { method: 'DELETE' },
+    );
+  }
+
+  static reorderCourseLessons(
+    courseId: string,
+    moduleId: string,
+    positions: Array<{ id: string; position: number }>,
+  ): Promise<void> {
+    return adminCourseRequest<void>(
+      `/${encodeURIComponent(courseId)}/modules/${encodeURIComponent(moduleId)}/lessons/reorder`,
+      { method: 'PUT', body: JSON.stringify({ positions }) },
+    );
+  }
+
+  static attachCourseLessonAsset(
+    courseId: string,
+    lessonId: string,
+    input: {
+      assetId: string;
+      assetReference?: string;
+      title?: string;
+      assetType: string;
+      position: number;
+      isRequired?: boolean;
+    },
+  ): Promise<CourseLessonAssetDto> {
+    return adminCourseRequest<CourseLessonAssetDto>(
+      `/${encodeURIComponent(courseId)}/lessons/${encodeURIComponent(lessonId)}/assets`,
+      { method: 'POST', body: JSON.stringify(input) },
+    );
+  }
+
+  static detachCourseLessonAsset(
+    courseId: string,
+    lessonId: string,
+    assetId: string,
+  ): Promise<void> {
+    return adminCourseRequest<void>(
+      `/${encodeURIComponent(courseId)}/lessons/${encodeURIComponent(lessonId)}/assets/${encodeURIComponent(assetId)}`,
+      { method: 'DELETE' },
+    );
+  }
+
+  static createCourseQuiz(
+    courseId: string,
+    input: {
+      title: string;
+      moduleId?: string;
+      lessonId?: string;
+      position: number;
+      passingScore?: number;
+      maxAttempts?: number;
+    },
+  ): Promise<CourseQuizDto> {
+    return adminCourseRequest<CourseQuizDto>(`/${encodeURIComponent(courseId)}/quizzes`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  }
+
+  static createCourseQuestionBank(
+    courseId: string,
+    input: { title: string; description?: string },
+  ): Promise<CourseQuestionBankDto> {
+    return adminCourseRequest<CourseQuestionBankDto>(
+      `/${encodeURIComponent(courseId)}/question-banks`,
+      { method: 'POST', body: JSON.stringify(input) },
+    );
+  }
+
+  static createCourseQuestion(
+    courseId: string,
+    input: {
+      quizId?: string;
+      questionBankId?: string;
+      questionType: string;
+      prompt: string;
+      choices?: unknown;
+      correctAnswer?: unknown;
+      explanation?: string;
+      points?: number;
+      position: number;
+    },
+  ): Promise<CourseQuestionDto> {
+    return adminCourseRequest<CourseQuestionDto>(`/${encodeURIComponent(courseId)}/questions`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  }
+
+  static executeAdminNativeCourseAction(
+    id: string,
+    action: 'mark-ready' | 'mark-publishable' | 'publish' | 'unpublish' | 'archive',
+  ): Promise<void> {
+    return adminCourseRequest<void>(`/${encodeURIComponent(id)}/${action}`, { method: 'POST' });
+  }
+
+  static async getAdminScholarships(
+    filters: ScholarshipFilters & { status?: string; completenessStatus?: string },
+  ): Promise<PaginatedResult<any>> {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -1504,7 +2129,10 @@ export class ApiClient {
     const res = await apiFetch(`${API_BASE_URL}/admin/scholarships?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch admin scholarships');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch admin scholarships',
+      );
     }
     return res.json();
   }
@@ -1513,7 +2141,10 @@ export class ApiClient {
     const res = await apiFetch(`${API_BASE_URL}/admin/scholarships/${encodeURIComponent(id)}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch scholarship');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch scholarship',
+      );
     }
     return res.json();
   }
@@ -1530,7 +2161,10 @@ export class ApiClient {
         const issues = errorData.details.map((d: any) => d.message).join(' | ');
         throw new Error(issues || errorData.error || 'Failed to create scholarship');
       }
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to create scholarship');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to create scholarship',
+      );
     }
     return res.json();
   }
@@ -1543,23 +2177,35 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to update scholarship');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to update scholarship',
+      );
     }
     return res.json();
   }
 
   static async executeAdminScholarshipAction(id: string, action: string): Promise<void> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/scholarships/${encodeURIComponent(id)}/${action}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/scholarships/${encodeURIComponent(id)}/${action}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || `Failed to execute ${action}`);
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          `Failed to execute ${action}`,
+      );
     }
   }
 
-  static async importScholarships(dataText: string, sourceSystem = 'ADMIN_CONSOLE'): Promise<{ batch: any; records: any[] }> {
+  static async importScholarships(
+    dataText: string,
+    sourceSystem = 'ADMIN_CONSOLE',
+  ): Promise<{ batch: any; records: any[] }> {
     const res = await apiFetch(`${API_BASE_URL}/admin/scholarships/import`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1567,7 +2213,10 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to process import');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to process import',
+      );
     }
     return res.json();
   }
@@ -1583,10 +2232,13 @@ export class ApiClient {
       normalizedDataType = 'TESTS';
     }
 
-    const dataText = payload.dataText || payload.payloadText || JSON.stringify({
-      provider: payload.sourceSystem || 'Manual Import Channel',
-      importedAt: new Date().toISOString()
-    });
+    const dataText =
+      payload.dataText ||
+      payload.payloadText ||
+      JSON.stringify({
+        provider: payload.sourceSystem || 'Manual Import Channel',
+        importedAt: new Date().toISOString(),
+      });
 
     const requestBody = {
       dataType: normalizedDataType,
@@ -1601,36 +2253,60 @@ export class ApiClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to create import batch');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to create import batch',
+      );
     }
     return res.json();
   }
 
   static async getImportBatches(dataType = 'SCHOLARSHIPS'): Promise<any[]> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/imports/batches?dataType=${encodeURIComponent(dataType)}`);
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/imports/batches?dataType=${encodeURIComponent(dataType)}`,
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch import batches');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch import batches',
+      );
     }
     return res.json();
   }
 
-  static async getImportedRecords(params?: { batchId?: string; status?: string; page?: number; pageSize?: number }): Promise<{ data: any[]; total: number; page: number; pageSize: number }> {
+  static async getImportedRecords(params?: {
+    batchId?: string;
+    status?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<{ data: any[]; total: number; page: number; pageSize: number }> {
     const searchParams = new URLSearchParams();
     if (params?.batchId) searchParams.append('batchId', params.batchId);
     if (params?.status) searchParams.append('status', params.status);
     if (params?.page) searchParams.append('page', params.page.toString());
     if (params?.pageSize) searchParams.append('pageSize', params.pageSize.toString());
 
-    const res = await apiFetch(`${API_BASE_URL}/admin/scholarships/imported-records?${searchParams.toString()}`);
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/scholarships/imported-records?${searchParams.toString()}`,
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch imported records');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch imported records',
+      );
     }
     return res.json();
   }
 
-  static async getImportRecords(params?: { batchId?: string; status?: string; dataType?: string; page?: number; pageSize?: number }): Promise<{ data: any[]; total: number; page: number; pageSize: number }> {
+  static async getImportRecords(params?: {
+    batchId?: string;
+    status?: string;
+    dataType?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<{ data: any[]; total: number; page: number; pageSize: number }> {
     const searchParams = new URLSearchParams();
     if (params?.batchId) searchParams.append('batchId', params.batchId);
     if (params?.status) searchParams.append('status', params.status);
@@ -1641,48 +2317,67 @@ export class ApiClient {
     const res = await apiFetch(`${API_BASE_URL}/admin/imports/records?${searchParams.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to fetch import records');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to fetch import records',
+      );
     }
     return res.json();
   }
 
   static async promoteImportedRecord(recordId: string): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/scholarships/imported-records/${encodeURIComponent(recordId)}/promote`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/scholarships/imported-records/${encodeURIComponent(recordId)}/promote`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to promote imported record');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to promote imported record',
+      );
     }
     return res.json();
   }
 
   static async promoteImportRecord(recordId: string): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/imports/records/${encodeURIComponent(recordId)}/promote`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/imports/records/${encodeURIComponent(recordId)}/promote`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to promote import record');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to promote import record',
+      );
     }
     return res.json();
   }
 
   static async promoteImportBatch(batchId: string): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/imports/batches/${encodeURIComponent(batchId)}/promote`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/imports/batches/${encodeURIComponent(batchId)}/promote`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error((typeof errorData.error === "string" ? errorData.error : errorData.error?.message) || 'Failed to promote import batch');
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to promote import batch',
+      );
     }
     return res.json();
   }
-
-
 
   // Imported External Courses API — explicit WP-IC-07 REST contract.
   static async getAdminImportedCourses(params?: Record<string, unknown>): Promise<any> {
@@ -1708,7 +2403,10 @@ export class ApiClient {
     return res.json();
   }
 
-  static async updateAdminImportedCourse(id: string, payload: Record<string, unknown>): Promise<any> {
+  static async updateAdminImportedCourse(
+    id: string,
+    payload: Record<string, unknown>,
+  ): Promise<any> {
     const res = await apiFetch(`${API_BASE_URL}/admin/courses/imported/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -1722,11 +2420,14 @@ export class ApiClient {
   }
 
   private static async postImportedCourseAction(id: string, endpoint: string): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/courses/imported/${encodeURIComponent(id)}/${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    });
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/courses/imported/${encodeURIComponent(id)}/${endpoint}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `Failed imported-course operation: ${endpoint}`);
@@ -1769,7 +2470,11 @@ export class ApiClient {
 
   // Backward-compatible UI adapter. It maps a closed action enum to explicit
   // REST endpoints; it never constructs an open-ended /:action URL.
-  static async executeAdminImportedCourseAction(id: string, action: string, payload?: any): Promise<any> {
+  static async executeAdminImportedCourseAction(
+    id: string,
+    action: string,
+    payload?: any,
+  ): Promise<any> {
     switch (action) {
       case 'VERIFY_SOURCE':
         return this.verifyAdminImportedCourseSource(id);
@@ -1792,8 +2497,14 @@ export class ApiClient {
           displayName: payload?.displayName ?? payload?.titleAr,
           directCourseUrl: payload?.directCourseUrl ?? payload?.directUrl,
           providerName: payload?.provider,
-          isStudyFree: payload?.studyFree === 'Yes' ? true : payload?.studyFree === 'No' ? false : undefined,
-          isFreeCertificate: payload?.freeCertificate === 'Yes' ? true : payload?.freeCertificate === 'No' ? false : undefined,
+          isStudyFree:
+            payload?.studyFree === 'Yes' ? true : payload?.studyFree === 'No' ? false : undefined,
+          isFreeCertificate:
+            payload?.freeCertificate === 'Yes'
+              ? true
+              : payload?.freeCertificate === 'No'
+                ? false
+                : undefined,
           certificateType: payload?.certificateType,
           learningLanguageRaw: payload?.language,
           studyLevelRaw: payload?.level,
@@ -1825,7 +2536,9 @@ export class ApiClient {
   }
 
   static async getCourseImportProvider(id: string): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/imports/courses/providers/${encodeURIComponent(id)}`);
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/imports/courses/providers/${encodeURIComponent(id)}`,
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || 'Failed to fetch course provider');
@@ -1860,7 +2573,9 @@ export class ApiClient {
   }
 
   static async getCourseImportBatches(limit = 50): Promise<any[]> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/imports/courses/batches?limit=${encodeURIComponent(String(limit))}`);
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/imports/courses/batches?limit=${encodeURIComponent(String(limit))}`,
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || 'Failed to fetch course import batches');
@@ -1870,7 +2585,9 @@ export class ApiClient {
   }
 
   static async getCourseImportBatch(id: string): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/imports/courses/batches/${encodeURIComponent(id)}`);
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/imports/courses/batches/${encodeURIComponent(id)}`,
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || 'Failed to fetch course import batch');
@@ -1878,13 +2595,18 @@ export class ApiClient {
     return res.json();
   }
 
-  static async getCourseImportBatchRecords(id: string, params?: Record<string, unknown>): Promise<any> {
+  static async getCourseImportBatchRecords(
+    id: string,
+    params?: Record<string, unknown>,
+  ): Promise<any> {
     const search = new URLSearchParams();
     Object.entries(params || {}).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') search.append(key, String(value));
     });
     const suffix = search.toString() ? `?${search.toString()}` : '';
-    const res = await apiFetch(`${API_BASE_URL}/admin/imports/courses/batches/${encodeURIComponent(id)}/records${suffix}`);
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/imports/courses/batches/${encodeURIComponent(id)}/records${suffix}`,
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || 'Failed to fetch course import records');
@@ -1906,12 +2628,18 @@ export class ApiClient {
     return res.json();
   }
 
-  static async transferCourseImportBatch(id: string, payload: Record<string, unknown>): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/imports/courses/batches/${encodeURIComponent(id)}/transfer`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+  static async transferCourseImportBatch(
+    id: string,
+    payload: Record<string, unknown>,
+  ): Promise<any> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/imports/courses/batches/${encodeURIComponent(id)}/transfer`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      },
+    );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || 'Failed to transfer course import batch');
@@ -1932,12 +2660,19 @@ export class ApiClient {
     return res.json();
   }
 
-  static async executeAdminPaidCourseAction(id: string, action: string, payload?: any): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/courses/paid/${encodeURIComponent(id)}/${action}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload || {})
-    });
+  static async executeAdminPaidCourseAction(
+    id: string,
+    action: string,
+    payload?: any,
+  ): Promise<any> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/courses/paid/${encodeURIComponent(id)}/${action}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {}),
+      },
+    );
     if (!res.ok) throw new Error(`Failed to execute paid course action ${action}`);
     return res.json();
   }
@@ -1959,18 +2694,25 @@ export class ApiClient {
     const res = await apiFetch(`${API_BASE_URL}/admin/services/student`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error('Failed to create student service');
     return res.json();
   }
 
-  static async executeAdminStudentServiceAction(id: string, action: string, payload?: any): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/services/student/${encodeURIComponent(id)}/${action}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload || {})
-    });
+  static async executeAdminStudentServiceAction(
+    id: string,
+    action: string,
+    payload?: any,
+  ): Promise<any> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/services/student/${encodeURIComponent(id)}/${action}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {}),
+      },
+    );
     if (!res.ok) throw new Error(`Failed to execute student service action ${action}`);
     return res.json();
   }
@@ -1992,18 +2734,25 @@ export class ApiClient {
     const res = await apiFetch(`${API_BASE_URL}/admin/services/general`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error('Failed to create general service');
     return res.json();
   }
 
-  static async executeAdminGeneralServiceAction(id: string, action: string, payload?: any): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/services/general/${encodeURIComponent(id)}/${action}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload || {})
-    });
+  static async executeAdminGeneralServiceAction(
+    id: string,
+    action: string,
+    payload?: any,
+  ): Promise<any> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/admin/services/general/${encodeURIComponent(id)}/${action}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {}),
+      },
+    );
     if (!res.ok) throw new Error(`Failed to execute general service action ${action}`);
     return res.json();
   }

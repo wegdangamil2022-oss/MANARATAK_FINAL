@@ -11,12 +11,12 @@ import {
   LessonAssetType,
   UpdateCourseDto
 } from '@manaratak/domain';
-import { AdminCourseUseCases, CourseCurriculumUseCases } from '@manaratak/application';
+import { AdminCourseUseCases, CourseCurriculumUseCases, NativeCourseUseCases } from '@manaratak/application';
 
 export class CourseAdminRouter {
-  public static create(cradle: { adminCourseUseCases: AdminCourseUseCases; courseCurriculumUseCases: CourseCurriculumUseCases }): Router {
+  public static create(cradle: { adminCourseUseCases: AdminCourseUseCases; courseCurriculumUseCases: CourseCurriculumUseCases; nativeCourseUseCases: NativeCourseUseCases }): Router {
     const router = Router();
-    const { adminCourseUseCases, courseCurriculumUseCases } = cradle;
+    const { adminCourseUseCases, courseCurriculumUseCases, nativeCourseUseCases } = cradle;
 
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
@@ -36,7 +36,7 @@ export class CourseAdminRouter {
       displayName: z.string().optional(),
       accessType: z.nativeEnum(CourseAccessType).optional(),
       originType: z.nativeEnum(CourseOriginType).optional(),
-      directCourseUrl: z.string().url().optional(),
+      directCourseUrl: z.string().refine((value) => value.startsWith('/') || z.string().url().safeParse(value).success, 'Must be an internal path or absolute URL').optional(),
       platformName: z.string().nullable().optional(),
       providerName: z.string().nullable().optional(),
       learningLanguage: z.string().nullable().optional(),
@@ -46,8 +46,16 @@ export class CourseAdminRouter {
       difficultyLevel: z.string().nullable().optional(),
       sourceUrl: z.union([z.string().url(), z.literal('')]).nullable().optional(),
       officialSourceUrl: z.union([z.string().url(), z.literal('')]).nullable().optional(),
-      thumbnailAssetId: z.string().nullable().optional(),
+      thumbnailAssetId: z.string().refine((value) => !/^https?:\/\//i.test(value), 'thumbnailAssetId must be an EAP handle').nullable().optional(),
       courseContent: z.string().optional(),
+      description: z.string().optional(),
+      titleEn: z.string().optional(),
+      instructor: z.string().optional(),
+      prerequisites: z.array(z.string()).optional(),
+      targetAudience: z.array(z.string()).optional(),
+      learningOutcomes: z.array(z.string()).optional(),
+      promotionalVideoAssetId: z.string().refine((value) => !/^https?:\/\//i.test(value), 'promotionalVideoAssetId must be an EAP handle').optional(),
+      completionCriteria: z.record(z.string(), z.unknown()).optional(),
       relatedMajorsOrFields: z.union([z.string(), z.array(z.string())]).optional(),
       acquiredSkills: z.array(z.string()).optional(),
       localizedNames: z.record(z.string(), z.string()).optional(),
@@ -115,6 +123,23 @@ export class CourseAdminRouter {
       status: z.nativeEnum(CourseContentStatus).optional(),
     });
 
+    const nativeCreateBodySchema = z.object({
+      titleAr: z.string().trim().min(2),
+      titleEn: z.string().trim().optional(),
+      learningLanguage: z.string().trim().optional(),
+      category: z.string().trim().optional(),
+      difficultyLevel: z.string().trim().optional(),
+    });
+
+    const reorderBodySchema = z.object({
+      positions: z.array(z.object({ id: z.string().min(1), position: z.number().int().positive() })).min(1)
+    });
+
+    router.post('/', asyncHandler(async (req: Request, res: Response) => {
+      const course = await nativeCourseUseCases.create(nativeCreateBodySchema.parse(req.body));
+      res.status(201).json(course);
+    }));
+
     router.get('/', asyncHandler(async (req: Request, res: Response) => {
       const filters = listQuerySchema.parse(req.query);
       const result = await adminCourseUseCases.listCourses(filters);
@@ -129,6 +154,10 @@ export class CourseAdminRouter {
     router.get('/:id/curriculum', asyncHandler(async (req: Request, res: Response) => {
       const snapshot = await courseCurriculumUseCases.getCurriculumSnapshot(req.params.id);
       res.json(snapshot);
+    }));
+
+    router.get('/:id/readiness', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await nativeCourseUseCases.getReadiness(req.params.id));
     }));
 
     router.get('/:id/modules', asyncHandler(async (req: Request, res: Response) => {
@@ -152,6 +181,16 @@ export class CourseAdminRouter {
       const body = modulePatchSchema.parse(req.body);
       const module = await courseCurriculumUseCases.updateModule(req.params.id, req.params.moduleId, body);
       res.json(module);
+    }));
+
+    router.delete('/:id/modules/:moduleId', asyncHandler(async (req: Request, res: Response) => {
+      await courseCurriculumUseCases.deleteModule(req.params.id, req.params.moduleId);
+      res.status(204).send();
+    }));
+
+    router.put('/:id/modules/reorder', asyncHandler(async (req: Request, res: Response) => {
+      await courseCurriculumUseCases.reorderModules(req.params.id, reorderBodySchema.parse(req.body).positions);
+      res.json({ success: true });
     }));
 
     router.get('/:id/modules/:moduleId/lessons', asyncHandler(async (req: Request, res: Response) => {
@@ -181,6 +220,16 @@ export class CourseAdminRouter {
       res.json(lesson);
     }));
 
+    router.delete('/:id/lessons/:lessonId', asyncHandler(async (req: Request, res: Response) => {
+      await courseCurriculumUseCases.deleteLesson(req.params.id, req.params.lessonId);
+      res.status(204).send();
+    }));
+
+    router.put('/:id/modules/:moduleId/lessons/reorder', asyncHandler(async (req: Request, res: Response) => {
+      await courseCurriculumUseCases.reorderLessons(req.params.id, req.params.moduleId, reorderBodySchema.parse(req.body).positions);
+      res.json({ success: true });
+    }));
+
     router.get('/:id/lessons/:lessonId/assets', asyncHandler(async (req: Request, res: Response) => {
       const assets = await courseCurriculumUseCases.listLessonAssets(req.params.lessonId);
       res.json({ data: assets });
@@ -188,7 +237,7 @@ export class CourseAdminRouter {
 
     router.post('/:id/lessons/:lessonId/assets', asyncHandler(async (req: Request, res: Response) => {
       const body = lessonAssetBodySchema.parse(req.body);
-      const asset = await courseCurriculumUseCases.attachAssetToLesson({
+      const asset = await courseCurriculumUseCases.attachAssetToLesson(req.params.id, {
         lessonId: req.params.lessonId,
         assetId: body.assetId,
         assetReference: body.assetReference ?? undefined,
@@ -199,6 +248,11 @@ export class CourseAdminRouter {
         metadata: body.metadata,
       });
       res.status(201).json(asset);
+    }));
+
+    router.delete('/:id/lessons/:lessonId/assets/:assetId', asyncHandler(async (req: Request, res: Response) => {
+      await courseCurriculumUseCases.detachAssetFromLesson(req.params.id, req.params.assetId);
+      res.status(204).send();
     }));
 
     router.get('/:id/quizzes', asyncHandler(async (req: Request, res: Response) => {
@@ -222,6 +276,15 @@ export class CourseAdminRouter {
       res.status(201).json(quiz);
     }));
 
+    router.patch('/:id/quizzes/:quizId', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await courseCurriculumUseCases.updateQuiz(req.params.id, req.params.quizId, quizBodySchema.partial().parse(req.body)));
+    }));
+
+    router.delete('/:id/quizzes/:quizId', asyncHandler(async (req: Request, res: Response) => {
+      await courseCurriculumUseCases.deleteQuiz(req.params.id, req.params.quizId);
+      res.status(204).send();
+    }));
+
     router.post('/:id/question-banks', asyncHandler(async (req: Request, res: Response) => {
       const body = questionBankBodySchema.parse(req.body);
       const questionBank = await courseCurriculumUseCases.createQuestionBank({
@@ -231,6 +294,15 @@ export class CourseAdminRouter {
         status: body.status,
       });
       res.status(201).json(questionBank);
+    }));
+
+    router.patch('/:id/question-banks/:bankId', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await courseCurriculumUseCases.updateQuestionBank(req.params.id, req.params.bankId, questionBankBodySchema.partial().parse(req.body)));
+    }));
+
+    router.delete('/:id/question-banks/:bankId', asyncHandler(async (req: Request, res: Response) => {
+      await courseCurriculumUseCases.deleteQuestionBank(req.params.id, req.params.bankId);
+      res.status(204).send();
     }));
 
     router.get('/:id/quizzes/:quizId/questions', asyncHandler(async (req: Request, res: Response) => {
@@ -256,11 +328,28 @@ export class CourseAdminRouter {
       res.status(201).json(question);
     }));
 
+    router.patch('/:id/questions/:questionId', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await courseCurriculumUseCases.updateQuestion(req.params.id, req.params.questionId, questionBodySchema.partial().parse(req.body) as any));
+    }));
+
+    router.delete('/:id/questions/:questionId', asyncHandler(async (req: Request, res: Response) => {
+      await courseCurriculumUseCases.deleteQuestion(req.params.id, req.params.questionId);
+      res.status(204).send();
+    }));
+
     router.patch('/:id', asyncHandler(async (req: Request, res: Response) => {
       const updates = updateBodySchema.parse(req.body);
 
       const optionalFields: Record<string, unknown> = {};
       if (updates.courseContent !== undefined) optionalFields.courseContent = updates.courseContent;
+      if (updates.description !== undefined) optionalFields.description = updates.description;
+      if (updates.titleEn !== undefined) optionalFields.titleEn = updates.titleEn;
+      if (updates.instructor !== undefined) optionalFields.instructor = updates.instructor;
+      if (updates.prerequisites !== undefined) optionalFields.prerequisites = updates.prerequisites;
+      if (updates.targetAudience !== undefined) optionalFields.targetAudience = updates.targetAudience;
+      if (updates.learningOutcomes !== undefined) optionalFields.learningOutcomes = updates.learningOutcomes;
+      if (updates.promotionalVideoAssetId !== undefined) optionalFields.promotionalVideoAssetId = updates.promotionalVideoAssetId;
+      if (updates.completionCriteria !== undefined) optionalFields.completionCriteria = updates.completionCriteria;
       if (updates.relatedMajorsOrFields !== undefined) optionalFields.relatedMajorsOrFields = updates.relatedMajorsOrFields;
       if (updates.acquiredSkills !== undefined) optionalFields.acquiredSkills = updates.acquiredSkills;
       if (updates.localizedNames !== undefined) optionalFields.localizedNames = updates.localizedNames;
@@ -292,17 +381,23 @@ export class CourseAdminRouter {
     }));
 
     router.post('/:id/mark-ready', asyncHandler(async (req: Request, res: Response) => {
-      await adminCourseUseCases.markReadyToReview(req.params.id);
+      const course = await adminCourseUseCases.getCourse(req.params.id);
+      if (course.originType === CourseOriginType.NATIVE_MANARATAK_COURSE) await nativeCourseUseCases.markReadyToReview(req.params.id);
+      else await adminCourseUseCases.markReadyToReview(req.params.id);
       res.status(200).json({ success: true });
     }));
 
     router.post('/:id/mark-publishable', asyncHandler(async (req: Request, res: Response) => {
-      await adminCourseUseCases.markReadyToPublish(req.params.id);
+      const course = await adminCourseUseCases.getCourse(req.params.id);
+      if (course.originType === CourseOriginType.NATIVE_MANARATAK_COURSE) await nativeCourseUseCases.markReadyToPublish(req.params.id);
+      else await adminCourseUseCases.markReadyToPublish(req.params.id);
       res.status(200).json({ success: true });
     }));
 
     router.post('/:id/publish', asyncHandler(async (req: Request, res: Response) => {
-      await adminCourseUseCases.publish(req.params.id);
+      const course = await adminCourseUseCases.getCourse(req.params.id);
+      if (course.originType === CourseOriginType.NATIVE_MANARATAK_COURSE) await nativeCourseUseCases.publish(req.params.id);
+      else await adminCourseUseCases.publish(req.params.id);
       res.status(200).json({ success: true });
     }));
 

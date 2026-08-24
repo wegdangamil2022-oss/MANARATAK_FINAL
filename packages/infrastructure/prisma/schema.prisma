@@ -218,6 +218,16 @@ model Course {
   taxonomyResolutions        CourseTaxonomyResolution[]
   academicTaxonomyLinks      CourseAcademicTaxonomyLink[]
   majorProjections           CourseMajorProjection[]
+  modules                    CourseModule[]
+  lessons                    CourseLesson[]
+  lessonAssets               CourseLessonAsset[]
+  quizzes                    CourseQuiz[]
+  questionBanks              CourseQuestionBank[]
+  questions                  CourseQuestion[]
+  enrollments                CourseEnrollment[]
+  lessonProgress             CourseLessonProgress[]
+  quizAttempts               CourseQuizAttempt[]
+  completions                CourseCompletion[]
 
   @@index([status])
   @@index([completenessStatus])
@@ -230,6 +240,219 @@ model Course {
   @@index([sourceImportRecordId])
   @@index([status, originType])
   @@index([status, platformName])
+}
+
+model CourseModule {
+  id          String   @id @default(uuid())
+  courseId    String
+  title       String
+  description String?
+  position    Int
+  status      String   @default("DRAFT")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  course  Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons CourseLesson[]
+  quizzes CourseQuiz[]
+
+  @@unique([courseId, position])
+  @@index([courseId, status])
+}
+
+model CourseLesson {
+  id                       String   @id @default(uuid())
+  courseId                 String
+  moduleId                 String
+  title                    String
+  summary                  String?
+  lessonType               String
+  position                 Int
+  estimatedDurationMinutes Int?
+  contentText              String?
+  status                   String   @default("DRAFT")
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  course   Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module   CourseModule           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  assets   CourseLessonAsset[]
+  quizzes  CourseQuiz[]
+  progress CourseLessonProgress[]
+
+  @@unique([moduleId, position])
+  @@index([courseId, status])
+  @@index([moduleId])
+}
+
+model CourseLessonAsset {
+  id             String   @id @default(uuid())
+  courseId       String
+  lessonId       String
+  assetId        String
+  assetReference String?
+  title          String?
+  assetType      String
+  position       Int
+  isRequired     Boolean  @default(false)
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  course Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lesson CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, position])
+  @@unique([lessonId, assetId])
+  @@index([courseId])
+  @@index([assetId])
+}
+
+model CourseQuiz {
+  id           String   @id @default(uuid())
+  courseId     String
+  moduleId     String?
+  lessonId     String?
+  title        String
+  instructions String?
+  position     Int
+  passingScore Int?
+  maxAttempts  Int?
+  status       String   @default("DRAFT")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  course    Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module    CourseModule?       @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  lesson    CourseLesson?       @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  questions CourseQuestion[]
+  attempts  CourseQuizAttempt[]
+
+  @@unique([courseId, position])
+  @@index([moduleId])
+  @@index([lessonId])
+  @@index([courseId, status])
+}
+
+model CourseQuestionBank {
+  id          String   @id @default(uuid())
+  courseId    String
+  title       String
+  description String?
+  status      String   @default("DRAFT")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  course    Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions CourseQuestion[]
+
+  @@index([courseId, status])
+}
+
+model CourseQuestion {
+  id             String   @id @default(uuid())
+  courseId       String
+  quizId         String?
+  questionBankId String?
+  questionType   String
+  prompt         String
+  choices        Json?
+  correctAnswer  Json?
+  explanation    String?
+  points         Int      @default(1)
+  position       Int
+  status         String   @default("DRAFT")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  course       Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  quiz         CourseQuiz?         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  questionBank CourseQuestionBank? @relation(fields: [questionBankId], references: [id], onDelete: SetNull)
+
+  @@index([courseId, status])
+  @@index([quizId, position])
+  @@index([questionBankId])
+}
+
+model CourseEnrollment {
+  id                  String   @id @default(uuid())
+  courseId            String
+  studentReferenceId  String
+  status              String   @default("ACTIVE")
+  enrolledAt          DateTime @default(now())
+  completedAt         DateTime?
+  progressPercentage  Int      @default(0)
+  lastAccessedAt      DateTime?
+  metadata            Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  @@unique([courseId, studentReferenceId])
+  @@index([studentReferenceId, status])
+}
+
+model CourseLessonProgress {
+  id                 String   @id @default(uuid())
+  courseId           String
+  lessonId           String
+  studentReferenceId String
+  status             String
+  progressPercentage Int      @default(0)
+  startedAt          DateTime?
+  completedAt        DateTime?
+  timeSpentSeconds   Int?
+  metadata           Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  course Course       @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  lesson CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+
+  @@unique([courseId, lessonId, studentReferenceId])
+  @@index([studentReferenceId, status])
+}
+
+model CourseQuizAttempt {
+  id                 String   @id @default(uuid())
+  courseId           String
+  quizId             String
+  studentReferenceId String
+  attemptNumber      Int
+  status             String   @default("IN_PROGRESS")
+  score              Float?
+  passed             Boolean?
+  answers            Json?
+  startedAt          DateTime @default(now())
+  submittedAt        DateTime?
+  metadata           Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  course Course     @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  quiz   CourseQuiz @relation(fields: [quizId], references: [id], onDelete: Restrict)
+
+  @@unique([quizId, studentReferenceId, attemptNumber])
+  @@index([courseId, studentReferenceId])
+}
+
+model CourseCompletion {
+  id                     String   @id @default(uuid())
+  courseId               String
+  studentReferenceId     String
+  status                 String
+  completionSource       String
+  eligibleForCertificate Boolean  @default(false)
+  completedAt            DateTime @default(now())
+  metadata               Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  @@unique([courseId, studentReferenceId])
+  @@index([studentReferenceId, status])
 }
 
 model CourseTaxonomyResolution {

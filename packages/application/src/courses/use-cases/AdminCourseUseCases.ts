@@ -33,6 +33,21 @@ export class AdminCourseUseCases {
     const displayName = updates.displayName ?? existing.displayName;
     const directCourseUrl = updates.directCourseUrl ?? existing.directCourseUrl;
 
+    if (updates.originType && updates.originType !== existing.originType) {
+      throw new Error('COURSE_ORIGIN_TYPE_MUTATION_FORBIDDEN');
+    }
+
+    if (existing.originType === CourseOriginType.NATIVE_MANARATAK_COURSE) {
+      if (updates.directCourseUrl && !updates.directCourseUrl.startsWith('/courses/')) {
+        throw new Error('NATIVE_COURSE_INTERNAL_URL_REQUIRED');
+      }
+      return this.repository.update(id, {
+        ...updates,
+        originType: undefined,
+        completenessStatus: existing.completenessStatus
+      });
+    }
+
     if (accessType === CourseAccessType.PAID || originType === CourseOriginType.PAID_COURSE) {
       const completenessStatus = displayName && directCourseUrl
         ? CourseImportCompletenessState.COMPLETE

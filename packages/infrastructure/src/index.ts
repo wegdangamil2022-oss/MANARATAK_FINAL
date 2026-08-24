@@ -99,8 +99,8 @@ export class InMemorySecurityPolicyRepository { constructor(..._args: any[]) {} 
 export class InMemoryConfigurationRepository { constructor(..._args: any[]) {} }
 export class InMemoryIntegrationRepository { constructor(..._args: any[]) {} }
 export class InMemoryLocalizationRepository { constructor(..._args: any[]) {} }
-export class PrismaCourseCurriculumRepository { constructor(..._args: any[]) {} }
-export class PrismaCourseProgressRepository { constructor(..._args: any[]) {} }
+export * from './courses/PrismaCourseCurriculumRepository';
+export * from './courses/PrismaCourseProgressRepository';
 export class PrismaCmsRepository { constructor(..._args: any[]) {} }
 export class PrismaStudentToolRegistryRepository { constructor(..._args: any[]) {} }
 export * from './reference-data/PrismaReferenceDataRepository';

@@ -38,7 +38,7 @@ describe('WP-IC-01 course persistence source invariants', () => {
     expect(infrastructureIndex).not.toContain('export class PrismaCourseRepository {}');
   });
 
-  it('wires core course persistence while deliberately leaving curriculum and progress unavailable', () => {
+  it('wires real course, curriculum, and progress persistence', () => {
     const container = source('apps/api/src/infrastructure/di/container.ts');
 
     expect(container).toContain('PrismaCourseRepository,');
@@ -48,12 +48,10 @@ describe('WP-IC-01 course persistence source invariants', () => {
     expect(container).not.toContain(
       "courseRepository: asFunction(() => createUnavailableCapability('coursePersistence')).singleton()",
     );
-    expect(container).toContain(
-      "courseCurriculumRepository: asFunction(() => createUnavailableCapability('courseCurriculumPersistence')).singleton()",
-    );
-    expect(container).toContain(
-      "courseProgressRepository: asFunction(() => createUnavailableCapability('courseProgressPersistence')).singleton()",
-    );
+    expect(container).toContain('new PrismaCourseCurriculumRepository(prisma)');
+    expect(container).toContain('new PrismaCourseProgressRepository(prisma)');
+    expect(container).not.toContain("createUnavailableCapability('courseCurriculumPersistence')");
+    expect(container).not.toContain("createUnavailableCapability('courseProgressPersistence')");
   });
 
   it('keeps the legacy import promotion prototype present for WP-IC-04/05 remediation', () => {

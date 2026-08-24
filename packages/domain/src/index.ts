@@ -149,6 +149,7 @@ export * from './courses/contracts/PublicCourseFilters';
 export * from './courses/entities/Course';
 export * from './courses/entities/CourseCurriculum';
 export * from './courses/entities/CourseProgress';
+export * from './courses/entities/NativeCourseReadiness';
 export * from './courses/entities/PublicCourseDto';
 export * from './courses/enums/CourseAccessType';
 export * from './courses/enums/CourseCompletionStatus';

@@ -4,6 +4,7 @@ export * from './AdminCourseUseCases';
 export * from './PublicCourseUseCases';
 export * from './CourseCurriculumUseCases';
 export * from './CourseProgressUseCases';
+export * from './NativeCourseUseCases';
 export * from './CourseImportIdentityDiffUseCase';
 export * from './CourseImportCoordinator';
 export * from './ImportedCourseAdminUseCases';
