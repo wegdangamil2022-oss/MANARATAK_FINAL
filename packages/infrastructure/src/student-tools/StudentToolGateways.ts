@@ -1,13 +1,26 @@
 import { AIExecutionOrchestrator } from '@manaratak/application';
 import {
+  AICapabilityDefinition,
+  AIConsumerPolicy,
   AIExecutionStatus,
+  AIModelDefinition,
+  AIProviderDefinition,
+  AIPromptDefinition,
+  AIRoutingPolicy,
   IEnterpriseAIConsumerGateway,
+  IAIPlatformRepository,
+  IAIProviderRegistry,
   IScholarshipRecommendationGateway,
   IStudentToolRateLimitGateway,
+  IStudentToolSaveGateway,
+  IStudentWorkspaceRepository,
+  IStudentToolDependencyHealthGateway,
   IUniversityComparisonGateway,
   IScholarshipRepository,
   IUniversityRepository,
   ScholarshipCandidate,
+  StudentToolDependency,
+  StudentSavedItemType,
   UniversityComparisonItem,
 } from '@manaratak/domain';
 import { IRateLimiter } from '@manaratak/core';
@@ -28,6 +41,10 @@ export class Phase17StudentToolsAIConsumerGateway implements IEnterpriseAIConsum
           correlationId: request.correlationId,
           dataClassification: request.dataClassification,
         },
+        dataClassification:
+          request.dataClassification === 'PRIVATE_STUDENT_DATA'
+            ? 'STUDENT_PRIVATE'
+            : 'PUBLIC',
         idempotencyKey: request.idempotencyKey,
         structuredOutputSchema: request.outputSchema,
       });
@@ -68,13 +85,28 @@ export class Phase17StudentToolsAIConsumerGateway implements IEnterpriseAIConsum
   }
 }
 
+export class Phase15StudentToolSaveGateway implements IStudentToolSaveGateway {
+  constructor(private readonly repository: IStudentWorkspaceRepository) {}
+  async savePrivateResult(input: Parameters<IStudentToolSaveGateway['savePrivateResult']>[0]) {
+    const saved = await this.repository.saveItem({
+      studentReferenceId: input.studentReference,
+      entityType: StudentSavedItemType.STUDENT_TOOL,
+      entityId: input.executionId,
+      entitySlug: input.toolKey,
+      metadata: { sourceDomain: 'PHASE_18', resultReference: input.resultReference, privateResult: input.result },
+    });
+    return { savedReference: saved.id };
+  }
+}
+
 export class CanonicalUniversityComparisonGateway implements IUniversityComparisonGateway {
   constructor(private readonly repository: IUniversityRepository) {}
   async getUniversitiesByPublicIds(publicIds: string[]) {
-    const page = await this.repository.listPublished({ page: 1, pageSize: 100 });
+    const canonical = this.repository.findPublishedByPublicIds
+      ? await this.repository.findPublishedByPublicIds(publicIds)
+      : await this.findAcrossPublishedPages(publicIds);
     const selected = new Map(
-      page.data
-        .filter((item) => publicIds.includes(item.publicId))
+      canonical
         .map((item) => [item.publicId, item]),
     );
     const available: UniversityComparisonItem[] = publicIds.flatMap((id) => {
@@ -98,6 +130,19 @@ export class CanonicalUniversityComparisonGateway implements IUniversityComparis
         : [];
     });
     return { available, unavailableIds: publicIds.filter((id) => !selected.has(id)) };
+  }
+  private async findAcrossPublishedPages(publicIds: string[]) {
+    const found = new Map<string, Awaited<ReturnType<IUniversityRepository['listPublished']>>['data'][number]>();
+    let pageNumber = 1;
+    let totalPages = 1;
+    do {
+      const page = await this.repository.listPublished({ page: pageNumber, pageSize: 100 });
+      for (const item of page.data)
+        if (publicIds.includes(item.publicId)) found.set(item.publicId, item);
+      totalPages = page.totalPages;
+      pageNumber += 1;
+    } while (pageNumber <= totalPages && found.size < publicIds.length);
+    return [...found.values()];
   }
 }
 
@@ -158,5 +203,85 @@ export class StudentToolRateLimitGateway implements IStudentToolRateLimitGateway
   async consume(key: string, limit: number, windowMs: number) {
     const value = await this.limiter.consume(key, limit, windowMs);
     return { allowed: value.allowed, remaining: value.remaining, resetAt: value.resetTime };
+  }
+}
+
+export class EnterpriseStudentToolDependencyHealthGateway
+  implements IStudentToolDependencyHealthGateway
+{
+  constructor(
+    private readonly aiRepository: IAIPlatformRepository,
+    private readonly aiProviders: IAIProviderRegistry,
+    private readonly universities: IUniversityRepository,
+    private readonly scholarships: IScholarshipRepository,
+  ) {}
+
+  async status(
+    dependency: StudentToolDependency,
+  ): Promise<'READY' | 'DEGRADED' | 'NOT_CONFIGURED' | 'UNAVAILABLE'> {
+    try {
+      if (dependency.phase === 'PHASE_11') {
+        const page = await this.universities.listPublished({ page: 1, pageSize: 1 });
+        return page.total > 0 ? 'READY' : 'NOT_CONFIGURED';
+      }
+      if (dependency.phase === 'PHASE_12') {
+        const page = await this.scholarships.listPublished({ page: 1, pageSize: 1 });
+        return page.total > 0 ? 'READY' : 'NOT_CONFIGURED';
+      }
+      if (dependency.phase === 'PHASE_17' && dependency.capabilityKey) {
+        const [capability, consumer, prompts, routes, models, providers] = await Promise.all([
+          this.aiRepository.find<AICapabilityDefinition>('capabilities', dependency.capabilityKey),
+          this.aiRepository.find<AIConsumerPolicy>('consumers', 'phase18-student-tools'),
+          this.aiRepository.list<AIPromptDefinition>('prompts', { status: 'ACTIVE' }),
+          this.aiRepository.list<AIRoutingPolicy>('routingPolicies', { status: 'ACTIVE' }),
+          this.aiRepository.list<AIModelDefinition>('models', { status: 'ACTIVE' }),
+          this.aiRepository.list<AIProviderDefinition>('providers', { status: 'ACTIVE' }),
+        ]);
+        const promptReady = prompts.some(
+          (prompt) =>
+            prompt.capabilityKey === dependency.capabilityKey && prompt.activeVersion != null,
+        );
+        const route = routes.find(
+          (item) =>
+            item.capabilityKey === dependency.capabilityKey &&
+            (!item.consumerKey || item.consumerKey === 'phase18-student-tools'),
+        );
+        const eligibleModels = new Map(
+          models
+            .filter((model) => model.productionApproved === true)
+            .map((model) => [model.key, model]),
+        );
+        const configuredProviders = new Set(
+          this.aiProviders
+            .list()
+            .filter((adapter) => adapter.status() === 'READY')
+            .map((adapter) => adapter.key),
+        );
+        const approvedProviders = new Set(
+          providers
+            .filter(
+              (provider) =>
+                provider.productionApproved === true && configuredProviders.has(provider.key),
+            )
+            .map((provider) => provider.key),
+        );
+        const routeReady = route?.targets.some((target) => {
+          const model = eligibleModels.get(target.modelKey);
+          return target.enabled && !!model && approvedProviders.has(model.providerKey);
+        });
+        if (
+          capability?.status !== 'ACTIVE' ||
+          consumer?.status !== 'ACTIVE' ||
+          !consumer.allowedCapabilities.includes(dependency.capabilityKey) ||
+          !promptReady ||
+          !routeReady
+        )
+          return 'NOT_CONFIGURED';
+        return 'READY';
+      }
+      return 'NOT_CONFIGURED';
+    } catch {
+      return 'UNAVAILABLE';
+    }
   }
 }

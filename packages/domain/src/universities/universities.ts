@@ -251,6 +251,7 @@ export interface IUniversityRepository {
   listPublished(
     filters: PublicUniversityFilters,
   ): Promise<PaginatedUniversityResult<UniversityDto>>;
+  findPublishedByPublicIds?(publicIds: string[]): Promise<UniversityDto[]>;
   listTranslations?(id: string): Promise<UniversityTranslationDto[]>;
   upsertTranslation?(
     id: string,

@@ -28,11 +28,32 @@ export class StudentToolsPublicRouter {
     router.get(
       '/executions/:executionId',
       safe(async (req, res) => {
-        const value = await cradle.studentToolExecutionUseCases.findExecution(
+        const authenticated = !!req.authUserId;
+        const session = String(req.header('x-student-tools-session') ?? req.ip ?? 'anonymous');
+        const value = await cradle.studentToolExecutionUseCases.findExecutionForRequester(
           req.params.executionId,
+          {
+            consumerType: authenticated ? 'AUTHENTICATED_STUDENT' : 'ANONYMOUS',
+            authenticatedStudentReference: req.authUserId,
+            anonymousSessionReference: authenticated ? undefined : session,
+          },
         );
         if (!value) return void res.status(404).json({ error: 'TOOL_EXECUTION_NOT_FOUND' });
         res.json({ data: value });
+      }),
+    );
+    router.post(
+      '/executions/:executionId/save',
+      safe(async (req, res) => {
+        if (!req.authUserId) return void res.status(401).json({ error: 'TOOL_AUTH_REQUIRED' });
+        const body = z.object({ result: z.unknown() }).parse(req.body);
+        res.status(201).json({
+          data: await cradle.studentToolExecutionUseCases.saveExecutionForStudent(
+            req.params.executionId,
+            req.authUserId,
+            body.result,
+          ),
+        });
       }),
     );
     router.get(

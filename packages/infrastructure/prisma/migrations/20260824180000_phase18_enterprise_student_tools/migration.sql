@@ -3,7 +3,7 @@ CREATE TABLE "StudentToolDefinitionRecord" (
   "descriptionAr" TEXT NOT NULL, "descriptionEn" TEXT NOT NULL, "category" TEXT NOT NULL,
   "executionType" TEXT NOT NULL, "implementationPriority" TEXT NOT NULL, "desiredLaunchVisibility" TEXT NOT NULL,
   "visibility" TEXT NOT NULL, "implementationStatus" TEXT NOT NULL, "lifecycle" TEXT NOT NULL,
-  "availability" JSONB NOT NULL, "featureFlags" JSONB NOT NULL, "aiCapabilityKey" TEXT, "outputType" TEXT NOT NULL,
+  "availability" JSONB NOT NULL, "featureFlags" JSONB NOT NULL, "rateLimitPolicy" JSONB NOT NULL, "aiCapabilityKey" TEXT, "outputType" TEXT NOT NULL,
   "supportedLocales" JSONB NOT NULL, "estimatedMinutes" INTEGER NOT NULL, "tags" JSONB NOT NULL, "iconAssetId" TEXT,
   "owner" TEXT NOT NULL, "launchOrder" INTEGER NOT NULL, "inputSchema" JSONB NOT NULL, "outputSchema" JSONB NOT NULL,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL,

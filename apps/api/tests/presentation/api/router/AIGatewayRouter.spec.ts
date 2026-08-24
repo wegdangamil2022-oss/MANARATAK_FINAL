@@ -1,52 +1,88 @@
 import express from 'express';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
-import { AIExecutionStatus, AIRequestPurpose } from '@manaratak/domain';
+import { AIExecutionStatus } from '@manaratak/domain';
 import { AIGatewayRouter } from '../../../../src/presentation/api/router/AIGatewayRouter';
 
-describe('AIGatewayRouter', () => {
+describe('AIGatewayRouter capability boundary', () => {
   const createUseCases = () => ({
-    execute: vi.fn(),
-    listLogs: vi.fn()
+    executeCapability: vi.fn(),
+    submitAsyncCapability: vi.fn(),
+    findForRequester: vi.fn(),
+    findAsyncForRequester: vi.fn(),
+    cancel: vi.fn(),
+    cancelAsync: vi.fn(),
   });
 
   const createApp = (useCases: ReturnType<typeof createUseCases>) => {
     const app = express();
     app.use(express.json());
-    app.use('/ai', AIGatewayRouter.create({ aiExecutionUseCases: useCases as any }));
+    app.use((req, _res, next) => {
+      req.authUserId = 'admin-1';
+      next();
+    });
+    app.use('/ai', AIGatewayRouter.create({ aiExecutionUseCases: useCases as never }));
     return app;
   };
 
-  it('executes a governed AI request', async () => {
+  it('executes a governed capability without accepting provider, model, prompt, or consumer overrides', async () => {
     const useCases = createUseCases();
-    useCases.execute.mockResolvedValue({ executionPublicId: 'ai-1', status: AIExecutionStatus.COMPLETED });
-    const app = createApp(useCases);
-
-    const res = await request(app)
+    useCases.executeCapability.mockResolvedValue({
+      executionPublicId: 'ai-1',
+      status: AIExecutionStatus.COMPLETED,
+    });
+    const response = await request(createApp(useCases))
       .post('/ai/execute')
       .send({
-        purpose: AIRequestPurpose.SUMMARIZATION,
-        promptKey: 'summary.generic',
+        capabilityKey: 'ai.summarize',
         input: 'Summarize this guide.',
-        sourceDomain: 'CMS'
+        dataClassification: 'INTERNAL',
+        promptKey: 'forbidden.prompt',
+        providerKey: 'forbidden-provider',
+        consumerKey: 'forbidden-consumer',
       });
 
-    expect(res.status).toBe(200);
-    expect(res.body.status).toBe(AIExecutionStatus.COMPLETED);
-    expect(useCases.execute).toHaveBeenCalledWith(expect.objectContaining({
-      purpose: AIRequestPurpose.SUMMARIZATION,
-      promptKey: 'summary.generic'
-    }));
+    expect(response.status).toBe(200);
+    expect(useCases.executeCapability).toHaveBeenCalledWith({
+      capabilityKey: 'ai.summarize',
+      input: 'Summarize this guide.',
+      locale: undefined,
+      dataClassification: 'INTERNAL',
+      idempotencyKey: undefined,
+      structuredOutputSchema: undefined,
+      consumerKey: 'admin-ai-playground',
+      requesterReferenceId: 'admin-1',
+      sourceDomain: 'AdminAIPlayground',
+    });
+    const delegated = useCases.executeCapability.mock.calls[0][0];
+    expect(delegated).not.toHaveProperty('promptKey');
+    expect(delegated).not.toHaveProperty('providerKey');
   });
 
-  it('lists AI execution logs for administration', async () => {
+  it('fails truthfully when the asynchronous runtime queue is not configured', async () => {
     const useCases = createUseCases();
-    useCases.listLogs.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
-    const app = createApp(useCases);
+    useCases.submitAsyncCapability.mockRejectedValue(new Error('AI_ASYNC_QUEUE_NOT_CONFIGURED'));
+    const response = await request(createApp(useCases))
+      .post('/ai/executions')
+      .send({ capabilityKey: 'ai.summarize', input: 'text' });
+    expect(response.status).toBe(503);
+    expect(response.body.error).toBe('AI_ASYNC_QUEUE_NOT_CONFIGURED');
+  });
 
-    const res = await request(app).get('/ai/logs?status=COMPLETED');
+  it('returns an accepted durable job without exposing its encrypted payload', async () => {
+    const useCases = createUseCases();
+    useCases.submitAsyncCapability.mockResolvedValue({ publicId: 'aij_1', status: 'QUEUED', createdAt: '2026-08-24', payloadCiphertext: 'secret-cipher' });
+    const response = await request(createApp(useCases)).post('/ai/executions').send({ capabilityKey: 'ai.summarize', input: 'text' });
+    expect(response.status).toBe(202);
+    expect(response.body).toEqual({ publicId: 'aij_1', status: 'QUEUED', createdAt: '2026-08-24' });
+    expect(response.body).not.toHaveProperty('payloadCiphertext');
+  });
 
-    expect(res.status).toBe(200);
-    expect(useCases.listLogs).toHaveBeenCalledWith(expect.objectContaining({ status: AIExecutionStatus.COMPLETED }));
+  it('does not disclose an execution owned by another requester', async () => {
+    const useCases = createUseCases();
+    useCases.findForRequester.mockResolvedValue(null);
+    const response = await request(createApp(useCases)).get('/ai/executions/ai-private');
+    expect(response.status).toBe(404);
+    expect(useCases.findForRequester).toHaveBeenCalledWith('ai-private', 'admin-1');
   });
 });

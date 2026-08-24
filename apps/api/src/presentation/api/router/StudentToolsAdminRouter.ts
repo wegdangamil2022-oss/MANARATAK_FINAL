@@ -55,14 +55,15 @@ export class StudentToolsAdminRouter {
     router.get(
       '/:toolKey',
       safe(async (req, res) => {
-        const [tool, telemetry, executions, audit] = await Promise.all([
-          cradle.studentToolRegistryUseCases.findTool(req.params.toolKey),
+        const tool = await cradle.studentToolRegistryUseCases.findTool(req.params.toolKey);
+        if (!tool) return void res.status(404).json({ error: 'TOOL_NOT_FOUND' });
+        const [telemetry, executions, audit, operations] = await Promise.all([
           cradle.studentToolRegistryUseCases.telemetry(req.params.toolKey),
           cradle.studentToolRegistryUseCases.executions(req.params.toolKey, 1, 25),
           cradle.studentToolRegistryUseCases.audit(req.params.toolKey),
+          cradle.studentToolRegistryUseCases.operationalStatus(tool),
         ]);
-        if (!tool) return void res.status(404).json({ error: 'TOOL_NOT_FOUND' });
-        res.json({ data: { tool, telemetry, executions, audit } });
+        res.json({ data: { tool, telemetry, executions, audit, ...operations } });
       }),
     );
     router.patch(

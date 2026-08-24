@@ -40,7 +40,14 @@ type Tool = {
     authenticatedEnabled: boolean;
     maintenanceMode: boolean;
   };
-  dependencies: Array<{ phase: string; required: boolean; description: string }>;
+  rateLimitPolicy: {
+    anonymousRequestsPerMinute: number;
+    authenticatedRequestsPerMinute: number;
+    adminTestRequestsPerMinute: number;
+  };
+  dependencies: Array<{ phase: string; required: boolean; description: string; capabilityKey?: string }>;
+  inputSchema: { version: string; fields: Array<{ key: string; labelAr: string; required: boolean; type: string }> };
+  outputSchema: { version: string; fields: Array<{ key: string; labelAr: string; required: boolean; type: string }> };
   currentVersion: { semanticVersion: string };
   updatedAt?: string;
 };
@@ -69,6 +76,15 @@ type Detail = {
     total: number;
   };
   audit: Array<{ timestamp: string; actor: string; action: string; summary: string }>;
+  readiness: { ready: boolean; blockers: string[] };
+  health: string;
+  dependencies: Array<{
+    phase: string;
+    required: boolean;
+    description: string;
+    capabilityKey?: string;
+    status: string;
+  }>;
 };
 const labels: Record<string, string> = {
   IMPLEMENTED: 'منفذة',
@@ -252,6 +268,25 @@ function ToolDetail({ toolKey }: { toolKey: string }) {
       await load();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'تعذر الحفظ');
+      await load();
+    } finally {
+      setSaving(false);
+    }
+  };
+  const activate = async () => {
+    if (!detail?.readiness.ready || !window.confirm('تأكيد تفعيل الأداة بعد اجتياز فحص الجاهزية؟'))
+      return;
+    setSaving(true);
+    setError('');
+    try {
+      await adminApiClient.request(
+        `/admin/student-tools/${encodeURIComponent(toolKey)}/lifecycle/activate`,
+        { method: 'POST' },
+      );
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'تعذر التفعيل');
+      await load();
     } finally {
       setSaving(false);
     }
@@ -279,9 +314,40 @@ function ToolDetail({ toolKey }: { toolKey: string }) {
             <code className="mt-3 block text-emerald-200">{tool.toolKey}</code>
           </div>
           <Badge value={tool.implementationStatus} />
+          <Badge value={detail.health} />
         </div>
       </header>
       {error ? <Alert>{error}</Alert> : null}
+      <section
+        className={`rounded-3xl border p-5 ${
+          detail.readiness.ready
+            ? 'border-emerald-200 bg-emerald-50'
+            : 'border-amber-200 bg-amber-50'
+        }`}
+      >
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <h2 className="text-lg font-black">
+              {detail.readiness.ready ? 'الأداة جاهزة للتفعيل' : 'توجد موانع للجاهزية'}
+            </h2>
+            {detail.readiness.blockers.length ? (
+              <ul className="mt-2 list-inside list-disc text-sm text-amber-900">
+                {detail.readiness.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
+              </ul>
+            ) : (
+              <p className="mt-1 text-sm text-emerald-800">العقود والمعالج والتبعيات والسياسات اجتازت الفحص.</p>
+            )}
+          </div>
+          <button
+            type="button"
+            disabled={!detail.readiness.ready || saving || tool.lifecycle === 'ACTIVE'}
+            onClick={() => void activate()}
+            className="min-h-11 rounded-xl bg-emerald-800 px-5 font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {tool.lifecycle === 'ACTIVE' ? 'نشطة حاليًا' : 'تفعيل الأداة'}
+          </button>
+        </div>
+      </section>
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="space-y-5 rounded-3xl border bg-white p-6 lg:col-span-2">
           <h2 className="text-xl font-black">الهوية والعقود</h2>
@@ -293,12 +359,15 @@ function ToolDetail({ toolKey }: { toolKey: string }) {
             <Info label="الإصدار" value={tool.currentVersion.semanticVersion} />
           </dl>
           <h3 className="font-black">التبعيات</h3>
-          {tool.dependencies.length ? (
+          {detail.dependencies.length ? (
             <ul className="space-y-2">
-              {tool.dependencies.map((dep) => (
+              {detail.dependencies.map((dep) => (
                 <li key={`${dep.phase}-${dep.description}`} className="rounded-xl bg-slate-50 p-3">
-                  <strong>{dep.phase}</strong> · {dep.required ? 'مطلوبة' : 'اختيارية'} —{' '}
-                  {dep.description}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span><strong>{dep.phase}</strong> · {dep.required ? 'مطلوبة' : 'اختيارية'} — {dep.description}</span>
+                    <Badge value={dep.status} />
+                  </div>
+                  {dep.capabilityKey ? <code className="mt-2 block text-xs text-slate-500" dir="ltr">{dep.capabilityKey}</code> : null}
                 </li>
               ))}
             </ul>
@@ -347,6 +416,10 @@ function ToolDetail({ toolKey }: { toolKey: string }) {
           </p>
         </form>
       </div>
+      <section className="grid gap-6 lg:grid-cols-2">
+        <SchemaPanel title="عقد المدخلات" schema={tool.inputSchema} />
+        <SchemaPanel title="عقد المخرجات" schema={tool.outputSchema} />
+      </section>
       <section className="grid gap-4 sm:grid-cols-3">
         <Metric icon={Activity} label="تنفيذات 24 ساعة" value={detail.telemetry.executions24h} />
         <Metric
@@ -387,7 +460,41 @@ function ToolDetail({ toolKey }: { toolKey: string }) {
           <p className="text-slate-500">لا توجد تنفيذات مسجلة بعد. هذه ليست بيانات افتراضية.</p>
         )}
       </section>
+      <section className="rounded-3xl border bg-white p-6">
+        <h2 className="mb-4 text-xl font-black">سجل التدقيق</h2>
+        {detail.audit.length ? (
+          <div className="space-y-2">
+            {detail.audit.map((entry) => (
+              <div key={`${entry.timestamp}-${entry.action}`} className="grid gap-2 rounded-xl bg-slate-50 p-3 text-sm sm:grid-cols-[180px_1fr_160px]">
+                <time>{new Date(entry.timestamp).toLocaleString('ar')}</time>
+                <span className="font-bold">{entry.summary}</span>
+                <code className="truncate text-xs" dir="ltr">{entry.actor}</code>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-slate-500">لا توجد أحداث تدقيق مسجلة لهذه الأداة.</p>
+        )}
+      </section>
     </main>
+  );
+}
+function SchemaPanel({ title, schema }: { title: string; schema: Tool['inputSchema'] }) {
+  return (
+    <section className="rounded-3xl border bg-white p-6">
+      <h2 className="text-xl font-black">{title}</h2>
+      <p className="mt-1 text-xs text-slate-500">الإصدار {schema.version}</p>
+      {schema.fields.length ? (
+        <dl className="mt-4 space-y-2">
+          {schema.fields.map((field) => (
+            <div key={field.key} className="rounded-xl bg-slate-50 p-3">
+              <dt className="font-bold">{field.labelAr}</dt>
+              <dd className="mt-1 text-xs text-slate-500"><code dir="ltr">{field.key}</code> · {field.type} · {field.required ? 'مطلوب' : 'اختياري'}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : <p className="mt-4 text-slate-500">لا يوجد عقد تنفيذ لأن الأداة ما زالت ضمن الخطة.</p>}
+    </section>
   );
 }
 function Metric({

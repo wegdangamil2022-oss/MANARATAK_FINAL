@@ -4,7 +4,7 @@ import { ArrowRight, Plus, Trash2 } from 'lucide-react';
 import { ApiClient } from '../../api/client';
 import { Seo } from '../../components/Seo';
 
-type RunState = { loading: boolean; error: string; result: unknown };
+type RunState = { loading: boolean; error: string; result: unknown; executionId?: string };
 type UniversityResult = { publicId: string; displayName: string; country?: string; city?: string; institutionType?: string; academicProgramCount?: number };
 type RecommendationResult = { scholarship: { publicId: string; displayName: string }; explanation?: string; constraintSummary?: string[] };
 type ToolResult = { draft?: string; warnings?: string[]; semesterGpa?: number; totalSemesterCredits?: number; projectedCumulativeGpa?: number; universities?: UniversityResult[]; unavailableUniversityIds?: string[]; recommendations?: RecommendationResult[]; disclaimer?: string };
@@ -64,6 +64,7 @@ function Submit({ loading }: { loading: boolean }) {
   );
 }
 function Result({ run }: { run: RunState }) {
+  const [saveState, setSaveState] = useState<{ loading: boolean; message: string; error: string }>({ loading: false, message: '', error: '' });
   if (run.error)
     return (
       <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800">
@@ -75,6 +76,7 @@ function Result({ run }: { run: RunState }) {
     <section aria-live="polite" className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6">
       <h2 className="mb-4 text-xl font-black text-emerald-950">النتيجة</h2>
       <ResultBody value={run.result} />
+      {run.executionId ? <div className="mt-5 border-t border-emerald-200 pt-4"><button type="button" disabled={saveState.loading} onClick={async () => { setSaveState({ loading: true, message: '', error: '' }); try { await ApiClient.saveStudentToolExecution(run.executionId!, run.result); setSaveState({ loading: false, message: 'حُفظت النتيجة صراحةً في مساحة الطالب الخاصة.', error: '' }); } catch (error) { setSaveState({ loading: false, message: '', error: error instanceof Error ? translateError(error.message) : 'تعذر الحفظ.' }); } }} className="rounded-xl border border-emerald-700 bg-white px-4 py-2 font-bold text-emerald-800 disabled:opacity-60">{saveState.loading ? 'جاري الحفظ...' : 'حفظ في حسابي'}</button>{saveState.message ? <span className="mr-3 text-sm text-emerald-800">{saveState.message}</span> : null}{saveState.error ? <span role="alert" className="mr-3 text-sm text-red-700">{saveState.error}</span> : null}</div> : null}
     </section>
   );
 }
@@ -168,7 +170,7 @@ async function runTool(toolKey: string, input: unknown, setRun: (value: RunState
   setRun({ loading: true, error: '', result: null });
   try {
     const response = await ApiClient.executeStudentTool(toolKey, input, 'ar');
-    setRun({ loading: false, error: '', result: response.result });
+    setRun({ loading: false, error: '', result: response.result, executionId: response.executionId });
   } catch (error) {
     setRun({
       loading: false,
@@ -179,11 +181,12 @@ async function runTool(toolKey: string, input: unknown, setRun: (value: RunState
 }
 
 function GpaTool() {
-  const [scale, setScale] = useState(4);
-  const [courses, setCourses] = useState([
+  const defaultCourses = () => [
     { label: 'المقرر 1', creditHours: 3, gradePoints: 4 },
     { label: 'المقرر 2', creditHours: 3, gradePoints: 3.5 },
-  ]);
+  ];
+  const [scale, setScale] = useState(4);
+  const [courses, setCourses] = useState(defaultCourses);
   const [cumulative, setCumulative] = useState('');
   const [credits, setCredits] = useState('');
   const [run, setRun] = useState(initialRun);
@@ -306,10 +309,25 @@ function GpaTool() {
           >
             <Plus className="h-4 w-4" /> إضافة مقرر
           </button>
-          <Submit loading={run.loading} />
+          <div className="flex gap-3">
+            <button
+              type="button"
+              className="rounded-xl border border-slate-300 px-4 py-2 font-bold text-slate-700"
+              onClick={() => {
+                setScale(4);
+                setCourses(defaultCourses());
+                setCumulative('');
+                setCredits('');
+                setRun(initialRun);
+              }}
+            >
+              إعادة تعيين
+            </button>
+            <Submit loading={run.loading} />
+          </div>
         </div>
       </form>
-      <Result run={run} />
+      <Result key={run.executionId ?? 'gpa-empty'} run={run} />
     </Shell>
   );
 }
@@ -349,11 +367,12 @@ function UniversityTool() {
         </p>
         <Submit loading={run.loading} />
       </form>
-      <Result run={run} />
+      <Result key={run.executionId ?? 'university-empty'} run={run} />
     </Shell>
   );
 }
 function MotivationTool() {
+  const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     program: '',
     degreeLevel: '',
@@ -369,6 +388,12 @@ function MotivationTool() {
     targetWords: 500,
   });
   const [run, setRun] = useState(initialRun);
+  const steps: Array<{ title: string; fields: Array<[keyof typeof form, string]> }> = [
+    { title: 'الهدف الدراسي', fields: [['program', 'البرنامج المستهدف'], ['degreeLevel', 'الدرجة العلمية']] },
+    { title: 'الخلفية', fields: [['education', 'خلفيتك التعليمية'], ['interests', 'اهتماماتك الأكاديمية'], ['experiences', 'خبراتك'], ['achievements', 'إنجازاتك'], ['skills', 'مهاراتك']] },
+    { title: 'الدوافع', fields: [['whyField', 'لماذا هذا المجال؟'], ['whyProgram', 'لماذا هذا البرنامج؟'], ['careerGoals', 'أهدافك المهنية'], ['contribution', 'ما الذي ستضيفه؟']] },
+    { title: 'المراجعة والإخراج', fields: [] },
+  ];
   const field =
     (key: keyof typeof form) =>
     (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -416,19 +441,13 @@ function MotivationTool() {
       description="مسودة رسمية منظمة تعتمد على معلوماتك، وتتطلب تسجيل الدخول وإعداد Phase 17 في التشغيل."
     >
       <form onSubmit={submit} className="grid gap-5 rounded-3xl border bg-white p-6 sm:grid-cols-2">
-        {[
-          ['program', 'البرنامج المستهدف'],
-          ['degreeLevel', 'الدرجة العلمية'],
-          ['education', 'خلفيتك التعليمية'],
-          ['interests', 'اهتماماتك الأكاديمية'],
-          ['experiences', 'خبراتك'],
-          ['achievements', 'إنجازاتك'],
-          ['skills', 'مهاراتك'],
-          ['whyField', 'لماذا هذا المجال؟'],
-          ['whyProgram', 'لماذا هذا البرنامج؟'],
-          ['careerGoals', 'أهدافك المهنية'],
-          ['contribution', 'ما الذي ستضيفه؟'],
-        ].map(([key, label]) => (
+        <div className="sm:col-span-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-900">
+          اذكر معلوماتك الحقيقية فقط. المسودة مساعدة أولية وليست بديلًا عن كتابتك ومراجعتك الشخصية، ولا تُحفظ تلقائيًا.
+        </div>
+        <ol className="sm:col-span-2 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="خطوات إنشاء الخطاب">
+          {steps.map((item, index) => <li key={item.title} className={`rounded-xl px-3 py-2 text-center text-xs font-bold ${index === step ? 'bg-emerald-800 text-white' : index < step ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>{index + 1}. {item.title}</li>)}
+        </ol>
+        {steps[step].fields.map(([key, label]) => (
           <Field key={key} label={label}>
             <textarea
               required
@@ -438,7 +457,7 @@ function MotivationTool() {
             />
           </Field>
         ))}
-        <Field label="عدد الكلمات">
+        {step === 3 ? <><div className="sm:col-span-2 rounded-2xl bg-slate-50 p-4 text-sm leading-7 text-slate-700">راجع أن المعلومات تعبّر عنك فعلًا. لن تُحفظ المسودة إلا إذا اخترت «حفظ في حسابي» بعد ظهور النتيجة.</div><Field label="عدد الكلمات">
           <input
             className={inputClass}
             type="number"
@@ -447,12 +466,13 @@ function MotivationTool() {
             value={form.targetWords}
             onChange={field('targetWords')}
           />
-        </Field>
-        <div className="self-end">
-          <Submit loading={run.loading} />
+        </Field></> : null}
+        <div className="sm:col-span-2 flex justify-between gap-3">
+          <button type="button" disabled={step === 0} onClick={() => setStep((value) => Math.max(0, value - 1))} className="rounded-xl border px-5 py-2 font-bold disabled:opacity-40">السابق</button>
+          {step < steps.length - 1 ? <button type="button" onClick={(event) => { if (event.currentTarget.form?.reportValidity()) setStep((value) => value + 1); }} className="rounded-xl bg-emerald-700 px-5 py-2 font-bold text-white">التالي</button> : <Submit loading={run.loading} />}
         </div>
       </form>
-      <Result run={run} />
+      <Result key={run.executionId ?? 'motivation-empty'} run={run} />
     </Shell>
   );
 }
@@ -521,7 +541,7 @@ function ScholarshipTool() {
           <Submit loading={run.loading} />
         </div>
       </form>
-      <Result run={run} />
+      <Result key={run.executionId ?? 'scholarship-empty'} run={run} />
     </Shell>
   );
 }

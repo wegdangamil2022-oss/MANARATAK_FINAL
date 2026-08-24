@@ -121,6 +121,7 @@ export class PrismaFinanceRepository {
 export class PrismaCareerRepository { constructor(..._args: any[]) {} }
 export { PrismaAIPlatformRepository, PrismaAIPlatformRepository as PrismaAIExecutionRepository } from './ai-platform/PrismaAIPlatformRepository';
 export * from './ai-platform/ProviderAdapters';
+export * from './ai-platform/EnvironmentAIAsyncPayloadProtector';
 export class PrismaConnection {
   private static instance: any = null;
   constructor(..._args: any[]) {}

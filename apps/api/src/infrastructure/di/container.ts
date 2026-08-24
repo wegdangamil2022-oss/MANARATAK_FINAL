@@ -41,6 +41,8 @@ import {
   CanonicalUniversityComparisonGateway,
   CanonicalScholarshipRecommendationGateway,
   StudentToolRateLimitGateway,
+  Phase15StudentToolSaveGateway,
+  EnterpriseStudentToolDependencyHealthGateway,
   DefaultRateLimiter,
   PrismaCmsRepository,
   RedisClientFactory,
@@ -70,7 +72,7 @@ import {
   PrismaScholarshipCanonicalLookupGateway,
   NodeSafeSourceHttpTransport, LocalImportRawSnapshotStore, SourceAcquisitionLimiter,
   StaticHtmlSourceConnector, SitemapSourceConnector, OfficialFeedSourceConnector, OfficialApiSourceConnector, ManualUploadSourceConnector, InMemorySourceRegistryGateway, PrismaSourceRegistryGateway, PrismaScholarshipImportVerificationDecisionPort, PrismaScholarshipImportCanonicalResolutionDecisionPort, InMemoryScholarshipImportVerificationDecisionPort, InMemoryScholarshipImportCanonicalResolutionDecisionPort
-, PrismaSessionManager, PrismaCredentialVerifier, PrismaAIPlatformRepository, createDefaultAIProviderRegistry} from '@manaratak/infrastructure';
+, PrismaSessionManager, PrismaCredentialVerifier, PrismaAIPlatformRepository, createDefaultAIProviderRegistry, EnvironmentAIAsyncPayloadProtector} from '@manaratak/infrastructure';
 
 // UseCases
 import {
@@ -174,7 +176,9 @@ import {
   AuthorizationEvaluatorService,
   ConfigurationValidationService,
   FileIntegrityValidationService,
-  StudentToolHandlerRegistry
+  StudentToolHandlerRegistry,
+  StudentToolActivationReadinessService,
+  StudentToolHealthService
 } from '@manaratak/domain';
 
 // Routers
@@ -8140,12 +8144,16 @@ export function registerDependencies() {
     scholarshipRecommendationGateway: asFunction(({ scholarshipRepository }) => new CanonicalScholarshipRecommendationGateway(scholarshipRepository)).singleton(),
     studentToolRateLimiter: asClass(DefaultRateLimiter).singleton(),
     studentToolRateLimitGateway: asFunction(({ studentToolRateLimiter }) => new StudentToolRateLimitGateway(studentToolRateLimiter)).singleton(),
+    studentToolSaveGateway: asFunction(({ studentWorkspaceRepository }) => new Phase15StudentToolSaveGateway(studentWorkspaceRepository)).singleton(),
+    studentToolDependencyHealthGateway: asFunction(({ aiPlatformRepository, aiProviderRegistry, universityRepository, scholarshipRepository }) => new EnterpriseStudentToolDependencyHealthGateway(aiPlatformRepository, aiProviderRegistry, universityRepository, scholarshipRepository)).scoped(),
     studentToolHandlerRegistry: asFunction(({ universityComparisonGateway, scholarshipRecommendationGateway, studentToolsAIConsumerGateway }) => new StudentToolHandlerRegistry([
       new GpaCalculatorHandler(),
       new UniversityComparisonHandler(universityComparisonGateway),
       new MotivationLetterGeneratorHandler(studentToolsAIConsumerGateway),
       new ScholarshipRecommendationHandler(scholarshipRecommendationGateway, studentToolsAIConsumerGateway),
     ])).singleton(),
+    studentToolActivationReadinessService: asFunction(({ studentToolHandlerRegistry, studentToolDependencyHealthGateway }) => new StudentToolActivationReadinessService(studentToolHandlerRegistry, studentToolDependencyHealthGateway)).scoped(),
+    studentToolHealthService: asFunction(({ studentToolHandlerRegistry, studentToolDependencyHealthGateway }) => new StudentToolHealthService(studentToolHandlerRegistry, studentToolDependencyHealthGateway)).scoped(),
     referenceDataRepository: asFunction(({ prisma }) => new PrismaReferenceDataRepository(prisma)).singleton(),
     serviceCatalogRepository: asFunction(() => createUnavailableCapability('serviceCatalogPersistence')).singleton(),
     financeRepository: asFunction(() => createUnavailableCapability('financePersistence')).singleton(),
@@ -8153,6 +8161,7 @@ export function registerDependencies() {
     internationalTestRepository: asFunction(({ prisma }) => new PrismaInternationalTestRepository(prisma)).singleton(),
     aiPlatformRepository: asFunction(({ prisma }) => new PrismaAIPlatformRepository(prisma)).singleton(),
     aiExecutionRepository: asFunction(({ aiPlatformRepository }) => aiPlatformRepository).singleton(),
+    aiAsyncPayloadProtector: asFunction(() => new EnvironmentAIAsyncPayloadProtector()).singleton(),
     importRepository: asFunction(({ prisma }) => new PrismaImportRepository(prisma)).singleton(),
     academicTaxonomyRepository: asFunction(({ prisma }) => new PrismaAcademicTaxonomyRepository(prisma)).singleton(),
     degreeLevelRepository: asFunction(({ prisma }) => new DegreeLevelRepository(prisma)).singleton(),
@@ -8291,8 +8300,8 @@ export function registerDependencies() {
     studentWorkspaceUseCases: asFunction(({ studentWorkspaceRepository, studentWorkspaceDeliveryCache }) => new StudentWorkspaceUseCases(studentWorkspaceRepository, studentWorkspaceDeliveryCache)).scoped(),
     adminCmsUseCases: asFunction(({ cmsRepository, cmsDeliveryCache }) => new AdminCmsUseCases(cmsRepository, cmsDeliveryCache)).scoped(),
     publicCmsUseCases: asFunction(({ cmsRepository, cmsDeliveryCache }) => new PublicCmsUseCases(cmsRepository, cmsDeliveryCache)).scoped(),
-    studentToolRegistryUseCases: asFunction(({ studentToolRegistryRepository }) => new StudentToolRegistryUseCases(studentToolRegistryRepository)).scoped(),
-    studentToolExecutionUseCases: asFunction(({ studentToolRegistryRepository, studentToolHandlerRegistry, studentToolRateLimitGateway }) => new StudentToolExecutionUseCases(studentToolRegistryRepository, studentToolHandlerRegistry, studentToolRateLimitGateway)).scoped(),
+    studentToolRegistryUseCases: asFunction(({ studentToolRegistryRepository, studentToolActivationReadinessService, studentToolHealthService, studentToolDependencyHealthGateway }) => new StudentToolRegistryUseCases(studentToolRegistryRepository, studentToolActivationReadinessService, studentToolHealthService, studentToolDependencyHealthGateway)).scoped(),
+    studentToolExecutionUseCases: asFunction(({ studentToolRegistryRepository, studentToolHandlerRegistry, studentToolRateLimitGateway, studentToolDependencyHealthGateway, studentToolSaveGateway }) => new StudentToolExecutionUseCases(studentToolRegistryRepository, studentToolHandlerRegistry, studentToolRateLimitGateway, studentToolDependencyHealthGateway, studentToolSaveGateway)).scoped(),
     referenceDataUseCases: asFunction(({ referenceDataRepository, atomicAuditedOutboxMutationExecutor }) =>
       new ReferenceDataUseCases(referenceDataRepository, undefined, undefined, atomicAuditedOutboxMutationExecutor)).scoped(),
     referenceResolver: asFunction(({ referenceDataRepository }) => new ReferenceResolverService(referenceDataRepository)).scoped(),
@@ -8317,7 +8326,7 @@ export function registerDependencies() {
       new InternationalTestImportPromotionUseCase(internationalTestRepository, undefined, referenceResolver, atomicDomainMutationCoordinator)
     ).scoped(),
     internationalTestPublicUseCases: asFunction(({ internationalTestRepository }) => new InternationalTestPublicUseCases(internationalTestRepository)).scoped(),
-    aiExecutionUseCases: asFunction(({ aiPlatformRepository, aiProviderRegistry }) => new AIExecutionOrchestrator(aiPlatformRepository, aiProviderRegistry)).scoped(),
+    aiExecutionUseCases: asFunction(({ aiPlatformRepository, aiProviderRegistry, aiAsyncPayloadProtector }) => new AIExecutionOrchestrator(aiPlatformRepository, aiProviderRegistry, aiAsyncPayloadProtector)).scoped(),
     aiPlatformAdminUseCases: asFunction(({ aiPlatformRepository, aiProviderRegistry }) => new AIPlatformAdminUseCases(aiPlatformRepository, aiProviderRegistry)).scoped(),
     aiWorkflowUseCases: asFunction(({ aiPlatformRepository, aiExecutionUseCases }) => new AIWorkflowUseCases(aiPlatformRepository, aiExecutionUseCases)).scoped(),
     aiEvaluationUseCases: asFunction(({ aiPlatformRepository, aiExecutionUseCases }) => new AIEvaluationUseCases(aiPlatformRepository, aiExecutionUseCases)).scoped(),

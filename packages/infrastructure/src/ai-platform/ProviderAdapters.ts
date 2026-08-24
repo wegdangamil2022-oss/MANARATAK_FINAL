@@ -84,7 +84,7 @@ export class OpenAICompatibleAdapter extends SecretReferencedProviderAdapter {
   async invoke(request: AIProviderInvocation): Promise<AIProviderInvocationResult> {
     const key = this.requireSecret();
     const response = await this.transport.request({
-      url: `${this.baseUrl}/chat/completions`, method: 'POST', timeoutMs: this.timeoutMs,
+      url: `${this.baseUrl}/chat/completions`, method: 'POST', timeoutMs: Math.min(this.timeoutMs, request.timeoutMs ?? this.timeoutMs),
       headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
       body: {
         model: request.model,
@@ -115,7 +115,7 @@ export class AnthropicProviderAdapter extends SecretReferencedProviderAdapter {
   async invoke(request: AIProviderInvocation): Promise<AIProviderInvocationResult> {
     const key = this.requireSecret();
     const response = await this.transport.request({
-      url: `${this.baseUrl}/messages`, method: 'POST', timeoutMs: this.timeoutMs,
+      url: `${this.baseUrl}/messages`, method: 'POST', timeoutMs: Math.min(this.timeoutMs, request.timeoutMs ?? this.timeoutMs),
       headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: { model: request.model, system: request.systemPrompt ?? undefined, messages: [{ role: 'user', content: request.input }], max_tokens: request.maxOutputTokens ?? 1024, temperature: request.temperature ?? 0 }
     });
@@ -136,7 +136,7 @@ export class GoogleGenerativeAIProviderAdapter extends SecretReferencedProviderA
 
   async embed(request: AIEmbeddingInvocation): Promise<AIEmbeddingInvocationResult> {
     const key = this.requireSecret();
-    const response = await this.transport.request({ url: `${this.baseUrl}/models/${encodeURIComponent(request.model)}:batchEmbedContents?key=${encodeURIComponent(key)}`, method: 'POST', timeoutMs: this.timeoutMs, headers: { 'content-type': 'application/json' }, body: { requests: request.inputs.map((text) => ({ model: `models/${request.model}`, content: { parts: [{ text }] }, outputDimensionality: request.dimensions ?? undefined })) } });
+    const response = await this.transport.request({ url: `${this.baseUrl}/models/${encodeURIComponent(request.model)}:batchEmbedContents`, method: 'POST', timeoutMs: this.timeoutMs, headers: { 'x-goog-api-key': key, 'content-type': 'application/json' }, body: { requests: request.inputs.map((text) => ({ model: `models/${request.model}`, content: { parts: [{ text }] }, outputDimensionality: request.dimensions ?? undefined })) } });
     if (response.status >= 400) throw providerError(this.key, response.status, response.body);
     return { embeddings: (response.body?.embeddings ?? []).map((item: any) => item.values ?? []), inputTokens: 0, providerRequestId: response.headers?.['x-request-id'] ?? null };
   }
@@ -144,8 +144,8 @@ export class GoogleGenerativeAIProviderAdapter extends SecretReferencedProviderA
   async invoke(request: AIProviderInvocation): Promise<AIProviderInvocationResult> {
     const key = this.requireSecret();
     const response = await this.transport.request({
-      url: `${this.baseUrl}/models/${encodeURIComponent(request.model)}:generateContent?key=${encodeURIComponent(key)}`,
-      method: 'POST', timeoutMs: this.timeoutMs, headers: { 'content-type': 'application/json' },
+      url: `${this.baseUrl}/models/${encodeURIComponent(request.model)}:generateContent`,
+      method: 'POST', timeoutMs: Math.min(this.timeoutMs, request.timeoutMs ?? this.timeoutMs), headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
       body: {
         systemInstruction: request.systemPrompt ? { parts: [{ text: request.systemPrompt }] } : undefined,
         contents: [{ role: 'user', parts: [{ text: request.input }] }],

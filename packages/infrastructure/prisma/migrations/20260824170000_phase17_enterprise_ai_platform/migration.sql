@@ -32,13 +32,14 @@ CREATE TABLE "AIPromptDeploymentRecord" (
   "retiredAt" TIMESTAMP(3), CONSTRAINT "AIPromptDeploymentRecord_pkey" PRIMARY KEY ("id")
 );
 CREATE INDEX "AIPromptDeploymentRecord_promptKey_environment_status_idx" ON "AIPromptDeploymentRecord"("promptKey", "environment", "status");
+ALTER TABLE "AIPromptDeploymentRecord" ADD CONSTRAINT "AIPromptDeploymentRecord_promptKey_version_fkey" FOREIGN KEY ("promptKey", "version") REFERENCES "AIPromptVersionRecord"("promptKey", "version") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 CREATE TABLE "AIExecutionRecord" (
   "id" TEXT NOT NULL, "publicId" TEXT NOT NULL, "traceId" TEXT NOT NULL,
-  "idempotencyKey" TEXT, "consumerKey" TEXT NOT NULL, "capabilityKey" TEXT NOT NULL,
+  "idempotencyKeyHash" TEXT, "consumerKey" TEXT NOT NULL, "capabilityKey" TEXT NOT NULL,
   "purpose" TEXT NOT NULL, "promptKey" TEXT NOT NULL, "promptVersion" INTEGER,
   "providerKey" TEXT, "modelKey" TEXT, "status" TEXT NOT NULL,
-  "safetyDecision" TEXT NOT NULL, "inputPreview" TEXT NOT NULL, "outputPreview" TEXT,
+  "safetyDecision" TEXT NOT NULL, "dataClassification" TEXT NOT NULL DEFAULT 'INTERNAL', "inputPreview" TEXT, "outputPreview" TEXT,
   "inputTokens" INTEGER NOT NULL DEFAULT 0, "outputTokens" INTEGER NOT NULL DEFAULT 0,
   "estimatedCost" DECIMAL(18,8), "actualCost" DECIMAL(18,8), "currency" TEXT,
   "errorCode" TEXT, "errorMessage" TEXT, "requesterReferenceId" TEXT, "sourceDomain" TEXT,
@@ -46,11 +47,27 @@ CREATE TABLE "AIExecutionRecord" (
   "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "AIExecutionRecord_pkey" PRIMARY KEY ("id")
 );
 CREATE UNIQUE INDEX "AIExecutionRecord_publicId_key" ON "AIExecutionRecord"("publicId");
-CREATE UNIQUE INDEX "AIExecutionRecord_consumerKey_idempotencyKey_key" ON "AIExecutionRecord"("consumerKey", "idempotencyKey");
+CREATE UNIQUE INDEX "AIExecutionRecord_consumerKey_idempotencyKeyHash_key" ON "AIExecutionRecord"("consumerKey", "idempotencyKeyHash");
 CREATE INDEX "AIExecutionRecord_traceId_idx" ON "AIExecutionRecord"("traceId");
 CREATE INDEX "AIExecutionRecord_status_createdAt_idx" ON "AIExecutionRecord"("status", "createdAt");
 CREATE INDEX "AIExecutionRecord_consumerKey_createdAt_idx" ON "AIExecutionRecord"("consumerKey", "createdAt");
 CREATE INDEX "AIExecutionRecord_providerKey_modelKey_createdAt_idx" ON "AIExecutionRecord"("providerKey", "modelKey", "createdAt");
+
+CREATE TABLE "AIAsyncJobRecord" (
+  "id" TEXT NOT NULL, "publicId" TEXT NOT NULL, "requesterReferenceId" TEXT NOT NULL,
+  "consumerKey" TEXT NOT NULL, "capabilityKey" TEXT NOT NULL, "status" TEXT NOT NULL DEFAULT 'QUEUED',
+  "payloadCiphertext" TEXT NOT NULL, "payloadIv" TEXT NOT NULL, "payloadAuthTag" TEXT NOT NULL,
+  "payloadKeyVersion" TEXT NOT NULL, "attempts" INTEGER NOT NULL DEFAULT 0,
+  "maxAttempts" INTEGER NOT NULL DEFAULT 3, "nextAttemptAt" TIMESTAMP(3),
+  "lockedAt" TIMESTAMP(3), "lockedBy" TEXT, "executionPublicId" TEXT, "errorCode" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL,
+  "completedAt" TIMESTAMP(3), CONSTRAINT "AIAsyncJobRecord_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX "AIAsyncJobRecord_publicId_key" ON "AIAsyncJobRecord"("publicId");
+CREATE INDEX "AIAsyncJobRecord_status_nextAttemptAt_createdAt_idx" ON "AIAsyncJobRecord"("status", "nextAttemptAt", "createdAt");
+CREATE INDEX "AIAsyncJobRecord_consumerKey_createdAt_idx" ON "AIAsyncJobRecord"("consumerKey", "createdAt");
+CREATE INDEX "AIAsyncJobRecord_requesterReferenceId_createdAt_idx" ON "AIAsyncJobRecord"("requesterReferenceId", "createdAt");
+ALTER TABLE "AIAsyncJobRecord" ADD CONSTRAINT "AIAsyncJobRecord_executionPublicId_fkey" FOREIGN KEY ("executionPublicId") REFERENCES "AIExecutionRecord"("publicId") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 CREATE TABLE "AIExecutionSpanRecord" (
   "id" TEXT NOT NULL, "executionPublicId" TEXT NOT NULL, "traceId" TEXT NOT NULL,
@@ -60,22 +77,25 @@ CREATE TABLE "AIExecutionSpanRecord" (
 );
 CREATE INDEX "AIExecutionSpanRecord_executionPublicId_startedAt_idx" ON "AIExecutionSpanRecord"("executionPublicId", "startedAt");
 CREATE INDEX "AIExecutionSpanRecord_traceId_idx" ON "AIExecutionSpanRecord"("traceId");
+ALTER TABLE "AIExecutionSpanRecord" ADD CONSTRAINT "AIExecutionSpanRecord_executionPublicId_fkey" FOREIGN KEY ("executionPublicId") REFERENCES "AIExecutionRecord"("publicId") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 CREATE TABLE "AIUsageRecord" (
   "id" TEXT NOT NULL, "executionPublicId" TEXT NOT NULL, "consumerKey" TEXT NOT NULL,
   "providerKey" TEXT NOT NULL, "modelKey" TEXT NOT NULL, "inputTokens" INTEGER NOT NULL,
   "outputTokens" INTEGER NOT NULL, "cost" DECIMAL(18,8) NOT NULL, "currency" TEXT NOT NULL,
+  "priceSnapshotKey" TEXT, "pricingEffectiveFrom" TIMESTAMP(3), "costKind" TEXT NOT NULL DEFAULT 'UNKNOWN',
   "metadata" JSONB, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "AIUsageRecord_pkey" PRIMARY KEY ("id")
 );
 CREATE UNIQUE INDEX "AIUsageRecord_executionPublicId_providerKey_modelKey_key" ON "AIUsageRecord"("executionPublicId", "providerKey", "modelKey");
 CREATE INDEX "AIUsageRecord_consumerKey_createdAt_idx" ON "AIUsageRecord"("consumerKey", "createdAt");
 CREATE INDEX "AIUsageRecord_providerKey_modelKey_createdAt_idx" ON "AIUsageRecord"("providerKey", "modelKey", "createdAt");
+ALTER TABLE "AIUsageRecord" ADD CONSTRAINT "AIUsageRecord_executionPublicId_fkey" FOREIGN KEY ("executionPublicId") REFERENCES "AIExecutionRecord"("publicId") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 CREATE TABLE "AIWorkflowRunRecord" (
   "id" TEXT NOT NULL, "publicId" TEXT NOT NULL, "workflowKey" TEXT NOT NULL,
   "workflowVersion" INTEGER NOT NULL, "status" TEXT NOT NULL, "traceId" TEXT NOT NULL,
-  "input" JSONB NOT NULL, "output" JSONB, "currentStep" TEXT, "errorMessage" TEXT,
+  "inputReferenceHash" TEXT NOT NULL, "outputReferenceHash" TEXT, "currentStep" TEXT, "errorMessage" TEXT,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "AIWorkflowRunRecord_pkey" PRIMARY KEY ("id")
 );
@@ -86,18 +106,20 @@ CREATE INDEX "AIWorkflowRunRecord_traceId_idx" ON "AIWorkflowRunRecord"("traceId
 CREATE TABLE "AIWorkflowStepRunRecord" (
   "id" TEXT NOT NULL, "runPublicId" TEXT NOT NULL, "stepKey" TEXT NOT NULL,
   "executionId" TEXT, "status" TEXT NOT NULL, "attempt" INTEGER NOT NULL DEFAULT 1,
-  "input" JSONB, "output" JSONB, "errorMessage" TEXT,
+  "inputReferenceHash" TEXT, "outputReferenceHash" TEXT, "errorMessage" TEXT,
   "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "completedAt" TIMESTAMP(3),
   CONSTRAINT "AIWorkflowStepRunRecord_pkey" PRIMARY KEY ("id")
 );
 CREATE UNIQUE INDEX "AIWorkflowStepRunRecord_runPublicId_stepKey_attempt_key" ON "AIWorkflowStepRunRecord"("runPublicId", "stepKey", "attempt");
 CREATE INDEX "AIWorkflowStepRunRecord_runPublicId_status_idx" ON "AIWorkflowStepRunRecord"("runPublicId", "status");
+ALTER TABLE "AIWorkflowStepRunRecord" ADD CONSTRAINT "AIWorkflowStepRunRecord_runPublicId_fkey" FOREIGN KEY ("runPublicId") REFERENCES "AIWorkflowRunRecord"("publicId") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 CREATE TABLE "AIEvaluationRunRecord" (
   "id" TEXT NOT NULL, "publicId" TEXT NOT NULL, "evaluationKey" TEXT NOT NULL,
   "status" TEXT NOT NULL, "promptVersion" INTEGER, "modelKey" TEXT,
   "passed" INTEGER NOT NULL DEFAULT 0, "failed" INTEGER NOT NULL DEFAULT 0,
-  "score" DOUBLE PRECISION, "results" JSONB,
+  "safetyFailures" INTEGER NOT NULL DEFAULT 0, "score" DOUBLE PRECISION, "results" JSONB,
+  "approvedBy" TEXT, "approvedAt" TIMESTAMP(3),
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "completedAt" TIMESTAMP(3),
   CONSTRAINT "AIEvaluationRunRecord_pkey" PRIMARY KEY ("id")
 );

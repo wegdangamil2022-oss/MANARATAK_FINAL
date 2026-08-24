@@ -27,6 +27,16 @@ describe('Phase 17 provider-neutral adapters', () => {
     await expect(google.invoke({ model: 'g', input: 'hello' })).resolves.toMatchObject({ output: 'google', inputTokens: 6, outputTokens: 7 });
   });
 
+  it('keeps the Google API key out of request URLs', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 200, body: { candidates: [] } });
+    const google = new GoogleGenerativeAIProviderAdapter({ key: 'google', secretReference: 'TEST_KEY', baseUrl: 'https://provider.invalid/v1beta', readSecret: () => 'private-key', transport: { request } });
+    await google.invoke({ model: 'g', input: 'hello' });
+    const invocation = request.mock.calls[0][0];
+    expect(invocation.url).not.toContain('private-key');
+    expect(invocation.url).not.toContain('?key=');
+    expect(invocation.headers['x-goog-api-key']).toBe('private-key');
+  });
+
   it('maps embedding contracts without a live provider', async () => {
     const request = vi.fn().mockResolvedValue({ status: 200, body: { data: [{ embedding: [0.1, 0.2] }], usage: { prompt_tokens: 2 } } });
     const adapter = new OpenAICompatibleAdapter({ key: 'openai', secretReference: 'TEST_KEY', baseUrl: 'https://provider.invalid/v1', readSecret: () => 'test', transport: { request } });

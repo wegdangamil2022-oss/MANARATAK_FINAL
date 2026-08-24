@@ -1,4 +1,5 @@
 import { AIExecutionStatus, AIProviderType, AIRequestPurpose, AISafetyDecision } from '../enums';
+import { AIDataClassification } from './AIPlatform';
 
 export interface AIExecutionRequestDto {
   purpose: AIRequestPurpose;
@@ -13,6 +14,7 @@ export interface AIExecutionRequestDto {
   idempotencyKey?: string | null;
   structuredOutputSchema?: Record<string, unknown> | null;
   maxOutputTokens?: number | null;
+  dataClassification?: AIDataClassification | null;
 }
 
 export interface AIExecutionResultDto {
@@ -40,7 +42,7 @@ export interface AIExecutionLogDto {
   safetyDecision: AISafetyDecision;
   requesterReferenceId?: string | null;
   sourceDomain?: string | null;
-  inputPreview: string;
+  inputPreview?: string | null;
   outputPreview?: string | null;
   estimatedInputTokens: number;
   estimatedOutputTokens: number;
@@ -60,7 +62,7 @@ export interface CreateAIExecutionLogDto {
   safetyDecision: AISafetyDecision;
   requesterReferenceId?: string | null;
   sourceDomain?: string | null;
-  inputPreview: string;
+  inputPreview?: string | null;
   outputPreview?: string | null;
   estimatedInputTokens: number;
   estimatedOutputTokens: number;

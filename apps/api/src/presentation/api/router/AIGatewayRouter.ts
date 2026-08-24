@@ -1,64 +1,102 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { AIExecutionOrchestrator } from '@manaratak/application';
-import { AIExecutionStatus, AIRequestPurpose } from '@manaratak/domain';
 
+const capabilityRequestSchema = z.object({
+  capabilityKey: z.string().trim().min(1).max(160).regex(/^[a-zA-Z0-9_.:-]+$/),
+  input: z.string().min(1).max(100_000),
+  locale: z.enum(['ar', 'en']).optional().nullable(),
+  dataClassification: z
+    .enum(['PUBLIC', 'INTERNAL', 'CONFIDENTIAL', 'STUDENT_PRIVATE', 'HIGHLY_SENSITIVE'])
+    .default('INTERNAL'),
+  idempotencyKey: z.string().min(1).max(200).optional().nullable(),
+  structuredOutputSchema: z.record(z.string(), z.unknown()).optional().nullable(),
+});
+
+/**
+ * Privileged operator gateway. Business domains use the Phase 17 consumer port directly;
+ * this HTTP surface never accepts prompt, model, provider, consumer, or requester overrides.
+ */
 export class AIGatewayRouter {
   public static create(cradle: { aiExecutionUseCases: AIExecutionOrchestrator }): Router {
     const router = Router();
     const { aiExecutionUseCases } = cradle;
-    const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => Promise.resolve(fn(req, res, next)).catch(next);
+    const asyncHandler =
+      (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
+      (req: Request, res: Response, next: NextFunction) =>
+        Promise.resolve(fn(req, res, next)).catch(next);
+    const actor = (req: Request) => {
+      if (!req.authUserId) throw new Error('AI_AUTHENTICATED_REQUESTER_REQUIRED');
+      return req.authUserId;
+    };
 
-    const executeSchema = z.object({
-      purpose: z.nativeEnum(AIRequestPurpose),
-      promptKey: z.string().min(1),
-      input: z.string().min(1).max(8000),
-      locale: z.string().optional().nullable(),
-      requesterReferenceId: z.string().optional().nullable(),
-      sourceDomain: z.string().optional().nullable(),
-      metadata: z.record(z.string(), z.unknown()).optional().nullable()
-      ,capabilityKey: z.string().min(1).optional().nullable()
-      ,consumerKey: z.string().min(1).optional().nullable()
-      ,idempotencyKey: z.string().min(1).max(200).optional().nullable()
-      ,structuredOutputSchema: z.record(z.string(), z.unknown()).optional().nullable()
-      ,maxOutputTokens: z.number().int().positive().max(32768).optional().nullable()
-    });
+    router.post(
+      '/execute',
+      asyncHandler(async (req, res) => {
+        const payload = capabilityRequestSchema.parse(req.body);
+        res.json(
+          await aiExecutionUseCases.executeCapability({
+            ...payload,
+            consumerKey: 'admin-ai-playground',
+            requesterReferenceId: actor(req),
+            sourceDomain: 'AdminAIPlayground',
+          }),
+        );
+      }),
+    );
 
-    const logQuerySchema = z.object({
-      purpose: z.nativeEnum(AIRequestPurpose).optional(),
-      status: z.nativeEnum(AIExecutionStatus).optional(),
-      requesterReferenceId: z.string().optional(),
-      page: z.string().optional().transform((value) => value ? parseInt(value, 10) : 1),
-      pageSize: z.string().optional().transform((value) => value ? Math.min(parseInt(value, 10), 50) : 20)
-    });
+    router.post(
+      '/executions',
+      asyncHandler(async (req, res) => {
+        const payload = capabilityRequestSchema.parse(req.body);
+        const job = await aiExecutionUseCases.submitAsyncCapability({
+          ...payload,
+          consumerKey: 'admin-ai-playground',
+          requesterReferenceId: actor(req),
+          sourceDomain: 'AdminAIPlayground',
+        });
+        res.status(202).json({
+          publicId: job.publicId,
+          status: job.status,
+          createdAt: job.createdAt,
+        });
+      }),
+    );
 
-    router.post('/execute', asyncHandler(async (req: Request, res: Response) => {
-      const payload = executeSchema.parse(req.body);
-      res.json(await aiExecutionUseCases.execute(payload));
-    }));
+    router.get(
+      '/executions/:publicId',
+      asyncHandler(async (req, res) => {
+        const requester = actor(req);
+        const value = req.params.publicId.startsWith('aij_')
+          ? await aiExecutionUseCases.findAsyncForRequester(req.params.publicId, requester)
+          : await aiExecutionUseCases.findForRequester(req.params.publicId, requester);
+        if (!value) return res.status(404).json({ error: 'AI_EXECUTION_NOT_FOUND' });
+        return res.json(value);
+      }),
+    );
 
-    router.post('/executions', asyncHandler(async (req: Request, res: Response) => {
-      const payload = executeSchema.parse(req.body);
-      res.status(202).json(await aiExecutionUseCases.submitAsync(payload));
-    }));
+    router.post(
+      '/executions/:publicId/cancel',
+      asyncHandler(async (req, res) => {
+        const requester = actor(req);
+        if (req.params.publicId.startsWith('aij_'))
+          return res.json(await aiExecutionUseCases.cancelAsync(req.params.publicId, requester));
+        const value = await aiExecutionUseCases.findForRequester(req.params.publicId, requester);
+        if (!value) return res.status(404).json({ error: 'AI_EXECUTION_NOT_FOUND' });
+        return res.json(await aiExecutionUseCases.cancel(value.publicId));
+      }),
+    );
 
-    router.get('/executions/:publicId', asyncHandler(async (req: Request, res: Response) => {
-      const value = await aiExecutionUseCases.find(req.params.publicId);
-      if (!value) return res.status(404).json({ error: 'AI_EXECUTION_NOT_FOUND' });
-      res.json(value);
-    }));
-
-    router.post('/executions/:publicId/cancel', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await aiExecutionUseCases.cancel(req.params.publicId));
-    }));
-
-    router.get('/logs', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await aiExecutionUseCases.listLogs(logQuerySchema.parse(req.query)));
-    }));
-
-    router.use((err: any, req: Request, res: Response, next: NextFunction) => {
-      if (err instanceof z.ZodError) return res.status(400).json({ error: 'Validation Error', details: err.issues });
-      res.status(400).json({ error: err.message || 'An error occurred' });
+    router.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+      if (err instanceof z.ZodError)
+        return res.status(400).json({ error: 'AI_INPUT_INVALID', details: err.issues });
+      const code = err instanceof Error ? err.message : 'AI_EXECUTION_FAILED';
+      const status = code.includes('AUTHENTICATED')
+        ? 401
+        : code.includes('NOT_CONFIGURED')
+          ? 503
+          : 400;
+      return res.status(status).json({ error: code });
     });
 
     return router;

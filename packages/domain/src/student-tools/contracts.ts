@@ -76,6 +76,7 @@ export interface IStudentToolHandler<
   readonly toolKey: string;
   readonly executionType: StudentToolExecutionType;
   validate(input: unknown): TInput;
+  validateOutput(output: unknown): TOutput;
   execute(context: StudentToolExecutionContext, input: TInput): Promise<TOutput>;
 }
 export interface IEnterpriseAIConsumerGateway {
@@ -126,6 +127,7 @@ export interface IStudentToolSaveGateway {
     toolKey: string;
     executionId: string;
     resultReference: string;
+    result: StudentToolOutput;
   }): Promise<{ savedReference: string }>;
 }
 export interface IStudentToolAssetGateway {
@@ -164,3 +166,8 @@ export type ExecuteStudentToolRequest = {
   isTest?: boolean;
 };
 export type ExecuteStudentToolResult = StudentToolExecutionResponse<StudentToolOutput>;
+export interface StudentToolExecutionRequester {
+  consumerType: 'ANONYMOUS' | 'AUTHENTICATED_STUDENT';
+  authenticatedStudentReference?: string;
+  anonymousSessionReference?: string;
+}

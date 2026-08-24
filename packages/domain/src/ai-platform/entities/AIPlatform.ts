@@ -2,9 +2,11 @@ import { AIExecutionStatus, AIProviderType, AIRequestPurpose, AISafetyDecision }
 
 export type AIRecordStatus = 'DRAFT' | 'REVIEW' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
 export type AIProviderOperationalStatus = 'NOT_CONFIGURED' | 'READY' | 'DEGRADED' | 'UNAVAILABLE' | 'DISABLED';
+export type AIDataClassification = 'PUBLIC' | 'INTERNAL' | 'CONFIDENTIAL' | 'STUDENT_PRIVATE' | 'HIGHLY_SENSITIVE';
 export type AICapabilityKind = 'TEXT_GENERATION' | 'CHAT' | 'STRUCTURED_OUTPUT' | 'EMBEDDINGS' | 'RERANKING' | 'MODERATION';
 export type AIWorkflowRunStatus = 'QUEUED' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
 export type AIEvaluationRunStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+export type AIAsyncJobStatus = 'QUEUED' | 'RUNNING' | 'RETRYING' | 'COMPLETED' | 'FAILED' | 'DEAD_LETTER' | 'CANCELLED';
 
 export interface AIProviderDefinition {
   id: string;
@@ -17,6 +19,11 @@ export interface AIProviderDefinition {
   baseUrl?: string | null;
   timeoutMs: number;
   maxRetries: number;
+  productionApproved?: boolean;
+  maxDataClassification?: AIDataClassification;
+  regions?: string[];
+  dataResidency?: string[];
+  dataRetentionPolicy?: string | null;
   metadata?: Record<string, unknown> | null;
 }
 
@@ -36,6 +43,9 @@ export interface AIModelDefinition {
   inputPricePerMillion?: number | null;
   outputPricePerMillion?: number | null;
   currency?: string | null;
+  productionApproved?: boolean;
+  maxDataClassification?: AIDataClassification;
+  regions?: string[];
   metadata?: Record<string, unknown> | null;
 }
 
@@ -61,6 +71,7 @@ export interface AICapabilityDefinition {
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'PROHIBITED';
   requiresHumanReview: boolean;
   allowedPurposes: AIRequestPurpose[];
+  allowedDataClassifications?: AIDataClassification[];
 }
 
 export interface AIRoutingTarget {
@@ -69,6 +80,8 @@ export interface AIRoutingTarget {
   weight: number;
   maxLatencyMs?: number | null;
   enabled: boolean;
+  canaryPercentage?: number;
+  shadow?: boolean;
 }
 
 export interface AIRoutingPolicy {
@@ -130,13 +143,38 @@ export interface AIConsumerPolicy {
   monthlyCostLimit?: number | null;
   currency?: string | null;
   requireHumanReview: boolean;
+  allowedDataClassifications?: AIDataClassification[];
+  allowAsyncJobs?: boolean;
+}
+
+export interface AIAsyncJobRecord {
+  id: string;
+  publicId: string;
+  requesterReferenceId: string;
+  consumerKey: string;
+  capabilityKey: string;
+  status: AIAsyncJobStatus;
+  payloadCiphertext: string;
+  payloadIv: string;
+  payloadAuthTag: string;
+  payloadKeyVersion: string;
+  attempts: number;
+  maxAttempts: number;
+  nextAttemptAt?: Date | string | null;
+  lockedAt?: Date | string | null;
+  lockedBy?: string | null;
+  executionPublicId?: string | null;
+  errorCode?: string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  completedAt?: Date | string | null;
 }
 
 export interface AIExecutionRecord {
   id: string;
   publicId: string;
   traceId: string;
-  idempotencyKey?: string | null;
+  idempotencyKeyHash?: string | null;
   consumerKey: string;
   capabilityKey: string;
   purpose: AIRequestPurpose;
@@ -146,7 +184,8 @@ export interface AIExecutionRecord {
   modelKey?: string | null;
   status: AIExecutionStatus;
   safetyDecision: AISafetyDecision;
-  inputPreview: string;
+  dataClassification: AIDataClassification;
+  inputPreview?: string | null;
   outputPreview?: string | null;
   inputTokens: number;
   outputTokens: number;
@@ -191,8 +230,8 @@ export interface AIWorkflowRun {
   workflowVersion: number;
   status: AIWorkflowRunStatus;
   traceId: string;
-  input: Record<string, unknown>;
-  output?: Record<string, unknown> | null;
+  inputReferenceHash: string;
+  outputReferenceHash?: string | null;
   currentStep?: string | null;
   errorMessage?: string | null;
   createdAt: Date | string;
@@ -205,6 +244,8 @@ export interface AIEvaluationDefinition {
   displayName: string;
   status: AIRecordStatus;
   capabilityKey: string;
+  target: { type: 'PROMPT' | 'MODEL' | 'ROUTING' | 'WORKFLOW' | 'KNOWLEDGE'; key: string };
+  deploymentGate?: { minimumScore: number; maximumSafetyFailures: number; requiresHumanApproval: boolean } | null;
   dataset: Array<{ key: string; input: string; expected?: unknown; metadata?: Record<string, unknown> }>;
   evaluators: Array<{ key: string; type: 'EXACT_MATCH' | 'JSON_SCHEMA' | 'REGEX' | 'LATENCY' | 'COST' | 'HUMAN'; threshold?: number }>;
 }
@@ -218,8 +259,11 @@ export interface AIEvaluationRun {
   modelKey?: string | null;
   passed: number;
   failed: number;
+  safetyFailures: number;
   score?: number | null;
   results?: Record<string, unknown>[] | null;
+  approvedBy?: string | null;
+  approvedAt?: Date | string | null;
   createdAt: Date | string;
   completedAt?: Date | string | null;
 }
@@ -275,6 +319,7 @@ export interface AIIncident {
 }
 
 export interface AIPlatformOverview {
+  overallStatus: 'READY' | 'NOT_CONFIGURED' | 'DEGRADED' | 'DISABLED';
   providers: Record<AIProviderOperationalStatus, number>;
   activeModels: number;
   activePrompts: number;

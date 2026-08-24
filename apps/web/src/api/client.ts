@@ -1612,6 +1612,21 @@ export class ApiClient {
     return payload.data;
   }
 
+  static async saveStudentToolExecution(executionId: string, result: unknown): Promise<{ savedReference: string }> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/public/student-tools/executions/${encodeURIComponent(executionId)}/save`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ result }) },
+    );
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to save student tool result',
+      );
+    }
+    return (await res.json()).data;
+  }
+
   static async getServices(
     filters: ServiceFilters,
   ): Promise<PaginatedResult<PublicServiceCatalogItemDto>> {

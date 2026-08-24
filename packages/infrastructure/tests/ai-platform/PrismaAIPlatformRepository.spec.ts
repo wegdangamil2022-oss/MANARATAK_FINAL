@@ -5,7 +5,7 @@ describe('PrismaAIPlatformRepository governance boundary', () => {
   it('rejects raw provider secrets before persistence', async () => {
     const transaction = vi.fn();
     const repository = new PrismaAIPlatformRepository({ $transaction: transaction });
-    await expect(repository.upsert('providers', { key: 'provider', apiKey: 'forbidden' }, 'actor')).rejects.toThrow('secrets must be environment references');
+    await expect(repository.upsert('providers', { key: 'provider', apiKey: 'forbidden' }, 'actor')).rejects.toThrow('AI_SECRET_MATERIAL_FORBIDDEN');
     expect(transaction).not.toHaveBeenCalled();
   });
 

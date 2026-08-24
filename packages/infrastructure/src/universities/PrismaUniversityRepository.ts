@@ -286,6 +286,15 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
     return this.list({ ...filters, status: UniversityStatus.PUBLISHED });
   }
 
+  async findPublishedByPublicIds(publicIds: string[]): Promise<UniversityDto[]> {
+    if (!publicIds.length) return [];
+    const rows = await this.prisma.university.findMany({
+      where: { publicId: { in: [...new Set(publicIds)] }, status: UniversityStatus.PUBLISHED },
+      include: universityDetails,
+    });
+    return rows.map((row) => this.mapToDto(row));
+  }
+
   async listTranslations(id: string): Promise<UniversityTranslationDto[]> {
     await this.prisma.university.findUniqueOrThrow({ where: { id }, select: { id: true } });
     const records = await this.prisma.universityTranslation.findMany({

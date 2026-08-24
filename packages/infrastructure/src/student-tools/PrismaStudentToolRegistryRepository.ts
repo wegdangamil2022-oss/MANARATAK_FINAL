@@ -78,16 +78,24 @@ export class PrismaStudentToolRegistryRepository implements IStudentToolRegistry
         },
         update: data,
       });
-      await tx.studentToolVersionRecord.upsert({
+      const existingVersion = await tx.studentToolVersionRecord.findUnique({
         where: {
           definitionId_semanticVersion: {
             definitionId: row.id,
             semanticVersion: definition.currentVersion.semanticVersion,
           },
         },
-        create: { definitionId: row.id, ...versionData(definition) },
-        update: versionData(definition),
       });
+      if (!existingVersion)
+        await tx.studentToolVersionRecord.create({
+          data: { definitionId: row.id, ...versionData(definition) },
+        });
+      else if (
+        existingVersion.inputSchemaVersion !== definition.currentVersion.inputSchemaVersion ||
+        existingVersion.outputSchemaVersion !== definition.currentVersion.outputSchemaVersion ||
+        existingVersion.changeNote !== definition.currentVersion.changeNote
+      )
+        throw new Error('IMMUTABLE_TOOL_VERSION');
       await tx.studentToolDependencyRecord.deleteMany({ where: { definitionId: row.id } });
       if (definition.dependencies.length)
         await tx.studentToolDependencyRecord.createMany({
@@ -128,6 +136,7 @@ export class PrismaStudentToolRegistryRepository implements IStudentToolRegistry
         'lifecycle',
         'availability',
         'featureFlags',
+        'rateLimitPolicy',
         'aiCapabilityKey',
         'estimatedMinutes',
         'tags',
@@ -140,6 +149,7 @@ export class PrismaStudentToolRegistryRepository implements IStudentToolRegistry
           allowed[key] = [
             'availability',
             'featureFlags',
+            'rateLimitPolicy',
             'tags',
             'inputSchema',
             'outputSchema',
@@ -163,15 +173,35 @@ export class PrismaStudentToolRegistryRepository implements IStudentToolRegistry
       select: { id: true },
     });
     if (!definition) throw new Error('TOOL_NOT_FOUND');
-    const row = await this.db.studentToolExecutionRecord.create({
-      data: { ...executionData(record), definitionId: definition.id } as any,
+    const row = await this.db.$transaction(async (tx: Db) => {
+      const created = await tx.studentToolExecutionRecord.create({
+        data: { ...executionData(record), definitionId: definition.id } as any,
+      });
+      await appendExecutionEvent(tx, 'STUDENT_TOOL_EXECUTION_STARTED', record.toolKey, record);
+      return created;
     });
     return mapExecution(row, record.toolKey);
   }
   async completeExecution(executionId: string, patch: Partial<StudentToolExecutionRecord>) {
-    const row = await this.db.studentToolExecutionRecord.update({
-      where: { executionId },
-      data: executionData(patch),
+    const row = await this.db.$transaction(async (tx: Db) => {
+      const current = await tx.studentToolExecutionRecord.findUnique({
+        where: { executionId },
+        include: { definition: { select: { toolKey: true } } },
+      });
+      if (!current) throw new Error('TOOL_EXECUTION_NOT_FOUND');
+      const updated = await tx.studentToolExecutionRecord.update({
+        where: { executionId },
+        data: executionData(patch),
+      });
+      await appendExecutionEvent(
+        tx,
+        patch.status === StudentToolExecutionStatus.COMPLETED
+          ? 'STUDENT_TOOL_EXECUTION_COMPLETED'
+          : 'STUDENT_TOOL_EXECUTION_FAILED',
+        current.definition.toolKey,
+        { ...patch, executionId } as StudentToolExecutionRecord,
+      );
+      return updated;
     });
     const definition = await this.db.studentToolDefinitionRecord.findUnique({
       where: { id: row.definitionId },
@@ -278,6 +308,7 @@ function definitionData(value: StudentToolDefinition) {
     lifecycle: value.lifecycle,
     availability: json(value.availability),
     featureFlags: json(value.featureFlags),
+    rateLimitPolicy: json(value.rateLimitPolicy),
     aiCapabilityKey: value.aiCapabilityKey,
     outputType: value.outputType,
     supportedLocales: json(value.supportedLocales),
@@ -307,6 +338,7 @@ function mapDefinition(row: any): StudentToolDefinition {
     ...row,
     availability: row.availability,
     featureFlags: row.featureFlags,
+    rateLimitPolicy: row.rateLimitPolicy,
     supportedLocales: row.supportedLocales,
     tags: row.tags,
     inputSchema: row.inputSchema,
@@ -316,6 +348,32 @@ function mapDefinition(row: any): StudentToolDefinition {
       ({ id: _id, definitionId: _definitionId, ...item }: any) => item,
     ),
   };
+}
+async function appendExecutionEvent(
+  tx: Db,
+  eventType: string,
+  toolKey: string,
+  record: Partial<StudentToolExecutionRecord> & { executionId: string },
+) {
+  await tx.transactionalOutboxRecord.create({
+    data: {
+      id: randomUUID(),
+      eventType,
+      domain: 'STUDENT_TOOLS',
+      aggregateType: 'STUDENT_TOOL_EXECUTION',
+      aggregateId: record.executionId,
+      payload: json({
+        executionId: record.executionId,
+        toolKey,
+        status: record.status,
+        durationMs: record.durationMs ?? null,
+        errorCode: record.errorCode ?? null,
+        isTest: record.isTest === true,
+      }),
+      metadata: json({ correlationId: record.correlationId ?? null, traceId: record.traceId ?? null }),
+      correlationId: record.correlationId ?? record.executionId,
+    },
+  });
 }
 function executionData(value: Partial<StudentToolExecutionRecord>) {
   const data: Record<string, unknown> = {};

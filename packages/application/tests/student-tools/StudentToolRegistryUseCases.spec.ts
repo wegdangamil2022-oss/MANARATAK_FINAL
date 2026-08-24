@@ -1,56 +1,41 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  IStudentToolRegistryRepository,
-  StudentToolAiDependencyLevel,
-  StudentToolExecutionType,
-  StudentToolImplementationPriority,
-  StudentToolVisibilityStatus
-} from '@manaratak/domain';
+import { IStudentToolRegistryRepository, StudentToolLifecycleStatus } from '@manaratak/domain';
+import { OFFICIAL_STUDENT_TOOLS } from '../../src/student-tools/OfficialStudentToolRegistry';
 import { StudentToolRegistryUseCases } from '../../src/student-tools/use-cases/StudentToolRegistryUseCases';
 
 describe('StudentToolRegistryUseCases', () => {
   let repository: IStudentToolRegistryRepository;
+  const readiness = { evaluate: vi.fn() };
+  const health = { compute: vi.fn() };
+  const dependencyHealth = { status: vi.fn() };
   let useCases: StudentToolRegistryUseCases;
 
   beforeEach(() => {
     repository = {
-      upsertTool: vi.fn().mockImplementation((data) => Promise.resolve({
-        id: 'tool-1',
-        ...data,
-        publicEnabled: data.publicEnabled ?? false,
-        anonymousEnabled: data.anonymousEnabled ?? false,
-        authenticatedEnabled: data.authenticatedEnabled ?? true,
-        adminOnly: data.adminOnly ?? false,
-        launchOrder: data.launchOrder ?? 100,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      })),
-      findByKey: vi.fn(),
-      listTools: vi.fn(),
-      listPublicTools: vi.fn(),
-      updateVisibility: vi.fn(),
+      list: vi.fn(), listPublic: vi.fn(), findByKey: vi.fn(),
+      upsertDefinition: vi.fn().mockImplementation((value) => Promise.resolve(value)),
+      updateDefinition: vi.fn(), recordExecution: vi.fn(), completeExecution: vi.fn(),
+      findExecution: vi.fn(), findExecutionByIdempotency: vi.fn(), listExecutions: vi.fn(),
+      telemetry: vi.fn(), audit: vi.fn(),
     };
-    useCases = new StudentToolRegistryUseCases(repository);
+    readiness.evaluate.mockReset();
+    health.compute.mockReset();
+    dependencyHealth.status.mockReset();
+    useCases = new StudentToolRegistryUseCases(repository, readiness as any, health as any, dependencyHealth as any);
   });
 
-  it('seeds the official student tool backlog', async () => {
-    const result = await useCases.seedOfficialTools();
-
-    expect(result.length).toBeGreaterThanOrEqual(5);
-    expect(repository.upsertTool).toHaveBeenCalledWith(expect.objectContaining({
-      toolKey: 'scholarship-matcher'
-    }));
+  it('installs the complete official registry with an accountable actor', async () => {
+    const result = await useCases.installOfficialRegistry('admin-1');
+    expect(result).toHaveLength(83);
+    expect(repository.upsertDefinition).toHaveBeenCalledTimes(83);
+    expect(repository.upsertDefinition).toHaveBeenCalledWith(expect.objectContaining({ toolKey: 'scholarship-recommendation' }), 'admin-1');
   });
 
-  it('rejects AI dependency without AI execution type', async () => {
-    await expect(useCases.upsertTool({
-      toolKey: 'bad-tool',
-      displayName: 'Bad Tool',
-      category: 'Planning',
-      executionType: StudentToolExecutionType.STATIC_FORM,
-      visibilityStatus: StudentToolVisibilityStatus.ACTIVE,
-      implementationPriority: StudentToolImplementationPriority.P1_CORE_LAUNCH,
-      aiDependencyLevel: StudentToolAiDependencyLevel.REQUIRED_LOW_COST
-    })).rejects.toThrow('AI-dependent tools');
+  it('refuses activation when the readiness service reports a blocker', async () => {
+    const tool = OFFICIAL_STUDENT_TOOLS.find((item) => item.toolKey === 'gpa-calculator')!;
+    vi.mocked(repository.findByKey).mockResolvedValue(tool);
+    readiness.evaluate.mockResolvedValue({ ready: false, blockers: ['PHASE_17_NOT_CONFIGURED'] });
+    await expect(useCases.transition(tool.toolKey, StudentToolLifecycleStatus.ACTIVE, 'admin-1')).rejects.toThrow('TOOL_NOT_READY:PHASE_17_NOT_CONFIGURED');
+    expect(repository.updateDefinition).not.toHaveBeenCalled();
   });
 });

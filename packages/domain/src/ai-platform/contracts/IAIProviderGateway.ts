@@ -8,6 +8,7 @@ export interface AIProviderInvocation {
   temperature?: number | null;
   structuredOutputSchema?: Record<string, unknown> | null;
   metadata?: Record<string, unknown> | null;
+  timeoutMs?: number | null;
 }
 
 export interface AIProviderInvocationResult {

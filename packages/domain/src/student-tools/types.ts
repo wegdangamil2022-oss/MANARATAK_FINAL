@@ -92,6 +92,11 @@ export interface StudentToolFeatureFlags {
   authenticatedEnabled: boolean;
   maintenanceMode: boolean;
 }
+export interface StudentToolRateLimitPolicy {
+  anonymousRequestsPerMinute: number;
+  authenticatedRequestsPerMinute: number;
+  adminTestRequestsPerMinute: number;
+}
 export interface StudentToolSchema {
   version: string;
   fields: Array<{
@@ -128,6 +133,7 @@ export interface StudentToolDefinition {
   lifecycle: StudentToolLifecycleStatus;
   availability: StudentToolAvailabilityPolicy;
   featureFlags: StudentToolFeatureFlags;
+  rateLimitPolicy: StudentToolRateLimitPolicy;
   aiCapabilityKey?: string | null;
   outputType: string;
   supportedLocales: string[];

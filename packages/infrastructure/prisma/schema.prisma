@@ -3288,6 +3288,7 @@ model AIPromptVersionRecord {
   createdBy     String
   approvedBy    String?
   createdAt     DateTime @default(now())
+  deployments   AIPromptDeploymentRecord[]
 
   @@unique([promptKey, version])
   @@index([promptKey, status])
@@ -3302,6 +3303,7 @@ model AIPromptDeploymentRecord {
   deployedBy    String
   deployedAt    DateTime @default(now())
   retiredAt     DateTime?
+  promptVersion AIPromptVersionRecord @relation(fields: [promptKey, version], references: [promptKey, version], onDelete: Restrict)
 
   @@index([promptKey, environment, status])
 }
@@ -3310,7 +3312,7 @@ model AIExecutionRecord {
   id                    String   @id @default(uuid())
   publicId              String   @unique
   traceId               String
-  idempotencyKey        String?
+  idempotencyKeyHash    String?
   consumerKey           String
   capabilityKey         String
   purpose               String
@@ -3320,7 +3322,8 @@ model AIExecutionRecord {
   modelKey              String?
   status                String
   safetyDecision        String
-  inputPreview          String
+  dataClassification    String   @default("INTERNAL")
+  inputPreview          String?
   outputPreview         String?
   inputTokens           Int      @default(0)
   outputTokens          Int      @default(0)
@@ -3334,12 +3337,43 @@ model AIExecutionRecord {
   metadata              Json?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+  spans                 AIExecutionSpanRecord[]
+  usageRecords          AIUsageRecord[]
+  asyncJobs             AIAsyncJobRecord[]
 
-  @@unique([consumerKey, idempotencyKey])
+  @@unique([consumerKey, idempotencyKeyHash])
   @@index([traceId])
   @@index([status, createdAt])
   @@index([consumerKey, createdAt])
   @@index([providerKey, modelKey, createdAt])
+}
+
+model AIAsyncJobRecord {
+  id                    String   @id @default(uuid())
+  publicId              String   @unique
+  requesterReferenceId  String
+  consumerKey           String
+  capabilityKey         String
+  status                String   @default("QUEUED")
+  payloadCiphertext     String
+  payloadIv             String
+  payloadAuthTag        String
+  payloadKeyVersion     String
+  attempts              Int      @default(0)
+  maxAttempts           Int      @default(3)
+  nextAttemptAt         DateTime?
+  lockedAt              DateTime?
+  lockedBy              String?
+  executionPublicId     String?
+  errorCode             String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  completedAt           DateTime?
+  execution             AIExecutionRecord? @relation(fields: [executionPublicId], references: [publicId], onDelete: Restrict)
+
+  @@index([status, nextAttemptAt, createdAt])
+  @@index([consumerKey, createdAt])
+  @@index([requesterReferenceId, createdAt])
 }
 
 model AIExecutionSpanRecord {
@@ -3352,6 +3386,7 @@ model AIExecutionSpanRecord {
   completedAt        DateTime?
   durationMs         Int?
   attributes         Json?
+  execution          AIExecutionRecord @relation(fields: [executionPublicId], references: [publicId], onDelete: Restrict)
 
   @@index([executionPublicId, startedAt])
   @@index([traceId])
@@ -3367,8 +3402,12 @@ model AIUsageRecord {
   outputTokens       Int
   cost               Decimal  @db.Decimal(18, 8)
   currency           String
+  priceSnapshotKey   String?
+  pricingEffectiveFrom DateTime?
+  costKind           String   @default("UNKNOWN")
   metadata           Json?
   createdAt          DateTime @default(now())
+  execution          AIExecutionRecord @relation(fields: [executionPublicId], references: [publicId], onDelete: Restrict)
 
   @@unique([executionPublicId, providerKey, modelKey])
   @@index([consumerKey, createdAt])
@@ -3382,12 +3421,13 @@ model AIWorkflowRunRecord {
   workflowVersion  Int
   status           String
   traceId          String
-  input            Json
-  output           Json?
+  inputReferenceHash String
+  outputReferenceHash String?
   currentStep      String?
   errorMessage     String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  steps            AIWorkflowStepRunRecord[]
 
   @@index([workflowKey, status, createdAt])
   @@index([traceId])
@@ -3400,11 +3440,12 @@ model AIWorkflowStepRunRecord {
   executionId    String?
   status         String
   attempt        Int      @default(1)
-  input          Json?
-  output         Json?
+  inputReferenceHash  String?
+  outputReferenceHash String?
   errorMessage   String?
   startedAt      DateTime @default(now())
   completedAt    DateTime?
+  run            AIWorkflowRunRecord @relation(fields: [runPublicId], references: [publicId], onDelete: Restrict)
 
   @@unique([runPublicId, stepKey, attempt])
   @@index([runPublicId, status])
@@ -3419,8 +3460,11 @@ model AIEvaluationRunRecord {
   modelKey         String?
   passed           Int      @default(0)
   failed           Int      @default(0)
+  safetyFailures   Int      @default(0)
   score            Float?
   results          Json?
+  approvedBy       String?
+  approvedAt       DateTime?
   createdAt        DateTime @default(now())
   completedAt      DateTime?
 
@@ -3505,6 +3549,7 @@ model StudentToolDefinitionRecord {
   lifecycle               String
   availability            Json
   featureFlags            Json
+  rateLimitPolicy         Json
   aiCapabilityKey         String?
   outputType              String
   supportedLocales        Json
