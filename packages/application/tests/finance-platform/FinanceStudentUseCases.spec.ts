@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  FinanceInvoiceDto,
-  IFinanceRepository,
-  InvoiceStatus
-} from '@manaratak/domain';
+import { FinanceInvoiceDto, IFinanceRepository, InvoiceStatus } from '@manaratak/domain';
 import { FinanceStudentUseCases } from '../../src/finance-platform/use-cases/FinanceStudentUseCases';
 
 describe('FinanceStudentUseCases', () => {
@@ -22,22 +18,19 @@ describe('FinanceStudentUseCases', () => {
     amountDue: { amountMinorUnits: '5000', currencyCode: 'USD', scale: 2 },
     lineItems: [],
     createdAt: new Date(),
-    updatedAt: new Date()
+    updatedAt: new Date(),
   };
 
   beforeEach(() => {
     repository = {
-      createInvoice: vi.fn(),
       findInvoiceById: vi.fn().mockResolvedValue(invoice),
       findInvoiceByNumber: vi.fn(),
-      listInvoices: vi.fn().mockResolvedValue({ data: [invoice], total: 1, page: 1, pageSize: 50, totalPages: 1 }),
-      updateInvoiceStatus: vi.fn(),
-      updateInvoiceAmountDue: vi.fn(),
-      createPayment: vi.fn(),
-      findPaymentByIdempotencyKey: vi.fn(),
+      listInvoices: vi
+        .fn()
+        .mockResolvedValue({ data: [invoice], total: 1, page: 1, pageSize: 50, totalPages: 1 }),
       listPaymentsForInvoice: vi.fn().mockResolvedValue([]),
-      updatePaymentStatus: vi.fn()
-    };
+      getStudentFinancialReadModel: vi.fn(),
+    } as unknown as IFinanceRepository;
     useCases = new FinanceStudentUseCases(repository);
   });
 
@@ -47,16 +40,18 @@ describe('FinanceStudentUseCases', () => {
     expect(repository.listInvoices).toHaveBeenCalledWith({
       studentReferenceId: 'student-1',
       page: 1,
-      pageSize: 50
+      pageSize: 50,
     });
   });
 
   it('prevents reading another student invoice', async () => {
     vi.mocked(repository.findInvoiceById).mockResolvedValueOnce({
       ...invoice,
-      studentReferenceId: 'student-2'
+      studentReferenceId: 'student-2',
     });
 
-    await expect(useCases.getStudentInvoice('student-1', 'inv-1')).rejects.toThrow('Invoice not found');
+    await expect(useCases.getStudentInvoice('student-1', 'inv-1')).rejects.toThrow(
+      'Invoice not found',
+    );
   });
 });

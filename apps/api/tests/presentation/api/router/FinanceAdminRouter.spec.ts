@@ -11,14 +11,28 @@ describe('FinanceAdminRouter', () => {
       getInvoice: vi.fn(),
       voidInvoice: vi.fn(),
       recordCapturedPayment: vi.fn(),
-      listPaymentsForInvoice: vi.fn()
+      listPaymentsForInvoice: vi.fn(),
+    };
+    const financePlatformUseCases = {
+      createDraftInvoice: vi.fn().mockResolvedValue({ id: 'inv-1', status: 'DRAFT' }),
     };
     const app = express();
     app.use(express.json());
-    app.use('/admin/finance', FinanceAdminRouter.create({ financeAdminUseCases: financeAdminUseCases as any }));
+    app.use((req, _res, next) => {
+      (req as any).authUserId = 'admin-1';
+      next();
+    });
+    app.use(
+      '/admin/finance',
+      FinanceAdminRouter.create({
+        financeAdminUseCases: financeAdminUseCases as any,
+        financePlatformUseCases: financePlatformUseCases as any,
+      }),
+    );
 
     const response = await request(app)
       .post('/admin/finance/invoices')
+      .set('Idempotency-Key', 'invoice-1')
       .send({
         originDomain: 'SERVICES',
         originReferenceId: 'svc-order-1',
@@ -26,15 +40,18 @@ describe('FinanceAdminRouter', () => {
           {
             description: 'Visa preparation',
             quantity: 1,
-            unitPrice: { amountMinorUnits: '5000', currencyCode: 'USD', scale: 2 }
-          }
-        ]
+            unitPrice: { amountMinorUnits: '5000', currencyCode: 'USD', scale: 2 },
+          },
+        ],
       });
 
     expect(response.status).toBe(201);
-    expect(financeAdminUseCases.issueInvoice).toHaveBeenCalledWith(expect.objectContaining({
-      originDomain: 'SERVICES'
-    }));
+    expect(financePlatformUseCases.createDraftInvoice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        originDomain: 'SERVICES',
+      }),
+      expect.objectContaining({ actorId: 'admin-1', idempotencyKey: 'invoice-1' }),
+    );
   });
 
   it('rejects malformed money payloads', async () => {
@@ -44,11 +61,22 @@ describe('FinanceAdminRouter', () => {
       getInvoice: vi.fn(),
       voidInvoice: vi.fn(),
       recordCapturedPayment: vi.fn(),
-      listPaymentsForInvoice: vi.fn()
+      listPaymentsForInvoice: vi.fn(),
     };
+    const financePlatformUseCases = { createDraftInvoice: vi.fn() };
     const app = express();
     app.use(express.json());
-    app.use('/admin/finance', FinanceAdminRouter.create({ financeAdminUseCases: financeAdminUseCases as any }));
+    app.use((req, _res, next) => {
+      (req as any).authUserId = 'admin-1';
+      next();
+    });
+    app.use(
+      '/admin/finance',
+      FinanceAdminRouter.create({
+        financeAdminUseCases: financeAdminUseCases as any,
+        financePlatformUseCases: financePlatformUseCases as any,
+      }),
+    );
 
     const response = await request(app)
       .post('/admin/finance/invoices')
@@ -59,12 +87,12 @@ describe('FinanceAdminRouter', () => {
           {
             description: 'Visa preparation',
             quantity: 1,
-            unitPrice: { amountMinorUnits: '50.25', currencyCode: 'USD', scale: 2 }
-          }
-        ]
+            unitPrice: { amountMinorUnits: '50.25', currencyCode: 'USD', scale: 2 },
+          },
+        ],
       });
 
     expect(response.status).toBe(400);
-    expect(financeAdminUseCases.issueInvoice).not.toHaveBeenCalled();
+    expect(financePlatformUseCases.createDraftInvoice).not.toHaveBeenCalled();
   });
 });

@@ -106,18 +106,8 @@ export * from './student-tools/PrismaStudentToolRegistryRepository';
 export * from './student-tools/StudentToolGateways';
 export * from './reference-data/PrismaReferenceDataRepository';
 export * from './academic-taxonomy/PrismaAcademicTaxonomyRepository';
-export class PrismaFinanceRepository {
-  constructor(..._args: any[]) {}
-  async listInvoices(_params: any) {
-    return { data: [], total: 0, page: 1, pageSize: 50 };
-  }
-  async findInvoiceById(_invoiceId: string) {
-    return null;
-  }
-  async listPaymentsForInvoice(_invoiceId: string) {
-    return [];
-  }
-}
+export * from './finance-platform/PrismaFinanceRepository';
+export * from './finance-platform/ProviderNeutralFinanceGateways';
 export class PrismaCareerRepository { constructor(..._args: any[]) {} }
 export { PrismaAIPlatformRepository, PrismaAIPlatformRepository as PrismaAIExecutionRepository } from './ai-platform/PrismaAIPlatformRepository';
 export * from './ai-platform/ProviderAdapters';

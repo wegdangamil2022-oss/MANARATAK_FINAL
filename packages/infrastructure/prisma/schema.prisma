@@ -3622,3 +3622,290 @@ model StudentToolExecutionRecord {
   @@index([correlationId])
   @@index([traceId])
 }
+
+// --- Phase 19: Enterprise Finance & Payments (all monetary values are exact minor-unit strings) ---
+model FinanceInvoiceRecord {
+  id String @id @default(uuid())
+  publicId String @unique
+  invoiceNumber String @unique
+  correlationId String
+  originDomain String
+  originReferenceId String
+  studentReferenceId String?
+  payerReferenceId String?
+  status String
+  currencyCode String
+  scale Int
+  totalMinorUnits String
+  dueMinorUnits String
+  lineItems Json
+  dueDate DateTime?
+  issuedAt DateTime?
+  paidAt DateTime?
+  voidedAt DateTime?
+  version Int @default(1)
+  metadata Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  payments FinancePaymentRecord[]
+  @@index([status, dueDate])
+  @@index([studentReferenceId, createdAt])
+  @@index([originDomain, originReferenceId])
+}
+
+model FinancePaymentRecord {
+  id String @id @default(uuid())
+  publicId String @unique
+  invoiceId String
+  idempotencyKeyHash String @unique
+  currencyCode String
+  scale Int
+  amountMinorUnits String
+  status String
+  paymentMethod String
+  gatewayProvider String?
+  gatewayReference String?
+  safeMaskedMetadata Json?
+  failureReason String?
+  capturedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  invoice FinanceInvoiceRecord @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  attempts FinancePaymentAttemptRecord[]
+  @@index([invoiceId, status])
+  @@index([gatewayProvider, gatewayReference])
+}
+
+model FinancePaymentAttemptRecord {
+  id String @id @default(uuid())
+  paymentId String
+  sequence Int
+  status String
+  gatewayReference String?
+  safeFailureCode String?
+  createdAt DateTime @default(now())
+  payment FinancePaymentRecord @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  @@unique([paymentId, sequence])
+  @@index([paymentId, createdAt])
+}
+
+model FinancialAccountRecord {
+  id String @id @default(uuid())
+  publicId String @unique
+  ownerReferenceId String
+  type String
+  currencyCode String
+  scale Int
+  version Int @default(1)
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  entries FinancialLedgerEntryRecord[]
+  @@unique([ownerReferenceId, type, currencyCode])
+}
+
+model FinancialTransactionRecord {
+  id String @id @default(uuid())
+  publicId String @unique
+  correlationId String
+  businessReferenceType String
+  businessReferenceId String
+  idempotencyKeyHash String @unique
+  currencyCode String
+  scale Int
+  reversalOfId String?
+  createdBy String
+  createdAt DateTime @default(now())
+  entries FinancialLedgerEntryRecord[]
+  @@index([correlationId])
+  @@index([businessReferenceType, businessReferenceId])
+}
+
+model FinancialLedgerEntryRecord {
+  id String @id @default(uuid())
+  transactionId String
+  accountId String
+  direction String
+  amountMinorUnits String
+  currencyCode String
+  scale Int
+  sequence Int
+  memo String?
+  createdAt DateTime @default(now())
+  transaction FinancialTransactionRecord @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  account FinancialAccountRecord @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  @@unique([transactionId, sequence])
+  @@index([accountId, createdAt])
+}
+
+model FinanceWalletRecord {
+  id String @id @default(uuid())
+  publicId String @unique
+  ownerReferenceId String
+  accountId String @unique
+  currencyCode String
+  scale Int
+  status String
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  holds FinanceWalletHoldRecord[]
+  @@index([ownerReferenceId, status])
+}
+
+model FinanceWalletHoldRecord {
+  id String @id @default(uuid())
+  publicId String @unique
+  walletId String
+  amountMinorUnits String
+  currencyCode String
+  scale Int
+  status String
+  businessReferenceId String
+  idempotencyKeyHash String @unique
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  resolvedAt DateTime?
+  wallet FinanceWalletRecord @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  @@index([walletId, status])
+}
+
+model FinanceExchangeRateRecord {
+  id String @id @default(uuid())
+  publicId String @unique
+  sourceCurrencyCode String
+  targetCurrencyCode String
+  rateNumerator String
+  rateDenominator String
+  source String
+  providerReference String?
+  approved Boolean @default(false)
+  effectiveFrom DateTime
+  effectiveTo DateTime?
+  marginBasisPoints Int @default(0)
+  createdAt DateTime @default(now())
+  @@index([sourceCurrencyCode, targetCurrencyCode, approved, effectiveFrom])
+}
+
+model FinanceTransferRecord {
+  id String @id @default(uuid())
+  publicId String @unique
+  sourceWalletId String
+  destinationReferenceId String
+  sourceCurrencyCode String
+  sourceScale Int
+  sourceAmountMinorUnits String
+  targetCurrencyCode String?
+  targetScale Int?
+  targetAmountMinorUnits String?
+  rateId String?
+  feeAmountMinorUnits String?
+  status String
+  makerId String
+  correlationId String
+  idempotencyKeyHash String @unique
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, createdAt])
+  @@index([sourceWalletId, createdAt])
+}
+
+model FinanceApprovalRecord {
+  id String @id @default(uuid())
+  publicId String @unique
+  actionType String
+  targetReferenceId String
+  amountMinorUnits String?
+  currencyCode String?
+  scale Int?
+  makerId String
+  requiredApprovals Int
+  status String
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  decisions FinanceApprovalDecisionRecord[]
+  @@index([status, createdAt])
+  @@index([targetReferenceId])
+}
+
+model FinanceApprovalDecisionRecord {
+  id String @id @default(uuid())
+  approvalId String
+  approverId String
+  decision String
+  reason String?
+  decidedAt DateTime @default(now())
+  approval FinanceApprovalRecord @relation(fields: [approvalId], references: [id], onDelete: Restrict)
+  @@unique([approvalId, approverId])
+}
+
+model FinanceRefundRecord {
+  id String @id @default(uuid())
+  publicId String @unique
+  paymentId String
+  amountMinorUnits String
+  currencyCode String
+  scale Int
+  reason String
+  status String
+  makerId String
+  approvalId String?
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([paymentId, status])
+}
+
+model FinanceDocumentRecord {
+  id String @id @default(uuid())
+  publicId String @unique
+  type String
+  invoiceId String
+  paymentId String?
+  amountMinorUnits String
+  currencyCode String
+  scale Int
+  reason String?
+  issuedBy String
+  issuedAt DateTime @default(now())
+  @@index([invoiceId, type])
+}
+
+model FinanceInstallmentPlanRecord {
+  id String @id @default(uuid())
+  publicId String @unique
+  invoiceId String @unique
+  totalMinorUnits String
+  currencyCode String
+  scale Int
+  status String
+  schedule Json
+  createdAt DateTime @default(now())
+}
+
+model FinanceCommissionRecord {
+  id String @id @default(uuid())
+  publicId String @unique
+  recipientReferenceId String
+  sourcePaymentId String
+  amountMinorUnits String
+  currencyCode String
+  scale Int
+  status String
+  policyReference String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([sourcePaymentId, recipientReferenceId, policyReference])
+  @@index([recipientReferenceId, status])
+}
+
+model FinanceEstimateRecord {
+  id String @id @default(uuid())
+  publicId String @unique
+  subjectReferenceId String?
+  displayCurrencyCode String
+  scale Int
+  totalMinorUnits String
+  lines Json
+  generatedAt DateTime @default(now())
+  @@index([subjectReferenceId, generatedAt])
+}

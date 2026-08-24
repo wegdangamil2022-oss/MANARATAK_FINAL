@@ -4,21 +4,165 @@ import {
   FinanceInvoiceDto,
   FinanceInvoiceFilters,
   FinancePaymentDto,
-  PaginatedFinanceResult
+  PaginatedFinanceResult,
 } from '../entities';
-import { InvoiceStatus, PaymentStatus } from '../enums';
 import { MoneyAmount } from '../value-objects';
+import {
+  CommissionDto,
+  CreditNoteDto,
+  ExchangeRateDto,
+  FinanceOverviewDto,
+  FinancialAccountDto,
+  FinancialApprovalDto,
+  FinancialEstimateDto,
+  FinancialTransactionDto,
+  InstallmentPlanDto,
+  LedgerPostingInput,
+  MoneyTransferDto,
+  ReceiptDto,
+  RefundDto,
+  ReconciliationIssueDto,
+  TransferStatus,
+  WalletBalanceDto,
+  WalletDto,
+  WalletHoldDto,
+} from '../entities/FinancePlatform';
+
+export interface FinanceMutationContext {
+  actorId: string;
+  correlationId: string;
+  idempotencyKey: string;
+  reason?: string;
+  expectedVersion?: number;
+}
+export interface PostLedgerTransactionInput extends FinanceMutationContext {
+  businessReferenceType: string;
+  businessReferenceId: string;
+  postings: LedgerPostingInput[];
+  reversalOfId?: string | null;
+}
 
 export interface IFinanceRepository {
-  createInvoice(data: CreateFinanceInvoiceDto): Promise<FinanceInvoiceDto>;
   findInvoiceById(id: string): Promise<FinanceInvoiceDto | null>;
   findInvoiceByNumber(invoiceNumber: string): Promise<FinanceInvoiceDto | null>;
   listInvoices(filters: FinanceInvoiceFilters): Promise<PaginatedFinanceResult<FinanceInvoiceDto>>;
-  updateInvoiceStatus(id: string, status: InvoiceStatus, timestamps?: { paidAt?: Date; voidedAt?: Date }): Promise<void>;
-  updateInvoiceAmountDue(id: string, amountDue: MoneyAmount, status: InvoiceStatus, paidAt?: Date): Promise<void>;
-
-  createPayment(data: CreateFinancePaymentDto): Promise<FinancePaymentDto>;
-  findPaymentByIdempotencyKey(idempotencyKey: string): Promise<FinancePaymentDto | null>;
   listPaymentsForInvoice(invoiceId: string): Promise<FinancePaymentDto[]>;
-  updatePaymentStatus(id: string, status: PaymentStatus, capturedAt?: Date, failureReason?: string | null): Promise<void>;
+
+  createDraftInvoice(
+    data: Omit<CreateFinanceInvoiceDto, 'status' | 'issuedAt'>,
+    context: FinanceMutationContext,
+  ): Promise<FinanceInvoiceDto>;
+  updateDraftInvoice(
+    id: string,
+    lineItems: CreateFinanceInvoiceDto['lineItems'],
+    total: MoneyAmount,
+    context: FinanceMutationContext,
+  ): Promise<FinanceInvoiceDto>;
+  issueDraftInvoice(id: string, context: FinanceMutationContext): Promise<FinanceInvoiceDto>;
+  voidInvoiceAtomic(id: string, context: FinanceMutationContext): Promise<FinanceInvoiceDto>;
+  recordCapturedPaymentAtomic(
+    data: CreateFinancePaymentDto,
+    context: FinanceMutationContext,
+  ): Promise<FinancePaymentDto>;
+  createCreditNote(
+    invoiceId: string,
+    amount: MoneyAmount,
+    reason: string,
+    context: FinanceMutationContext,
+  ): Promise<CreditNoteDto>;
+  createReceipt(
+    invoiceId: string,
+    paymentId: string,
+    amount: MoneyAmount,
+    context: FinanceMutationContext,
+  ): Promise<ReceiptDto>;
+  createInstallmentPlan(
+    invoiceId: string,
+    plan: Omit<InstallmentPlanDto, 'id' | 'publicId' | 'createdAt'>,
+    context: FinanceMutationContext,
+  ): Promise<InstallmentPlanDto>;
+
+  createFinancialAccount(
+    data: Omit<FinancialAccountDto, 'id' | 'createdAt' | 'version'>,
+    context: FinanceMutationContext,
+  ): Promise<FinancialAccountDto>;
+  postLedgerTransaction(data: PostLedgerTransactionInput): Promise<FinancialTransactionDto>;
+  reverseLedgerTransaction(
+    transactionId: string,
+    context: FinanceMutationContext,
+  ): Promise<FinancialTransactionDto>;
+
+  createWallet(
+    data: Omit<WalletDto, 'id' | 'createdAt' | 'updatedAt' | 'version'>,
+    context: FinanceMutationContext,
+  ): Promise<WalletDto>;
+  getWallet(walletId: string): Promise<WalletDto | null>;
+  getWalletBalance(walletId: string): Promise<WalletBalanceDto>;
+  createWalletHold(
+    walletId: string,
+    amount: MoneyAmount,
+    businessReferenceId: string,
+    context: FinanceMutationContext,
+  ): Promise<WalletHoldDto>;
+  resolveWalletHold(
+    holdId: string,
+    action: 'RELEASE' | 'CAPTURE',
+    context: FinanceMutationContext,
+  ): Promise<WalletHoldDto>;
+
+  saveExchangeRate(
+    data: Omit<ExchangeRateDto, 'id' | 'createdAt'>,
+    context: FinanceMutationContext,
+  ): Promise<ExchangeRateDto>;
+  findEffectiveExchangeRate(
+    sourceCurrency: string,
+    targetCurrency: string,
+    at: Date,
+  ): Promise<ExchangeRateDto | null>;
+  listExchangeRates(): Promise<ExchangeRateDto[]>;
+
+  createTransfer(
+    data: Omit<MoneyTransferDto, 'id' | 'createdAt' | 'updatedAt' | 'version'>,
+    context: FinanceMutationContext,
+  ): Promise<MoneyTransferDto>;
+  getTransfer(id: string): Promise<MoneyTransferDto | null>;
+  transitionTransfer(
+    id: string,
+    status: TransferStatus,
+    context: FinanceMutationContext,
+  ): Promise<MoneyTransferDto>;
+  listTransfers(): Promise<MoneyTransferDto[]>;
+
+  createApproval(
+    data: Omit<FinancialApprovalDto, 'id' | 'createdAt' | 'decisions'>,
+    context: FinanceMutationContext,
+  ): Promise<FinancialApprovalDto>;
+  decideApproval(
+    id: string,
+    decision: 'APPROVE' | 'REJECT',
+    checkerId: string,
+    reason: string | undefined,
+    context: FinanceMutationContext,
+  ): Promise<FinancialApprovalDto>;
+  listApprovals(status?: string): Promise<FinancialApprovalDto[]>;
+
+  createRefund(
+    data: Omit<RefundDto, 'id' | 'createdAt'>,
+    context: FinanceMutationContext,
+  ): Promise<RefundDto>;
+  listRefunds(): Promise<RefundDto[]>;
+  createCommission(
+    data: Omit<CommissionDto, 'id' | 'createdAt' | 'updatedAt'>,
+    context: FinanceMutationContext,
+  ): Promise<CommissionDto>;
+  listCommissions(): Promise<CommissionDto[]>;
+  saveEstimate(
+    data: Omit<FinancialEstimateDto, 'id' | 'generatedAt'>,
+  ): Promise<FinancialEstimateDto>;
+  runReconciliation(): Promise<ReconciliationIssueDto[]>;
+  getFinanceOverview(): Promise<FinanceOverviewDto>;
+  getFinancialReport(): Promise<import('../entities/FinancePlatform').FinancialReportDto>;
+  getStudentFinancialReadModel(
+    studentReferenceId: string,
+  ): Promise<import('../entities/FinancePlatform').StudentFinancialReadModelDto>;
 }

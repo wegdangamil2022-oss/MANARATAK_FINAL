@@ -39,7 +39,7 @@ export function addMoneyAmounts(amounts: readonly MoneyAmount[]): MoneyAmount {
   return {
     amountMinorUnits: total.toString(),
     currencyCode: first.currencyCode,
-    scale: first.scale
+    scale: first.scale,
   };
 }
 
@@ -52,6 +52,36 @@ export function multiplyMoneyAmount(amount: MoneyAmount, quantity: number): Mone
   return {
     amountMinorUnits: (BigInt(amount.amountMinorUnits) * BigInt(quantity)).toString(),
     currencyCode: amount.currencyCode,
-    scale: amount.scale
+    scale: amount.scale,
   };
+}
+
+export function subtractMoneyAmounts(left: MoneyAmount, right: MoneyAmount): MoneyAmount {
+  assertValidMoneyAmount(left);
+  assertValidMoneyAmount(right);
+  assertSameCurrency(left, right);
+  return {
+    ...left,
+    amountMinorUnits: (BigInt(left.amountMinorUnits) - BigInt(right.amountMinorUnits)).toString(),
+  };
+}
+
+export function compareMoneyAmounts(left: MoneyAmount, right: MoneyAmount): -1 | 0 | 1 {
+  assertValidMoneyAmount(left);
+  assertValidMoneyAmount(right);
+  assertSameCurrency(left, right);
+  const a = BigInt(left.amountMinorUnits);
+  const b = BigInt(right.amountMinorUnits);
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+export function negateMoneyAmount(amount: MoneyAmount): MoneyAmount {
+  assertValidMoneyAmount(amount);
+  return { ...amount, amountMinorUnits: (-BigInt(amount.amountMinorUnits)).toString() };
+}
+
+export function zeroMoney(currencyCode: string, scale: number): MoneyAmount {
+  const value = { amountMinorUnits: '0', currencyCode, scale };
+  assertValidMoneyAmount(value);
+  return value;
 }
