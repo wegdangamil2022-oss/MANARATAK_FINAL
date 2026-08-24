@@ -169,7 +169,7 @@ const RootLayout = () => {
     ['/admin/certificates', t('local_admin_nav_certificates')],
     ['/admin/finance', t('local_admin_nav_finance')],
     ['/admin/careers', t('local_admin_nav_careers')],
-    ['/admin/ai-governance', t('local_admin_nav_ai')],
+    ['/admin/ai', t('local_admin_nav_ai')],
     ['/admin/health', t('local_admin_nav_health')],
     ['/admin/settings', t('local_admin_nav_settings')],
   ] as const;
@@ -887,8 +887,12 @@ const router = createBrowserRouter([
         element: <AdminCareerOpportunityDetailPage />
       },
       {
-        path: 'admin/ai-governance',
+        path: 'admin/ai',
         element: <AdminAiGovernancePreviewPage />
+      },
+      {
+        path: 'admin/ai-governance',
+        element: <Navigate to="/admin/ai" replace />
       },
       {
         path: 'admin/health',

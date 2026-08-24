@@ -84,7 +84,7 @@ export function AdminHealthPreviewPage() {
       latencyMs: 120,
       errorMessageSummary: 'وضع المعاينة: تعمل الطوابير بطريقة محاكاة أمان (Fallback Queue Memory Mode).',
       details: 'خادم Redis الخارجي غير متصل مباشرة في بيئة المعاينة، وتم تفعيل وضع التكيف في الذاكرة المؤقتة.',
-      adminLink: '/admin/ai-governance'
+      adminLink: '/admin/ai'
     },
     {
       id: 'cmp_import',
@@ -139,7 +139,7 @@ export function AdminHealthPreviewPage() {
       lastCheckedTime: '2026-07-28 11:49:40',
       latencyMs: 420,
       details: 'مزودات Gemini وOpenAI وClaude متصلة ومهيأة بصورة قناع آمن (Masked API Keys).',
-      adminLink: '/admin/ai-governance'
+      adminLink: '/admin/ai'
     },
     {
       id: 'cmp_payment',

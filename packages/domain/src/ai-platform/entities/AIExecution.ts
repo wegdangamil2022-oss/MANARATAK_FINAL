@@ -8,6 +8,11 @@ export interface AIExecutionRequestDto {
   requesterReferenceId?: string | null;
   sourceDomain?: string | null;
   metadata?: Record<string, unknown> | null;
+  capabilityKey?: string | null;
+  consumerKey?: string | null;
+  idempotencyKey?: string | null;
+  structuredOutputSchema?: Record<string, unknown> | null;
+  maxOutputTokens?: number | null;
 }
 
 export interface AIExecutionResultDto {
@@ -18,6 +23,10 @@ export interface AIExecutionResultDto {
   estimatedInputTokens: number;
   estimatedOutputTokens: number;
   metadata?: Record<string, unknown> | null;
+  finishReason?: string | null;
+  providerRequestId?: string | null;
+  actualInputTokens?: number | null;
+  actualOutputTokens?: number | null;
 }
 
 export interface AIExecutionLogDto {

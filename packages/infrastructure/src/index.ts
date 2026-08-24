@@ -118,8 +118,8 @@ export class PrismaFinanceRepository {
   }
 }
 export class PrismaCareerRepository { constructor(..._args: any[]) {} }
-export class PrismaAIExecutionRepository { constructor(..._args: any[]) {} }
-export class InternalMockAIProviderGateway { constructor(..._args: any[]) {} }
+export { PrismaAIPlatformRepository, PrismaAIPlatformRepository as PrismaAIExecutionRepository } from './ai-platform/PrismaAIPlatformRepository';
+export * from './ai-platform/ProviderAdapters';
 export class PrismaConnection {
   private static instance: any = null;
   constructor(..._args: any[]) {}

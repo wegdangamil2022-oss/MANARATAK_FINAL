@@ -64,7 +64,7 @@ import {
   PrismaScholarshipCanonicalLookupGateway,
   NodeSafeSourceHttpTransport, LocalImportRawSnapshotStore, SourceAcquisitionLimiter,
   StaticHtmlSourceConnector, SitemapSourceConnector, OfficialFeedSourceConnector, OfficialApiSourceConnector, ManualUploadSourceConnector, InMemorySourceRegistryGateway, PrismaSourceRegistryGateway, PrismaScholarshipImportVerificationDecisionPort, PrismaScholarshipImportCanonicalResolutionDecisionPort, InMemoryScholarshipImportVerificationDecisionPort, InMemoryScholarshipImportCanonicalResolutionDecisionPort
-, PrismaSessionManager, PrismaCredentialVerifier} from '@manaratak/infrastructure';
+, PrismaSessionManager, PrismaCredentialVerifier, PrismaAIPlatformRepository, createDefaultAIProviderRegistry} from '@manaratak/infrastructure';
 
 // UseCases
 import {
@@ -141,7 +141,11 @@ import {
   InternationalTestAdminUseCases,
   InternationalTestImportPromotionUseCase,
   InternationalTestPublicUseCases,
-  AIExecutionUseCases,
+  AIExecutionOrchestrator,
+  AIPlatformAdminUseCases,
+  AIWorkflowUseCases,
+  AIEvaluationUseCases,
+  AIKnowledgeUseCases,
   ImportAdminUseCases,
   IngestAssetUseCase,
   ProcessAssetLifecycleUseCase,
@@ -209,6 +213,7 @@ import { CareerPublicRouter } from '../../presentation/api/router/CareerPublicRo
 import { InternationalTestAdminRouter } from '../../presentation/api/router/InternationalTestAdminRouter';
 import { InternationalTestPublicRouter } from '../../presentation/api/router/InternationalTestPublicRouter';
 import { AIGatewayRouter } from '../../presentation/api/router/AIGatewayRouter';
+import { AIAdminRouter } from '../../presentation/api/router/AIAdminRouter';
 import { AssetPlatformRouter } from '../../presentation/api/router/AssetPlatformRouter';
 import { AcademicTaxonomyPublicRouter } from '../../presentation/api/router/AcademicTaxonomyPublicRouter';
 import { AcademicTaxonomyAdminRouter } from '../../presentation/api/router/AcademicTaxonomyAdminRouter';
@@ -8124,7 +8129,8 @@ export function registerDependencies() {
     financeRepository: asFunction(() => createUnavailableCapability('financePersistence')).singleton(),
     careerRepository: asFunction(() => createUnavailableCapability('careerPersistence')).singleton(),
     internationalTestRepository: asFunction(({ prisma }) => new PrismaInternationalTestRepository(prisma)).singleton(),
-    aiExecutionRepository: asFunction(() => createUnavailableCapability('aiExecutionPersistence')).singleton(),
+    aiPlatformRepository: asFunction(({ prisma }) => new PrismaAIPlatformRepository(prisma)).singleton(),
+    aiExecutionRepository: asFunction(({ aiPlatformRepository }) => aiPlatformRepository).singleton(),
     importRepository: asFunction(({ prisma }) => new PrismaImportRepository(prisma)).singleton(),
     academicTaxonomyRepository: asFunction(({ prisma }) => new PrismaAcademicTaxonomyRepository(prisma)).singleton(),
     degreeLevelRepository: asFunction(({ prisma }) => new DegreeLevelRepository(prisma)).singleton(),
@@ -8212,7 +8218,7 @@ export function registerDependencies() {
     apiExposureGateway: asFunction(() => createUnavailableCapability('apiExposure')).singleton(),
     renderingGateway: asFunction(() => createUnavailableCapability('componentRendering')).singleton(),
     logExecutionGateway: asFunction(() => createUnavailableCapability('logExecution')).singleton(),
-    aiProviderGateway: asFunction(() => createUnavailableCapability('aiProvider')).singleton(),
+    aiProviderRegistry: asFunction(() => createDefaultAIProviderRegistry()).singleton(),
 
     // --- Domain Services ---
     policyEvaluator: asClass(DefaultPolicyEvaluator).singleton(),
@@ -8289,7 +8295,11 @@ export function registerDependencies() {
       new InternationalTestImportPromotionUseCase(internationalTestRepository, undefined, referenceResolver, atomicDomainMutationCoordinator)
     ).scoped(),
     internationalTestPublicUseCases: asFunction(({ internationalTestRepository }) => new InternationalTestPublicUseCases(internationalTestRepository)).scoped(),
-    aiExecutionUseCases: asFunction(({ aiExecutionRepository, aiProviderGateway }) => new AIExecutionUseCases(aiExecutionRepository, aiProviderGateway)).scoped(),
+    aiExecutionUseCases: asFunction(({ aiPlatformRepository, aiProviderRegistry }) => new AIExecutionOrchestrator(aiPlatformRepository, aiProviderRegistry)).scoped(),
+    aiPlatformAdminUseCases: asFunction(({ aiPlatformRepository, aiProviderRegistry }) => new AIPlatformAdminUseCases(aiPlatformRepository, aiProviderRegistry)).scoped(),
+    aiWorkflowUseCases: asFunction(({ aiPlatformRepository, aiExecutionUseCases }) => new AIWorkflowUseCases(aiPlatformRepository, aiExecutionUseCases)).scoped(),
+    aiEvaluationUseCases: asFunction(({ aiPlatformRepository, aiExecutionUseCases }) => new AIEvaluationUseCases(aiPlatformRepository, aiExecutionUseCases)).scoped(),
+    aiKnowledgeUseCases: asFunction(({ aiPlatformRepository, aiProviderRegistry }) => new AIKnowledgeUseCases(aiPlatformRepository, aiProviderRegistry)).scoped(),
     importAdminUseCases: asFunction(({ importRepository, importQueueGateway, importHandoffDispatcher }) => new ImportAdminUseCases(importRepository, importQueueGateway, importHandoffDispatcher)).scoped(),
     majorImportStagingUseCase: asFunction(({ importAdminUseCases }) => new MajorImportStagingUseCase(importAdminUseCases)).scoped(),
     ingestAssetUseCase: asFunction(({ assetRecordRepository, assetStorageGateway }) => new IngestAssetUseCase(assetRecordRepository, assetStorageGateway)).scoped(),
@@ -8373,6 +8383,7 @@ export function registerDependencies() {
     internationalTestAdminRouter: asFunction((cradle) => InternationalTestAdminRouter.create(cradle)).singleton(),
     internationalTestPublicRouter: asFunction((cradle) => InternationalTestPublicRouter.create(cradle)).singleton(),
     aiGatewayRouter: asFunction((cradle) => AIGatewayRouter.create(cradle)).singleton(),
+    aiAdminRouter: asFunction((cradle) => AIAdminRouter.create(cradle)).singleton(),
     assetPlatformRouter: asFunction((cradle) => AssetPlatformRouter.create(cradle)).singleton(),
     identityRouter: asFunction((cradle) => IdentityRouter.create(cradle)).singleton(),
     tokenProvider: asFunction(() => {

@@ -94,7 +94,7 @@ export function AdminPreviewLayout() {
         { name: t('admin_certificates') || 'Certificates', path: '/admin/certificates', icon: <Award className="w-4 h-4" /> },
         { name: t('admin_finance') || 'Finance & Pay', path: '/admin/finance', icon: <CreditCard className="w-4 h-4" /> },
         { name: t('admin_careers') || 'Careers & Alumni', path: '/admin/careers', icon: <Briefcase className="w-4 h-4" /> },
-        { name: t('admin_ai_governance') || 'AI Governance', path: '/admin/ai-governance', icon: <Cpu className="w-4 h-4" /> },
+        { name: t('admin_ai_governance') || 'AI Governance', path: '/admin/ai', icon: <Cpu className="w-4 h-4" /> },
         { name: t('admin_settings') || 'Access & Settings', path: '/admin/settings', icon: <ShieldCheck className="w-4 h-4" /> },
       ]
     }

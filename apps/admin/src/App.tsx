@@ -77,7 +77,7 @@ function AdminLayout() {
               <a href="/finance" className="text-sm font-medium hover:text-black">{t('admin_nav_finance')}</a>
               <a href="/careers" className="text-sm font-medium hover:text-black">{t('admin_nav_careers')}</a>
               <a href="/international-tests" className="text-sm font-medium hover:text-black">{t('admin_nav_tests')}</a>
-              <a href="/ai-governance" className="text-sm font-medium hover:text-black">{t('admin_nav_ai')}</a>
+              <a href="/ai" className="text-sm font-medium hover:text-black">{t('admin_nav_ai')}</a>
               <a href="/student-tools" className="text-sm font-medium hover:text-black">{t('admin_nav_tools')}</a>
               <a href="/study-destinations" className="text-sm font-medium hover:text-black">{t('admin_nav_study_destinations')}</a>
               <a href="/settings" className="text-sm font-medium hover:text-black">{t('admin_nav_settings')}</a>
@@ -124,7 +124,9 @@ function AdminLayout() {
               <Route path="/international-tests/:id" element={<InternationalTestDetailPage />} />
               <Route path="/admin/international-tests" element={<InternationalTestsAdminPage />} />
               <Route path="/admin/international-tests/:id" element={<InternationalTestDetailPage />} />
-              <Route path="/ai-governance" element={<AIGovernancePage />} />
+              <Route path="/ai" element={<AIGovernancePage />} />
+              <Route path="/ai/:section" element={<AIGovernancePage />} />
+              <Route path="/ai-governance" element={<Navigate to="/ai" replace />} />
               <Route path="/student-tools" element={<StudentToolsAdminPage />} />
               <Route path="/study-destinations" element={<StudyDestinationsAdminPage />} />
               <Route path="/study-destinations/:countryIso2Code" element={<StudyDestinationDetailPage />} />

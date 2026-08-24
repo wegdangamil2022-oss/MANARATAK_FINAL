@@ -42,7 +42,7 @@ const summarySources: Array<{
   { key: 'careers', labelKey: 'admin_nav_careers', href: '/careers', endpoint: '/admin/careers/jobs?page=1&pageSize=10', icon: <BriefcaseBusiness className="h-5 w-5" /> },
   { key: 'tests', labelKey: 'admin_nav_tests', href: '/international-tests', endpoint: '/admin/international-tests?page=1&pageSize=10', icon: <TestTube2 className="h-5 w-5" /> },
   { key: 'cms', labelKey: 'admin_nav_cms', href: '/cms', endpoint: '/admin/cms/content?page=1&pageSize=10', icon: <Newspaper className="h-5 w-5" /> },
-  { key: 'ai', labelKey: 'admin_nav_ai', href: '/ai-governance', endpoint: '/ai/logs?page=1&pageSize=10', icon: <Bot className="h-5 w-5" /> }
+  { key: 'ai', labelKey: 'admin_nav_ai', href: '/ai', endpoint: '/admin/ai/overview', icon: <Bot className="h-5 w-5" /> }
 ];
 
 export function AdminDashboardPage() {
@@ -156,7 +156,7 @@ export function AdminDashboardPage() {
         ]} />
         <QuickLink title={t('governance')} links={[
           [t('admin_nav_tools'), '/student-tools'],
-          [t('admin_nav_ai'), '/ai-governance']
+          [t('admin_nav_ai'), '/ai']
         ]} />
       </section>
     </div>

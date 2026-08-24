@@ -43,7 +43,7 @@ export function AdminPreviewShell() {
     { name: t('admin_certificates') || 'Certificates', path: '/admin/certificates', icon: <Award className="w-6 h-6" />, color: 'text-violet-600', bg: 'bg-violet-100' },
     { name: t('admin_finance') || 'Finance & Payments', path: '/admin/finance', icon: <CreditCard className="w-6 h-6" />, color: 'text-emerald-700', bg: 'bg-emerald-50' },
     { name: t('admin_careers') || 'Careers & Alumni', path: '/admin/careers', icon: <Briefcase className="w-6 h-6" />, color: 'text-blue-700', bg: 'bg-blue-50' },
-    { name: t('admin_ai_governance') || 'AI Governance', path: '/admin/ai-governance', icon: <Cpu className="w-6 h-6" />, color: 'text-fuchsia-600', bg: 'bg-fuchsia-100' },
+    { name: t('admin_ai_governance') || 'AI Governance', path: '/admin/ai', icon: <Cpu className="w-6 h-6" />, color: 'text-emerald-600', bg: 'bg-emerald-100' },
     { name: t('admin_health') || 'Health / Readiness', path: '/admin/health', icon: <Activity className="w-6 h-6" />, color: 'text-green-600', bg: 'bg-green-100' },
     { name: t('admin_settings') || 'Settings & Access Control', path: '/admin/settings', icon: <ShieldCheck className="w-6 h-6" />, color: 'text-gray-700', bg: 'bg-gray-100' },
   ];

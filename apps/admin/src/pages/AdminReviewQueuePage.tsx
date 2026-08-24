@@ -21,7 +21,7 @@ const sources = [
   { domain: 'Services', endpoint: '/admin/services?page=1&pageSize=20', href: () => '/services' },
   { domain: 'Careers', endpoint: '/admin/careers/jobs?page=1&pageSize=20', href: () => '/careers' },
   { domain: 'International Tests', endpoint: '/admin/international-tests?page=1&pageSize=20', href: () => '/international-tests' },
-  { domain: 'AI Governance', endpoint: '/ai/logs?page=1&pageSize=20', href: () => '/ai-governance' }
+  { domain: 'AI Governance', endpoint: '/admin/ai/executions?page=1&pageSize=20', href: () => '/ai/executions' }
 ];
 
 export function AdminReviewQueuePage() {

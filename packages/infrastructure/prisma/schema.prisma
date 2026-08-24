@@ -3251,3 +3251,239 @@ model SessionRecord {
   @@index([identityId])
   @@index([expiresAt])
 }
+
+// --- Phase 17: Enterprise AI Platform (provider-neutral source contracts) ---
+
+model AIRegistryRecord {
+  id               String   @id @default(uuid())
+  resourceType     String
+  key              String
+  status           String   @default("DRAFT")
+  providerKey      String?
+  capabilityKey    String?
+  consumerKey      String?
+  secretReference  String?
+  configuration    Json
+  createdBy        String
+  updatedBy        String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([resourceType, key])
+  @@index([resourceType, status])
+  @@index([providerKey])
+  @@index([capabilityKey])
+  @@index([consumerKey])
+}
+
+model AIPromptVersionRecord {
+  id            String   @id @default(uuid())
+  promptKey     String
+  version       Int
+  template      String
+  inputSchema   Json?
+  outputSchema  Json?
+  checksum      String
+  status        String   @default("DRAFT")
+  createdBy     String
+  approvedBy    String?
+  createdAt     DateTime @default(now())
+
+  @@unique([promptKey, version])
+  @@index([promptKey, status])
+}
+
+model AIPromptDeploymentRecord {
+  id            String   @id @default(uuid())
+  promptKey     String
+  version       Int
+  environment   String   @default("PRODUCTION")
+  status        String   @default("ACTIVE")
+  deployedBy    String
+  deployedAt    DateTime @default(now())
+  retiredAt     DateTime?
+
+  @@index([promptKey, environment, status])
+}
+
+model AIExecutionRecord {
+  id                    String   @id @default(uuid())
+  publicId              String   @unique
+  traceId               String
+  idempotencyKey        String?
+  consumerKey           String
+  capabilityKey         String
+  purpose               String
+  promptKey             String
+  promptVersion         Int?
+  providerKey           String?
+  modelKey              String?
+  status                String
+  safetyDecision        String
+  inputPreview          String
+  outputPreview         String?
+  inputTokens           Int      @default(0)
+  outputTokens          Int      @default(0)
+  estimatedCost         Decimal? @db.Decimal(18, 8)
+  actualCost            Decimal? @db.Decimal(18, 8)
+  currency              String?
+  errorCode             String?
+  errorMessage          String?
+  requesterReferenceId  String?
+  sourceDomain          String?
+  metadata              Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([consumerKey, idempotencyKey])
+  @@index([traceId])
+  @@index([status, createdAt])
+  @@index([consumerKey, createdAt])
+  @@index([providerKey, modelKey, createdAt])
+}
+
+model AIExecutionSpanRecord {
+  id                 String   @id @default(uuid())
+  executionPublicId  String
+  traceId            String
+  name               String
+  status             String
+  startedAt          DateTime
+  completedAt        DateTime?
+  durationMs         Int?
+  attributes         Json?
+
+  @@index([executionPublicId, startedAt])
+  @@index([traceId])
+}
+
+model AIUsageRecord {
+  id                 String   @id @default(uuid())
+  executionPublicId  String
+  consumerKey        String
+  providerKey        String
+  modelKey           String
+  inputTokens        Int
+  outputTokens       Int
+  cost               Decimal  @db.Decimal(18, 8)
+  currency           String
+  metadata           Json?
+  createdAt          DateTime @default(now())
+
+  @@unique([executionPublicId, providerKey, modelKey])
+  @@index([consumerKey, createdAt])
+  @@index([providerKey, modelKey, createdAt])
+}
+
+model AIWorkflowRunRecord {
+  id               String   @id @default(uuid())
+  publicId         String   @unique
+  workflowKey      String
+  workflowVersion  Int
+  status           String
+  traceId          String
+  input            Json
+  output           Json?
+  currentStep      String?
+  errorMessage     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([workflowKey, status, createdAt])
+  @@index([traceId])
+}
+
+model AIWorkflowStepRunRecord {
+  id             String   @id @default(uuid())
+  runPublicId    String
+  stepKey        String
+  executionId    String?
+  status         String
+  attempt        Int      @default(1)
+  input          Json?
+  output         Json?
+  errorMessage   String?
+  startedAt      DateTime @default(now())
+  completedAt    DateTime?
+
+  @@unique([runPublicId, stepKey, attempt])
+  @@index([runPublicId, status])
+}
+
+model AIEvaluationRunRecord {
+  id               String   @id @default(uuid())
+  publicId         String   @unique
+  evaluationKey    String
+  status           String
+  promptVersion    Int?
+  modelKey         String?
+  passed           Int      @default(0)
+  failed           Int      @default(0)
+  score            Float?
+  results          Json?
+  createdAt        DateTime @default(now())
+  completedAt      DateTime?
+
+  @@index([evaluationKey, status, createdAt])
+}
+
+model AIKnowledgeSourceRecord {
+  id                 String   @id @default(uuid())
+  indexKey           String
+  sourceType         String
+  sourceReferenceId  String
+  sourceVersion      String?
+  checksum           String
+  locale             String?
+  status             String   @default("PENDING")
+  metadata           Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([indexKey, sourceType, sourceReferenceId, checksum])
+  @@index([indexKey, status])
+}
+
+model AIEmbeddingRecord {
+  id                 String   @id @default(uuid())
+  indexKey           String
+  sourceReferenceId  String
+  chunkKey           String
+  chunkText          String
+  embeddingRef       String
+  modelKey           String
+  dimensions         Int
+  checksum           String
+  metadata           Json?
+  createdAt          DateTime @default(now())
+
+  @@unique([indexKey, sourceReferenceId, chunkKey, checksum])
+  @@index([indexKey, modelKey])
+}
+
+model AIIndexingRunRecord {
+  id                 String   @id @default(uuid())
+  publicId           String   @unique
+  indexKey           String
+  sourceReferenceId  String
+  status             String
+  chunks             Int      @default(0)
+  embeddedChunks     Int      @default(0)
+  errorMessage       String?
+  createdAt          DateTime @default(now())
+  completedAt        DateTime?
+
+  @@index([indexKey, status, createdAt])
+  @@index([sourceReferenceId])
+}
+
+model AIIncidentEventRecord {
+  id                String   @id @default(uuid())
+  incidentPublicId  String
+  action            String
+  actorReferenceId  String?
+  note               String?
+  createdAt          DateTime @default(now())
+
+  @@index([incidentPublicId, createdAt])
+}

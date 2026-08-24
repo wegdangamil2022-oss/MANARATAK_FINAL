@@ -389,6 +389,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     v1Router.use('/admin/careers', requireAdminPermission('admin:careers:manage'), lazyRouter('careerAdminRouter'));
     v1Router.use('/public/careers', lazyRouter('careerPublicRouter'));
     v1Router.use('/ai', lazyRouter('aiGatewayRouter'));
+    v1Router.use('/admin/ai', requireAdminPermission('admin:ai:manage'), lazyRouter('aiAdminRouter'));
 
     // Core Required Monitoring Router (Eager)
     v1Router.use('/monitoring', MonitoringRouter.create({ monitoringService, productionReadinessReport }));
