@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   IStudentWorkspaceRepository,
   StudentSavedItemType,
-  StudentWorkspaceStatus
+  StudentWorkspaceStatus,
 } from '@manaratak/domain';
 import { StudentWorkspaceUseCases } from '../../src/students/use-cases/StudentWorkspaceUseCases';
 
@@ -17,15 +17,17 @@ describe('StudentWorkspaceUseCases', () => {
         studentReferenceId: 'student-1',
         status: StudentWorkspaceStatus.ACTIVE,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       }),
       findWorkspace: vi.fn().mockResolvedValue(null),
-      saveItem: vi.fn().mockImplementation((data) => Promise.resolve({
-        id: 'saved-1',
-        ...data,
-        savedAt: new Date(),
-        updatedAt: new Date()
-      })),
+      saveItem: vi.fn().mockImplementation((data) =>
+        Promise.resolve({
+          id: 'saved-1',
+          ...data,
+          savedAt: new Date(),
+          updatedAt: new Date(),
+        }),
+      ),
       removeSavedItem: vi.fn(),
       listSavedItems: vi.fn().mockResolvedValue([]),
       getDashboardSummary: vi.fn().mockResolvedValue({
@@ -34,13 +36,13 @@ describe('StudentWorkspaceUseCases', () => {
           studentReferenceId: 'student-1',
           status: StudentWorkspaceStatus.ACTIVE,
           createdAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
         },
         savedItems: [],
         certificateCount: 1,
         activeCourseEnrollmentCount: 2,
-        completedCourseEnrollmentCount: 1
-      })
+        completedCourseEnrollmentCount: 1,
+      }),
     };
     useCases = new StudentWorkspaceUseCases(repository);
   });
@@ -53,10 +55,12 @@ describe('StudentWorkspaceUseCases', () => {
   });
 
   it('rejects raw avatar URLs to preserve EAP boundary', async () => {
-    await expect(useCases.upsertWorkspace({
-      studentReferenceId: 'student-1',
-      avatarAssetId: 'https://example.com/avatar.png'
-    })).rejects.toThrow('Phase 05 EAP handle');
+    await expect(
+      useCases.upsertWorkspace({
+        studentReferenceId: 'student-1',
+        avatarAssetId: 'https://example.com/avatar.png',
+      }),
+    ).rejects.toThrow('Phase 05 EAP handle');
   });
 
   it('saves personal workspace references only', async () => {
@@ -64,10 +68,29 @@ describe('StudentWorkspaceUseCases', () => {
       studentReferenceId: 'student-1',
       entityType: StudentSavedItemType.COURSE,
       entityId: 'course-1',
-      displayName: 'Native Course'
+      displayName: 'Native Course',
     });
 
     expect(saved.entityType).toBe(StudentSavedItemType.COURSE);
     expect(repository.saveItem).toHaveBeenCalled();
+  });
+
+  it('does not reactivate an archived workspace', async () => {
+    vi.mocked(repository.findWorkspace).mockResolvedValue({
+      id: 'workspace-1',
+      studentReferenceId: 'student-1',
+      status: StudentWorkspaceStatus.ARCHIVED,
+      version: 3,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await expect(
+      useCases.upsertWorkspace({
+        studentReferenceId: 'student-1',
+        status: StudentWorkspaceStatus.ACTIVE,
+        expectedVersion: 3,
+      }),
+    ).rejects.toThrow('INVALID_STUDENT_WORKSPACE_TRANSITION');
   });
 });

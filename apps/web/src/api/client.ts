@@ -554,9 +554,15 @@ export interface StudentWorkspaceDto {
   preferredLanguage?: string | null;
   avatarAssetId?: string | null;
   status: string;
+  version: number;
+  timezone?: string | null;
+  theme?: string | null;
   layoutPreferences?: Record<string, unknown> | null;
   notificationMatrix?: Record<string, unknown> | null;
+  privacyPreferences?: Record<string, unknown> | null;
+  accessibilityPreferences?: Record<string, unknown> | null;
   metadata?: Record<string, unknown> | null;
+  lastActiveAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -564,6 +570,7 @@ export interface StudentWorkspaceDto {
 export interface StudentSavedItemDto {
   id: string;
   studentReferenceId: string;
+  collectionId?: string | null;
   entityType: string;
   entityId: string;
   entitySlug?: string | null;
@@ -574,12 +581,99 @@ export interface StudentSavedItemDto {
   updatedAt: string;
 }
 
+export interface StudentSavedCollectionDto {
+  id: string;
+  studentReferenceId: string;
+  name: string;
+  description?: string | null;
+  type: string;
+  color?: string | null;
+  icon?: string | null;
+  itemCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StudentCourseProgressDto {
+  enrollmentId: string;
+  courseId: string;
+  courseSlug: string;
+  courseName: string;
+  status: string;
+  progressPercentage: number;
+  enrolledAt: string;
+  lastAccessedAt?: string | null;
+  completedAt?: string | null;
+}
+
+export interface StudentCertificateProjectionDto {
+  id: string;
+  publicId: string;
+  serialNumber: string;
+  verificationCode: string;
+  status: string;
+  courseDisplayName: string;
+  issuedAt: string;
+  expiresAt?: string | null;
+  certificatePdfAssetId?: string | null;
+  previewImageAssetId?: string | null;
+}
+
+export interface StudentActivityDto {
+  id: string;
+  activityType?: string;
+  eventType?: string;
+  title: string;
+  description?: string | null;
+  entityType?: string | null;
+  entityId?: string | null;
+  entitySlug?: string | null;
+  sourceDomain?: string;
+  occurredAt: string;
+}
+
+export interface StudentNotificationProjectionDto {
+  id: string;
+  category: string;
+  title: string;
+  message: string;
+  actionUrl?: string | null;
+  readAt?: string | null;
+  occurredAt: string;
+}
+
+export interface StudentQuickActionDto {
+  id: string;
+  label: string;
+  description: string;
+  href: string;
+  priority: number;
+  kind: string;
+}
+
 export interface StudentDashboardSummaryDto {
   workspace: StudentWorkspaceDto;
   savedItems: StudentSavedItemDto[];
+  collections: StudentSavedCollectionDto[];
+  timeline: StudentActivityDto[];
+  recentActivity: StudentActivityDto[];
+  courseEnrollments: StudentCourseProgressDto[];
+  certificates: StudentCertificateProjectionDto[];
+  notifications: StudentNotificationProjectionDto[];
+  quickActions: StudentQuickActionDto[];
+  statistics: {
+    savedItems: number;
+    activeCourses: number;
+    completedCourses: number;
+    averageCourseProgress: number;
+    certificates: number;
+    unreadNotifications: number;
+  };
   certificateCount: number;
   activeCourseEnrollmentCount: number;
   completedCourseEnrollmentCount: number;
+  capabilityStatus: Record<string, 'AVAILABLE' | 'DEGRADED' | 'NOT_CONFIGURED'>;
+  partialFailures: string[];
 }
 
 export interface MoneyAmountDto {
@@ -817,6 +911,14 @@ export async function apiFetch(
 }
 
 function getAdminHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
+  const token = localStorage.getItem('manaratak_access_token');
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extraHeaders,
+  };
+}
+
+function getStudentHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
   const token = localStorage.getItem('manaratak_access_token');
   return {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -1247,9 +1349,7 @@ export class ApiClient {
   static async getAdminCertificate(id: string): Promise<AdminCertificateDto> {
     return this.adminCertificateRequest(`/admin/certificates/${encodeURIComponent(id)}`);
   }
-  static async getAdminCertificateLedger(
-    id: string,
-  ): Promise<{
+  static async getAdminCertificateLedger(id: string): Promise<{
     data: Array<{
       id: string;
       action: string;
@@ -1320,6 +1420,7 @@ export class ApiClient {
   ): Promise<StudentDashboardSummaryDto> {
     const res = await apiFetch(
       `${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/dashboard`,
+      { headers: getStudentHeaders() },
     );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -1336,6 +1437,7 @@ export class ApiClient {
   ): Promise<PaginatedResult<StudentFinanceInvoiceDto>> {
     const res = await apiFetch(
       `${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/finance/invoices`,
+      { headers: getStudentHeaders() },
     );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -1353,6 +1455,7 @@ export class ApiClient {
   ): Promise<StudentFinancePaymentDto[]> {
     const res = await apiFetch(
       `${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/finance/invoices/${encodeURIComponent(invoiceId)}/payments`,
+      { headers: getStudentHeaders() },
     );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -1525,6 +1628,7 @@ export class ApiClient {
   static async getStudentWorkspace(studentReferenceId: string): Promise<StudentWorkspaceDto> {
     const res = await apiFetch(
       `${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/workspace`,
+      { headers: getStudentHeaders() },
     );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -1534,6 +1638,78 @@ export class ApiClient {
       );
     }
     return res.json();
+  }
+
+  static async getCurrentStudentIdentity(): Promise<{ principalId: string; displayName: string }> {
+    const res = await apiFetch(`${API_BASE_URL}/auth/me`, { headers: getStudentHeaders() });
+    if (!res.ok) throw new Error('يلزم تسجيل الدخول للوصول إلى مساحة الطالب');
+    const payload = await res.json();
+    return payload.data;
+  }
+
+  static async updateStudentWorkspace(
+    studentReferenceId: string,
+    workspace: Partial<StudentWorkspaceDto> & { expectedVersion: number },
+  ): Promise<StudentWorkspaceDto> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/workspace`,
+      {
+        method: 'PUT',
+        headers: getStudentHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(workspace),
+      },
+    );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || 'تعذر حفظ إعدادات مساحة الطالب');
+    }
+    return res.json();
+  }
+
+  static async createStudentCollection(
+    studentReferenceId: string,
+    collection: { name: string; description?: string; color?: string },
+  ): Promise<StudentSavedCollectionDto> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/collections`,
+      {
+        method: 'POST',
+        headers: getStudentHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(collection),
+      },
+    );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || 'تعذر إنشاء المجموعة');
+    }
+    return res.json();
+  }
+
+  static async createStudentWorkspaceSnapshot(
+    studentReferenceId: string,
+    label?: string,
+  ): Promise<{ id: string; createdAt: string }> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/snapshots`,
+      {
+        method: 'POST',
+        headers: getStudentHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ label }),
+      },
+    );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || 'تعذر حفظ نسخة الإعدادات');
+    }
+    return res.json();
+  }
+
+  static async clearStudentSearchHistory(studentReferenceId: string): Promise<void> {
+    const res = await apiFetch(
+      `${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/search-history`,
+      { method: 'DELETE', headers: getStudentHeaders() },
+    );
+    if (!res.ok) throw new Error('تعذر مسح سجل البحث');
   }
 
   static async saveStudentItem(
@@ -1550,7 +1726,7 @@ export class ApiClient {
       `${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/saved-items`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getStudentHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(item),
       },
     );

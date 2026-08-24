@@ -149,7 +149,7 @@ const RootLayout = () => {
     { to: localizePathname('/tools', language), label: t('nav_tools') },
     { to: localizePathname('/articles', language), label: t('nav_guides') },
     { to: localizePathname('/certificates/verify', language), label: t('nav_verify') },
-    { to: localizePathname('/student/demo-student', language), label: t('nav_workspace') },
+    { to: localizePathname('/student', language), label: t('nav_workspace') },
   ];
   const localAdminLinks = [
     ['/admin/dashboard', t('local_admin_nav_dashboard')],
@@ -185,8 +185,7 @@ const RootLayout = () => {
   };
 
   const getWorkspaceUrl = () => {
-    const ref = userEmail?.includes('@') ? userEmail.split('@')[0] : 'demo-student';
-    return localizePathname(`/student/${encodeURIComponent(ref)}`, language);
+    return localizePathname('/student', language);
   };
 
   return (
@@ -976,7 +975,7 @@ function AdminAccessBridgePage() {
             <Link to="/login" className="px-6 py-3 bg-[#0F4B3A] text-white rounded-xl font-bold hover:bg-[#0c3e30]">
               {t('admin_go_to_login')}
             </Link>
-            <Link to="/student/demo-student" className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200">
+            <Link to="/student" className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200">
               {t('admin_student_workspace')}
             </Link>
           </div>

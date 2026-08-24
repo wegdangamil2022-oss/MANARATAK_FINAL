@@ -146,13 +146,6 @@ export interface StudentToolFilters { [key: string]: any }
 export class StudentToolImplementationPriority { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export interface StudentToolRegistryEntryDto { [key: string]: any }
 export interface UpsertStudentToolRegistryEntryDto { [key: string]: any }
-export interface IStudentWorkspaceRepository { [key: string]: any }
-export interface SaveStudentItemDto { [key: string]: any }
-export interface StudentDashboardSummaryDto { [key: string]: any }
-export interface StudentSavedItemDto { [key: string]: any }
-export enum StudentSavedItemType { COURSE = 'COURSE', SCHOLARSHIP = 'SCHOLARSHIP', UNIVERSITY = 'UNIVERSITY', MAJOR = 'MAJOR' }
-export interface StudentWorkspaceDto { [key: string]: any }
-export interface UpsertStudentWorkspaceDto { [key: string]: any }
 export class WorkflowReference { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export interface IWorkflowRepository { [key: string]: any }
 export class Workflow { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
@@ -228,7 +221,6 @@ export class WorkflowArchivedEvent { constructor(..._args: any[]) {} [key: strin
 export class AIExecutionResponseDto { [key: string]: any; static [key: string]: any; }
 export class AIExecutionUseCases { [key: string]: any; static [key: string]: any; }
 
-export enum StudentWorkspaceStatus { DUMMY = 'DUMMY' }
 export enum ServiceAvailabilityStatus { DUMMY = 'DUMMY', AVAILABLE = 'AVAILABLE' }
 export enum ServiceCategory { DUMMY = 'DUMMY', VISA_SERVICES = 'VISA_SERVICES' }
 export enum ServiceDeliveryMode { DUMMY = 'DUMMY', ONLINE = 'ONLINE' }

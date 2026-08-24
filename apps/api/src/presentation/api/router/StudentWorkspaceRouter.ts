@@ -1,88 +1,275 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import { ITokenProvider } from '@manaratak/core';
 import { FinanceStudentUseCases, StudentWorkspaceUseCases } from '@manaratak/application';
-import { StudentSavedItemType, StudentWorkspaceStatus } from '@manaratak/domain';
+import { StudentCollectionType, StudentSavedItemType } from '@manaratak/domain';
+import { AuthMiddleware } from '../../middleware/AuthMiddleware';
 
 export class StudentWorkspaceRouter {
-  public static create(cradle: { studentWorkspaceUseCases: StudentWorkspaceUseCases; financeStudentUseCases: FinanceStudentUseCases }): Router {
+  public static create(cradle: {
+    studentWorkspaceUseCases: StudentWorkspaceUseCases;
+    financeStudentUseCases: FinanceStudentUseCases;
+    tokenProvider: ITokenProvider;
+  }): Router {
     const router = Router();
-    const { studentWorkspaceUseCases, financeStudentUseCases } = cradle;
+    const { studentWorkspaceUseCases, financeStudentUseCases, tokenProvider } = cradle;
 
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
     };
 
     const workspaceSchema = z.object({
+      expectedVersion: z.number().int().positive().optional(),
       displayName: z.string().nullable().optional(),
       preferredLanguage: z.string().nullable().optional(),
+      timezone: z.string().nullable().optional(),
+      theme: z.enum(['LIGHT', 'DARK', 'SYSTEM']).nullable().optional(),
       avatarAssetId: z.string().nullable().optional(),
-      status: z.nativeEnum(StudentWorkspaceStatus).optional(),
       layoutPreferences: z.record(z.string(), z.unknown()).nullable().optional(),
-      notificationMatrix: z.record(z.string(), z.unknown()).nullable().optional(),
-      metadata: z.record(z.string(), z.unknown()).nullable().optional()
+      notificationMatrix: z
+        .object({
+          inApp: z.boolean(),
+          email: z.boolean(),
+          push: z.boolean(),
+          learning: z.boolean(),
+          certificates: z.boolean(),
+          scholarships: z.boolean(),
+          payments: z.boolean(),
+        })
+        .nullable()
+        .optional(),
+      privacyPreferences: z
+        .object({
+          retainSearchHistory: z.boolean(),
+          allowPersonalization: z.boolean(),
+          allowProductAnalytics: z.boolean(),
+          publicProfileEnabled: z.boolean(),
+        })
+        .nullable()
+        .optional(),
+      accessibilityPreferences: z
+        .object({
+          textScale: z.enum(['SMALL', 'DEFAULT', 'LARGE']),
+          reduceMotion: z.boolean(),
+          highContrast: z.boolean(),
+        })
+        .nullable()
+        .optional(),
+      metadata: z.record(z.string(), z.unknown()).nullable().optional(),
     });
 
     const savedItemSchema = z.object({
       entityType: z.nativeEnum(StudentSavedItemType),
       entityId: z.string().min(1),
+      collectionId: z.string().uuid().nullable().optional(),
       entitySlug: z.string().nullable().optional(),
       displayName: z.string().nullable().optional(),
       notes: z.string().nullable().optional(),
-      metadata: z.record(z.string(), z.unknown()).nullable().optional()
+      metadata: z.record(z.string(), z.unknown()).nullable().optional(),
     });
 
-    router.get('/:studentReferenceId/workspace', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await studentWorkspaceUseCases.getOrCreateWorkspace(req.params.studentReferenceId));
-    }));
+    const collectionSchema = z.object({
+      name: z.string().trim().min(1).max(80),
+      description: z.string().trim().max(240).nullable().optional(),
+      type: z.nativeEnum(StudentCollectionType).optional(),
+      color: z
+        .string()
+        .regex(/^#[0-9A-Fa-f]{6}$/)
+        .nullable()
+        .optional(),
+      icon: z.string().trim().max(40).nullable().optional(),
+    });
 
-    router.put('/:studentReferenceId/workspace', asyncHandler(async (req: Request, res: Response) => {
-      const body = workspaceSchema.parse(req.body);
-      res.json(await studentWorkspaceUseCases.upsertWorkspace({
-        studentReferenceId: req.params.studentReferenceId,
-        ...body
-      }));
-    }));
+    router.use(new AuthMiddleware(tokenProvider).generate());
+    router.use('/:studentReferenceId', (req: Request, res: Response, next: NextFunction) => {
+      if (req.authUserId !== req.params.studentReferenceId) {
+        res.status(403).json({ error: 'STUDENT_WORKSPACE_ACCESS_DENIED' });
+        return;
+      }
+      next();
+    });
 
-    router.get('/:studentReferenceId/dashboard', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await studentWorkspaceUseCases.getDashboard(req.params.studentReferenceId));
-    }));
+    router.get(
+      '/:studentReferenceId/workspace',
+      asyncHandler(async (req: Request, res: Response) => {
+        res.json(
+          await studentWorkspaceUseCases.getOrCreateWorkspace(req.params.studentReferenceId),
+        );
+      }),
+    );
 
-    router.get('/:studentReferenceId/saved-items', asyncHandler(async (req: Request, res: Response) => {
-      res.json({ data: await studentWorkspaceUseCases.listSavedItems(req.params.studentReferenceId) });
-    }));
+    router.put(
+      '/:studentReferenceId/workspace',
+      asyncHandler(async (req: Request, res: Response) => {
+        const body = workspaceSchema.parse(req.body);
+        res.json(
+          await studentWorkspaceUseCases.upsertWorkspace({
+            studentReferenceId: req.params.studentReferenceId,
+            ...body,
+          }),
+        );
+      }),
+    );
 
-    router.post('/:studentReferenceId/saved-items', asyncHandler(async (req: Request, res: Response) => {
-      const body = savedItemSchema.parse(req.body);
-      const saved = await studentWorkspaceUseCases.saveItem({
-        studentReferenceId: req.params.studentReferenceId,
-        ...body
-      });
-      res.status(201).json(saved);
-    }));
+    router.get(
+      '/:studentReferenceId/dashboard',
+      asyncHandler(async (req: Request, res: Response) => {
+        res.json(await studentWorkspaceUseCases.getDashboard(req.params.studentReferenceId));
+      }),
+    );
 
-    router.delete('/:studentReferenceId/saved-items/:entityType/:entityId', asyncHandler(async (req: Request, res: Response) => {
-      const entityType = z.nativeEnum(StudentSavedItemType).parse(req.params.entityType);
-      await studentWorkspaceUseCases.removeSavedItem(req.params.studentReferenceId, entityType, req.params.entityId);
-      res.status(204).send();
-    }));
+    router.get(
+      '/:studentReferenceId/saved-items',
+      asyncHandler(async (req: Request, res: Response) => {
+        res.json({
+          data: await studentWorkspaceUseCases.listSavedItems(req.params.studentReferenceId),
+        });
+      }),
+    );
 
-    router.get('/:studentReferenceId/finance/invoices', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await financeStudentUseCases.listStudentInvoices(req.params.studentReferenceId));
-    }));
+    router.get(
+      '/:studentReferenceId/collections',
+      asyncHandler(async (req: Request, res: Response) => {
+        res.json({
+          data: await studentWorkspaceUseCases.listCollections(req.params.studentReferenceId),
+        });
+      }),
+    );
 
-    router.get('/:studentReferenceId/finance/invoices/:invoiceId', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await financeStudentUseCases.getStudentInvoice(req.params.studentReferenceId, req.params.invoiceId));
-    }));
+    router.post(
+      '/:studentReferenceId/collections',
+      asyncHandler(async (req: Request, res: Response) => {
+        const body = collectionSchema.parse(req.body);
+        const collection = await studentWorkspaceUseCases.createCollection({
+          studentReferenceId: req.params.studentReferenceId,
+          ...body,
+        });
+        res.status(201).json(collection);
+      }),
+    );
 
-    router.get('/:studentReferenceId/finance/invoices/:invoiceId/payments', asyncHandler(async (req: Request, res: Response) => {
-      res.json({ data: await financeStudentUseCases.listStudentInvoicePayments(req.params.studentReferenceId, req.params.invoiceId) });
-    }));
+    router.post(
+      '/:studentReferenceId/saved-items',
+      asyncHandler(async (req: Request, res: Response) => {
+        const body = savedItemSchema.parse(req.body);
+        const saved = await studentWorkspaceUseCases.saveItem({
+          studentReferenceId: req.params.studentReferenceId,
+          ...body,
+        });
+        res.status(201).json(saved);
+      }),
+    );
+
+    router.delete(
+      '/:studentReferenceId/saved-items/:entityType/:entityId',
+      asyncHandler(async (req: Request, res: Response) => {
+        const entityType = z.nativeEnum(StudentSavedItemType).parse(req.params.entityType);
+        await studentWorkspaceUseCases.removeSavedItem(
+          req.params.studentReferenceId,
+          entityType,
+          req.params.entityId,
+        );
+        res.status(204).send();
+      }),
+    );
+
+    router.post(
+      '/:studentReferenceId/activity',
+      asyncHandler(async (req: Request, res: Response) => {
+        const body = z
+          .object({
+            activityType: z.string().trim().min(1).max(60),
+            title: z.string().trim().min(1).max(160),
+            entityType: z.string().trim().max(60).nullable().optional(),
+            entityId: z.string().trim().max(160).nullable().optional(),
+            entitySlug: z.string().trim().max(160).nullable().optional(),
+            metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+          })
+          .parse(req.body);
+        res.status(201).json(
+          await studentWorkspaceUseCases.recordActivity({
+            studentReferenceId: req.params.studentReferenceId,
+            ...body,
+          }),
+        );
+      }),
+    );
+
+    router.post(
+      '/:studentReferenceId/search-history',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { query } = z.object({ query: z.string().trim().min(1).max(160) }).parse(req.body);
+        await studentWorkspaceUseCases.recordSearch(req.params.studentReferenceId, query);
+        res.status(204).send();
+      }),
+    );
+
+    router.delete(
+      '/:studentReferenceId/search-history',
+      asyncHandler(async (req: Request, res: Response) => {
+        await studentWorkspaceUseCases.clearSearchHistory(req.params.studentReferenceId);
+        res.status(204).send();
+      }),
+    );
+
+    router.post(
+      '/:studentReferenceId/snapshots',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { label } = z
+          .object({ label: z.string().trim().max(80).nullable().optional() })
+          .parse(req.body ?? {});
+        res
+          .status(201)
+          .json(
+            await studentWorkspaceUseCases.createSnapshot(req.params.studentReferenceId, label),
+          );
+      }),
+    );
+
+    router.get(
+      '/:studentReferenceId/finance/invoices',
+      asyncHandler(async (req: Request, res: Response) => {
+        res.json(await financeStudentUseCases.listStudentInvoices(req.params.studentReferenceId));
+      }),
+    );
+
+    router.get(
+      '/:studentReferenceId/finance/invoices/:invoiceId',
+      asyncHandler(async (req: Request, res: Response) => {
+        res.json(
+          await financeStudentUseCases.getStudentInvoice(
+            req.params.studentReferenceId,
+            req.params.invoiceId,
+          ),
+        );
+      }),
+    );
+
+    router.get(
+      '/:studentReferenceId/finance/invoices/:invoiceId/payments',
+      asyncHandler(async (req: Request, res: Response) => {
+        res.json({
+          data: await financeStudentUseCases.listStudentInvoicePayments(
+            req.params.studentReferenceId,
+            req.params.invoiceId,
+          ),
+        });
+      }),
+    );
 
     router.use((err: any, req: Request, res: Response, next: NextFunction) => {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ error: 'Validation Error', details: err.issues });
       }
-      res.status(400).json({ error: err.message || 'An error occurred' });
+      const code = err.message || 'An error occurred';
+      const status = code.includes('VERSION_CONFLICT')
+        ? 409
+        : code.includes('SUSPENDED') || code.includes('ARCHIVED')
+          ? 423
+          : code.includes('NOT_FOUND')
+            ? 404
+            : 400;
+      res.status(status).json({ error: code });
     });
 
     return router;

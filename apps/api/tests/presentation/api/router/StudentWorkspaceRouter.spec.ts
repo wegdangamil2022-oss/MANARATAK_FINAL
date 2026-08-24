@@ -17,7 +17,16 @@ describe('StudentWorkspaceRouter', () => {
   const createApp = (useCases: ReturnType<typeof createUseCases>) => {
     const app = express();
     app.use(express.json());
-    app.use('/student', StudentWorkspaceRouter.create({ studentWorkspaceUseCases: useCases as any }));
+    app.use(
+      '/student',
+      StudentWorkspaceRouter.create({
+        studentWorkspaceUseCases: useCases as any,
+        financeStudentUseCases: {} as any,
+        tokenProvider: {
+          verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'student-1' }),
+        } as any,
+      }),
+    );
     return app;
   };
 
@@ -28,11 +37,13 @@ describe('StudentWorkspaceRouter', () => {
       savedItems: [],
       certificateCount: 1,
       activeCourseEnrollmentCount: 2,
-      completedCourseEnrollmentCount: 1
+      completedCourseEnrollmentCount: 1,
     });
     const app = createApp(useCases);
 
-    const res = await request(app).get('/student/student-1/dashboard');
+    const res = await request(app)
+      .get('/student/student-1/dashboard')
+      .set('Authorization', 'Bearer valid-student-token');
 
     expect(res.status).toBe(200);
     expect(res.body.certificateCount).toBe(1);
@@ -46,18 +57,42 @@ describe('StudentWorkspaceRouter', () => {
       entityType: StudentSavedItemType.COURSE,
       entityId: 'course-1',
       savedAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     });
     const app = createApp(useCases);
 
     const res = await request(app)
       .post('/student/student-1/saved-items')
+      .set('Authorization', 'Bearer valid-student-token')
       .send({ entityType: StudentSavedItemType.COURSE, entityId: 'course-1' });
 
     expect(res.status).toBe(201);
-    expect(useCases.saveItem).toHaveBeenCalledWith(expect.objectContaining({
-      studentReferenceId: 'student-1',
-      entityType: StudentSavedItemType.COURSE
-    }));
+    expect(useCases.saveItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        studentReferenceId: 'student-1',
+        entityType: StudentSavedItemType.COURSE,
+      }),
+    );
+  });
+
+  it('denies access to another student workspace', async () => {
+    const useCases = createUseCases();
+    const app = createApp(useCases);
+
+    const res = await request(app)
+      .get('/student/student-2/dashboard')
+      .set('Authorization', 'Bearer valid-student-token');
+
+    expect(res.status).toBe(403);
+    expect(useCases.getDashboard).not.toHaveBeenCalled();
+  });
+
+  it('requires an authenticated student session', async () => {
+    const useCases = createUseCases();
+    const app = createApp(useCases);
+
+    const res = await request(app).get('/student/student-1/dashboard');
+
+    expect(res.status).toBe(401);
   });
 });

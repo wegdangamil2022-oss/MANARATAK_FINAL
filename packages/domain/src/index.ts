@@ -227,6 +227,7 @@ export * from './finance-platform/entities/FinancePayment';
 export * from './finance-platform/enums/InvoiceStatus';
 export * from './finance-platform/enums/PaymentStatus';
 export * from './finance-platform/value-objects/MoneyAmount';
+export * from './students';
 export * from './publication-readiness/PublicationReadiness';
 export * from './majors/MajorPublicationReadinessPolicy';
 export * from './majors/Phase11MajorConsumptionContract';

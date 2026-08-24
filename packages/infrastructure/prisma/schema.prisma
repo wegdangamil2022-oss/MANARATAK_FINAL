@@ -2306,22 +2306,41 @@ model StudentWorkspace {
   id                 String  @id @default(uuid())
   studentReferenceId String  @unique
   status             String
+  version            Int     @default(1)
   displayName        String?
   preferredLanguage  String?
+  timezone           String? @default("Asia/Aden")
+  theme              String? @default("SYSTEM")
   avatarAssetId      String?
   layoutPreferences  Json?
   notificationMatrix Json?
+  privacyPreferences Json?
+  accessibilityPreferences Json?
   metadata           Json?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  lastActiveAt DateTime?
+  suspendedAt  DateTime?
+  archivedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  savedItems StudentSavedItem[]
+  savedItems       StudentSavedItem[]
+  savedCollections StudentSavedCollection[]
+  timelineEntries  StudentTimelineEntry[]
+  recentActivity   StudentRecentActivity[]
+  searchHistory    StudentSearchHistory[]
+  snapshots        StudentWorkspaceSnapshot[]
+  notifications    StudentNotificationProjection[]
+  integrationInbox StudentWorkspaceEventInbox[]
+
+  @@index([status])
+  @@index([lastActiveAt])
 }
 
 model StudentSavedItem {
   id                 String   @id @default(uuid())
   studentReferenceId String
+  collectionId       String?
   entityType         String
   entityId           String
   entitySlug         String?
@@ -2331,7 +2350,122 @@ model StudentSavedItem {
   savedAt            DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
+  workspace  StudentWorkspace        @relation(fields: [studentReferenceId], references: [studentReferenceId])
+  collection StudentSavedCollection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+
+  @@unique([studentReferenceId, entityType, entityId])
+  @@index([studentReferenceId, savedAt])
+  @@index([collectionId])
+}
+
+model StudentSavedCollection {
+  id                 String   @id @default(uuid())
+  studentReferenceId String
+  name               String
+  description        String?
+  type               String   @default("PERSONAL")
+  color              String?
+  icon               String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  workspace StudentWorkspace   @relation(fields: [studentReferenceId], references: [studentReferenceId])
+  items     StudentSavedItem[]
+
+  @@unique([studentReferenceId, name])
+  @@index([studentReferenceId, type])
+}
+
+model StudentTimelineEntry {
+  id                 String   @id @default(uuid())
+  studentReferenceId String
+  eventType          String
+  title              String
+  description        String?
+  sourceDomain       String
+  sourceReferenceId  String?
+  metadata           Json?
+  occurredAt         DateTime @default(now())
+
   workspace StudentWorkspace @relation(fields: [studentReferenceId], references: [studentReferenceId])
+
+  @@index([studentReferenceId, occurredAt])
+  @@index([sourceDomain, sourceReferenceId])
+}
+
+model StudentRecentActivity {
+  id                 String   @id @default(uuid())
+  studentReferenceId String
+  activityType       String
+  title              String
+  entityType         String?
+  entityId           String?
+  entitySlug         String?
+  metadata           Json?
+  occurredAt         DateTime @default(now())
+
+  workspace StudentWorkspace @relation(fields: [studentReferenceId], references: [studentReferenceId])
+
+  @@index([studentReferenceId, occurredAt])
+}
+
+model StudentSearchHistory {
+  id                 String   @id @default(uuid())
+  studentReferenceId String
+  query              String
+  normalizedQuery    String
+  searchedAt         DateTime @default(now())
+
+  workspace StudentWorkspace @relation(fields: [studentReferenceId], references: [studentReferenceId])
+
+  @@index([studentReferenceId, searchedAt])
+}
+
+model StudentWorkspaceSnapshot {
+  id                 String   @id @default(uuid())
+  studentReferenceId String
+  label              String?
+  workspaceVersion   Int
+  configuration      Json
+  createdAt          DateTime @default(now())
+
+  workspace StudentWorkspace @relation(fields: [studentReferenceId], references: [studentReferenceId])
+
+  @@index([studentReferenceId, createdAt])
+}
+
+model StudentNotificationProjection {
+  id                 String   @id
+  studentReferenceId String
+  category           String
+  title              String
+  message            String
+  actionUrl          String?
+  sourceEventId      String?  @unique
+  readAt             DateTime?
+  occurredAt         DateTime
+  createdAt          DateTime @default(now())
+
+  workspace StudentWorkspace @relation(fields: [studentReferenceId], references: [studentReferenceId])
+
+  @@index([studentReferenceId, readAt, occurredAt])
+}
+
+model StudentWorkspaceEventInbox {
+  id                 String   @id @default(uuid())
+  eventId            String   @unique
+  studentReferenceId String
+  sourceDomain       String
+  eventType          String
+  payload            Json
+  processedAt        DateTime?
+  failureCode        String?
+  receivedAt         DateTime @default(now())
+
+  workspace StudentWorkspace @relation(fields: [studentReferenceId], references: [studentReferenceId])
+
+  @@index([studentReferenceId, receivedAt])
+  @@index([processedAt, receivedAt])
 }
 
 // --- Identity Foundation ---
