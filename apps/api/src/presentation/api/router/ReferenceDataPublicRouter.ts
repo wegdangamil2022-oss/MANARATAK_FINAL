@@ -1,13 +1,14 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { LocalizedReferenceDataQueries } from '@manaratak/application';
-import { IReferenceDataRepository } from '@manaratak/domain';
+import { LocalizedPublicUniversityUseCases, LocalizedReferenceDataQueries } from '@manaratak/application';
+import { IReferenceDataRepository, IUniversityRepository } from '@manaratak/domain';
 import { localeQuerySchema, parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract';
 
 export class ReferenceDataPublicRouter {
-  public static create(cradle: { referenceDataRepository: IReferenceDataRepository }): Router {
+  public static create(cradle: { referenceDataRepository: IReferenceDataRepository; universityRepository: IUniversityRepository }): Router {
     const router = Router();
     const localized = new LocalizedReferenceDataQueries(cradle.referenceDataRepository);
+    const universities = new LocalizedPublicUniversityUseCases(cradle.universityRepository);
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => Promise.resolve(fn(req, res, next)).catch(next);
 
     const querySchema = z.object({
@@ -24,6 +25,11 @@ export class ReferenceDataPublicRouter {
     }));
     router.get('/countries/:iso2Code', asyncHandler(async (req: Request, res: Response) => {
       res.json(await localized.getCountry(req.params.iso2Code, parseRequestLocale(req.query)));
+    }));
+    router.get('/countries/:iso2Code/universities', asyncHandler(async (req: Request, res: Response) => {
+      const country = await cradle.referenceDataRepository.getCountry(req.params.iso2Code.toUpperCase());
+      if (!country) return res.status(404).json({ error: 'Country not found' });
+      res.json(await universities.listUniversities({ countryReferenceId: country.id }, parseRequestLocale(req.query)));
     }));
     router.get('/currencies', asyncHandler(async (req: Request, res: Response) => {
       const { locale, ...filters } = querySchema.parse(req.query);

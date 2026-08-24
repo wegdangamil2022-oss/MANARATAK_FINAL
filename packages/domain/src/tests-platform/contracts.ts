@@ -325,7 +325,7 @@ export interface InternationalTestFeeMetadataDto {
   feeType: 'REGISTRATION' | 'LATE_REGISTRATION' | 'RESCHEDULING' | 'CANCELLATION' | 'OTHER';
   amount: number;
   currencyCode: string; // Reference Data code
-  currencyReferenceId?: string; // Canonical Phase 7 identity; DB migration pending
+  currencyReferenceId: string;
   hasRegionalVariation: boolean;
   validityWindowNotes?: string;
 }
@@ -334,7 +334,7 @@ export interface UpsertInternationalTestFeeMetadataDto {
   feeType: 'REGISTRATION' | 'LATE_REGISTRATION' | 'RESCHEDULING' | 'CANCELLATION' | 'OTHER';
   amount: number;
   currencyCode: string;
-  currencyReferenceId?: string;
+  currencyReferenceId: string;
   hasRegionalVariation: boolean;
   validityWindowNotes?: string;
 }

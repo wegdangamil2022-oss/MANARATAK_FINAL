@@ -191,6 +191,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
         });
       } catch (error: any) {
         logger.error("[Database] Could not connect to Prisma instance", error);
+        if (isProductionOrStaging) throw error;
         monitoringService.registerIndicator({
           name: 'database',
           isOptional: false,
@@ -202,6 +203,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
         });
       }
     } else {
+      if (isProductionOrStaging) throw new Error('DATABASE_URL is required in production and staging');
       monitoringService.registerIndicator({
         name: 'database',
         isOptional: false,

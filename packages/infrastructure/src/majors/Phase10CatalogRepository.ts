@@ -36,7 +36,12 @@ export class Phase10CatalogRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   public loadCatalog(): CatalogItemDto[] {
-    const possiblePaths = ['/app/applet/workspace/catalog-index/phase10CatalogIndex.json'];
+    const possiblePaths = [
+      ...(process.env.MANARATAK_PHASE10_CATALOG_PATH
+        ? [path.resolve(process.env.MANARATAK_PHASE10_CATALOG_PATH)]
+        : []),
+      '/app/applet/workspace/catalog-index/phase10CatalogIndex.json',
+    ];
 
     let currentDir = process.cwd();
     for (let i = 0; i < 6; i++) {
@@ -185,6 +190,7 @@ export class Phase10CatalogRepository {
           },
         });
       } catch (err) {
+        if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging') throw err;
         console.warn(
           'Major catalog DB enrichment unavailable; returning source-only summaries',
           err,

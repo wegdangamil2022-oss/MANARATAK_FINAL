@@ -272,6 +272,8 @@ export class InternationalTestImportPromotionUseCase {
 
       if (Array.isArray(payload.fees) && typeof this.repository.upsertFeeMetadata === 'function') {
         for (const f of payload.fees) {
+          const currency = await this.referenceResolver!.resolveCurrency({ standardCode: f.currencyCode! });
+          if (!currency?.active) throw new Error(`Active canonical Currency not found: ${f.currencyCode}`);
           await this.repository.upsertFeeMetadata(created.id, {
             feeType:
               (f.feeType as
@@ -279,6 +281,7 @@ export class InternationalTestImportPromotionUseCase {
               'REGISTRATION',
             amount: f.amount ?? 0,
             currencyCode: f.currencyCode!,
+            currencyReferenceId: currency.id,
             hasRegionalVariation: Boolean(f.hasRegionalVariation),
             validityWindowNotes: f.validityWindowNotes,
           });

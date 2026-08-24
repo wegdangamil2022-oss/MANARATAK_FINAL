@@ -1,4 +1,4 @@
-import { readFile, stat } from 'fs/promises';
+import { mkdir, readFile, rename, rm, stat } from 'fs/promises';
 import * as path from 'path';
 import {
   IAssetStorageGateway,
@@ -11,7 +11,11 @@ export class LocalAssetStorageGateway implements IAssetStorageGateway {
     private readonly localBucketName: string = 'local-dev-bucket',
     private readonly localRoot: string = process.env.MANARATAK_LOCAL_ASSET_ROOT
       || path.resolve(process.cwd(), 'storage', 'assets'),
-  ) {}
+  ) {
+    if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging') {
+      throw new Error('LOCAL_ASSET_STORAGE_DEVELOPMENT_ONLY');
+    }
+  }
 
   async generateUploadLocator(zone?: AssetStorageZone): Promise<AssetStorageLocator> {
     const targetZone = zone || AssetStorageZone.QUARANTINE;
@@ -20,8 +24,14 @@ export class LocalAssetStorageGateway implements IAssetStorageGateway {
   }
 
   async moveToCleanZone(quarantineLocator: AssetStorageLocator): Promise<AssetStorageLocator> {
+    if (quarantineLocator.storageZone !== AssetStorageZone.QUARANTINE) throw new Error('ASSET_STORAGE_QUARANTINE_LOCATOR_REQUIRED');
     const cleanPathKey = quarantineLocator.pathKey.replace(/^uploads\//, 'clean/');
-    return new AssetStorageLocator(AssetStorageZone.CLEAN, this.localBucketName, cleanPathKey);
+    const cleanLocator = new AssetStorageLocator(AssetStorageZone.CLEAN, this.localBucketName, cleanPathKey);
+    const source = this.resolveLocator(quarantineLocator);
+    const destination = this.resolveLocator(cleanLocator);
+    await mkdir(path.dirname(destination), { recursive: true });
+    await rename(source, destination);
+    return cleanLocator;
   }
 
   async read(locator: AssetStorageLocator, maxBytes: number): Promise<Uint8Array> {
@@ -32,11 +42,7 @@ export class LocalAssetStorageGateway implements IAssetStorageGateway {
       throw new Error(`ASSET_STORAGE_BUCKET_NOT_AVAILABLE:${locator.bucketName}`);
     }
 
-    const bucketRoot = path.resolve(this.localRoot, locator.bucketName);
-    const resolvedPath = path.resolve(bucketRoot, locator.pathKey);
-    if (resolvedPath !== bucketRoot && !resolvedPath.startsWith(`${bucketRoot}${path.sep}`)) {
-      throw new Error('ASSET_STORAGE_PATH_OUTSIDE_ROOT');
-    }
+    const resolvedPath = this.resolveLocator(locator);
 
     const metadata = await stat(resolvedPath);
     if (!metadata.isFile()) {
@@ -53,15 +59,28 @@ export class LocalAssetStorageGateway implements IAssetStorageGateway {
     return new Uint8Array(data);
   }
 
-  async archive(_locator: AssetStorageLocator): Promise<void> {
-    // Local dev: No-op for archive
+  async archive(locator: AssetStorageLocator): Promise<void> {
+    await rename(this.resolveLocator(locator), this.archivePath(locator));
   }
 
-  async restore(_locator: AssetStorageLocator): Promise<void> {
-    // Local dev: No-op for restore
+  async restore(locator: AssetStorageLocator): Promise<void> {
+    await rename(this.archivePath(locator), this.resolveLocator(locator));
   }
 
-  async delete(_locator: AssetStorageLocator): Promise<void> {
-    // Local dev: No-op for delete
+  async delete(locator: AssetStorageLocator): Promise<void> {
+    await rm(this.resolveLocator(locator), { force: true });
+    await rm(this.archivePath(locator), { force: true });
+  }
+
+  private resolveLocator(locator: AssetStorageLocator): string {
+    if (locator.bucketName !== this.localBucketName) throw new Error(`ASSET_STORAGE_BUCKET_NOT_AVAILABLE:${locator.bucketName}`);
+    const bucketRoot = path.resolve(this.localRoot, locator.bucketName);
+    const resolved = path.resolve(bucketRoot, locator.pathKey);
+    if (resolved !== bucketRoot && !resolved.startsWith(`${bucketRoot}${path.sep}`)) throw new Error('ASSET_STORAGE_PATH_OUTSIDE_ROOT');
+    return resolved;
+  }
+
+  private archivePath(locator: AssetStorageLocator): string {
+    return `${this.resolveLocator(locator)}.archived`;
   }
 }

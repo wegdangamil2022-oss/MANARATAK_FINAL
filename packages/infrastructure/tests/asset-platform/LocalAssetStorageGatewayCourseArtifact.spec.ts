@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile } from 'fs/promises';
+import { access, mkdtemp, mkdir, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
@@ -30,5 +30,21 @@ describe('LocalAssetStorageGateway course artifact read', () => {
     await expect(gateway.read(traversal, 100)).rejects.toThrow(
       'ASSET_STORAGE_PATH_OUTSIDE_ROOT',
     );
+  });
+
+  it('physically moves, archives, restores and deletes local assets', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'manaratak-assets-lifecycle-'));
+    const bucket = 'local-test';
+    await mkdir(path.join(root, bucket, 'uploads'), { recursive: true });
+    await writeFile(path.join(root, bucket, 'uploads', 'asset.bin'), 'safe');
+    const gateway = new LocalAssetStorageGateway(bucket, root);
+    const clean = await gateway.moveToCleanZone(new AssetStorageLocator(AssetStorageZone.QUARANTINE, bucket, 'uploads/asset.bin'));
+    await expect(access(path.join(root, bucket, 'clean', 'asset.bin'))).resolves.toBeUndefined();
+    await gateway.archive(clean);
+    await expect(access(path.join(root, bucket, 'clean', 'asset.bin.archived'))).resolves.toBeUndefined();
+    await gateway.restore(clean);
+    await expect(access(path.join(root, bucket, 'clean', 'asset.bin'))).resolves.toBeUndefined();
+    await gateway.delete(clean);
+    await expect(access(path.join(root, bucket, 'clean', 'asset.bin'))).rejects.toThrow();
   });
 });

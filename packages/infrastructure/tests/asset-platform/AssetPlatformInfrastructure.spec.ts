@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { mkdtemp, mkdir, writeFile } from 'fs/promises';
+import { tmpdir } from 'os';
+import * as path from 'path';
 import {
   AssetStorageLocator,
   AssetStorageZone,
@@ -23,7 +26,10 @@ describe('Phase 05 EAP Infrastructure - Slice 2C', () => {
     });
 
     it('moves locator from quarantine to clean zone', async () => {
-      const gateway = new LocalAssetStorageGateway('test-bucket');
+      const root = await mkdtemp(path.join(tmpdir(), 'manaratak-asset-move-'));
+      await mkdir(path.join(root, 'test-bucket', 'uploads'), { recursive: true });
+      await writeFile(path.join(root, 'test-bucket', 'uploads', '123-file.tmp'), 'safe');
+      const gateway = new LocalAssetStorageGateway('test-bucket', root);
       const qLocator = new AssetStorageLocator(AssetStorageZone.QUARANTINE, 'test-bucket', 'uploads/123-file.tmp');
       const cLocator = await gateway.moveToCleanZone(qLocator);
 

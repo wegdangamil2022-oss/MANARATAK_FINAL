@@ -7,9 +7,9 @@ describe('ReferenceDataPublicRouter locale contract', () => {
   const createRepository = () => ({
     listCountries: vi.fn(), listCurrencies: vi.fn(), listLanguages: vi.fn(), listCities: vi.fn(), listRegions: vi.fn(), getCountry: vi.fn(),
   });
-  const createApp = (repository: ReturnType<typeof createRepository>) => {
+  const createApp = (repository: ReturnType<typeof createRepository>, universityRepository = { listPublished: vi.fn() }) => {
     const app = express();
-    app.use('/reference-data', ReferenceDataPublicRouter.create({ referenceDataRepository: repository as any }));
+    app.use('/reference-data', ReferenceDataPublicRouter.create({ referenceDataRepository: repository as any, universityRepository: universityRepository as any }));
     return app;
   };
 
@@ -20,6 +20,15 @@ describe('ReferenceDataPublicRouter locale contract', () => {
     expect(res.status).toBe(200);
     expect(res.body.data[0].name).toBe('اليمن');
     expect(res.body.data[0].nameAr).toBeUndefined();
+  });
+
+  it('lists published universities through canonical country identity', async () => {
+    const repository = createRepository();
+    repository.getCountry.mockResolvedValue({ id: 'country-ye', iso2Code: 'YE' });
+    const universityRepository = { listPublished: vi.fn().mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }) };
+    const res = await request(createApp(repository, universityRepository)).get('/reference-data/countries/ye/universities');
+    expect(res.status).toBe(200);
+    expect(universityRepository.listPublished).toHaveBeenCalledWith({ countryReferenceId: 'country-ye' });
   });
 
   it('exposes localized administrative regions', async () => {

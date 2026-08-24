@@ -1605,6 +1605,7 @@ model InternationalTestFeeMetadata {
   feeType              String
   amount               Float
   currencyCode         String
+  currencyReferenceId  String
   hasRegionalVariation Boolean @default(false)
   validityWindowNotes  String?
 
@@ -1612,9 +1613,11 @@ model InternationalTestFeeMetadata {
   updatedAt DateTime @updatedAt
 
   test InternationalTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  currencyReference ReferenceCurrency @relation(fields: [currencyReferenceId], references: [id], onDelete: Restrict)
 
   @@index([testId])
   @@index([currencyCode])
+  @@index([currencyReferenceId])
 }
 
 model InternationalTestOfficialLink {
@@ -2178,6 +2181,7 @@ model ReferenceCurrency {
   universityAccommodationProfiles UniversityAccommodationProfile[] @relation("UniversityAccommodationCurrency")
   universityLivingCostProfiles    UniversityAccommodationProfile[] @relation("UniversityAccommodationLivingCostCurrency")
   scholarshipBenefits             ScholarshipBenefit[]             @relation("ScholarshipBenefitCurrency")
+  internationalTestFees           InternationalTestFeeMetadata[]
 
   @@index([isActive])
   @@index([name])

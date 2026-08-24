@@ -480,6 +480,7 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
           feeType: data.feeType,
           amount: data.amount,
           currencyCode: data.currencyCode,
+          currencyReferenceId: data.currencyReferenceId,
           hasRegionalVariation: data.hasRegionalVariation ?? false,
           validityWindowNotes: data.validityWindowNotes
         }
@@ -491,6 +492,7 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
           feeType: data.feeType,
           amount: data.amount,
           currencyCode: data.currencyCode,
+          currencyReferenceId: data.currencyReferenceId,
           hasRegionalVariation: data.hasRegionalVariation ?? false,
           validityWindowNotes: data.validityWindowNotes
         }
@@ -1025,6 +1027,7 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
       feeType: f.feeType,
       amount: f.amount,
       currencyCode: f.currencyCode,
+      currencyReferenceId: f.currencyReferenceId,
       hasRegionalVariation: f.hasRegionalVariation ?? false,
       validityWindowNotes: f.validityWindowNotes || undefined
     };

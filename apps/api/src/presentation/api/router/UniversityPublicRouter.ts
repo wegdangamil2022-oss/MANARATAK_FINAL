@@ -1,11 +1,11 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { LocalizedPublicUniversityUseCases } from '@manaratak/application';
-import { IUniversityRepository } from '@manaratak/domain';
+import { IReferenceDataRepository, IUniversityRepository, PublicUniversityFilters } from '@manaratak/domain';
 import { localeQuerySchema, parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract';
 
 export class UniversityPublicRouter {
-  public static create(cradle: { universityRepository: IUniversityRepository }): Router {
+  public static create(cradle: { universityRepository: IUniversityRepository; referenceDataRepository: IReferenceDataRepository }): Router {
     const router = Router();
     const localized = new LocalizedPublicUniversityUseCases(cradle.universityRepository);
 
@@ -23,7 +23,14 @@ export class UniversityPublicRouter {
 
     router.get('/', asyncHandler(async (req: Request, res: Response) => {
       const { locale, ...filters } = listQuerySchema.parse(req.query);
-      res.json(await localized.listUniversities(filters, locale));
+      let resolvedFilters: PublicUniversityFilters = filters;
+      if (filters.country) {
+        const country = await cradle.referenceDataRepository.getCountry(filters.country.toUpperCase());
+        if (!country) throw new Error('COUNTRY_FILTER_NOT_FOUND');
+        const { country: _country, ...rest } = filters;
+        resolvedFilters = { ...rest, countryReferenceId: country.id };
+      }
+      res.json(await localized.listUniversities(resolvedFilters, locale));
     }));
 
     router.get('/:slug', asyncHandler(async (req: Request, res: Response) => {

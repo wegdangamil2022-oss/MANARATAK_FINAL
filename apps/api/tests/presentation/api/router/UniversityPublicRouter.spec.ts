@@ -13,7 +13,8 @@ describe('UniversityPublicRouter locale contract', () => {
   const createRepository = () => ({ listPublished: vi.fn(), findBySlug: vi.fn() });
   const createApp = (repository: ReturnType<typeof createRepository>) => {
     const app = express();
-    app.use('/public/universities', UniversityPublicRouter.create({ universityRepository: repository as any }));
+    const referenceDataRepository = { getCountry: vi.fn().mockResolvedValue({ id: 'country-qa', iso2Code: 'QA' }) };
+    app.use('/public/universities', UniversityPublicRouter.create({ universityRepository: repository as any, referenceDataRepository: referenceDataRepository as any }));
     return app;
   };
 
@@ -23,7 +24,7 @@ describe('UniversityPublicRouter locale contract', () => {
     const res = await request(createApp(repository)).get('/public/universities?country=Qatar&locale=ar');
     expect(res.status).toBe(200);
     expect(res.body.data[0].displayName).toBe('جامعة قطر');
-    expect(repository.listPublished).toHaveBeenCalledWith(expect.objectContaining({ country: 'Qatar' }));
+    expect(repository.listPublished).toHaveBeenCalledWith(expect.objectContaining({ countryReferenceId: 'country-qa' }));
   });
 
   it('rejects unsupported locale', async () => {
