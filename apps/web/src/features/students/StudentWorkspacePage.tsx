@@ -1,11 +1,12 @@
 import React, { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   ApiClient,
   MoneyAmountDto,
   StudentDashboardSummaryDto,
   StudentFinanceInvoiceDto,
   StudentFinancePaymentDto,
+  StudentWorkspaceSnapshotDto,
 } from '../../api/client';
 
 type WorkspaceTab = 'HOME' | 'JOURNEY' | 'VAULT' | 'SETTINGS';
@@ -18,8 +19,6 @@ const tabs: Array<{ id: WorkspaceTab; label: string; icon: string }> = [
 ];
 
 export function StudentWorkspacePage() {
-  const { studentReferenceId: routeReference } = useParams<{ studentReferenceId: string }>();
-  const navigate = useNavigate();
   const [studentReferenceId, setStudentReferenceId] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<StudentDashboardSummaryDto | null>(null);
   const [invoices, setInvoices] = useState<StudentFinanceInvoiceDto[]>([]);
@@ -32,6 +31,7 @@ export function StudentWorkspacePage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [snapshots, setSnapshots] = useState<StudentWorkspaceSnapshotDto[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -41,19 +41,17 @@ export function StudentWorkspacePage() {
       try {
         const identity = await ApiClient.getCurrentStudentIdentity();
         if (!active) return;
-        if (routeReference && routeReference !== identity.principalId) {
-          navigate(`/student/${encodeURIComponent(identity.principalId)}`, { replace: true });
-          return;
-        }
         setStudentReferenceId(identity.principalId);
-        const [dashboardResult, invoiceResult] = await Promise.allSettled([
-          ApiClient.getStudentDashboard(identity.principalId),
+        const [dashboardResult, invoiceResult, snapshotResult] = await Promise.allSettled([
+          ApiClient.getMyStudentDashboard(),
           ApiClient.getStudentInvoices(identity.principalId),
+          ApiClient.listMyStudentWorkspaceSnapshots(),
         ]);
         if (!active) return;
         if (dashboardResult.status === 'rejected') throw dashboardResult.reason;
         setDashboard(dashboardResult.value);
         setInvoices(invoiceResult.status === 'fulfilled' ? invoiceResult.value.data : []);
+        setSnapshots(snapshotResult.status === 'fulfilled' ? snapshotResult.value : []);
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : 'تعذر تحميل مساحة الطالب');
       } finally {
@@ -64,7 +62,7 @@ export function StudentWorkspacePage() {
     return () => {
       active = false;
     };
-  }, [navigate, retryKey, routeReference]);
+  }, [retryKey]);
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -96,7 +94,7 @@ export function StudentWorkspacePage() {
     setSaving(true);
     setNotice(null);
     try {
-      const workspace = await ApiClient.updateStudentWorkspace(studentReferenceId, {
+      const workspace = await ApiClient.updateMyStudentWorkspace({
         expectedVersion: dashboard.workspace.version,
         displayName: String(form.get('displayName') || '').trim() || null,
         preferredLanguage: String(form.get('preferredLanguage') || 'ar'),
@@ -140,12 +138,12 @@ export function StudentWorkspacePage() {
     if (!name) return;
     setSaving(true);
     try {
-      await ApiClient.createStudentCollection(studentReferenceId, {
+      await ApiClient.createMyStudentCollection({
         name,
         description: String(form.get('collectionDescription') || '').trim() || undefined,
         color: '#087A55',
       });
-      const refreshed = await ApiClient.getStudentDashboard(studentReferenceId);
+      const refreshed = await ApiClient.getMyStudentDashboard();
       setDashboard(refreshed);
       event.currentTarget.reset();
       setNotice('أُنشئت المجموعة الجديدة.');
@@ -156,11 +154,45 @@ export function StudentWorkspacePage() {
     }
   }
 
+  async function renameCollection(collectionId: string, currentName: string) {
+    const name = window.prompt('الاسم الجديد للمجموعة', currentName)?.trim();
+    if (!name || name === currentName) return;
+    setSaving(true);
+    try {
+      await ApiClient.updateMyStudentCollection(collectionId, { name });
+      setDashboard(await ApiClient.getMyStudentDashboard());
+      setNotice('تم تحديث اسم المجموعة.');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر تعديل المجموعة'); }
+    finally { setSaving(false); }
+  }
+
+  async function deleteCollection(collectionId: string, name: string) {
+    if (!window.confirm(`حذف مجموعة «${name}»؟ ستنتقل العناصر إلى المفضلة.`)) return;
+    setSaving(true);
+    try {
+      await ApiClient.deleteMyStudentCollection(collectionId);
+      setDashboard(await ApiClient.getMyStudentDashboard());
+      setNotice('حُذفت المجموعة ونُقلت عناصرها بأمان إلى المفضلة.');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر حذف المجموعة'); }
+    finally { setSaving(false); }
+  }
+
+  async function moveSavedItem(itemId: string, collectionId: string | null) {
+    setSaving(true);
+    try {
+      await ApiClient.moveMyStudentSavedItem(itemId, collectionId);
+      setDashboard(await ApiClient.getMyStudentDashboard());
+      setNotice('تم نقل العنصر إلى المجموعة المختارة.');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر نقل العنصر'); }
+    finally { setSaving(false); }
+  }
+
   async function createSnapshot() {
     if (!studentReferenceId) return;
     setSaving(true);
     try {
-      await ApiClient.createStudentWorkspaceSnapshot(studentReferenceId, 'نسخة إعداداتي');
+      await ApiClient.createMyStudentWorkspaceSnapshot('نسخة إعداداتي');
+      setSnapshots(await ApiClient.listMyStudentWorkspaceSnapshots());
       setNotice('حُفظت نسخة آمنة من إعدادات مساحة العمل.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'تعذر حفظ النسخة');
@@ -169,11 +201,33 @@ export function StudentWorkspacePage() {
     }
   }
 
+  async function restoreSnapshot(snapshotId: string) {
+    if (!dashboard) return;
+    setSaving(true);
+    try {
+      const workspace = await ApiClient.restoreMyStudentWorkspaceSnapshot(snapshotId, dashboard.workspace.version);
+      setDashboard((current) => current ? { ...current, workspace } : current);
+      setNotice('تمت استعادة نسخة الإعدادات مع التحقق من تعارض الإصدارات.');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر استعادة النسخة'); }
+    finally { setSaving(false); }
+  }
+
+  async function resetLayout() {
+    if (!dashboard) return;
+    setSaving(true);
+    try {
+      const workspace = await ApiClient.resetMyStudentDashboardLayout(dashboard.workspace.version);
+      setDashboard((current) => current ? { ...current, workspace } : current);
+      setNotice('أُعيد تخطيط اللوحة إلى الإعدادات الآمنة.');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر إعادة التخطيط'); }
+    finally { setSaving(false); }
+  }
+
   async function clearSearchHistory() {
     if (!studentReferenceId) return;
     setSaving(true);
     try {
-      await ApiClient.clearStudentSearchHistory(studentReferenceId);
+      await ApiClient.clearMyStudentSearchHistory();
       setNotice('مُسح سجل البحث الشخصي.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'تعذر مسح سجل البحث');
@@ -293,7 +347,7 @@ export function StudentWorkspacePage() {
         )}
         {tab === 'JOURNEY' && <JourneyView dashboard={dashboard} />}
         {tab === 'VAULT' && (
-          <VaultView dashboard={dashboard} saving={saving} onCreateCollection={createCollection} />
+          <VaultView dashboard={dashboard} saving={saving} onCreateCollection={createCollection} onRenameCollection={renameCollection} onDeleteCollection={deleteCollection} onMoveSavedItem={moveSavedItem} />
         )}
         {tab === 'SETTINGS' && (
           <SettingsView
@@ -304,6 +358,9 @@ export function StudentWorkspacePage() {
             saving={saving}
             onSave={savePreferences}
             onSnapshot={createSnapshot}
+            snapshots={snapshots}
+            onRestoreSnapshot={restoreSnapshot}
+            onResetLayout={resetLayout}
             onClearSearch={clearSearchHistory}
           />
         )}
@@ -409,6 +466,13 @@ function HomeView({
             ))}
           </div>
         </Panel>
+        <Panel title="شاهدته مؤخرًا">
+          {dashboard.recentlyViewed.length ? <div className="space-y-2">{dashboard.recentlyViewed.slice(0, 5).map((item) => (
+            <Link key={item.id} to={item.entitySlug ? buildEntityLink(item.entityType, item.entitySlug) : '#'} className="block rounded-xl bg-slate-50 p-3 text-sm font-bold hover:bg-emerald-50">
+              {arabicEntityType(item.entityType)} · {item.entitySlug || item.entityId}
+            </Link>
+          ))}</div> : <p className="text-sm text-slate-500">ستظهر هنا العناصر التي تفتحها بعد موافقتك على التحليلات.</p>}
+        </Panel>
         <InvoicePanel
           invoices={invoices}
           paymentsByInvoice={paymentsByInvoice}
@@ -461,10 +525,16 @@ function VaultView({
   dashboard,
   saving,
   onCreateCollection,
+  onRenameCollection,
+  onDeleteCollection,
+  onMoveSavedItem,
 }: {
   dashboard: StudentDashboardSummaryDto;
   saving: boolean;
   onCreateCollection: (event: FormEvent<HTMLFormElement>) => void;
+  onRenameCollection: (collectionId: string, currentName: string) => void;
+  onDeleteCollection: (collectionId: string, name: string) => void;
+  onMoveSavedItem: (itemId: string, collectionId: string | null) => void;
 }) {
   return (
     <div className="space-y-6">
@@ -486,6 +556,10 @@ function VaultView({
             <p className="mt-1 text-sm text-slate-500">
               {collection.description || 'مجموعة شخصية لتنظيم اختياراتك'}
             </p>
+            {collection.type === 'PERSONAL' && <div className="mt-4 flex gap-2">
+              <button type="button" disabled={saving} onClick={() => onRenameCollection(collection.id, collection.name)} className="rounded-lg border px-3 py-1.5 text-xs font-bold text-emerald-800">تعديل الاسم</button>
+              <button type="button" disabled={saving} onClick={() => onDeleteCollection(collection.id, collection.name)} className="rounded-lg border border-red-100 px-3 py-1.5 text-xs font-bold text-red-700">حذف</button>
+            </div>}
           </div>
         ))}
         <form
@@ -550,6 +624,11 @@ function VaultView({
                       فتح
                     </Link>
                   )}
+                  <label className="sr-only" htmlFor={`move-${item.id}`}>نقل العنصر إلى مجموعة</label>
+                  <select id={`move-${item.id}`} aria-label="نقل العنصر إلى مجموعة" value={item.collectionId ?? ''} disabled={saving} onChange={(event) => onMoveSavedItem(item.id, event.target.value || null)} className="rounded-lg border px-2 py-2 text-xs">
+                    <option value="">دون مجموعة</option>
+                    {dashboard.collections.map((collection) => <option key={collection.id} value={collection.id}>{collection.name}</option>)}
+                  </select>
                 </div>
               ))}
             </div>
@@ -613,6 +692,9 @@ function SettingsView({
   saving,
   onSave,
   onSnapshot,
+  snapshots,
+  onRestoreSnapshot,
+  onResetLayout,
   onClearSearch,
 }: {
   dashboard: StudentDashboardSummaryDto;
@@ -622,6 +704,9 @@ function SettingsView({
   saving: boolean;
   onSave: (event: FormEvent<HTMLFormElement>) => void;
   onSnapshot: () => void;
+  snapshots: StudentWorkspaceSnapshotDto[];
+  onRestoreSnapshot: (snapshotId: string) => void;
+  onResetLayout: () => void;
   onClearSearch: () => void;
 }) {
   return (
@@ -780,6 +865,16 @@ function SettingsView({
           >
             حفظ نسخة من الإعدادات
           </button>
+          <button type="button" onClick={onResetLayout} disabled={saving} className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
+            إعادة التخطيط الافتراضي
+          </button>
+          <div className="mt-4 space-y-2" aria-label="نسخ الإعدادات المحفوظة">
+            {snapshots.length === 0 ? <p className="text-xs text-slate-500">لا توجد نسخ محفوظة بعد.</p> : snapshots.slice(0, 5).map((snapshot) => (
+              <button key={snapshot.id} type="button" onClick={() => onRestoreSnapshot(snapshot.id)} disabled={saving} className="flex w-full items-center justify-between rounded-xl bg-slate-50 p-3 text-right text-xs hover:bg-emerald-50">
+                <span>{snapshot.label || 'نسخة إعدادات'}</span><span>استعادة</span>
+              </button>
+            ))}
+          </div>
         </Panel>
         <button
           disabled={saving}

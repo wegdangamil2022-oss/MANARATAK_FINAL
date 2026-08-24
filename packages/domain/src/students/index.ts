@@ -12,6 +12,8 @@ export enum StudentSavedItemType {
   MAJOR = 'MAJOR',
   CERTIFICATE = 'CERTIFICATE',
   STUDENT_TOOL = 'STUDENT_TOOL',
+  CMS_CONTENT = 'CMS_CONTENT',
+  SERVICE = 'SERVICE',
 }
 
 export enum StudentCollectionType {
@@ -145,6 +147,41 @@ export interface StudentRecentActivityDto {
   occurredAt: Date;
 }
 
+export interface StudentRecentlyViewedDto {
+  id: string;
+  studentReferenceId: string;
+  entityType: StudentSavedItemType;
+  entityId: string;
+  entitySlug?: string | null;
+  viewedAt: Date;
+}
+
+export interface StudentWorkspaceSnapshotDto {
+  id: string;
+  studentReferenceId: string;
+  label?: string | null;
+  workspaceVersion: number;
+  createdAt: Date;
+}
+
+export interface StudentWidgetDefinitionDto {
+  key: string;
+  labelAr: string;
+  labelEn: string;
+  descriptionAr: string;
+  supportedDevices: StudentWorkspaceDevice[];
+  defaultVisible: boolean;
+  capability?: string;
+  minColumnSpan: number;
+  maxColumnSpan: number;
+}
+
+export interface IStudentWorkspaceDeliveryCache {
+  getDashboard(studentReferenceId: string): Promise<StudentDashboardSummaryDto | null>;
+  setDashboard(studentReferenceId: string, dashboard: StudentDashboardSummaryDto): Promise<void>;
+  invalidate(studentReferenceId: string, reason: string): Promise<void>;
+}
+
 export interface StudentCourseProgressDto {
   enrollmentId: string;
   courseId: string;
@@ -224,6 +261,8 @@ export interface StudentDashboardSummaryDto {
   collections: StudentSavedCollectionDto[];
   timeline: StudentTimelineEntryDto[];
   recentActivity: StudentRecentActivityDto[];
+  recentlyViewed: StudentRecentlyViewedDto[];
+  widgetRegistry: StudentWidgetDefinitionDto[];
   courseEnrollments: StudentCourseProgressDto[];
   certificates: StudentCertificateProjectionDto[];
   notifications: StudentNotificationProjectionDto[];
@@ -256,6 +295,17 @@ export interface IStudentWorkspaceRepository {
     icon?: string | null;
   }): Promise<StudentSavedCollectionDto>;
   listCollections(studentReferenceId: string): Promise<StudentSavedCollectionDto[]>;
+  updateCollection(
+    studentReferenceId: string,
+    collectionId: string,
+    data: { name?: string; description?: string | null; color?: string | null; icon?: string | null },
+  ): Promise<StudentSavedCollectionDto>;
+  deleteCollection(studentReferenceId: string, collectionId: string): Promise<void>;
+  moveSavedItem(
+    studentReferenceId: string,
+    itemId: string,
+    collectionId: string | null,
+  ): Promise<StudentSavedItemDto>;
   appendActivity(
     data: Omit<StudentRecentActivityDto, 'id' | 'occurredAt'>,
   ): Promise<StudentRecentActivityDto>;
@@ -264,9 +314,24 @@ export interface IStudentWorkspaceRepository {
   ): Promise<StudentTimelineEntryDto>;
   recordSearch(studentReferenceId: string, query: string): Promise<void>;
   clearSearchHistory(studentReferenceId: string): Promise<void>;
+  recordRecentlyViewed(data: {
+    studentReferenceId: string;
+    entityType: StudentSavedItemType;
+    entityId: string;
+    entitySlug?: string | null;
+  }): Promise<StudentRecentlyViewedDto | null>;
+  listRecentlyViewed(studentReferenceId: string): Promise<StudentRecentlyViewedDto[]>;
+  clearRecentlyViewed(studentReferenceId: string): Promise<void>;
   createSnapshot(
     studentReferenceId: string,
     label?: string | null,
   ): Promise<{ id: string; createdAt: Date }>;
+  listSnapshots(studentReferenceId: string): Promise<StudentWorkspaceSnapshotDto[]>;
+  restoreSnapshot(
+    studentReferenceId: string,
+    snapshotId: string,
+    expectedVersion: number,
+  ): Promise<StudentWorkspaceDto>;
+  resetLayout(studentReferenceId: string, expectedVersion: number): Promise<StudentWorkspaceDto>;
   ingestIntegrationEvent(event: StudentWorkspaceIntegrationEventDto): Promise<boolean>;
 }

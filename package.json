@@ -30,6 +30,7 @@
     "outbox:verify": "tsx scripts/verify-transactional-outbox.ts",
     "phase15:verify": "node scripts/verify-phase15-source.mjs",
     "phase16:verify": "node scripts/verify-phase16-source.mjs",
+    "phase15-16:closure:verify": "node scripts/verify-phase15-phase16-closure.mjs",
     "stage3:degree-taxonomy:verify": "node scripts/verify-taxonomy-degree-source.mjs",
     "stage3:tests:verify": "node scripts/verify-international-test-source-baseline.mjs",
     "stage3:majors:verify": "node scripts/verify-major-source-identities.mjs",

@@ -27,23 +27,23 @@ describe('PrismaStudentWorkspaceRepository', () => {
       studentSavedCollection: { findMany: vi.fn().mockResolvedValue([]) },
       studentTimelineEntry: { findMany: vi.fn().mockResolvedValue([]) },
       studentRecentActivity: { findMany: vi.fn().mockResolvedValue([]) },
-      courseEnrollment: {
+      studentLearningProjection: {
         findMany: vi.fn().mockResolvedValue([
           {
             id: 'enrollment-1',
+            enrollmentId: 'enrollment-1',
             courseId: 'course-1',
+            courseSlug: 'arabic-course',
+            courseName: 'دورة عربية',
             status: 'ACTIVE',
             progressPercentage: 65,
             enrolledAt: new Date(),
             lastAccessedAt: new Date(),
             completedAt: null,
-            course: { id: 'course-1', slug: 'arabic-course', displayName: 'دورة عربية' },
           },
         ]),
-        count: vi.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0),
-        aggregate: vi.fn().mockResolvedValue({ _avg: { progressPercentage: 65 } }),
       },
-      certificate: {
+      studentCertificateReadProjection: {
         findMany: vi.fn().mockResolvedValue([
           {
             id: 'certificate-1',
@@ -55,8 +55,8 @@ describe('PrismaStudentWorkspaceRepository', () => {
             issuedAt: new Date(),
           },
         ]),
-        count: vi.fn().mockResolvedValue(1),
       },
+      studentRecentlyViewed: { findMany: vi.fn().mockResolvedValue([]) },
       studentNotificationProjection: {
         findMany: vi.fn().mockResolvedValue([]),
         count: vi.fn().mockResolvedValue(0),
@@ -80,6 +80,7 @@ describe('PrismaStudentWorkspaceRepository', () => {
       },
       studentSavedCollection: { create: vi.fn().mockResolvedValue({}) },
       transactionalOutboxRecord: { create: vi.fn().mockResolvedValue({}) },
+      auditRecord: { create: vi.fn().mockResolvedValue({}) },
     };
     const repository = new PrismaStudentWorkspaceRepository({
       $transaction: (callback: (client: typeof tx) => unknown) => callback(tx),
@@ -118,6 +119,16 @@ describe('PrismaStudentWorkspaceRepository', () => {
     expect(tx.studentSavedItem.upsert).not.toHaveBeenCalled();
   });
 
+  it('blocks personal mutations after workspace archival', async () => {
+    const tx = {
+      studentWorkspace: { findUnique: vi.fn().mockResolvedValue({ ...workspace, status: StudentWorkspaceStatus.ARCHIVED }) },
+      studentSavedItem: { upsert: vi.fn() },
+    };
+    const repository = new PrismaStudentWorkspaceRepository({ $transaction: (callback: (client: typeof tx) => unknown) => callback(tx) } as any);
+    await expect(repository.saveItem({ studentReferenceId: 'student-1', entityType: StudentSavedItemType.COURSE, entityId: 'course-1' })).rejects.toThrow('STUDENT_WORKSPACE_ARCHIVED');
+    expect(tx.studentSavedItem.upsert).not.toHaveBeenCalled();
+  });
+
   it('deduplicates upstream events before projecting timeline and notifications', async () => {
     const tx = {
       studentWorkspaceEventInbox: {
@@ -145,5 +156,27 @@ describe('PrismaStudentWorkspaceRepository', () => {
     expect(processed).toBe(false);
     expect(tx.studentTimelineEntry.create).not.toHaveBeenCalled();
     expect(tx.studentNotificationProjection.create).not.toHaveBeenCalled();
+  });
+
+  it('initializes a workspace from StudentIdentityCreated exactly once', async () => {
+    const tx = {
+      studentWorkspaceEventInbox: {
+        findUnique: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'inbox-1' }),
+        create: vi.fn().mockResolvedValue({}), update: vi.fn().mockResolvedValue({}),
+      },
+      studentWorkspace: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn().mockResolvedValue(workspace) },
+      studentSavedCollection: { create: vi.fn().mockResolvedValue({}) },
+      studentTimelineEntry: { create: vi.fn().mockResolvedValue({}) },
+      auditRecord: { create: vi.fn().mockResolvedValue({}) },
+      transactionalOutboxRecord: { create: vi.fn().mockResolvedValue({}) },
+    };
+    const repository = new PrismaStudentWorkspaceRepository({ $transaction: (callback: (client: typeof tx) => unknown) => callback(tx) } as any);
+    const event = { eventId: 'identity-event-1', studentReferenceId: 'student-1', eventType: 'StudentIdentityCreated', sourceDomain: 'IDENTITY', title: 'تم إنشاء هوية الطالب', occurredAt: new Date() };
+
+    await expect(repository.ingestIntegrationEvent(event)).resolves.toBe(true);
+    await expect(repository.ingestIntegrationEvent(event)).resolves.toBe(false);
+    expect(tx.studentWorkspace.create).toHaveBeenCalledOnce();
+    expect(tx.studentSavedCollection.create).toHaveBeenCalledOnce();
+    expect(tx.transactionalOutboxRecord.create).toHaveBeenCalledOnce();
   });
 });

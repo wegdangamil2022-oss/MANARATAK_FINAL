@@ -13,6 +13,7 @@ import {
   Tags,
 } from 'lucide-react';
 import { adminApiClient } from '../api/client';
+import { CmsOperationsPanels } from '../features/cms/CmsOperationsPanels';
 
 type Locale = 'ar' | 'en';
 interface Content {
@@ -814,6 +815,7 @@ export function CmsAdminPage() {
           )}
         </section>
       </section>
+      <CmsOperationsPanels contents={list?.data ?? []} />
     </main>
   );
 }

@@ -32,6 +32,7 @@ describe('Phase 16 CMS use cases', () => {
       approveReview: vi.fn(),
       rejectReview: vi.fn(),
       schedule: vi.fn(),
+      cancelSchedule: vi.fn(),
       publish: vi.fn(),
       archive: vi.fn(),
       listRevisions: vi.fn(),
@@ -121,6 +122,12 @@ describe('Phase 16 CMS use cases', () => {
       expectedVersion: 7,
       comments: 'تم التدقيق',
     });
+  });
+
+  it('cancels a scheduled publication explicitly without publishing it', async () => {
+    await admin.cancelSchedule('content-1', 'ar', 'editor-1', 4);
+    expect(repository.cancelSchedule).toHaveBeenCalledWith({ contentId: 'content-1', locale: 'ar', actorId: 'editor-1', expectedVersion: 4 });
+    expect(repository.publish).not.toHaveBeenCalled();
   });
 
   it('keeps the public query on the published projection only', async () => {

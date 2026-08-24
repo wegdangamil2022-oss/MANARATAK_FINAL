@@ -225,6 +225,10 @@ export class CmsAdminRouter {
         );
       }),
     );
+    router.post('/content/:id/cancel-schedule', asyncHandler(async (req, res) => {
+      const body = workflowSchema.parse(req.body);
+      res.json(await adminCmsUseCases.cancelSchedule(req.params.id, body.locale, actor(req), body.expectedVersion));
+    }));
     router.get(
       '/categories',
       asyncHandler(async (_req, res) => {
@@ -253,6 +257,55 @@ export class CmsAdminRouter {
           .json(await adminCmsUseCases.createTag(tagSchema.parse(req.body), actor(req)));
       }),
     );
+    router.get('/content/:id/preview', asyncHandler(async (req, res) => {
+      res.set({ 'Cache-Control': 'no-store, private', 'X-Robots-Tag': 'noindex, nofollow' });
+      res.json(await adminCmsUseCases.getContent(req.params.id));
+    }));
+    router.post('/content/:id/change-slug', asyncHandler(async (req, res) => {
+      const body = z.object({ locale: z.enum(['ar', 'en']), newSlug: slug, reason: z.string().trim().min(3), expectedVersion: z.number().int().positive() }).parse(req.body);
+      res.json(await adminCmsUseCases.changeLocalizedSlug(req.params.id, body.locale, body.newSlug, body.reason, body.expectedVersion, actor(req)));
+    }));
+    router.get('/redirects', asyncHandler(async (req, res) => {
+      const query = z.object({ siteIdentifier: z.string().optional(), locale: z.string().optional() }).parse(req.query);
+      res.json({ data: await adminCmsUseCases.listRedirects(query.siteIdentifier, query.locale) });
+    }));
+    router.post('/redirects', asyncHandler(async (req, res) => {
+      const body = z.object({ siteIdentifier: z.string().default('manaratak'), locale: z.enum(['ar', 'en']), sourcePath: z.string().min(2), destinationPath: z.string().min(2), statusCode: z.union([z.literal(301), z.literal(302), z.literal(308)]).default(301), reason: z.string().trim().min(3), contentId: z.string().nullable().optional(), active: z.boolean().default(true) }).parse(req.body);
+      res.status(201).json(await adminCmsUseCases.createRedirect(body, actor(req)));
+    }));
+    router.get('/navigation', asyncHandler(async (req, res) => {
+      const query = z.object({ siteIdentifier: z.string().default('manaratak'), locale: z.enum(['ar', 'en']).default('ar') }).parse(req.query);
+      res.json({ data: await adminCmsUseCases.listNavigation(query.siteIdentifier, query.locale) });
+    }));
+    router.put('/navigation', asyncHandler(async (req, res) => {
+      const body = z.object({ id: z.string().optional(), expectedVersion: z.number().int().positive().optional(), siteIdentifier: z.string().default('manaratak'), locale: z.enum(['ar', 'en']), locationKey: z.enum(['HEADER', 'FOOTER', 'SIDEBAR', 'OTHER']), status: z.nativeEnum(CmsContentStatus), nodes: z.array(z.object({ id: z.string().optional(), parentNodeId: z.string().nullable().optional(), displayText: z.string().trim().min(1), targetType: z.enum(['CMS_CONTENT', 'EXTERNAL_URL', 'DOMAIN_REFERENCE']), targetValue: z.string().trim().min(1), sortOrder: z.number().int().nonnegative(), openInNewWindow: z.boolean(), metadata: z.record(z.string(), z.unknown()).nullable().optional() })).max(200) }).parse(req.body);
+      res.json(await adminCmsUseCases.saveNavigation(body, actor(req)));
+    }));
+    router.get('/block-schemas', asyncHandler(async (_req, res) => { res.json({ data: await adminCmsUseCases.listBlockSchemas() }); }));
+    router.post('/block-schemas', asyncHandler(async (req, res) => {
+      const body = z.object({ key: z.string().regex(/^[A-Z][A-Z0-9_]+$/), version: z.number().int().positive(), nameAr: z.string().min(1), nameEn: z.string().min(1), fieldSchema: z.record(z.string(), z.unknown()), localizedFields: z.array(z.string()), assetFields: z.array(z.string()), status: z.string() }).parse(req.body);
+      res.status(201).json(await adminCmsUseCases.createBlockSchema(body, actor(req)));
+    }));
+    router.get('/blocks', asyncHandler(async (req, res) => {
+      const query = z.object({ siteIdentifier: z.string().default('manaratak'), locale: z.enum(['ar', 'en']).default('ar') }).parse(req.query);
+      res.json({ data: await adminCmsUseCases.listBlocks(query.siteIdentifier, query.locale) });
+    }));
+    router.put('/blocks', asyncHandler(async (req, res) => {
+      const body = z.object({ id: z.string().optional(), expectedVersion: z.number().int().positive().optional(), siteIdentifier: z.string().default('manaratak'), locale: z.enum(['ar', 'en']), schemaId: z.string(), name: z.string().trim().min(1), payload: z.record(z.string(), z.unknown()), status: z.nativeEnum(CmsContentStatus).default(CmsContentStatus.DRAFT) }).parse(req.body);
+      res.json(await adminCmsUseCases.saveBlock(body, actor(req)));
+    }));
+    router.get('/announcements', asyncHandler(async (req, res) => {
+      const query = z.object({ siteIdentifier: z.string().default('manaratak'), locale: z.enum(['ar', 'en']).default('ar') }).parse(req.query);
+      res.json({ data: await adminCmsUseCases.listAnnouncements(query.siteIdentifier, query.locale) });
+    }));
+    router.put('/announcements', asyncHandler(async (req, res) => {
+      const body = z.object({ id: z.string().optional(), expectedVersion: z.number().int().positive().optional(), siteIdentifier: z.string().default('manaratak'), locale: z.enum(['ar', 'en']), title: z.string().trim().min(1), body: z.string().trim().min(1), urgency: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']), audience: z.string().nullable().optional(), startsAt: z.coerce.date(), expiresAt: z.coerce.date().nullable().optional(), status: z.nativeEnum(CmsContentStatus), approvedBy: z.string().nullable().optional(), publishedAt: z.coerce.date().nullable().optional(), archivedAt: z.coerce.date().nullable().optional() }).parse(req.body);
+      res.json(await adminCmsUseCases.saveAnnouncement(body, actor(req)));
+    }));
+    router.post('/operations/process-due-schedules', asyncHandler(async (req, res) => {
+      const body = z.object({ now: z.coerce.date().optional(), limit: z.number().int().min(1).max(100).optional() }).parse(req.body);
+      res.json(await adminCmsUseCases.processDueSchedules(actor(req), body.now, body.limit));
+    }));
     router.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
       if (err instanceof z.ZodError)
         return res.status(400).json({ error: 'CMS_VALIDATION_ERROR', details: err.issues });

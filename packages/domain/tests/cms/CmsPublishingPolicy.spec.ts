@@ -36,4 +36,16 @@ describe('Phase 16 CMS publishing policy', () => {
     );
     expect(() => CmsPublishingPolicy.assertAssetHandle('asset_01J8Q4K3EAP')).not.toThrow();
   });
+
+  it('rejects executable rich text while allowing ordinary localized markup', () => {
+    expect(() => CmsPublishingPolicy.assertSafeRichText('<script>alert(1)</script>')).toThrow(
+      'CMS_UNSAFE_RICH_TEXT',
+    );
+    expect(() => CmsPublishingPolicy.assertSafeRichText('<p>محتوى عربي آمن</p>')).not.toThrow();
+  });
+
+  it('blocks unsafe navigation targets and redirect loops', () => {
+    expect(() => CmsPublishingPolicy.assertNavigationTarget('EXTERNAL_URL', 'javascript:alert(1)')).toThrow();
+    expect(() => CmsPublishingPolicy.assertRedirect('/ar/old', '/ar/old')).toThrow('CMS_REDIRECT_LOOP');
+  });
 });

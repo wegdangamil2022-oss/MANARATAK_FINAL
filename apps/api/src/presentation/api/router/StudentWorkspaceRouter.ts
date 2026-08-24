@@ -81,6 +81,65 @@ export class StudentWorkspaceRouter {
     });
 
     router.use(new AuthMiddleware(tokenProvider).generate());
+    const ownStudent = (req: Request): string => {
+      if (!req.authUserId) throw new Error('STUDENT_AUTHENTICATION_REQUIRED');
+      return req.authUserId;
+    };
+
+    router.get('/workspace', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await studentWorkspaceUseCases.getOrCreateWorkspace(ownStudent(req)));
+    }));
+    router.put('/workspace', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await studentWorkspaceUseCases.upsertWorkspace({ studentReferenceId: ownStudent(req), ...workspaceSchema.parse(req.body) }));
+    }));
+    router.get('/dashboard', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await studentWorkspaceUseCases.getDashboard(ownStudent(req)));
+    }));
+    router.get('/collections', asyncHandler(async (req: Request, res: Response) => {
+      res.json({ data: await studentWorkspaceUseCases.listCollections(ownStudent(req)) });
+    }));
+    router.post('/collections', asyncHandler(async (req: Request, res: Response) => {
+      res.status(201).json(await studentWorkspaceUseCases.createCollection({ studentReferenceId: ownStudent(req), ...collectionSchema.parse(req.body) }));
+    }));
+    router.patch('/collections/:collectionId', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await studentWorkspaceUseCases.updateCollection(ownStudent(req), req.params.collectionId, collectionSchema.partial().omit({ type: true }).parse(req.body)));
+    }));
+    router.delete('/collections/:collectionId', asyncHandler(async (req: Request, res: Response) => {
+      await studentWorkspaceUseCases.deleteCollection(ownStudent(req), req.params.collectionId); res.status(204).send();
+    }));
+    router.post('/saved-items/:itemId/move', asyncHandler(async (req: Request, res: Response) => {
+      const body = z.object({ collectionId: z.string().uuid().nullable() }).parse(req.body);
+      res.json(await studentWorkspaceUseCases.moveSavedItem(ownStudent(req), req.params.itemId, body.collectionId));
+    }));
+    router.get('/recently-viewed', asyncHandler(async (req: Request, res: Response) => {
+      res.json({ data: await studentWorkspaceUseCases.listRecentlyViewed(ownStudent(req)) });
+    }));
+    router.post('/recently-viewed', asyncHandler(async (req: Request, res: Response) => {
+      const body = savedItemSchema.pick({ entityType: true, entityId: true, entitySlug: true }).parse(req.body);
+      res.status(201).json(await studentWorkspaceUseCases.recordRecentlyViewed({ studentReferenceId: ownStudent(req), ...body }));
+    }));
+    router.delete('/recently-viewed', asyncHandler(async (req: Request, res: Response) => {
+      await studentWorkspaceUseCases.clearRecentlyViewed(ownStudent(req)); res.status(204).send();
+    }));
+    router.get('/snapshots', asyncHandler(async (req: Request, res: Response) => {
+      res.json({ data: await studentWorkspaceUseCases.listSnapshots(ownStudent(req)) });
+    }));
+    router.post('/snapshots', asyncHandler(async (req: Request, res: Response) => {
+      const body = z.object({ label: z.string().max(80).nullable().optional() }).parse(req.body);
+      res.status(201).json(await studentWorkspaceUseCases.createSnapshot(ownStudent(req), body.label));
+    }));
+    router.post('/snapshots/:snapshotId/restore', asyncHandler(async (req: Request, res: Response) => {
+      const body = z.object({ expectedVersion: z.number().int().positive() }).parse(req.body);
+      res.json(await studentWorkspaceUseCases.restoreSnapshot(ownStudent(req), req.params.snapshotId, body.expectedVersion));
+    }));
+    router.post('/dashboard/layout/reset', asyncHandler(async (req: Request, res: Response) => {
+      const body = z.object({ expectedVersion: z.number().int().positive() }).parse(req.body);
+      res.json(await studentWorkspaceUseCases.resetLayout(ownStudent(req), body.expectedVersion));
+    }));
+    router.delete('/search-history', asyncHandler(async (req: Request, res: Response) => {
+      await studentWorkspaceUseCases.clearSearchHistory(ownStudent(req)); res.status(204).send();
+    }));
+
     router.use('/:studentReferenceId', (req: Request, res: Response, next: NextFunction) => {
       if (req.authUserId !== req.params.studentReferenceId) {
         res.status(403).json({ error: 'STUDENT_WORKSPACE_ACCESS_DENIED' });

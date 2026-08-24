@@ -213,6 +213,112 @@ export interface CmsRestoreRevisionDto {
   expectedVersion?: number;
 }
 
+export interface CmsRedirectDto {
+  id: string;
+  siteIdentifier: string;
+  locale: string;
+  sourcePath: string;
+  destinationPath: string;
+  statusCode: 301 | 302 | 308;
+  reason: string;
+  contentId?: string | null;
+  active: boolean;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CmsNavigationNodeDto {
+  id?: string;
+  parentNodeId?: string | null;
+  displayText: string;
+  targetType: 'CMS_CONTENT' | 'EXTERNAL_URL' | 'DOMAIN_REFERENCE';
+  targetValue: string;
+  sortOrder: number;
+  openInNewWindow: boolean;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface CmsNavigationMenuDto {
+  id: string;
+  siteIdentifier: string;
+  locale: string;
+  locationKey: string;
+  status: CmsContentStatus;
+  version: number;
+  nodes: CmsNavigationNodeDto[];
+  updatedBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CmsBlockSchemaDto {
+  id: string;
+  key: string;
+  version: number;
+  nameAr: string;
+  nameEn: string;
+  fieldSchema: Record<string, unknown>;
+  localizedFields: string[];
+  assetFields: string[];
+  status: string;
+  createdBy: string;
+  createdAt: Date;
+}
+
+export interface CmsContentBlockDto {
+  id: string;
+  publicId: string;
+  siteIdentifier: string;
+  locale: string;
+  schemaId: string;
+  name: string;
+  payload: Record<string, unknown>;
+  status: CmsContentStatus;
+  version: number;
+  updatedBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CmsAnnouncementDto {
+  id: string;
+  publicId: string;
+  siteIdentifier: string;
+  locale: string;
+  title: string;
+  body: string;
+  urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  audience?: string | null;
+  startsAt: Date;
+  expiresAt?: Date | null;
+  status: CmsContentStatus;
+  version: number;
+  createdBy: string;
+  approvedBy?: string | null;
+  publishedAt?: Date | null;
+  archivedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CmsSlugChangeDto {
+  contentId: string;
+  locale: string;
+  newSlug: string;
+  reason: string;
+  actorId: string;
+  expectedVersion: number;
+}
+
+export interface CmsScheduleResultDto {
+  processed: number;
+  published: number;
+  archived: number;
+  failed: number;
+  affectedSites: string[];
+}
+
 export interface PaginatedCmsResult<T> {
   data: T[];
   total: number;

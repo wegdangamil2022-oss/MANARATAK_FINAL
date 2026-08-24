@@ -2328,10 +2328,13 @@ model StudentWorkspace {
   savedCollections StudentSavedCollection[]
   timelineEntries  StudentTimelineEntry[]
   recentActivity   StudentRecentActivity[]
+  recentlyViewed   StudentRecentlyViewed[]
   searchHistory    StudentSearchHistory[]
   snapshots        StudentWorkspaceSnapshot[]
   notifications    StudentNotificationProjection[]
   integrationInbox StudentWorkspaceEventInbox[]
+  learningProjections StudentLearningProjection[]
+  certificateProjections StudentCertificateReadProjection[]
 
   @@index([status])
   @@index([lastActiveAt])
@@ -2409,6 +2412,65 @@ model StudentRecentActivity {
   @@index([studentReferenceId, occurredAt])
 }
 
+model StudentRecentlyViewed {
+  id                 String   @id @default(uuid())
+  studentReferenceId String
+  entityType         String
+  entityId           String
+  entitySlug         String?
+  viewedAt           DateTime @default(now())
+
+  workspace StudentWorkspace @relation(fields: [studentReferenceId], references: [studentReferenceId], onDelete: Restrict)
+
+  @@unique([studentReferenceId, entityType, entityId])
+  @@index([studentReferenceId, viewedAt])
+}
+
+model StudentLearningProjection {
+  id                 String   @id @default(uuid())
+  studentReferenceId String
+  enrollmentId       String
+  courseId           String
+  courseSlug         String
+  courseName         String
+  status             String
+  progressPercentage Int      @default(0)
+  enrolledAt         DateTime
+  lastAccessedAt     DateTime?
+  completedAt        DateTime?
+  sourceEventId      String
+  updatedAt          DateTime @updatedAt
+
+  workspace StudentWorkspace @relation(fields: [studentReferenceId], references: [studentReferenceId], onDelete: Restrict)
+
+  @@unique([studentReferenceId, enrollmentId])
+  @@index([studentReferenceId, status, lastAccessedAt])
+  @@index([sourceEventId])
+}
+
+model StudentCertificateReadProjection {
+  id                    String   @id @default(uuid())
+  studentReferenceId    String
+  certificateId         String
+  publicId              String
+  serialNumber          String
+  verificationCode      String
+  status                String
+  courseDisplayName     String
+  issuedAt              DateTime
+  expiresAt             DateTime?
+  certificatePdfAssetId String?
+  previewImageAssetId   String?
+  sourceEventId         String
+  updatedAt             DateTime @updatedAt
+
+  workspace StudentWorkspace @relation(fields: [studentReferenceId], references: [studentReferenceId], onDelete: Restrict)
+
+  @@unique([studentReferenceId, certificateId])
+  @@index([studentReferenceId, status, issuedAt])
+  @@index([sourceEventId])
+}
+
 model StudentSearchHistory {
   id                 String   @id @default(uuid())
   studentReferenceId String
@@ -2473,7 +2535,7 @@ model StudentWorkspaceEventInbox {
 model CmsContentNode {
   id                String   @id @default(uuid())
   publicId          String   @unique
-  slug              String   @unique
+  slug              String
   siteIdentifier    String   @default("MANARATAK")
   primaryLocale     String   @default("ar")
   contentType       String
@@ -2506,11 +2568,13 @@ model CmsContentNode {
   @@index([siteIdentifier, status])
   @@index([authorId])
   @@index([ownerId])
+  @@unique([siteIdentifier, slug])
 }
 
 model CmsLocalizedContent {
   id                 String   @id @default(uuid())
   contentId          String
+  siteIdentifier     String
   locale             String
   localizedSlug      String
   state              String   @default("DRAFT")
@@ -2535,7 +2599,7 @@ model CmsLocalizedContent {
   revisions   CmsContentRevision[]
 
   @@unique([contentId, locale])
-  @@unique([locale, localizedSlug])
+  @@unique([siteIdentifier, locale, localizedSlug])
   @@index([state, scheduledAt])
   @@index([contentId, state])
 }
@@ -2655,7 +2719,7 @@ model CmsPublishedContent {
   content CmsContentNode @relation(fields: [contentId], references: [id], onDelete: Restrict)
 
   @@unique([contentId, locale])
-  @@unique([locale, slug])
+  @@unique([siteIdentifier, locale, slug])
   @@index([siteIdentifier, locale, status, publishedAt])
   @@index([contentType, locale, status])
   @@index([categorySlug, locale, status])
@@ -2675,6 +2739,136 @@ model CmsEditorialLedger {
   @@index([contentId, occurredAt])
   @@index([localizedContentId, occurredAt])
   @@index([action, occurredAt])
+}
+
+model CmsRedirect {
+  id             String   @id @default(uuid())
+  siteIdentifier String
+  locale         String
+  sourcePath     String
+  destinationPath String
+  statusCode     Int      @default(301)
+  reason         String
+  contentId      String?
+  active         Boolean  @default(true)
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([siteIdentifier, locale, sourcePath])
+  @@index([siteIdentifier, locale, destinationPath])
+  @@index([contentId])
+}
+
+model CmsNavigationMenu {
+  id             String   @id @default(uuid())
+  siteIdentifier String
+  locale         String
+  locationKey    String
+  status         String   @default("DRAFT")
+  version        Int      @default(1)
+  updatedBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  nodes          CmsNavigationNode[]
+
+  @@unique([siteIdentifier, locale, locationKey])
+  @@index([siteIdentifier, locale, status])
+}
+
+model CmsNavigationNode {
+  id              String   @id @default(uuid())
+  menuId          String
+  parentNodeId    String?
+  displayText     String
+  targetType      String
+  targetValue     String
+  sortOrder       Int      @default(0)
+  openInNewWindow Boolean  @default(false)
+  metadata        Json?
+
+  menu CmsNavigationMenu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@index([menuId, parentNodeId, sortOrder])
+}
+
+model CmsBlockSchema {
+  id              String   @id @default(uuid())
+  key             String
+  version         Int
+  nameAr          String
+  nameEn          String
+  fieldSchema     Json
+  localizedFields Json
+  assetFields     Json
+  status          String   @default("ACTIVE")
+  createdBy       String
+  createdAt       DateTime @default(now())
+
+  blocks CmsContentBlock[]
+
+  @@unique([key, version])
+  @@index([status, key])
+}
+
+model CmsContentBlock {
+  id             String   @id @default(uuid())
+  publicId       String   @unique
+  siteIdentifier String
+  locale         String
+  schemaId       String
+  name           String
+  payload        Json
+  status         String   @default("DRAFT")
+  version        Int      @default(1)
+  updatedBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  schema CmsBlockSchema @relation(fields: [schemaId], references: [id], onDelete: Restrict)
+
+  @@index([siteIdentifier, locale, status])
+  @@index([schemaId])
+}
+
+model CmsAnnouncement {
+  id             String   @id @default(uuid())
+  publicId       String   @unique
+  siteIdentifier String
+  locale         String
+  title          String
+  body           String
+  urgency        String
+  audience       String?
+  startsAt       DateTime
+  expiresAt      DateTime?
+  status         String   @default("DRAFT")
+  version        Int      @default(1)
+  createdBy      String
+  approvedBy     String?
+  publishedAt    DateTime?
+  archivedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([siteIdentifier, locale, status, startsAt, expiresAt])
+}
+
+model CmsScheduledJob {
+  id                 String   @id @default(uuid())
+  localizedContentId String
+  jobType             String
+  scheduledAt         DateTime
+  status              String   @default("PENDING")
+  attemptCount        Int      @default(0)
+  idempotencyKey      String   @unique
+  failureCode         String?
+  completedAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([status, scheduledAt])
+  @@index([localizedContentId, jobType])
 }
 
 // --- Identity Foundation ---

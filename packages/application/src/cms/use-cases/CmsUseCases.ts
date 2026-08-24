@@ -1,20 +1,27 @@
 import { randomUUID } from 'node:crypto';
 import {
   CmsCategoryDto,
+  CmsAnnouncementDto,
+  CmsBlockSchemaDto,
+  CmsContentBlockDto,
   CmsContentDetailDto,
   CmsContentDto,
   CmsContentFilters,
   CmsContentRevisionDto,
   CmsContentStatus,
   CmsContentType,
+  CmsNavigationMenuDto,
   CmsLocalizedContentDto,
   CmsPublishingPolicy,
   CmsPublishingReadinessDto,
+  CmsRedirectDto,
+  CmsScheduleResultDto,
   CmsTagDto,
   CreateCmsCategoryDto,
   CreateCmsContentDto,
   CreateCmsTagDto,
   ICmsRepository,
+  ICmsDeliveryCache,
   PaginatedCmsResult,
   PublicCmsContentDto,
   UpdateCmsContentDto,
@@ -27,7 +34,7 @@ type CreateContentInput = Omit<
 > & { ownerId?: string };
 
 export class AdminCmsUseCases {
-  public constructor(private readonly repository: ICmsRepository) {}
+  public constructor(private readonly repository: ICmsRepository, private readonly deliveryCache?: ICmsDeliveryCache | null) {}
 
   public async createContent(data: CreateContentInput, actorId: string): Promise<CmsContentDto> {
     this.ensureActor(actorId);
@@ -70,6 +77,7 @@ export class AdminCmsUseCases {
     this.ensureActor(actorId);
     CmsPublishingPolicy.assertSlug(data.localizedSlug);
     if (!data.body.trim()) throw new Error('CMS_LOCALIZED_BODY_REQUIRED');
+    CmsPublishingPolicy.assertSafeRichText(data.body);
     this.ensureAssetHandles([
       data.featuredAssetId,
       data.seoMetadata?.openGraphAssetId,
@@ -159,7 +167,13 @@ export class AdminCmsUseCases {
   ): Promise<CmsLocalizedContentDto> {
     const readiness = await this.repository.getReadiness(contentId, locale);
     if (!readiness.ready) throw new Error(`CMS_NOT_READY:${readiness.missing.join(',')}`);
-    return this.repository.publish({ contentId, locale, actorId, expectedVersion });
+    const result = await this.repository.publish({ contentId, locale, actorId, expectedVersion });
+    await this.invalidateDelivery(contentId, 'content-published');
+    return result;
+  }
+
+  public async cancelSchedule(contentId: string, locale: string, actorId: string, expectedVersion?: number): Promise<CmsLocalizedContentDto> {
+    return this.repository.cancelSchedule({ contentId, locale, actorId, expectedVersion });
   }
 
   public async archive(
@@ -168,7 +182,9 @@ export class AdminCmsUseCases {
     actorId: string,
     expectedVersion?: number,
   ): Promise<CmsLocalizedContentDto> {
-    return this.repository.archive({ contentId, locale, actorId, expectedVersion });
+    const result = await this.repository.archive({ contentId, locale, actorId, expectedVersion });
+    await this.invalidateDelivery(contentId, 'content-archived');
+    return result;
   }
 
   public async listRevisions(contentId: string, locale: string): Promise<CmsContentRevisionDto[]> {
@@ -215,6 +231,53 @@ export class AdminCmsUseCases {
     return this.repository.listTags();
   }
 
+  public async changeLocalizedSlug(contentId: string, locale: string, newSlug: string, reason: string, expectedVersion: number, actorId: string): Promise<CmsLocalizedContentDto> {
+    this.ensureActor(actorId); CmsPublishingPolicy.assertSlug(newSlug);
+    if (!reason.trim()) throw new Error('CMS_SLUG_CHANGE_REASON_REQUIRED');
+    const result = await this.repository.changeLocalizedSlug({ contentId, locale, newSlug, reason: reason.trim(), expectedVersion, actorId });
+    await this.invalidateDelivery(contentId, 'slug-changed');
+    return result;
+  }
+
+  public async listRedirects(siteIdentifier?: string, locale?: string): Promise<CmsRedirectDto[]> {
+    return this.repository.listRedirects(siteIdentifier, locale);
+  }
+
+  public async createRedirect(data: Omit<CmsRedirectDto, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>, actorId: string): Promise<CmsRedirectDto> {
+    CmsPublishingPolicy.assertRedirect(data.sourcePath, data.destinationPath);
+    return this.repository.createRedirect({ ...data, createdBy: actorId });
+  }
+
+  public async listNavigation(siteIdentifier: string, locale: string): Promise<CmsNavigationMenuDto[]> {
+    return this.repository.listNavigation(siteIdentifier, locale);
+  }
+
+  public async saveNavigation(data: Omit<CmsNavigationMenuDto, 'id' | 'version' | 'createdAt' | 'updatedAt' | 'updatedBy'> & { id?: string; expectedVersion?: number }, actorId: string): Promise<CmsNavigationMenuDto> {
+    CmsPublishingPolicy.assertAcyclicNavigation(data.nodes);
+    for (const node of data.nodes) CmsPublishingPolicy.assertSafeNavigationTarget(node.targetType, node.targetValue);
+    return this.repository.saveNavigation({ ...data, updatedBy: actorId });
+  }
+
+  public async listBlockSchemas(): Promise<CmsBlockSchemaDto[]> { return this.repository.listBlockSchemas(); }
+  public async createBlockSchema(data: Omit<CmsBlockSchemaDto, 'id' | 'createdAt' | 'createdBy'>, actorId: string): Promise<CmsBlockSchemaDto> {
+    return this.repository.createBlockSchema({ ...data, createdBy: actorId });
+  }
+  public async listBlocks(siteIdentifier: string, locale: string): Promise<CmsContentBlockDto[]> { return this.repository.listBlocks(siteIdentifier, locale); }
+  public async saveBlock(data: Omit<CmsContentBlockDto, 'id' | 'publicId' | 'version' | 'createdAt' | 'updatedAt' | 'updatedBy'> & { id?: string; expectedVersion?: number }, actorId: string): Promise<CmsContentBlockDto> {
+    return this.repository.saveBlock({ ...data, updatedBy: actorId });
+  }
+  public async listAnnouncements(siteIdentifier: string, locale: string): Promise<CmsAnnouncementDto[]> { return this.repository.listAnnouncements(siteIdentifier, locale); }
+  public async saveAnnouncement(data: Omit<CmsAnnouncementDto, 'id' | 'publicId' | 'version' | 'createdAt' | 'updatedAt' | 'createdBy'> & { id?: string; expectedVersion?: number }, actorId: string): Promise<CmsAnnouncementDto> {
+    CmsPublishingPolicy.assertSafeRichText(data.body);
+    return this.repository.saveAnnouncement({ ...data, createdBy: actorId });
+  }
+  public async processDueSchedules(actorId: string, now = new Date(), limit = 50): Promise<CmsScheduleResultDto> {
+    this.ensureActor(actorId);
+    const result = await this.repository.processDueSchedules(actorId, now, limit);
+    for (const siteIdentifier of result.affectedSites) await this.deliveryCache?.invalidateSite(siteIdentifier, 'scheduled-job-completed');
+    return result;
+  }
+
   private ensureAssetHandles(assetIds: Array<string | null | undefined>): void {
     for (const assetId of assetIds) CmsPublishingPolicy.assertAssetHandle(assetId);
   }
@@ -222,10 +285,16 @@ export class AdminCmsUseCases {
   private ensureActor(actorId: string): void {
     if (!actorId.trim()) throw new Error('CMS_AUTHENTICATED_ACTOR_REQUIRED');
   }
+
+  private async invalidateDelivery(contentId: string, reason: string): Promise<void> {
+    if (!this.deliveryCache) return;
+    const content = await this.repository.findContentById(contentId);
+    if (content) await this.deliveryCache.invalidateSite(content.siteIdentifier, reason);
+  }
 }
 
 export class PublicCmsUseCases {
-  public constructor(private readonly repository: ICmsRepository) {}
+  public constructor(private readonly repository: ICmsRepository, private readonly deliveryCache?: ICmsDeliveryCache | null) {}
 
   public async listPublished(
     filters: CmsContentFilters,
@@ -234,10 +303,27 @@ export class PublicCmsUseCases {
     return this.repository.listPublished(filters, locale);
   }
 
-  public async getBySlug(slug: string, locale?: string): Promise<PublicCmsContentDto> {
-    const content = await this.repository.getPublishedBySlug(slug, locale);
+  public async getBySlug(slug: string, locale?: string, siteIdentifier?: string): Promise<PublicCmsContentDto> {
+    const site = siteIdentifier ?? 'manaratak';
+    const language = locale ?? 'ar';
+    const cached = await this.deliveryCache?.getPublished(site, language, slug);
+    if (cached) return cached;
+    const content = await this.repository.getPublishedBySlug(slug, locale, siteIdentifier);
     if (!content) throw new Error('CMS_CONTENT_NOT_FOUND');
+    await this.deliveryCache?.setPublished(content);
     return content;
+  }
+
+  public async listNavigation(siteIdentifier: string, locale: string): Promise<CmsNavigationMenuDto[]> {
+    return (await this.repository.listNavigation(siteIdentifier, locale)).filter((menu) => menu.status === CmsContentStatus.PUBLISHED);
+  }
+
+  public async listAnnouncements(siteIdentifier: string, locale: string): Promise<CmsAnnouncementDto[]> {
+    return this.repository.listAnnouncements(siteIdentifier, locale, true);
+  }
+
+  public async resolveRedirect(siteIdentifier: string, locale: string, sourcePath: string): Promise<CmsRedirectDto | null> {
+    return (await this.repository.listRedirects(siteIdentifier, locale)).find((redirect) => redirect.active && redirect.sourcePath === sourcePath) ?? null;
   }
 }
 

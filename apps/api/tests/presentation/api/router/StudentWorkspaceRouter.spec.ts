@@ -49,6 +49,17 @@ describe('StudentWorkspaceRouter', () => {
     expect(res.body.certificateCount).toBe(1);
   });
 
+  it('derives the normal dashboard path from the authenticated identity', async () => {
+    const useCases = createUseCases();
+    useCases.getDashboard.mockResolvedValue({ workspace: { studentReferenceId: 'student-1' } });
+    const res = await request(createApp(useCases))
+      .get('/student/dashboard')
+      .set('Authorization', 'Bearer valid-student-token');
+
+    expect(res.status).toBe(200);
+    expect(useCases.getDashboard).toHaveBeenCalledWith('student-1');
+  });
+
   it('saves a personal item reference', async () => {
     const useCases = createUseCases();
     useCases.saveItem.mockResolvedValue({

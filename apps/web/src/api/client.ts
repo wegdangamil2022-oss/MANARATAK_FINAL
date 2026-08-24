@@ -651,6 +651,29 @@ export interface StudentQuickActionDto {
   kind: string;
 }
 
+export interface StudentRecentlyViewedDto {
+  id: string;
+  entityType: string;
+  entityId: string;
+  entitySlug?: string | null;
+  viewedAt: string;
+}
+
+export interface StudentWorkspaceSnapshotDto {
+  id: string;
+  label?: string | null;
+  workspaceVersion: number;
+  createdAt: string;
+}
+
+export interface StudentWidgetDefinitionDto {
+  key: string;
+  labelAr: string;
+  labelEn: string;
+  defaultVisible: boolean;
+  supportedDevices: string[];
+}
+
 export interface StudentDashboardSummaryDto {
   workspace: StudentWorkspaceDto;
   savedItems: StudentSavedItemDto[];
@@ -661,6 +684,8 @@ export interface StudentDashboardSummaryDto {
   certificates: StudentCertificateProjectionDto[];
   notifications: StudentNotificationProjectionDto[];
   quickActions: StudentQuickActionDto[];
+  recentlyViewed: StudentRecentlyViewedDto[];
+  widgetRegistry: StudentWidgetDefinitionDto[];
   statistics: {
     savedItems: number;
     activeCourses: number;
@@ -1450,6 +1475,15 @@ export class ApiClient {
     return res.json();
   }
 
+  static async getMyStudentDashboard(): Promise<StudentDashboardSummaryDto> {
+    const res = await apiFetch(`${API_BASE_URL}/student/dashboard`, { headers: getStudentHeaders() });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || 'تعذر تحميل مساحة الطالب');
+    }
+    return res.json();
+  }
+
   static async getStudentInvoices(
     studentReferenceId: string,
   ): Promise<PaginatedResult<StudentFinanceInvoiceDto>> {
@@ -1684,6 +1718,16 @@ export class ApiClient {
     return res.json();
   }
 
+  static async updateMyStudentWorkspace(
+    workspace: Partial<StudentWorkspaceDto> & { expectedVersion: number },
+  ): Promise<StudentWorkspaceDto> {
+    const res = await apiFetch(`${API_BASE_URL}/student/workspace`, {
+      method: 'PUT', headers: getStudentHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(workspace),
+    });
+    if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || 'تعذر حفظ إعدادات مساحة الطالب'); }
+    return res.json();
+  }
+
   static async createStudentCollection(
     studentReferenceId: string,
     collection: { name: string; description?: string; color?: string },
@@ -1700,6 +1744,31 @@ export class ApiClient {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error || 'تعذر إنشاء المجموعة');
     }
+    return res.json();
+  }
+
+  static async createMyStudentCollection(collection: { name: string; description?: string; color?: string }): Promise<StudentSavedCollectionDto> {
+    const res = await apiFetch(`${API_BASE_URL}/student/collections`, {
+      method: 'POST', headers: getStudentHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(collection),
+    });
+    if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || 'تعذر إنشاء المجموعة'); }
+    return res.json();
+  }
+
+  static async updateMyStudentCollection(collectionId: string, changes: { name?: string; description?: string | null; color?: string | null }): Promise<StudentSavedCollectionDto> {
+    const res = await apiFetch(`${API_BASE_URL}/student/collections/${encodeURIComponent(collectionId)}`, { method: 'PATCH', headers: getStudentHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(changes) });
+    if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || 'تعذر تعديل المجموعة'); }
+    return res.json();
+  }
+
+  static async deleteMyStudentCollection(collectionId: string): Promise<void> {
+    const res = await apiFetch(`${API_BASE_URL}/student/collections/${encodeURIComponent(collectionId)}`, { method: 'DELETE', headers: getStudentHeaders() });
+    if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || 'تعذر حذف المجموعة'); }
+  }
+
+  static async moveMyStudentSavedItem(itemId: string, collectionId: string | null): Promise<StudentSavedItemDto> {
+    const res = await apiFetch(`${API_BASE_URL}/student/saved-items/${encodeURIComponent(itemId)}/move`, { method: 'POST', headers: getStudentHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ collectionId }) });
+    if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || 'تعذر نقل العنصر'); }
     return res.json();
   }
 
@@ -1722,11 +1791,47 @@ export class ApiClient {
     return res.json();
   }
 
+  static async createMyStudentWorkspaceSnapshot(label?: string): Promise<{ id: string; createdAt: string }> {
+    const res = await apiFetch(`${API_BASE_URL}/student/snapshots`, {
+      method: 'POST', headers: getStudentHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ label }),
+    });
+    if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || 'تعذر حفظ نسخة الإعدادات'); }
+    return res.json();
+  }
+
+  static async listMyStudentWorkspaceSnapshots(): Promise<StudentWorkspaceSnapshotDto[]> {
+    const res = await apiFetch(`${API_BASE_URL}/student/snapshots`, { headers: getStudentHeaders() });
+    if (!res.ok) throw new Error('تعذر تحميل نسخ الإعدادات');
+    return (await res.json()).data;
+  }
+
+  static async restoreMyStudentWorkspaceSnapshot(snapshotId: string, expectedVersion: number): Promise<StudentWorkspaceDto> {
+    const res = await apiFetch(`${API_BASE_URL}/student/snapshots/${encodeURIComponent(snapshotId)}/restore`, { method: 'POST', headers: getStudentHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ expectedVersion }) });
+    if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || 'تعذر استعادة نسخة الإعدادات'); }
+    return res.json();
+  }
+
+  static async resetMyStudentDashboardLayout(expectedVersion: number): Promise<StudentWorkspaceDto> {
+    const res = await apiFetch(`${API_BASE_URL}/student/dashboard/layout/reset`, { method: 'POST', headers: getStudentHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ expectedVersion }) });
+    if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || 'تعذر إعادة ضبط التخطيط'); }
+    return res.json();
+  }
+
+  static async clearMyRecentlyViewed(): Promise<void> {
+    const res = await apiFetch(`${API_BASE_URL}/student/recently-viewed`, { method: 'DELETE', headers: getStudentHeaders() });
+    if (!res.ok) throw new Error('تعذر مسح العناصر المشاهدة مؤخرًا');
+  }
+
   static async clearStudentSearchHistory(studentReferenceId: string): Promise<void> {
     const res = await apiFetch(
       `${API_BASE_URL}/student/${encodeURIComponent(studentReferenceId)}/search-history`,
       { method: 'DELETE', headers: getStudentHeaders() },
     );
+    if (!res.ok) throw new Error('تعذر مسح سجل البحث');
+  }
+
+  static async clearMyStudentSearchHistory(): Promise<void> {
+    const res = await apiFetch(`${API_BASE_URL}/student/search-history`, { method: 'DELETE', headers: getStudentHeaders() });
     if (!res.ok) throw new Error('تعذر مسح سجل البحث');
   }
 

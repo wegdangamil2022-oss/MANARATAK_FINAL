@@ -7,6 +7,7 @@ import {
 } from '../entities/CmsContent';
 
 const RAW_ASSET_PATTERN = /^(?:https?:\/\/|data:|file:|[a-zA-Z]:\\|\/)/i;
+const UNSAFE_MARKUP_PATTERN = /<\/?(?:script|style|iframe|object|embed|form|input|button|link|meta)\b|\son\w+\s*=|(?:javascript|data|vbscript):/i;
 
 export class CmsPublishingPolicy {
   public static assertAssetHandle(assetId?: string | null): void {
@@ -19,6 +20,39 @@ export class CmsPublishingPolicy {
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
       throw new Error('CMS_SLUG_INVALID');
     }
+  }
+
+  public static assertSafeRichText(body: string): void {
+    if (UNSAFE_MARKUP_PATTERN.test(body)) throw new Error('CMS_UNSAFE_RICH_TEXT');
+  }
+
+  public static assertSafeNavigationTarget(targetType: string, targetValue: string): void {
+    if (targetType === 'EXTERNAL_URL') {
+      let url: URL;
+      try { url = new URL(targetValue); } catch { throw new Error('CMS_NAVIGATION_URL_INVALID'); }
+      if (!['https:', 'http:'].includes(url.protocol)) throw new Error('CMS_NAVIGATION_URL_UNSAFE');
+      return;
+    }
+    if (targetValue.startsWith('//') || /^(?:javascript|data|file):/i.test(targetValue)) {
+      throw new Error('CMS_NAVIGATION_TARGET_UNSAFE');
+    }
+  }
+
+  public static assertAcyclicNavigation(nodes: Array<{ id?: string; parentNodeId?: string | null }>): void {
+    const parents = new Map(nodes.filter((node) => node.id).map((node) => [node.id!, node.parentNodeId ?? null]));
+    for (const id of parents.keys()) {
+      const visited = new Set<string>(); let cursor: string | null | undefined = id;
+      while (cursor) {
+        if (visited.has(cursor)) throw new Error('CMS_NAVIGATION_CYCLE');
+        visited.add(cursor); cursor = parents.get(cursor);
+      }
+    }
+  }
+
+  public static assertRedirect(sourcePath: string, destinationPath: string): void {
+    if (!sourcePath.startsWith('/') || !destinationPath.startsWith('/')) throw new Error('CMS_REDIRECT_PATH_INVALID');
+    if (sourcePath === destinationPath) throw new Error('CMS_REDIRECT_LOOP');
+    if (sourcePath.startsWith('//') || destinationPath.startsWith('//')) throw new Error('CMS_REDIRECT_OPEN_TARGET');
   }
 
   public static readiness(

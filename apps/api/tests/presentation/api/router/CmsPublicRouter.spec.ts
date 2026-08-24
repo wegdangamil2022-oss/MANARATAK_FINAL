@@ -52,4 +52,16 @@ describe('CmsPublicRouter', () => {
 
     expect(res.status).toBe(404);
   });
+
+  it('returns a stable ETag and honors conditional delivery', async () => {
+    const useCases = createUseCases();
+    useCases.listPublished.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
+    const app = createApp(useCases);
+    const first = await request(app).get('/cms/content?locale=ar');
+    const second = await request(app).get('/cms/content?locale=ar').set('If-None-Match', first.headers.etag);
+
+    expect(first.headers.etag).toMatch(/^W\/"cms-/);
+    expect(second.status).toBe(304);
+    expect(second.text).toBe('');
+  });
 });

@@ -37,6 +37,9 @@ import {
   PrismaFellowshipDefinitionRepository,
   PrismaStudentWorkspaceRepository,
   PrismaCmsRepository,
+  RedisClientFactory,
+  RedisStudentWorkspaceDeliveryCache,
+  RedisCmsDeliveryCache,
   PrismaReferenceDataRepository,
   PrismaInternationalTestRepository,
   PrismaImportRepository,
@@ -8094,6 +8097,26 @@ export function registerDependencies() {
     courseProgressRepository: asFunction(({ prisma }) => new PrismaCourseProgressRepository(prisma)).singleton(),
     certificateRepository: asFunction(({ prisma }) => new PrismaCertificateRepository(prisma)).singleton(),
     studentWorkspaceRepository: asFunction(({ prisma }) => new PrismaStudentWorkspaceRepository(prisma)).singleton(),
+    studentWorkspaceDeliveryCache: asFunction(() => {
+      const redisUrl = process.env.REDIS_URL?.trim();
+      if (!redisUrl) return null;
+      return new RedisStudentWorkspaceDeliveryCache(
+        RedisClientFactory.createClient({
+          REDIS_URL: redisUrl,
+          REDIS_NAMESPACE: process.env.REDIS_NAMESPACE,
+        }),
+      );
+    }).singleton(),
+    cmsDeliveryCache: asFunction(() => {
+      const redisUrl = process.env.REDIS_URL?.trim();
+      if (!redisUrl) return null;
+      return new RedisCmsDeliveryCache(
+        RedisClientFactory.createClient({
+          REDIS_URL: redisUrl,
+          REDIS_NAMESPACE: process.env.REDIS_NAMESPACE,
+        }),
+      );
+    }).singleton(),
     cmsRepository: asFunction(({ prisma }) => new PrismaCmsRepository(prisma)).singleton(),
     studentToolRegistryRepository: asFunction(() => createUnavailableCapability('studentToolRegistryPersistence')).singleton(),
     referenceDataRepository: asFunction(({ prisma }) => new PrismaReferenceDataRepository(prisma)).singleton(),
@@ -8237,9 +8260,9 @@ export function registerDependencies() {
     courseProgressUseCases: asFunction(({ courseRepository, courseCurriculumRepository, courseProgressRepository, courseCompletionEventPublisher }) => new CourseProgressUseCases(courseRepository, courseCurriculumRepository, courseProgressRepository, courseCompletionEventPublisher)).scoped(),
     nativeCourseUseCases: asFunction(({ courseRepository, courseCurriculumRepository, assetRecordRepository }) => new NativeCourseUseCases(courseRepository, courseCurriculumRepository, assetRecordRepository)).scoped(),
     certificateUseCases: asFunction(({ certificateRepository, courseRepository, assetRecordRepository }) => new CertificateUseCases(certificateRepository, courseRepository, assetRecordRepository)).scoped(),
-    studentWorkspaceUseCases: asFunction(({ studentWorkspaceRepository }) => new StudentWorkspaceUseCases(studentWorkspaceRepository)).scoped(),
-    adminCmsUseCases: asFunction(({ cmsRepository }) => new AdminCmsUseCases(cmsRepository)).scoped(),
-    publicCmsUseCases: asFunction(({ cmsRepository }) => new PublicCmsUseCases(cmsRepository)).scoped(),
+    studentWorkspaceUseCases: asFunction(({ studentWorkspaceRepository, studentWorkspaceDeliveryCache }) => new StudentWorkspaceUseCases(studentWorkspaceRepository, studentWorkspaceDeliveryCache)).scoped(),
+    adminCmsUseCases: asFunction(({ cmsRepository, cmsDeliveryCache }) => new AdminCmsUseCases(cmsRepository, cmsDeliveryCache)).scoped(),
+    publicCmsUseCases: asFunction(({ cmsRepository, cmsDeliveryCache }) => new PublicCmsUseCases(cmsRepository, cmsDeliveryCache)).scoped(),
     studentToolRegistryUseCases: asFunction(({ studentToolRegistryRepository }) => new StudentToolRegistryUseCases(studentToolRegistryRepository)).scoped(),
     studentToolExecutionUseCases: asFunction(({ studentToolRegistryRepository, aiExecutionUseCases }) => new StudentToolExecutionUseCases(studentToolRegistryRepository, aiExecutionUseCases)).scoped(),
     referenceDataUseCases: asFunction(({ referenceDataRepository, atomicAuditedOutboxMutationExecutor }) =>

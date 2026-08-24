@@ -671,10 +671,6 @@ const router = createBrowserRouter([
         element: <StudentWorkspacePage />
       },
       {
-        path: 'student/:studentReferenceId',
-        element: <StudentWorkspacePage />
-      },
-      {
         path: 'admin',
         element: <AdminAccessBridgePage />
       },

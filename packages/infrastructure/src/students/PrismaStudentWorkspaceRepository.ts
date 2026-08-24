@@ -6,11 +6,13 @@ import {
   StudentCollectionType,
   StudentDashboardSummaryDto,
   StudentRecentActivityDto,
+  StudentRecentlyViewedDto,
   StudentSavedCollectionDto,
   StudentSavedItemDto,
   StudentTimelineEntryDto,
   StudentWorkspaceDto,
   StudentWorkspaceIntegrationEventDto,
+  StudentWorkspaceSnapshotDto,
   StudentWorkspaceStatus,
   UpsertStudentWorkspaceDto,
 } from '@manaratak/domain';
@@ -42,6 +44,15 @@ const DEFAULT_ACCESSIBILITY = {
   reduceMotion: false,
   highContrast: false,
 };
+
+const WIDGET_REGISTRY = [
+  { key: 'CONTINUE_LEARNING', labelAr: 'متابعة التعلم', labelEn: 'Continue learning', descriptionAr: 'الدورات النشطة من إسقاط منصة التعلم', supportedDevices: ['DESKTOP', 'TABLET', 'MOBILE'], defaultVisible: true, capability: 'courseEnrollments', minColumnSpan: 1, maxColumnSpan: 2 },
+  { key: 'RECENT_CERTIFICATES', labelAr: 'الشهادات الحديثة', labelEn: 'Recent certificates', descriptionAr: 'الشهادات الصادرة من إسقاط منصة الشهادات', supportedDevices: ['DESKTOP', 'TABLET', 'MOBILE'], defaultVisible: true, capability: 'certificates', minColumnSpan: 1, maxColumnSpan: 2 },
+  { key: 'SAVED_OPPORTUNITIES', labelAr: 'الفرص المحفوظة', labelEn: 'Saved opportunities', descriptionAr: 'مراجع محفوظة دون نسخ البيانات الأصلية', supportedDevices: ['DESKTOP', 'TABLET', 'MOBILE'], defaultVisible: true, capability: 'savedItems', minColumnSpan: 1, maxColumnSpan: 2 },
+  { key: 'RECENT_ACTIVITY', labelAr: 'النشاط الحديث', labelEn: 'Recent activity', descriptionAr: 'آخر نشاطات مساحة العمل', supportedDevices: ['DESKTOP', 'TABLET', 'MOBILE'], defaultVisible: true, capability: 'recentActivity', minColumnSpan: 1, maxColumnSpan: 2 },
+  { key: 'PERSONAL_TIMELINE_SUMMARY', labelAr: 'ملخص رحلتي', labelEn: 'Journey summary', descriptionAr: 'أحداث الرحلة غير القابلة للتعديل', supportedDevices: ['DESKTOP', 'TABLET', 'MOBILE'], defaultVisible: true, capability: 'timeline', minColumnSpan: 1, maxColumnSpan: 2 },
+  { key: 'RECOMMENDATIONS', labelAr: 'التوصيات', labelEn: 'Recommendations', descriptionAr: 'توصيات Phase 17 عند تفعيل الموافقة', supportedDevices: ['DESKTOP', 'TABLET', 'MOBILE'], defaultVisible: false, capability: 'recommendations', minColumnSpan: 1, maxColumnSpan: 2 },
+] as const;
 
 export class PrismaStudentWorkspaceRepository implements IStudentWorkspaceRepository {
   public constructor(private readonly prisma: PrismaClient) {}
@@ -157,26 +168,13 @@ export class PrismaStudentWorkspaceRepository implements IStudentWorkspaceReposi
         orderBy: { occurredAt: 'desc' },
         take: 12,
       }),
-      this.db.courseEnrollment.findMany({
+      this.db.studentLearningProjection.findMany({
         where: { studentReferenceId },
-        include: { course: { select: { id: true, slug: true, displayName: true } } },
         orderBy: [{ lastAccessedAt: 'desc' }, { enrolledAt: 'desc' }],
         take: 20,
       }),
-      this.db.certificate.findMany({
+      this.db.studentCertificateReadProjection.findMany({
         where: { studentReferenceId },
-        select: {
-          id: true,
-          publicId: true,
-          serialNumber: true,
-          verificationCode: true,
-          status: true,
-          courseDisplayName: true,
-          issuedAt: true,
-          expiresAt: true,
-          certificatePdfAssetId: true,
-          previewImageAssetId: true,
-        },
         orderBy: { issuedAt: 'desc' },
         take: 12,
       }),
@@ -185,19 +183,13 @@ export class PrismaStudentWorkspaceRepository implements IStudentWorkspaceReposi
         orderBy: { occurredAt: 'desc' },
         take: 20,
       }),
+      this.db.studentRecentlyViewed.findMany({
+        where: { studentReferenceId },
+        orderBy: { viewedAt: 'desc' },
+        take: 30,
+      }),
       Promise.all([
         this.db.studentSavedItem.count({ where: { studentReferenceId } }),
-        this.db.courseEnrollment.count({
-          where: { studentReferenceId, status: { in: ['ACTIVE', 'IN_PROGRESS'] } },
-        }),
-        this.db.courseEnrollment.count({
-          where: { studentReferenceId, status: 'COMPLETED' },
-        }),
-        this.db.courseEnrollment.aggregate({
-          where: { studentReferenceId },
-          _avg: { progressPercentage: true },
-        }),
-        this.db.certificate.count({ where: { studentReferenceId } }),
         this.db.studentNotificationProjection.count({
           where: { studentReferenceId, readAt: null },
         }),
@@ -218,25 +210,24 @@ export class PrismaStudentWorkspaceRepository implements IStudentWorkspaceReposi
     const enrollments = value<any>(4, 'courseEnrollments');
     const certificates = value<any>(5, 'certificates');
     const notifications = value<any>(6, 'notifications');
-    const totals = value<any>(7, 'personalStatistics');
+    const recentlyViewed = value<any>(7, 'recentlyViewed');
+    const totals = value<any>(8, 'personalStatistics');
     const activeCourses = enrollments.filter((entry) =>
       ['ACTIVE', 'IN_PROGRESS'].includes(entry.status),
     );
     const completedCourses = enrollments.filter((entry) => entry.status === 'COMPLETED');
-    const averageProgress = totals.length
-      ? Math.round(totals[3]._avg.progressPercentage ?? 0)
-      : enrollments.length
+    const averageProgress = enrollments.length
         ? Math.round(
             enrollments.reduce((total, entry) => total + entry.progressPercentage, 0) /
               enrollments.length,
           )
         : 0;
     const savedItemCount = totals[0] ?? savedItems.length;
-    const activeCourseCount = totals[1] ?? activeCourses.length;
-    const completedCourseCount = totals[2] ?? completedCourses.length;
-    const certificateCount = totals[4] ?? certificates.length;
+    const activeCourseCount = activeCourses.length;
+    const completedCourseCount = completedCourses.length;
+    const certificateCount = certificates.length;
     const unreadNotificationCount =
-      totals[5] ?? notifications.filter((entry) => !entry.readAt).length;
+      totals[1] ?? notifications.filter((entry) => !entry.readAt).length;
 
     return {
       workspace: this.workspace(workspace),
@@ -244,17 +235,9 @@ export class PrismaStudentWorkspaceRepository implements IStudentWorkspaceReposi
       collections: collections.map((row) => this.collection(row)),
       timeline,
       recentActivity,
-      courseEnrollments: enrollments.map((row) => ({
-        enrollmentId: row.id,
-        courseId: row.courseId,
-        courseSlug: row.course.slug,
-        courseName: row.course.displayName,
-        status: row.status,
-        progressPercentage: row.progressPercentage,
-        enrolledAt: row.enrolledAt,
-        lastAccessedAt: row.lastAccessedAt,
-        completedAt: row.completedAt,
-      })),
+      recentlyViewed,
+      widgetRegistry: WIDGET_REGISTRY.map((entry) => ({ ...entry, supportedDevices: [...entry.supportedDevices] })),
+      courseEnrollments: enrollments.map((row) => ({ ...row, enrollmentId: row.id })),
       certificates,
       notifications,
       quickActions: this.quickActions(activeCourses, certificates, savedItemCount),
@@ -275,6 +258,7 @@ export class PrismaStudentWorkspaceRepository implements IStudentWorkspaceReposi
         collections: failures.includes('collections') ? 'DEGRADED' : 'AVAILABLE',
         timeline: failures.includes('timeline') ? 'DEGRADED' : 'AVAILABLE',
         recentActivity: failures.includes('recentActivity') ? 'DEGRADED' : 'AVAILABLE',
+        recentlyViewed: failures.includes('recentlyViewed') ? 'DEGRADED' : 'AVAILABLE',
         courseEnrollments: failures.includes('courseEnrollments') ? 'DEGRADED' : 'AVAILABLE',
         certificates: failures.includes('certificates') ? 'DEGRADED' : 'AVAILABLE',
         notifications: failures.includes('notifications') ? 'DEGRADED' : 'AVAILABLE',
@@ -377,6 +361,55 @@ export class PrismaStudentWorkspaceRepository implements IStudentWorkspaceReposi
     ).map((row: any) => this.collection(row));
   }
 
+  public async updateCollection(
+    studentReferenceId: string,
+    collectionId: string,
+    data: { name?: string; description?: string | null; color?: string | null; icon?: string | null },
+  ): Promise<StudentSavedCollectionDto> {
+    return this.db.$transaction(async (tx: any) => {
+      const workspace = await this.requireWritable(tx, studentReferenceId);
+      const current = await tx.studentSavedCollection.findFirst({ where: { id: collectionId, studentReferenceId } });
+      if (!current) throw new Error('STUDENT_COLLECTION_NOT_FOUND');
+      const row = await tx.studentSavedCollection.update({
+        where: { id: collectionId }, data, include: { _count: { select: { items: true } } },
+      });
+      await this.appendOutbox(tx, workspace.id, 'StudentSavedCollectionUpdated', { studentReferenceId, collectionId });
+      return this.collection(row);
+    });
+  }
+
+  public async deleteCollection(studentReferenceId: string, collectionId: string): Promise<void> {
+    await this.db.$transaction(async (tx: any) => {
+      const workspace = await this.requireWritable(tx, studentReferenceId);
+      const collection = await tx.studentSavedCollection.findFirst({ where: { id: collectionId, studentReferenceId } });
+      if (!collection) throw new Error('STUDENT_COLLECTION_NOT_FOUND');
+      if (collection.type === StudentCollectionType.FAVORITES) throw new Error('STUDENT_FAVORITES_COLLECTION_IMMUTABLE');
+      const favorite = await tx.studentSavedCollection.findFirst({ where: { studentReferenceId, type: StudentCollectionType.FAVORITES } });
+      await tx.studentSavedItem.updateMany({ where: { collectionId }, data: { collectionId: favorite?.id ?? null } });
+      await tx.studentSavedCollection.delete({ where: { id: collectionId } });
+      await this.appendOutbox(tx, workspace.id, 'StudentSavedCollectionDeleted', { studentReferenceId, collectionId, movedToCollectionId: favorite?.id ?? null });
+    });
+  }
+
+  public async moveSavedItem(
+    studentReferenceId: string,
+    itemId: string,
+    collectionId: string | null,
+  ): Promise<StudentSavedItemDto> {
+    return this.db.$transaction(async (tx: any) => {
+      const workspace = await this.requireWritable(tx, studentReferenceId);
+      const item = await tx.studentSavedItem.findFirst({ where: { id: itemId, studentReferenceId } });
+      if (!item) throw new Error('STUDENT_SAVED_ITEM_NOT_FOUND');
+      if (collectionId) {
+        const target = await tx.studentSavedCollection.findFirst({ where: { id: collectionId, studentReferenceId } });
+        if (!target) throw new Error('STUDENT_COLLECTION_NOT_FOUND');
+      }
+      const row = await tx.studentSavedItem.update({ where: { id: itemId }, data: { collectionId } });
+      await this.appendOutbox(tx, workspace.id, 'StudentSavedItemMoved', { studentReferenceId, itemId, collectionId });
+      return this.savedItem(row);
+    });
+  }
+
   public async appendActivity(
     data: Omit<StudentRecentActivityDto, 'id' | 'occurredAt'>,
   ): Promise<StudentRecentActivityDto> {
@@ -438,7 +471,43 @@ export class PrismaStudentWorkspaceRepository implements IStudentWorkspaceReposi
   }
 
   public async clearSearchHistory(studentReferenceId: string): Promise<void> {
-    await this.db.studentSearchHistory.deleteMany({ where: { studentReferenceId } });
+    await this.db.$transaction(async (tx: any) => {
+      const workspace = await this.requireWritable(tx, studentReferenceId);
+      await tx.studentSearchHistory.deleteMany({ where: { studentReferenceId } });
+      await this.appendOutbox(tx, workspace.id, 'StudentSearchHistoryCleared', { studentReferenceId });
+    });
+  }
+
+  public async recordRecentlyViewed(data: {
+    studentReferenceId: string;
+    entityType: any;
+    entityId: string;
+    entitySlug?: string | null;
+  }): Promise<StudentRecentlyViewedDto | null> {
+    return this.db.$transaction(async (tx: any) => {
+      const workspace = await this.requireWritable(tx, data.studentReferenceId);
+      const privacy = (workspace.privacyPreferences ?? DEFAULT_PRIVACY) as typeof DEFAULT_PRIVACY;
+      if (!privacy.allowProductAnalytics) return null;
+      const row = await tx.studentRecentlyViewed.upsert({
+        where: { studentReferenceId_entityType_entityId: { studentReferenceId: data.studentReferenceId, entityType: data.entityType, entityId: data.entityId } },
+        create: { id: randomUUID(), ...data }, update: { entitySlug: data.entitySlug, viewedAt: new Date() },
+      });
+      const overflow = await tx.studentRecentlyViewed.findMany({ where: { studentReferenceId: data.studentReferenceId }, orderBy: { viewedAt: 'desc' }, skip: 30, select: { id: true } });
+      if (overflow.length) await tx.studentRecentlyViewed.deleteMany({ where: { id: { in: overflow.map((entry: any) => entry.id) } } });
+      return row;
+    });
+  }
+
+  public async listRecentlyViewed(studentReferenceId: string): Promise<StudentRecentlyViewedDto[]> {
+    return this.db.studentRecentlyViewed.findMany({ where: { studentReferenceId }, orderBy: { viewedAt: 'desc' }, take: 30 });
+  }
+
+  public async clearRecentlyViewed(studentReferenceId: string): Promise<void> {
+    await this.db.$transaction(async (tx: any) => {
+      const workspace = await this.requireWritable(tx, studentReferenceId);
+      await tx.studentRecentlyViewed.deleteMany({ where: { studentReferenceId } });
+      await this.appendOutbox(tx, workspace.id, 'StudentRecentlyViewedCleared', { studentReferenceId });
+    });
   }
 
   public async createSnapshot(
@@ -467,6 +536,47 @@ export class PrismaStudentWorkspaceRepository implements IStudentWorkspaceReposi
     return { id: row.id, createdAt: row.createdAt };
   }
 
+  public async listSnapshots(studentReferenceId: string): Promise<StudentWorkspaceSnapshotDto[]> {
+    return this.db.studentWorkspaceSnapshot.findMany({
+      where: { studentReferenceId }, select: { id: true, studentReferenceId: true, label: true, workspaceVersion: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: 30,
+    });
+  }
+
+  public async restoreSnapshot(studentReferenceId: string, snapshotId: string, expectedVersion: number): Promise<StudentWorkspaceDto> {
+    return this.db.$transaction(async (tx: any) => {
+      const workspace = await this.requireWritable(tx, studentReferenceId);
+      if (workspace.version !== expectedVersion) throw new Error('STUDENT_WORKSPACE_VERSION_CONFLICT');
+      const snapshot = await tx.studentWorkspaceSnapshot.findFirst({ where: { id: snapshotId, studentReferenceId } });
+      if (!snapshot) throw new Error('STUDENT_SNAPSHOT_NOT_FOUND');
+      const configuration = snapshot.configuration as Record<string, unknown>;
+      const row = await tx.studentWorkspace.update({
+        where: { id: workspace.id },
+        data: {
+          layoutPreferences: configuration.layoutPreferences === undefined ? undefined : json(configuration.layoutPreferences),
+          notificationMatrix: configuration.notificationMatrix === undefined ? undefined : json(configuration.notificationMatrix),
+          privacyPreferences: configuration.privacyPreferences === undefined ? undefined : json(configuration.privacyPreferences),
+          accessibilityPreferences: configuration.accessibilityPreferences === undefined ? undefined : json(configuration.accessibilityPreferences),
+          theme: typeof configuration.theme === 'string' ? configuration.theme : undefined,
+          preferredLanguage: typeof configuration.preferredLanguage === 'string' ? configuration.preferredLanguage : undefined,
+          timezone: typeof configuration.timezone === 'string' ? configuration.timezone : undefined,
+          version: { increment: 1 },
+        },
+      });
+      await this.appendOutbox(tx, workspace.id, 'StudentWorkspaceSnapshotRestored', { studentReferenceId, snapshotId, version: row.version });
+      return this.workspace(row);
+    });
+  }
+
+  public async resetLayout(studentReferenceId: string, expectedVersion: number): Promise<StudentWorkspaceDto> {
+    return this.db.$transaction(async (tx: any) => {
+      const workspace = await this.requireWritable(tx, studentReferenceId);
+      if (workspace.version !== expectedVersion) throw new Error('STUDENT_WORKSPACE_VERSION_CONFLICT');
+      const row = await tx.studentWorkspace.update({ where: { id: workspace.id }, data: { layoutPreferences: json(DEFAULT_LAYOUT), version: { increment: 1 } } });
+      await this.appendOutbox(tx, workspace.id, 'StudentDashboardLayoutReset', { studentReferenceId, version: row.version });
+      return this.workspace(row);
+    });
+  }
+
   public async ingestIntegrationEvent(
     event: StudentWorkspaceIntegrationEventDto,
   ): Promise<boolean> {
@@ -475,9 +585,24 @@ export class PrismaStudentWorkspaceRepository implements IStudentWorkspaceReposi
         where: { eventId: event.eventId },
       });
       if (duplicate) return false;
-      const workspace = await tx.studentWorkspace.findUnique({
+      let workspace = await tx.studentWorkspace.findUnique({
         where: { studentReferenceId: event.studentReferenceId },
       });
+      if (!workspace && event.eventType === 'StudentIdentityCreated') {
+        workspace = await tx.studentWorkspace.create({
+          data: {
+            studentReferenceId: event.studentReferenceId,
+            status: StudentWorkspaceStatus.ACTIVE,
+            preferredLanguage: 'ar', timezone: 'Asia/Aden', theme: 'SYSTEM',
+            layoutPreferences: json(DEFAULT_LAYOUT), notificationMatrix: json(DEFAULT_NOTIFICATIONS),
+            privacyPreferences: json(DEFAULT_PRIVACY), accessibilityPreferences: json(DEFAULT_ACCESSIBILITY),
+          },
+        });
+        await tx.studentSavedCollection.create({
+          data: { id: randomUUID(), studentReferenceId: event.studentReferenceId, name: 'المفضلة', description: 'العناصر التي تريد الرجوع إليها بسرعة', type: StudentCollectionType.FAVORITES, color: '#087A55', icon: 'bookmark' },
+        });
+        await this.appendOutbox(tx, workspace.id, 'StudentWorkspaceCreated', { studentReferenceId: event.studentReferenceId, initializedFromEventId: event.eventId });
+      }
       if (!workspace) throw new Error('STUDENT_WORKSPACE_NOT_FOUND');
       const inboxId = randomUUID();
       await tx.studentWorkspaceEventInbox.create({
@@ -503,6 +628,7 @@ export class PrismaStudentWorkspaceRepository implements IStudentWorkspaceReposi
           occurredAt: event.occurredAt,
         },
       });
+      await this.projectIntegrationEvent(tx, event);
       if (event.notification) {
         await tx.studentNotificationProjection.create({
           data: {
@@ -541,6 +667,15 @@ export class PrismaStudentWorkspaceRepository implements IStudentWorkspaceReposi
     eventType: string,
     payload: Record<string, unknown>,
   ): Promise<void> {
+    const auditId = randomUUID();
+    await tx.auditRecord.create({
+      data: {
+        id: auditId, reference: `student-audit-${auditId}`, action: eventType,
+        category: 'STUDENT_WORKSPACE', severity: eventType.includes('Archived') || eventType.includes('Suspended') ? 'HIGH' : 'INFO',
+        actorId: String(payload.studentReferenceId ?? 'system'), actorType: 'USER', targetId: workspaceId,
+        targetType: 'StudentWorkspace', source: 'Phase15', timestamp: new Date(), contextMetadata: json(payload),
+      },
+    });
     await tx.transactionalOutboxRecord.create({
       data: {
         id: randomUUID(),
@@ -554,15 +689,67 @@ export class PrismaStudentWorkspaceRepository implements IStudentWorkspaceReposi
     });
   }
 
+  private async projectIntegrationEvent(tx: any, event: StudentWorkspaceIntegrationEventDto): Promise<void> {
+    const metadata = event.metadata ?? {};
+    if (['CourseEnrolled', 'CourseProgressUpdated', 'CourseCompleted'].includes(event.eventType)) {
+      const enrollmentId = String(metadata.enrollmentId ?? event.sourceReferenceId ?? '');
+      const courseId = String(metadata.courseId ?? '');
+      if (enrollmentId && courseId) {
+        await tx.studentLearningProjection.upsert({
+          where: { studentReferenceId_enrollmentId: { studentReferenceId: event.studentReferenceId, enrollmentId } },
+          create: {
+            id: randomUUID(), studentReferenceId: event.studentReferenceId, enrollmentId, courseId,
+            courseSlug: String(metadata.courseSlug ?? courseId), courseName: String(metadata.courseName ?? event.title),
+            status: String(metadata.status ?? (event.eventType === 'CourseCompleted' ? 'COMPLETED' : 'ACTIVE')),
+            progressPercentage: Number(metadata.progressPercentage ?? (event.eventType === 'CourseCompleted' ? 100 : 0)),
+            enrolledAt: new Date(String(metadata.enrolledAt ?? event.occurredAt)),
+            lastAccessedAt: metadata.lastAccessedAt ? new Date(String(metadata.lastAccessedAt)) : null,
+            completedAt: event.eventType === 'CourseCompleted' ? event.occurredAt : null,
+            sourceEventId: event.eventId,
+          },
+          update: {
+            courseSlug: String(metadata.courseSlug ?? courseId), courseName: String(metadata.courseName ?? event.title),
+            status: String(metadata.status ?? (event.eventType === 'CourseCompleted' ? 'COMPLETED' : 'ACTIVE')),
+            progressPercentage: Number(metadata.progressPercentage ?? (event.eventType === 'CourseCompleted' ? 100 : 0)),
+            lastAccessedAt: metadata.lastAccessedAt ? new Date(String(metadata.lastAccessedAt)) : undefined,
+            completedAt: event.eventType === 'CourseCompleted' ? event.occurredAt : undefined, sourceEventId: event.eventId,
+          },
+        });
+      }
+    }
+    if (['CertificateIssued', 'CertificateRevoked', 'CertificateReissued'].includes(event.eventType)) {
+      const certificateId = String(metadata.certificateId ?? event.sourceReferenceId ?? '');
+      if (certificateId) {
+        await tx.studentCertificateReadProjection.upsert({
+          where: { studentReferenceId_certificateId: { studentReferenceId: event.studentReferenceId, certificateId } },
+          create: {
+            id: randomUUID(), studentReferenceId: event.studentReferenceId, certificateId,
+            publicId: String(metadata.publicId ?? certificateId), serialNumber: String(metadata.serialNumber ?? certificateId),
+            verificationCode: String(metadata.verificationCode ?? ''), status: String(metadata.status ?? (event.eventType === 'CertificateRevoked' ? 'REVOKED' : 'ISSUED')),
+            courseDisplayName: String(metadata.courseDisplayName ?? event.title), issuedAt: new Date(String(metadata.issuedAt ?? event.occurredAt)),
+            expiresAt: metadata.expiresAt ? new Date(String(metadata.expiresAt)) : null,
+            certificatePdfAssetId: metadata.certificatePdfAssetId ? String(metadata.certificatePdfAssetId) : null,
+            previewImageAssetId: metadata.previewImageAssetId ? String(metadata.previewImageAssetId) : null, sourceEventId: event.eventId,
+          },
+          update: {
+            status: String(metadata.status ?? (event.eventType === 'CertificateRevoked' ? 'REVOKED' : 'ISSUED')),
+            certificatePdfAssetId: metadata.certificatePdfAssetId ? String(metadata.certificatePdfAssetId) : undefined,
+            previewImageAssetId: metadata.previewImageAssetId ? String(metadata.previewImageAssetId) : undefined, sourceEventId: event.eventId,
+          },
+        });
+      }
+    }
+  }
+
   private quickActions(enrollments: any[], certificates: any[], savedItemCount: number): any[] {
     const actions: any[] = [];
     const nextCourse = enrollments[0];
     if (nextCourse) {
       actions.push({
-        id: `continue-${nextCourse.id}`,
+        id: `continue-${nextCourse.enrollmentId ?? nextCourse.id}`,
         label: 'متابعة التعلم',
-        description: `أكمل ${nextCourse.course.displayName}`,
-        href: `/courses/${nextCourse.course.slug}`,
+        description: `أكمل ${nextCourse.courseName}`,
+        href: `/courses/${nextCourse.courseSlug}`,
         priority: 100,
         kind: 'LEARNING',
       });

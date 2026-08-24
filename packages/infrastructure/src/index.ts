@@ -172,6 +172,8 @@ export * from './monitoring/DatabaseHealthChecker';
 export * from './monitoring/RedisHealthChecker';
 export * from './security/SecurityService';
 export * from './redis/RedisClientFactory';
+export * from './students/RedisStudentWorkspaceDeliveryCache';
+export * from './cms/RedisCmsDeliveryCache';
 export * from './identity/InMemoryIdentityRepository';
 export * from './identity/PrismaIdentityRepository';
 export * from './identity/IdentityMapper';
