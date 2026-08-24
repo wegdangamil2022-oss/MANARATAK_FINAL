@@ -77,7 +77,7 @@ export class ScholarshipImportCenterUseCases {
       sourceTotal: scan.sourceTotal,
       capabilities: {
         reviewDecisionPersistence: this.reviewDecisionPort ? 'CONFIGURED' : 'NOT_CONFIGURED',
-        atomicTransfer: this.transferPort ? 'CONFIGURED' : 'DEFERRED_TO_WP12_10',
+        atomicTransfer: this.transferPort ? 'CONFIGURED' : 'NOT_CONFIGURED',
         sourceRegistryRuntime: 'PENDING_RUNTIME',
       },
     };
@@ -256,7 +256,7 @@ export class ScholarshipImportCenterUseCases {
 
   async transfer(input: ScholarshipImportTransferRequest) {
     if (!this.transferPort) {
-      throw new Error('SCHOLARSHIP_IMPORT_TRANSFER_DEFERRED_TO_WP12_10');
+      throw new Error('SCHOLARSHIP_IMPORT_TRANSFER_PORT_NOT_CONFIGURED');
     }
     const record = await this.getRecord(input.recordId);
     if (!record.readyToTransfer) {

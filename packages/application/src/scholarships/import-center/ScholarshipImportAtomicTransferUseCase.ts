@@ -4,6 +4,7 @@ import {
   ScholarshipDeduplicationService,
   ScholarshipImportPayloadSchema,
   ScholarshipNamingService,
+  ScholarshipPublicationStatus,
   ScholarshipStatus,
   ScholarshipVerificationStatus,
   type CreateScholarshipDto,
@@ -29,6 +30,7 @@ import {
   appendScholarshipImportReviewDecision,
   appendScholarshipImportTransferReceipt,
   readScholarshipImportReviewDecision,
+  readScholarshipImportTransferReceipt,
   scholarshipImportReviewFingerprint,
   type ScholarshipImportReviewDecisionEnvelope,
 } from './ScholarshipImportReviewDecisionCodec';
@@ -171,11 +173,15 @@ export class ScholarshipImportAtomicTransferUseCase
       if (record.promotedEntityId) {
         const linked = await scholarshipTx.findById(record.promotedEntityId);
         if (!linked) throw new Error('SCHOLARSHIP_IMPORT_PROMOTION_LINK_CORRUPT');
+        const receipt = readScholarshipImportTransferReceipt(record.processingNotes);
+        if (!receipt || receipt.recordId !== record.id || receipt.scholarshipId !== linked.id) {
+          throw new Error('SCHOLARSHIP_IMPORT_PROMOTION_LINK_CORRUPT');
+        }
         return {
           recordId: record.id,
           scholarshipId: linked.id,
-          transferredAt: this.dateString(record.updatedAt) ?? new Date().toISOString(),
-          publicationStatus: 'DRAFT' as const,
+          transferredAt: receipt.transferredAt,
+          publicationStatus: linked.publicationStatus ?? ScholarshipPublicationStatus.DRAFT,
         };
       }
 
@@ -228,7 +234,7 @@ export class ScholarshipImportAtomicTransferUseCase
         recordId: record.id,
         scholarshipId: scholarship.id,
         transferredAt,
-        publicationStatus: 'DRAFT' as const,
+        publicationStatus: scholarship.publicationStatus ?? ScholarshipPublicationStatus.DRAFT,
       };
     });
   }
@@ -340,6 +346,7 @@ export class ScholarshipImportAtomicTransferUseCase
       canonicalName: plan.cleanedName.cleanedScholarshipName,
       canonicalDedupKey: plan.duplicateKey,
       status: ScholarshipStatus.IMPORTED,
+      publicationStatus: ScholarshipPublicationStatus.DRAFT,
       verificationStatus: ScholarshipVerificationStatus.PENDING,
       ...common,
     };
@@ -557,7 +564,7 @@ export class ScholarshipImportAtomicTransferUseCase
       if (!label) return [];
       const testLabel = this.stringValue(item.internationalTestLabel ?? item.testName);
       const resolved = testLabel ? this.resolutionFor(plan.canonical, 'INTERNATIONAL_TEST', testLabel) : undefined;
-      return [{ label, internationalTestId: this.stringValue(item.internationalTestId) ?? resolved?.canonicalReferenceId ?? null,
+      return [{ label, internationalTestId: resolved?.canonicalReferenceId ?? null,
         sourceLabel: this.stringValue(item.sourceLabel) ?? label,
         resolutionStatus: this.stringValue(item.resolutionStatus) ?? resolved?.state ?? 'SOURCE_ONLY' }];
     });
@@ -768,11 +775,6 @@ export class ScholarshipImportAtomicTransferUseCase
     if (typeof value !== 'string' || !value.trim()) return null;
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? null : date;
-  }
-
-  private dateString(value: unknown): string | null {
-    const date = this.dateValue(value);
-    return date?.toISOString() ?? null;
   }
 
   private numericValue(value: unknown): number | null {

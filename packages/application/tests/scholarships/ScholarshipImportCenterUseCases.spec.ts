@@ -161,7 +161,7 @@ describe('WP12-7 ScholarshipImportCenterUseCases', () => {
     await expect(service.transfer({
       recordId: 'rec-real-ready',
       actorId: 'admin-1',
-    })).rejects.toThrow('SCHOLARSHIP_IMPORT_TRANSFER_DEFERRED_TO_WP12_10');
+    })).rejects.toThrow('SCHOLARSHIP_IMPORT_TRANSFER_PORT_NOT_CONFIGURED');
   });
 
   it('never marks NEEDS_REVIEW ready merely because its identity is available', async () => {

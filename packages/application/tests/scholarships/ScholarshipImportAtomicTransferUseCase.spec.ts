@@ -137,7 +137,9 @@ function existingScholarship(status: ScholarshipStatus = ScholarshipStatus.IMPOR
     completenessStatus: ScholarshipCompletenessState.COMPLETE,
     publicationStatus: status === ScholarshipStatus.PUBLISHED
       ? ScholarshipPublicationStatus.PUBLISHED
-      : ScholarshipPublicationStatus.DRAFT,
+      : status === ScholarshipStatus.ARCHIVED
+        ? ScholarshipPublicationStatus.ARCHIVED
+        : ScholarshipPublicationStatus.DRAFT,
     providerName: source.providerName,
     sourceImportRecordId: 'old-record',
     sourceEvidence: [],
@@ -156,6 +158,7 @@ describe('WP12-10 ScholarshipImportAtomicTransferUseCase', () => {
     expect(env.create).toHaveBeenCalledTimes(1);
     const createInput = env.create.mock.calls[0][0];
     expect(createInput.status).toBe(ScholarshipStatus.IMPORTED);
+    expect(createInput.publicationStatus).toBe(ScholarshipPublicationStatus.DRAFT);
     expect(createInput.sourceImportRecordId).toBe('rec-1');
     expect(createInput.sourceEvidence?.some((item) => item.importRecordId === 'rec-1')).toBe(true);
     expect(env.getRecord().promotedEntityId).toBe('sch-new');
@@ -193,5 +196,162 @@ describe('WP12-10 ScholarshipImportAtomicTransferUseCase', () => {
     await expect(env.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' }))
       .rejects.toThrow('SCHOLARSHIP_IMPORT_TARGET_PUBLICATION_LOCKED');
     expect(env.update).not.toHaveBeenCalled();
+  });
+
+  it('binds both repositories to the same atomic transaction context', async () => {
+    const env = setup();
+    const importBinding = vi.spyOn(env.importGateway, 'withTransaction');
+    const scholarshipBinding = vi.spyOn(env.repository as any, 'withTransaction');
+    await env.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' });
+    const context = (env.atomicMutations.execute as any).mock.calls[0][1] ? importBinding.mock.calls[0][0] : null;
+    expect(context).toMatchObject({ boundaryId: 'tx-1' });
+    expect(scholarshipBinding).toHaveBeenCalledWith(context);
+  });
+
+  it('returns a truthful durable receipt on repeat transfer without another mutation', async () => {
+    const env = setup();
+    const first = await env.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' });
+    const second = await env.service.transfer({ recordId: 'rec-1', actorId: 'admin-2' });
+    expect(second).toEqual(first);
+    expect(env.create).toHaveBeenCalledTimes(1);
+    expect(env.update).not.toHaveBeenCalled();
+    env.getScholarship()!.publicationStatus = ScholarshipPublicationStatus.PUBLISHED;
+    const afterExplicitPublish = await env.service.transfer({ recordId: 'rec-1', actorId: 'admin-3' });
+    expect(afterExplicitPublish.publicationStatus).toBe(ScholarshipPublicationStatus.PUBLISHED);
+    expect(afterExplicitPublish.transferredAt).toBe(first.transferredAt);
+  });
+
+  it('rejects a corrupt promotedEntityId or missing durable transfer receipt', async () => {
+    const missing = setup();
+    missing.getRecord().promotedEntityId = 'missing-scholarship';
+    await expect(missing.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' }))
+      .rejects.toThrow('SCHOLARSHIP_IMPORT_PROMOTION_LINK_CORRUPT');
+
+    const noReceipt = setup(existingScholarship());
+    noReceipt.getRecord().promotedEntityId = 'sch-existing';
+    await expect(noReceipt.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' }))
+      .rejects.toThrow('SCHOLARSHIP_IMPORT_PROMOTION_LINK_CORRUPT');
+  });
+
+  it.each([
+    [ScholarshipStatus.PUBLISHED],
+    [ScholarshipStatus.ARCHIVED],
+  ])('locks %s canonical targets from import mutation', async (status) => {
+    const env = setup(existingScholarship(status));
+    await env.service.recordDecision({ recordId: 'rec-1', action: 'MERGE', actorId: 'admin-1' });
+    await expect(env.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' }))
+      .rejects.toThrow('SCHOLARSHIP_IMPORT_TARGET_PUBLICATION_LOCKED');
+    expect(env.update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['KEEP_CURRENT', 'SCHOLARSHIP_IMPORT_KEEP_CURRENT_BLOCKS_TRANSFER'],
+    ['SPLIT', 'SCHOLARSHIP_IMPORT_SPLIT_REQUIRES_NEW_DEDUPE_IDENTITY'],
+  ] as const)('%s decision cannot silently merge', async (action, error) => {
+    const env = setup(existingScholarship());
+    await env.service.recordDecision({ recordId: 'rec-1', action, actorId: 'admin-1' });
+    await expect(env.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' })).rejects.toThrow(error);
+    expect(env.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects a stale durable review decision after incoming context changes', async () => {
+    const env = setup(existingScholarship());
+    await env.service.recordDecision({ recordId: 'rec-1', action: 'MERGE', actorId: 'admin-1' });
+    (env.getRecord().rawPayload as any).coverageDetails = 'Changed after review';
+    await expect(env.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' }))
+      .rejects.toThrow('SCHOLARSHIP_IMPORT_REVIEW_DECISION_STALE');
+    expect(env.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects when the duplicate target changes after durable review', async () => {
+    const env = setup(existingScholarship());
+    await env.service.recordDecision({ recordId: 'rec-1', action: 'MERGE', actorId: 'admin-1' });
+    const changedTarget = existingScholarship();
+    changedTarget.id = 'sch-different';
+    vi.spyOn(env.repository, 'findByDedupKey').mockResolvedValue(changedTarget);
+    await expect(env.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' }))
+      .rejects.toThrow('SCHOLARSHIP_IMPORT_REVIEW_DECISION_STALE');
+    expect(env.update).not.toHaveBeenCalled();
+  });
+
+  it('transfers normalized structures using only resolved canonical ids', async () => {
+    const env = setup();
+    const raw = env.getRecord().rawPayload as any;
+    raw.eligibleMajorsOrFields = ['Computer Science'];
+    raw.targetUniversities = ['Qatar University'];
+    raw.studyLanguage = 'English';
+    raw.metadata.internationalTests = ['IELTS'];
+    raw.metadata.canonicalScreening = [
+      { target: 'COUNTRY', state: 'RESOLVED', rawValue: 'Qatar', canonicalReferenceId: 'country-qa' },
+      { target: 'LANGUAGE', state: 'RESOLVED', rawValue: 'English', canonicalReferenceId: 'language-en' },
+      { target: 'DEGREE_LEVEL', state: 'RESOLVED', rawValue: 'Doctorate', canonicalReferenceId: 'degree-phd' },
+      { target: 'MAJOR', state: 'RESOLVED', rawValue: 'Computer Science', canonicalReferenceId: 'major-cs' },
+      { target: 'INTERNATIONAL_TEST', state: 'RESOLVED', rawValue: 'IELTS', canonicalReferenceId: 'test-ielts' },
+      { target: 'UNIVERSITY', state: 'RESOLVED', rawValue: 'Qatar University', canonicalReferenceId: 'university-qu' },
+    ];
+    await env.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' });
+    const created = env.create.mock.calls[0][0];
+    expect(created.benefits?.length).toBeGreaterThan(0);
+    expect(created.degreeTargets).toEqual(expect.arrayContaining([expect.objectContaining({ degreeLevelId: 'degree-phd' })]));
+    expect(created.majorTargets).toEqual(expect.arrayContaining([expect.objectContaining({ majorId: 'major-cs' })]));
+    expect(created.eligibilityItems).toEqual(expect.arrayContaining([expect.objectContaining({ internationalTestId: 'test-ielts' })]));
+    expect(created.requiredDocumentItems?.length).toBeGreaterThan(0);
+    expect(created.universityLinks).toEqual(expect.arrayContaining([expect.objectContaining({ universityId: 'university-qu' })]));
+  });
+
+  it('merge retains prior SourceEvidence and adds incoming provenance deterministically', async () => {
+    const existing = existingScholarship();
+    existing.sourceEvidence = [{ evidenceKey: 'old-source', sourceTypeCode: 'OFFICIAL_SOURCE', sourceUrl: 'https://old.example/source', importRecordId: 'old-record' }];
+    const env = setup(existing);
+    await env.service.recordDecision({ recordId: 'rec-1', action: 'MERGE', actorId: 'admin-1' });
+    await env.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' });
+    const evidence = env.update.mock.calls[0][1].sourceEvidence ?? [];
+    expect(evidence).toEqual(expect.arrayContaining([
+      expect.objectContaining({ evidenceKey: 'old-source', importRecordId: 'old-record' }),
+      expect.objectContaining({ importRecordId: 'rec-1' }),
+    ]));
+  });
+
+  it.each([
+    ['UNRESOLVED'], ['AMBIGUOUS'], ['REVIEW_REQUIRED'],
+  ])('blocks %s canonical screening states', async (state) => {
+    const env = setup();
+    (env.getRecord().rawPayload as any).metadata.canonicalScreening = [{ target: 'COUNTRY', state, rawValue: 'Qatar' }];
+    await expect(env.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' }))
+      .rejects.toThrow('SCHOLARSHIP_IMPORT_CANONICAL_REVIEW_REQUIRED');
+    expect(env.create).not.toHaveBeenCalled();
+  });
+
+  it('blocks unverified and missing canonical-screening records', async () => {
+    const unverified = setup();
+    (unverified.getRecord().rawPayload as any).metadata.verificationState = 'PENDING';
+    await expect(unverified.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' }))
+      .rejects.toThrow('SCHOLARSHIP_IMPORT_SOURCE_NOT_VERIFIED');
+
+    const unscreened = setup();
+    delete (unscreened.getRecord().rawPayload as any).metadata.canonicalScreening;
+    await expect(unscreened.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' }))
+      .rejects.toThrow('SCHOLARSHIP_IMPORT_CANONICAL_SCREENING_REQUIRED');
+  });
+
+  it('does not trust a raw InternationalTest id without a resolved canonical screening result', async () => {
+    const env = setup();
+    (env.getRecord().rawPayload as any).metadata.requiredDocumentItems = [{ displayName: 'IELTS result', internationalTestLabel: 'IELTS', internationalTestId: 'injected-id' }];
+    await env.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' });
+    expect(env.create.mock.calls[0][0].requiredDocumentItems).toEqual(expect.arrayContaining([
+      expect.objectContaining({ displayName: 'IELTS result', internationalTestId: null }),
+    ]));
+  });
+
+  it('propagates Scholarship and ImportRecord failures instead of reporting partial success', async () => {
+    const scholarshipFailure = setup();
+    scholarshipFailure.create.mockRejectedValueOnce(new Error('scholarship write failed'));
+    const linkSpy = vi.spyOn(scholarshipFailure.importGateway, 'updateRecord');
+    await expect(scholarshipFailure.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' })).rejects.toThrow('scholarship write failed');
+    expect(linkSpy).not.toHaveBeenCalled();
+
+    const promotionFailure = setup();
+    vi.spyOn(promotionFailure.importGateway, 'updateRecord').mockRejectedValueOnce(new Error('promotion link failed'));
+    await expect(promotionFailure.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' })).rejects.toThrow('promotion link failed');
   });
 });

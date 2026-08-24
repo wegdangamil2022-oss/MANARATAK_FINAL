@@ -2,6 +2,7 @@ import type {
   AtomicPersistenceContext,
   IScholarshipRepository,
   ScholarshipCompletenessState,
+  ScholarshipPublicationStatus,
 } from '@manaratak/domain';
 
 export type ScholarshipImportOperationalClass =
@@ -133,7 +134,7 @@ export interface ScholarshipImportTransferResult {
   recordId: string;
   scholarshipId: string;
   transferredAt: string;
-  publicationStatus: 'DRAFT';
+  publicationStatus: ScholarshipPublicationStatus;
 }
 
 /** Scholarship-owned atomic transfer boundary. */
@@ -225,7 +226,7 @@ export interface ScholarshipImportCenterOverview {
   sourceTotal: number;
   capabilities: {
     reviewDecisionPersistence: 'CONFIGURED' | 'NOT_CONFIGURED';
-    atomicTransfer: 'CONFIGURED' | 'DEFERRED_TO_WP12_10';
+    atomicTransfer: 'CONFIGURED' | 'NOT_CONFIGURED';
     sourceRegistryRuntime: 'PENDING_RUNTIME';
   };
 }

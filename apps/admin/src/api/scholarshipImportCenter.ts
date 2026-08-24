@@ -101,7 +101,7 @@ export interface ScholarshipImportCenterOverview {
   sourceTotal: number;
   capabilities: {
     reviewDecisionPersistence: 'CONFIGURED' | 'NOT_CONFIGURED';
-    atomicTransfer: 'CONFIGURED' | 'DEFERRED_TO_WP12_10';
+    atomicTransfer: 'CONFIGURED' | 'NOT_CONFIGURED';
     sourceRegistryRuntime: 'PENDING_RUNTIME';
   };
 }
@@ -398,7 +398,7 @@ export const scholarshipImportCenterApi = {
       recordId: string;
       scholarshipId: string;
       transferredAt: string;
-      publicationStatus: 'DRAFT';
+      publicationStatus: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
     }>(`${BASE}/records/${encodeURIComponent(id)}/transfer`, {
       method: 'POST',
     });
