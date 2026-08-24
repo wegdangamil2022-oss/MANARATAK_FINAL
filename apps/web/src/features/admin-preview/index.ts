@@ -36,8 +36,6 @@ export * from './AdminCmsPageDetailPage';
 export * from './AdminCmsCategoriesPreviewPage';
 export * from './AdminCmsTranslationsPreviewPage';
 export * from './AdminCmsReviewQueuePage';
-export * from './AdminStudentToolsPreviewPage';
-export * from './AdminStudentToolDetailPage';
 export * from './AdminCertificatesPreviewPage';
 export * from './AdminCertificateDetailPage';
 export * from './AdminFinancePreviewPage';

@@ -1,44 +1,106 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { StudentToolExecutionUseCases, StudentToolRegistryUseCases } from '@manaratak/application';
-import { StudentToolVisibilityStatus } from '@manaratak/domain';
-
 export class StudentToolsPublicRouter {
-  public static create(cradle: { studentToolRegistryUseCases: StudentToolRegistryUseCases; studentToolExecutionUseCases: StudentToolExecutionUseCases }): Router {
+  static create(cradle: {
+    studentToolRegistryUseCases: StudentToolRegistryUseCases;
+    studentToolExecutionUseCases: StudentToolExecutionUseCases;
+  }) {
     const router = Router();
-    const { studentToolRegistryUseCases, studentToolExecutionUseCases } = cradle;
-
-    const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
-      Promise.resolve(fn(req, res, next)).catch(next);
-    };
-
-    const querySchema = z.object({
+    const safe =
+      (fn: (req: Request, res: Response) => Promise<unknown>) =>
+      (req: Request, res: Response, next: NextFunction) =>
+        Promise.resolve(fn(req, res)).catch(next);
+    const query = z.object({
       category: z.string().optional(),
-      visibilityStatus: z.nativeEnum(StudentToolVisibilityStatus).optional()
+      visibility: z.string().optional(),
+      implementationStatus: z.string().optional(),
+      search: z.string().optional(),
     });
-
-    router.get('/', asyncHandler(async (req: Request, res: Response) => {
-      res.json({ data: await studentToolRegistryUseCases.listPublicTools(querySchema.parse(req.query)) });
-    }));
-
-    const executionSchema = z.object({
-      input: z.string().min(1).max(8000),
-      requesterReferenceId: z.string().optional().nullable(),
-      locale: z.string().optional().nullable(),
-      metadata: z.record(z.string(), z.unknown()).optional().nullable()
+    router.get(
+      '/',
+      safe(async (req, res) => {
+        res.json({
+          data: await cradle.studentToolRegistryUseCases.listPublicTools(query.parse(req.query)),
+        });
+      }),
+    );
+    router.get(
+      '/executions/:executionId',
+      safe(async (req, res) => {
+        const value = await cradle.studentToolExecutionUseCases.findExecution(
+          req.params.executionId,
+        );
+        if (!value) return void res.status(404).json({ error: 'TOOL_EXECUTION_NOT_FOUND' });
+        res.json({ data: value });
+      }),
+    );
+    router.get(
+      '/:toolKey',
+      safe(async (req, res) => {
+        const value = await cradle.studentToolRegistryUseCases.findTool(req.params.toolKey);
+        if (!value || !value.availability.publicEnabled || value.availability.adminOnly)
+          return void res.status(404).json({ error: 'TOOL_NOT_FOUND' });
+        res.json({ data: value });
+      }),
+    );
+    router.get(
+      '/:toolKey/availability',
+      safe(async (req, res) => {
+        const value = await cradle.studentToolRegistryUseCases.findTool(req.params.toolKey);
+        if (!value || !value.availability.publicEnabled)
+          return void res.status(404).json({ error: 'TOOL_NOT_FOUND' });
+        res.json({
+          data: {
+            toolKey: value.toolKey,
+            implementationStatus: value.implementationStatus,
+            lifecycle: value.lifecycle,
+            visibility: value.visibility,
+            availability: value.availability,
+            featureFlags: value.featureFlags,
+          },
+        });
+      }),
+    );
+    router.post(
+      '/:toolKey/execute',
+      safe(async (req, res) => {
+        const body = z
+          .object({
+            input: z.unknown(),
+            locale: z.enum(['ar', 'en']).optional(),
+            idempotencyKey: z.string().max(200).optional(),
+          })
+          .parse(req.body);
+        const authenticated = !!req.authUserId;
+        const session = String(req.header('x-student-tools-session') ?? req.ip ?? 'anonymous');
+        const result = await cradle.studentToolExecutionUseCases.execute(req.params.toolKey, {
+          input: body.input,
+          locale: body.locale,
+          idempotencyKey: body.idempotencyKey,
+          requestId: String(req.header('x-request-id') ?? ''),
+          consumerType: authenticated ? 'AUTHENTICATED_STUDENT' : 'ANONYMOUS',
+          authenticatedStudentReference: req.authUserId,
+          anonymousSessionReference: authenticated ? undefined : session,
+        });
+        res.json({ data: result });
+      }),
+    );
+    router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+      if (error instanceof z.ZodError)
+        return res.status(400).json({ error: 'TOOL_INPUT_INVALID', details: error.issues });
+      const code = error instanceof Error ? error.message : 'TOOL_EXECUTION_FAILED';
+      const status = code.includes('NOT_FOUND')
+        ? 404
+        : code.includes('AUTH_REQUIRED')
+          ? 401
+          : code.includes('RATE_LIMITED')
+            ? 429
+            : code.includes('NOT_ACTIVE') || code.includes('NOT_IMPLEMENTED')
+              ? 409
+              : 400;
+      res.status(status).json({ error: code });
     });
-
-    router.post('/:toolKey/execute', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await studentToolExecutionUseCases.execute(req.params.toolKey, executionSchema.parse(req.body)));
-    }));
-
-    router.use((err: any, req: Request, res: Response, next: NextFunction) => {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ error: 'Validation Error', details: err.issues });
-      }
-      res.status(400).json({ error: err.message || 'An error occurred' });
-    });
-
     return router;
   }
 }

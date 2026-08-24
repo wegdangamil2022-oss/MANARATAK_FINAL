@@ -1,311 +1,449 @@
-import { ChangeEvent, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import {
+  Activity,
+  ArrowRight,
+  CheckCircle2,
+  Clock3,
+  Search,
+  Settings2,
+  ShieldCheck,
+  Wrench,
+} from 'lucide-react';
 import { adminApiClient } from '../api/client';
-import { Bot, CheckCircle2, Filter, Loader2, RefreshCw, Save, ShieldCheck, SlidersHorizontal } from 'lucide-react';
-import { useTranslation } from "../i18n/I18nProvider";
 
-type ToolVisibilityStatus = 'ACTIVE' | 'COMING_SOON' | 'UNDER_DEVELOPMENT' | 'HIDDEN_ADMIN_ONLY' | 'DISABLED' | 'RETIRED';
-type ToolImplementationPriority = 'P1_CORE_LAUNCH' | 'P2_EXPANSION' | 'P3_LATER';
-type ToolExecutionType = 'STATIC_FORM' | 'DETERMINISTIC_CALCULATOR' | 'DOCUMENT_GENERATOR' | 'AI_ASSISTED' | 'EXTERNAL_LINK';
-type ToolAiDependencyLevel = 'NONE' | 'OPTIONAL' | 'REQUIRED_LOW_COST' | 'REQUIRED_HIGH_COST';
-
-interface StudentToolRegistryEntry {
-  id: string;
+type Tool = {
   toolKey: string;
-  displayName: string;
-  description?: string | null;
+  nameAr: string;
+  nameEn: string;
+  descriptionAr: string;
+  descriptionEn: string;
   category: string;
-  executionType: ToolExecutionType;
-  visibilityStatus: ToolVisibilityStatus;
-  implementationPriority: ToolImplementationPriority;
-  aiDependencyLevel: ToolAiDependencyLevel;
-  publicEnabled: boolean;
-  anonymousEnabled: boolean;
-  authenticatedEnabled: boolean;
-  adminOnly: boolean;
-  launchOrder: number;
-  dependencyMetadata?: Record<string, unknown> | null;
-  costRiskMetadata?: Record<string, unknown> | null;
-  metadata?: Record<string, unknown> | null;
-  updatedAt: string;
-}
-
-interface StudentToolsResponse {
-  data: StudentToolRegistryEntry[];
-}
-
-const visibilityOptions: ToolVisibilityStatus[] = ['ACTIVE', 'COMING_SOON', 'UNDER_DEVELOPMENT', 'HIDDEN_ADMIN_ONLY', 'DISABLED', 'RETIRED'];
-const priorityOptions: ToolImplementationPriority[] = ['P1_CORE_LAUNCH', 'P2_EXPANSION', 'P3_LATER'];
-const executionOptions: ToolExecutionType[] = ['STATIC_FORM', 'DETERMINISTIC_CALCULATOR', 'DOCUMENT_GENERATOR', 'AI_ASSISTED', 'EXTERNAL_LINK'];
-const aiOptions: ToolAiDependencyLevel[] = ['NONE', 'OPTIONAL', 'REQUIRED_LOW_COST', 'REQUIRED_HIGH_COST'];
-
+  executionType: string;
+  visibility: string;
+  implementationStatus: string;
+  lifecycle: string;
+  implementationPriority: string;
+  estimatedMinutes: number;
+  availability: {
+    publicEnabled: boolean;
+    anonymousEnabled: boolean;
+    authenticatedEnabled: boolean;
+    adminOnly: boolean;
+    allowedLocales: string[];
+    allowedRegions: string[];
+    maintenanceMode: boolean;
+  };
+  featureFlags: {
+    globallyEnabled: boolean;
+    anonymousEnabled: boolean;
+    authenticatedEnabled: boolean;
+    maintenanceMode: boolean;
+  };
+  dependencies: Array<{ phase: string; required: boolean; description: string }>;
+  currentVersion: { semanticVersion: string };
+  updatedAt?: string;
+};
+type Overview = {
+  total: number;
+  implemented: number;
+  active: number;
+  planned: number;
+  telemetry: {
+    executions24h: number | null;
+    successRate: number | null;
+    p95LatencyMs: number | null;
+  };
+};
+type Detail = {
+  tool: Tool;
+  telemetry: Record<string, number | null>;
+  executions: {
+    data: Array<{
+      executionId: string;
+      status: string;
+      durationMs?: number;
+      startedAt: string;
+      isTest: boolean;
+    }>;
+    total: number;
+  };
+  audit: Array<{ timestamp: string; actor: string; action: string; summary: string }>;
+};
+const labels: Record<string, string> = {
+  IMPLEMENTED: 'منفذة',
+  PLANNED: 'مخططة',
+  IN_DEVELOPMENT: 'قيد التطوير',
+  ACTIVE: 'نشطة',
+  COMING_SOON: 'قريبًا',
+  HIDDEN_ADMIN_ONLY: 'إدارية فقط',
+  DRAFT: 'مسودة',
+  TESTING: 'اختبار',
+  DEPRECATED: 'متقادمة',
+  RETIRED: 'متقاعدة',
+};
 export function StudentToolsAdminPage() {
-    const { t } = useTranslation();
-  const [tools, setTools] = useState<StudentToolRegistryEntry[]>([]);
-  const [drafts, setDrafts] = useState<Record<string, StudentToolRegistryEntry>>({});
+  const { toolKey } = useParams();
+  return toolKey ? <ToolDetail toolKey={toolKey} /> : <ToolCatalog />;
+}
+function ToolCatalog() {
+  const [tools, setTools] = useState<Tool[]>([]);
+  const [overview, setOverview] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
-  const [savingKey, setSavingKey] = useState<string | null>(null);
-  const [visibilityFilter, setVisibilityFilter] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadTools = async () => {
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('');
+  const load = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setError('');
     try {
-      const params = new URLSearchParams();
-      if (visibilityFilter) params.append('visibilityStatus', visibilityFilter);
-      if (priorityFilter) params.append('implementationPriority', priorityFilter);
-      if (categoryFilter.trim()) params.append('category', categoryFilter.trim());
-      const suffix = params.toString() ? `?${params.toString()}` : '';
-      const response = await adminApiClient.request<StudentToolsResponse>(`/admin/student-tools${suffix}`);
-      setTools(response.data);
-      setDrafts(Object.fromEntries(response.data.map((tool) => [tool.toolKey, tool])));
-    } catch (err: any) {
-      setError(err.message || 'Unable to load student tools.');
+      const [list, summary] = await Promise.all([
+        adminApiClient.request<{ data: Tool[] }>('/admin/student-tools'),
+        adminApiClient.request<{ data: Overview }>('/admin/student-tools/overview'),
+      ]);
+      setTools(list.data);
+      setOverview(summary.data);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'تعذر تحميل مركز الأدوات');
     } finally {
       setLoading(false);
     }
-  };
-
+  }, []);
   useEffect(() => {
-    loadTools();
-  }, [visibilityFilter, priorityFilter]);
-
-  const seedTools = async () => {
-    setSavingKey('seed');
-    setMessage(null);
-    setError(null);
-    try {
-      const response = await adminApiClient.request<StudentToolsResponse>('/admin/student-tools/seed', { method: 'POST' });
-      setMessage(`Official tool registry seeded with ${response.data.length} tools.`);
-      await loadTools();
-    } catch (err: any) {
-      setError(err.message || 'Unable to seed official tools.');
-    } finally {
-      setSavingKey(null);
-    }
-  };
-
-  const saveTool = async (toolKey: string) => {
-    const draft = drafts[toolKey];
-    if (!draft) return;
-    setSavingKey(toolKey);
-    setMessage(null);
-    setError(null);
-    try {
-      const updated = await adminApiClient.request<StudentToolRegistryEntry>(`/admin/student-tools/${encodeURIComponent(toolKey)}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          displayName: draft.displayName.trim(),
-          description: draft.description?.trim() || null,
-          category: draft.category.trim(),
-          executionType: draft.executionType,
-          visibilityStatus: draft.visibilityStatus,
-          implementationPriority: draft.implementationPriority,
-          aiDependencyLevel: draft.aiDependencyLevel,
-          publicEnabled: draft.publicEnabled,
-          anonymousEnabled: draft.anonymousEnabled,
-          authenticatedEnabled: draft.authenticatedEnabled,
-          adminOnly: draft.adminOnly,
-          launchOrder: Number(draft.launchOrder) || 0,
-          dependencyMetadata: draft.dependencyMetadata || null,
-          costRiskMetadata: draft.costRiskMetadata || null,
-          metadata: draft.metadata || null
-        })
-      });
-      setMessage(`Saved tool: ${updated.displayName}`);
-      setTools((current) => current.map((tool) => tool.toolKey === toolKey ? updated : tool));
-      setDrafts((current) => ({ ...current, [toolKey]: updated }));
-    } catch (err: any) {
-      setError(err.message || 'Unable to save tool.');
-    } finally {
-      setSavingKey(null);
-    }
-  };
-
-  const updateDraft = <K extends keyof StudentToolRegistryEntry>(toolKey: string, key: K, value: StudentToolRegistryEntry[K]) => {
-    setDrafts((current) => ({
-      ...current,
-      [toolKey]: {
-        ...current[toolKey],
-        [key]: value
-      }
-    }));
-  };
-
-  const handleCategoryFilter = (event: ChangeEvent<HTMLInputElement>) => {
-    setCategoryFilter(event.target.value);
-  };
-
+    void load();
+  }, [load]);
+  const filtered = useMemo(
+    () =>
+      tools.filter(
+        (tool) =>
+          (!status || tool.implementationStatus === status) &&
+          (!search ||
+            `${tool.nameAr} ${tool.nameEn} ${tool.toolKey}`
+              .toLowerCase()
+              .includes(search.toLowerCase())),
+      ),
+    [tools, search, status],
+  );
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold">{t('student_tools')}</h2>
-          <p className="text-sm text-gray-500 mt-1">{t('manage_tool_visibility_launch_priority_access_rule')}</p>
+    <main dir="rtl" className="mx-auto max-w-7xl space-y-6">
+      <header className="rounded-3xl bg-gradient-to-l from-emerald-950 to-emerald-700 p-7 text-white">
+        <p className="text-sm font-bold text-emerald-200">Phase 18</p>
+        <h1 className="mt-2 text-3xl font-black">مركز أدوات الطلاب</h1>
+        <p className="mt-3 max-w-3xl leading-7 text-emerald-50">
+          تحكم حقيقي في السجل والحالة والإتاحة والتنفيذ. لا توجد مؤشرات تجريبية أو نجاحات مصطنعة.
+        </p>
+      </header>
+      {error ? <Alert>{error}</Alert> : null}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Metric icon={Settings2} label="إجمالي السجل" value={overview?.total} />
+        <Metric icon={CheckCircle2} label="منفذة" value={overview?.implemented} />
+        <Metric icon={Activity} label="نشطة" value={overview?.active} />
+        <Metric icon={Clock3} label="ضمن الخطة" value={overview?.planned} />
+      </section>
+      <section className="rounded-3xl border bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <label className="flex flex-1 items-center gap-2 rounded-xl border px-3">
+            <Search className="h-4 w-4 text-slate-400" />
+            <span className="sr-only">بحث</span>
+            <input
+              className="min-h-11 w-full outline-none"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="ابحث بالاسم أو المفتاح..."
+            />
+          </label>
+          <select
+            className="min-h-11 rounded-xl border px-3"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="">كل حالات التنفيذ</option>
+            <option value="IMPLEMENTED">منفذة</option>
+            <option value="PLANNED">مخططة</option>
+            <option value="IN_DEVELOPMENT">قيد التطوير</option>
+          </select>
+          <button className="rounded-xl border px-4 py-2 font-bold" onClick={() => void load()}>
+            تحديث
+          </button>
         </div>
-
-        <div className="flex flex-wrap gap-3">
-          <div className="relative">
-            <select value={visibilityFilter} onChange={(event) => setVisibilityFilter(event.target.value)} className="appearance-none bg-white border border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-black">
-              <option value="">{t('all_statuses')}</option>
-              {visibilityOptions.map((status) => <option key={status} value={status}>{formatLabel(status)}</option>)}
-            </select>
-            <Filter className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
-          </div>
-
-          <div className="relative">
-            <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)} className="appearance-none bg-white border border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-black">
-              <option value="">{t('all_priorities')}</option>
-              {priorityOptions.map((priority) => <option key={priority} value={priority}>{formatLabel(priority)}</option>)}
-            </select>
-            <Filter className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
-          </div>
-
-          <input value={categoryFilter} onChange={handleCategoryFilter} onBlur={loadTools} placeholder={t('category')} className="bg-white border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-black" />
-
-          <button onClick={loadTools} disabled={loading} className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 bg-white rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50">
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> {t('refresh')}</button>
-          <button onClick={seedTools} disabled={savingKey === 'seed'} className="inline-flex items-center gap-2 px-3 py-2 bg-black text-white rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50">
-            {savingKey === 'seed' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} {t('seed_official_tools')}</button>
-        </div>
-      </div>
-
-      {message && <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">{message}</div>}
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <SummaryCard label={t('total_tools')} value={tools.length.toString()} icon={<SlidersHorizontal className="h-5 w-5" />} />
-        <SummaryCard label={t('active_public')} value={tools.filter((tool) => tool.visibilityStatus === 'ACTIVE' && tool.publicEnabled).length.toString()} icon={<ShieldCheck className="h-5 w-5" />} />
-        <SummaryCard label={t('ai_assisted')} value={tools.filter((tool) => tool.aiDependencyLevel !== 'NONE').length.toString()} icon={<Bot className="h-5 w-5" />} />
-      </div>
-
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-        {loading && !tools.length ? (
-          <div className="flex justify-center items-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-          </div>
+      </section>
+      <section className="overflow-hidden rounded-3xl border bg-white shadow-sm">
+        {loading ? (
+          <div className="p-16 text-center text-slate-500">جاري التحميل...</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500">
-                  <th className="px-5 py-3 font-medium min-w-[260px]">{t('tool')}</th>
-                  <th className="px-5 py-3 font-medium min-w-[190px]">{t('status')}</th>
-                  <th className="px-5 py-3 font-medium min-w-[180px]">{t('priority')}</th>
-                  <th className="px-5 py-3 font-medium min-w-[190px]">{t('execution')}</th>
-                  <th className="px-5 py-3 font-medium min-w-[190px]">{t('ai_dependency')}</th>
-                  <th className="px-5 py-3 font-medium min-w-[190px]">{t('access')}</th>
-                  <th className="px-5 py-3 font-medium min-w-[120px]">{t('order')}</th>
-                  <th className="px-5 py-3 font-medium text-right">{t('action')}</th>
+            <table className="w-full text-sm">
+              <thead className="bg-emerald-50 text-emerald-950">
+                <tr>
+                  {['الأداة', 'الفئة', 'التنفيذ', 'الحالة', 'الإتاحة', 'الإصدار', ''].map(
+                    (label) => (
+                      <th key={label} className="px-5 py-4 text-right font-black">
+                        {label}
+                      </th>
+                    ),
+                  )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 text-sm">
-                {tools.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">{t('no_student_tools_found_seed_the_official_registry_')}</td>
+              <tbody>
+                {filtered.map((tool) => (
+                  <tr key={tool.toolKey} className="border-t hover:bg-slate-50">
+                    <td className="px-5 py-4">
+                      <div className="font-black text-slate-950">{tool.nameAr}</div>
+                      <code className="text-xs text-slate-500">{tool.toolKey}</code>
+                    </td>
+                    <td className="px-5 py-4">{format(tool.category)}</td>
+                    <td className="px-5 py-4">{format(tool.executionType)}</td>
+                    <td className="px-5 py-4">
+                      <Badge value={tool.implementationStatus} />
+                      <div className="mt-1 text-xs text-slate-500">
+                        {labels[tool.lifecycle] ?? tool.lifecycle}
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      {tool.featureFlags.globallyEnabled ? 'مفعّلة' : 'متوقفة'} ·{' '}
+                      {tool.availability.publicEnabled ? 'عامة' : 'غير عامة'}
+                    </td>
+                    <td className="px-5 py-4">{tool.currentVersion.semanticVersion}</td>
+                    <td className="px-5 py-4">
+                      <Link
+                        className="font-black text-emerald-800"
+                        to={`/student-tools/${tool.toolKey}`}
+                      >
+                        إدارة
+                      </Link>
+                    </td>
                   </tr>
-                ) : tools.map((tool) => {
-                  const draft = drafts[tool.toolKey] || tool;
-                  return (
-                    <tr key={tool.toolKey} className="hover:bg-gray-50 align-top">
-                      <td className="px-5 py-4">
-                        <input value={draft.displayName} onChange={(event) => updateDraft(tool.toolKey, 'displayName', event.target.value)} className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-medium" />
-                        <div className="text-xs text-gray-500 mt-1">{tool.toolKey}</div>
-                        <input value={draft.category} onChange={(event) => updateDraft(tool.toolKey, 'category', event.target.value)} className="mt-2 w-full border border-gray-300 rounded px-3 py-1.5 text-xs" />
-                        <textarea value={draft.description || ''} onChange={(event) => updateDraft(tool.toolKey, 'description', event.target.value)} rows={2} className="mt-2 w-full border border-gray-300 rounded px-3 py-1.5 text-xs resize-none" />
-                      </td>
-                      <td className="px-5 py-4">
-                        <select value={draft.visibilityStatus} onChange={(event) => updateDraft(tool.toolKey, 'visibilityStatus', event.target.value as ToolVisibilityStatus)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs">
-                          {visibilityOptions.map((status) => <option key={status} value={status}>{formatLabel(status)}</option>)}
-                        </select>
-                        <StatusBadge status={draft.visibilityStatus} />
-                      </td>
-                      <td className="px-5 py-4">
-                        <select value={draft.implementationPriority} onChange={(event) => updateDraft(tool.toolKey, 'implementationPriority', event.target.value as ToolImplementationPriority)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs">
-                          {priorityOptions.map((priority) => <option key={priority} value={priority}>{formatLabel(priority)}</option>)}
-                        </select>
-                      </td>
-                      <td className="px-5 py-4">
-                        <select value={draft.executionType} onChange={(event) => updateDraft(tool.toolKey, 'executionType', event.target.value as ToolExecutionType)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs">
-                          {executionOptions.map((executionType) => <option key={executionType} value={executionType}>{formatLabel(executionType)}</option>)}
-                        </select>
-                      </td>
-                      <td className="px-5 py-4">
-                        <select value={draft.aiDependencyLevel} onChange={(event) => updateDraft(tool.toolKey, 'aiDependencyLevel', event.target.value as ToolAiDependencyLevel)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs">
-                          {aiOptions.map((level) => <option key={level} value={level}>{formatLabel(level)}</option>)}
-                        </select>
-                        {draft.aiDependencyLevel !== 'NONE' && (
-                          <div className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">{t('phase_17_governed')}</div>
-                        )}
-                      </td>
-                      <td className="px-5 py-4 space-y-2">
-                        <Toggle label={t('public')} checked={draft.publicEnabled} onChange={(value) => updateDraft(tool.toolKey, 'publicEnabled', value)} />
-                        <Toggle label={t('anonymous')} checked={draft.anonymousEnabled} onChange={(value) => updateDraft(tool.toolKey, 'anonymousEnabled', value)} />
-                        <Toggle label={t('signed_in')} checked={draft.authenticatedEnabled} onChange={(value) => updateDraft(tool.toolKey, 'authenticatedEnabled', value)} />
-                        <Toggle label={t('admin_only')} checked={draft.adminOnly} onChange={(value) => updateDraft(tool.toolKey, 'adminOnly', value)} />
-                      </td>
-                      <td className="px-5 py-4">
-                        <input type="number" value={draft.launchOrder} onChange={(event) => updateDraft(tool.toolKey, 'launchOrder', Number(event.target.value))} className="w-24 border border-gray-300 rounded px-2 py-1.5 text-sm" />
-                        <div className="text-xs text-gray-500 mt-2">{formatDate(tool.updatedAt)}</div>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <button onClick={() => saveTool(tool.toolKey)} disabled={savingKey === tool.toolKey} className="inline-flex items-center gap-2 px-3 py-2 bg-black text-white rounded-md text-xs font-medium hover:bg-gray-800 disabled:opacity-50">
-                          {savingKey === tool.toolKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} {t('save')}</button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                ))}
               </tbody>
             </table>
           </div>
         )}
+      </section>
+    </main>
+  );
+}
+function ToolDetail({ toolKey }: { toolKey: string }) {
+  const [detail, setDetail] = useState<Detail | null>(null);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const load = useCallback(async () => {
+    try {
+      const response = await adminApiClient.request<{ data: Detail }>(
+        `/admin/student-tools/${encodeURIComponent(toolKey)}`,
+      );
+      setDetail(response.data);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'تعذر تحميل الأداة');
+    }
+  }, [toolKey]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  const saveFlags = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!detail) return;
+    setSaving(true);
+    setError('');
+    try {
+      await adminApiClient.request(`/admin/student-tools/${encodeURIComponent(toolKey)}/flags`, {
+        method: 'PATCH',
+        body: JSON.stringify(detail.tool.featureFlags),
+      });
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'تعذر الحفظ');
+    } finally {
+      setSaving(false);
+    }
+  };
+  if (!detail)
+    return (
+      <main dir="rtl" className="p-8">
+        {error ? <Alert>{error}</Alert> : 'جاري التحميل...'}
+      </main>
+    );
+  const tool = detail.tool;
+  return (
+    <main dir="rtl" className="mx-auto max-w-6xl space-y-6">
+      <Link
+        to="/student-tools"
+        className="inline-flex items-center gap-2 font-bold text-emerald-800"
+      >
+        <ArrowRight className="h-4 w-4" /> سجل الأدوات
+      </Link>
+      <header className="rounded-3xl bg-emerald-950 p-7 text-white">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-emerald-200">{tool.nameEn}</p>
+            <h1 className="mt-1 text-3xl font-black">{tool.nameAr}</h1>
+            <code className="mt-3 block text-emerald-200">{tool.toolKey}</code>
+          </div>
+          <Badge value={tool.implementationStatus} />
+        </div>
+      </header>
+      {error ? <Alert>{error}</Alert> : null}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <section className="space-y-5 rounded-3xl border bg-white p-6 lg:col-span-2">
+          <h2 className="text-xl font-black">الهوية والعقود</h2>
+          <p className="leading-7 text-slate-600">{tool.descriptionAr}</p>
+          <dl className="grid gap-4 sm:grid-cols-2">
+            <Info label="نوع التنفيذ" value={format(tool.executionType)} />
+            <Info label="دورة الحياة" value={labels[tool.lifecycle] ?? tool.lifecycle} />
+            <Info label="الظهور" value={labels[tool.visibility] ?? tool.visibility} />
+            <Info label="الإصدار" value={tool.currentVersion.semanticVersion} />
+          </dl>
+          <h3 className="font-black">التبعيات</h3>
+          {tool.dependencies.length ? (
+            <ul className="space-y-2">
+              {tool.dependencies.map((dep) => (
+                <li key={`${dep.phase}-${dep.description}`} className="rounded-xl bg-slate-50 p-3">
+                  <strong>{dep.phase}</strong> · {dep.required ? 'مطلوبة' : 'اختيارية'} —{' '}
+                  {dep.description}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-slate-500">لا توجد تبعيات تشغيلية.</p>
+          )}
+        </section>
+        <form
+          onSubmit={saveFlags}
+          className="space-y-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-6"
+        >
+          <h2 className="text-xl font-black text-emerald-950">مفاتيح الإتاحة</h2>
+          {Object.entries(tool.featureFlags).map(([key, value]) => (
+            <label
+              key={key}
+              className="flex items-center justify-between gap-3 rounded-xl bg-white p-3"
+            >
+              <span>{flagLabel(key)}</span>
+              <input
+                type="checkbox"
+                checked={value}
+                onChange={(e) =>
+                  setDetail((current) =>
+                    current
+                      ? {
+                          ...current,
+                          tool: {
+                            ...current.tool,
+                            featureFlags: { ...current.tool.featureFlags, [key]: e.target.checked },
+                          },
+                        }
+                      : current,
+                  )
+                }
+              />
+            </label>
+          ))}
+          <button
+            disabled={saving}
+            className="w-full rounded-xl bg-emerald-800 px-4 py-3 font-black text-white"
+          >
+            {saving ? 'جاري الحفظ...' : 'حفظ الإتاحة'}
+          </button>
+          <p className="text-xs leading-6 text-emerald-900">
+            التفعيل لا يحوّل أداة غير منفذة إلى تنفيذ حقيقي، ولا ينشرها تلقائيًا.
+          </p>
+        </form>
       </div>
+      <section className="grid gap-4 sm:grid-cols-3">
+        <Metric icon={Activity} label="تنفيذات 24 ساعة" value={detail.telemetry.executions24h} />
+        <Metric
+          icon={ShieldCheck}
+          label="نسبة النجاح"
+          value={
+            typeof detail.telemetry.successRate === 'number'
+              ? `${Math.round(detail.telemetry.successRate * 100)}%`
+              : '—'
+          }
+        />
+        <Metric
+          icon={Wrench}
+          label="زمن P95"
+          value={
+            typeof detail.telemetry.p95LatencyMs === 'number'
+              ? `${detail.telemetry.p95LatencyMs}ms`
+              : '—'
+          }
+        />
+      </section>
+      <section className="rounded-3xl border bg-white p-6">
+        <h2 className="mb-4 text-xl font-black">آخر التنفيذات</h2>
+        {detail.executions.data.length ? (
+          <div className="space-y-2">
+            {detail.executions.data.map((entry) => (
+              <div
+                key={entry.executionId}
+                className="flex flex-wrap justify-between gap-3 rounded-xl bg-slate-50 p-3"
+              >
+                <code>{entry.executionId}</code>
+                <span>{labels[entry.status] ?? entry.status}</span>
+                <span>{entry.durationMs ?? '—'} ms</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-slate-500">لا توجد تنفيذات مسجلة بعد. هذه ليست بيانات افتراضية.</p>
+        )}
+      </section>
+    </main>
+  );
+}
+function Metric({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Activity;
+  label: string;
+  value: string | number | null | undefined;
+}) {
+  return (
+    <div className="rounded-2xl border bg-white p-5 shadow-sm">
+      <Icon className="h-5 w-5 text-emerald-700" />
+      <div className="mt-4 text-sm text-slate-500">{label}</div>
+      <div className="mt-1 text-3xl font-black text-slate-950">{value ?? '—'}</div>
     </div>
   );
 }
-
-function SummaryCard({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5 flex items-center justify-between">
-      <div>
-        <div className="text-sm text-gray-500">{label}</div>
-        <div className="text-2xl font-bold mt-1">{value}</div>
-      </div>
-      <div className="h-10 w-10 rounded-md bg-gray-100 flex items-center justify-center text-gray-700">{icon}</div>
+    <div className="rounded-xl bg-slate-50 p-4">
+      <dt className="text-xs text-slate-500">{label}</dt>
+      <dd className="mt-1 font-bold">{value}</dd>
     </div>
   );
 }
-
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
+function Badge({ value }: { value: string }) {
+  const good = value === 'IMPLEMENTED' || value === 'ACTIVE';
   return (
-    <label className="flex items-center justify-between gap-3 text-xs text-gray-700">
-      <span>{label}</span>
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black" />
-    </label>
+    <span
+      className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${good ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}
+    >
+      {labels[value] ?? value}
+    </span>
   );
 }
-
-function StatusBadge({ status }: { status: ToolVisibilityStatus }) {
-  const tone = status === 'ACTIVE'
-    ? 'bg-green-100 text-green-800'
-    : status === 'COMING_SOON'
-      ? 'bg-blue-100 text-blue-800'
-      : status === 'UNDER_DEVELOPMENT'
-        ? 'bg-amber-100 text-amber-800'
-        : status === 'HIDDEN_ADMIN_ONLY'
-          ? 'bg-purple-100 text-purple-800'
-          : 'bg-gray-100 text-gray-800';
-
-  return <span className={`mt-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${tone}`}>{formatLabel(status)}</span>;
+function Alert({ children }: { children: React.ReactNode }) {
+  return (
+    <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800">
+      {children}
+    </div>
+  );
 }
-
-function formatLabel(value: string) {
-  return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+function format(value: string) {
+  return value.replaceAll('_', ' ').toLowerCase();
 }
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString();
+function flagLabel(key: string) {
+  return (
+    (
+      {
+        globallyEnabled: 'التفعيل العام',
+        anonymousEnabled: 'استخدام الزائر',
+        authenticatedEnabled: 'استخدام الطالب',
+        maintenanceMode: 'وضع الصيانة',
+      } as Record<string, string>
+    )[key] ?? key
+  );
 }

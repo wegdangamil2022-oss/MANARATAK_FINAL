@@ -123,6 +123,14 @@ export class AIExecutionOrchestrator {
     return toExecutionResponse(execution);
   }
 
+  /** Capability-only entry point for downstream phases. Prompt/provider selection remains owned by Phase 17. */
+  async executeCapability(request: { consumerKey: string; capabilityKey: string; input: string; locale?: string | null; requesterReferenceId?: string | null; sourceDomain: string; metadata?: Record<string, unknown> | null; idempotencyKey?: string | null; structuredOutputSchema?: Record<string, unknown> | null }): Promise<AIOrchestrationResponse> {
+    const prompts = await this.repository.list<AIPromptDefinition>('prompts', { status: 'ACTIVE' });
+    const prompt = prompts.find((item) => item.capabilityKey === request.capabilityKey && item.activeVersion != null);
+    if (!prompt) throw new Error('AI_CAPABILITY_NOT_CONFIGURED');
+    return this.execute({ ...request, promptKey: prompt.key, purpose: prompt.purpose });
+  }
+
   async submitAsync(request: AIExecutionRequestDto) {
     validateExecutionRequest(request);
     const consumerKey = request.consumerKey ?? request.sourceDomain ?? 'default';

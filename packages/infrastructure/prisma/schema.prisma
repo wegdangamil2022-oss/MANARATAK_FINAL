@@ -3487,3 +3487,93 @@ model AIIncidentEventRecord {
 
   @@index([incidentPublicId, createdAt])
 }
+
+// --- Phase 18: Enterprise Student Tools ---
+model StudentToolDefinitionRecord {
+  id                      String   @id @default(uuid())
+  toolKey                 String   @unique
+  nameAr                  String
+  nameEn                  String
+  descriptionAr           String   @db.Text
+  descriptionEn           String   @db.Text
+  category                String
+  executionType           String
+  implementationPriority  String
+  desiredLaunchVisibility String
+  visibility              String
+  implementationStatus    String
+  lifecycle               String
+  availability            Json
+  featureFlags            Json
+  aiCapabilityKey         String?
+  outputType              String
+  supportedLocales        Json
+  estimatedMinutes        Int
+  tags                     Json
+  iconAssetId              String?
+  owner                    String
+  launchOrder              Int
+  inputSchema              Json
+  outputSchema             Json
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  versions                 StudentToolVersionRecord[]
+  dependencies             StudentToolDependencyRecord[]
+  executions               StudentToolExecutionRecord[]
+  @@index([category, visibility, launchOrder])
+  @@index([implementationStatus, lifecycle])
+}
+
+model StudentToolVersionRecord {
+  id                  String   @id @default(uuid())
+  definitionId        String
+  semanticVersion     String
+  inputSchemaVersion  String
+  outputSchemaVersion String
+  releaseDate         DateTime
+  changeNote          String
+  status              String
+  createdAt           DateTime @default(now())
+  definition          StudentToolDefinitionRecord @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  @@unique([definitionId, semanticVersion])
+  @@index([definitionId, status])
+}
+
+model StudentToolDependencyRecord {
+  id            String   @id @default(uuid())
+  definitionId  String
+  phase         String
+  type          String
+  required      Boolean
+  capabilityKey String?
+  description   String
+  definition    StudentToolDefinitionRecord @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  @@index([definitionId, required])
+}
+
+model StudentToolExecutionRecord {
+  id                    String   @id @default(uuid())
+  executionId           String   @unique
+  definitionId          String
+  toolVersion            String
+  status                 String
+  consumerType           String
+  studentReferenceHash   String?
+  anonymousSessionHash   String?
+  idempotencyKeyHash     String?
+  correlationId          String
+  traceId                String
+  aiExecutionReference   String?
+  dependencyStatus       Json?
+  durationMs             Int?
+  errorCode              String?
+  safeUsageMetadata      Json?
+  isTest                 Boolean  @default(false)
+  startedAt              DateTime @default(now())
+  completedAt            DateTime?
+  definition             StudentToolDefinitionRecord @relation(fields: [definitionId], references: [id], onDelete: Restrict)
+  @@index([definitionId, status, startedAt])
+  @@unique([definitionId, idempotencyKeyHash])
+  @@index([correlationId])
+  @@index([traceId])
+}

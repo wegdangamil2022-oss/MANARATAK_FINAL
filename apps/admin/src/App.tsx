@@ -128,6 +128,7 @@ function AdminLayout() {
               <Route path="/ai/:section" element={<AIGovernancePage />} />
               <Route path="/ai-governance" element={<Navigate to="/ai" replace />} />
               <Route path="/student-tools" element={<StudentToolsAdminPage />} />
+              <Route path="/student-tools/:toolKey" element={<StudentToolsAdminPage />} />
               <Route path="/study-destinations" element={<StudyDestinationsAdminPage />} />
               <Route path="/study-destinations/:countryIso2Code" element={<StudyDestinationDetailPage />} />
               <Route path="/settings" element={<SettingsAdminPage />} />

@@ -137,15 +137,6 @@ export class SharedComponentCreatedEvent { constructor(..._args: any[]) {} [key:
 export class SharedComponentActivatedEvent { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class SharedComponentDeprecatedEvent { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class SharedComponentArchivedEvent { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
-export interface IStudentToolRegistryRepository { [key: string]: any }
-export enum StudentToolExecutionType { DUMMY = 'DUMMY', STATIC_FORM = 'STATIC_FORM', DETERMINISTIC_CALCULATOR = 'DETERMINISTIC_CALCULATOR', AI_ASSISTED = 'AI_ASSISTED' }
-export enum StudentToolVisibilityStatus { DUMMY = 'DUMMY', UNDER_DEVELOPMENT = 'UNDER_DEVELOPMENT', COMING_SOON = 'COMING_SOON', ACTIVE = 'ACTIVE' }
-export interface PublicStudentToolDto { [key: string]: any }
-export enum StudentToolAiDependencyLevel { NONE = 'NONE', REQUIRED_LOW_COST = 'REQUIRED_LOW_COST', REQUIRED_HIGH_COST = 'REQUIRED_HIGH_COST' }
-export interface StudentToolFilters { [key: string]: any }
-export class StudentToolImplementationPriority { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
-export interface StudentToolRegistryEntryDto { [key: string]: any }
-export interface UpsertStudentToolRegistryEntryDto { [key: string]: any }
 export class WorkflowReference { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export interface IWorkflowRepository { [key: string]: any }
 export class Workflow { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }

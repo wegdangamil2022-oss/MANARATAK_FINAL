@@ -32,6 +32,7 @@ const InternationalTestList = React.lazy(() => import('../features/international
 const InternationalTestDetail = React.lazy(() => import('../features/international-tests/InternationalTestDetail').then(m => ({ default: m.InternationalTestDetail })));
 const StudentWorkspacePage = React.lazy(() => import('../features/students/StudentWorkspacePage').then(m => ({ default: m.StudentWorkspacePage })));
 const StudentToolsList = React.lazy(() => import('../features/student-tools/StudentToolsList').then(m => ({ default: m.StudentToolsList })));
+const StudentToolPage = React.lazy(() => import('../features/student-tools/StudentToolPage').then(m => ({ default: m.StudentToolPage })));
 const LoginPage = React.lazy(() => import('../features/auth/LoginPage').then(m => ({ default: m.LoginPage })));
 const CertificateVerificationPage = React.lazy(() => import('../features/certificates/CertificateVerificationPage').then(m => ({ default: m.CertificateVerificationPage })));
 const SearchResultsPage = React.lazy(() => import('../features/discovery/SearchResultsPage').then(m => ({ default: m.SearchResultsPage })));
@@ -76,8 +77,6 @@ const AdminCmsPageDetailPage = React.lazy(() => import('../features/admin-previe
 const AdminCmsCategoriesPreviewPage = React.lazy(() => import('../features/admin-preview/AdminCmsCategoriesPreviewPage').then(m => ({ default: m.AdminCmsCategoriesPreviewPage })));
 const AdminCmsTranslationsPreviewPage = React.lazy(() => import('../features/admin-preview/AdminCmsTranslationsPreviewPage').then(m => ({ default: m.AdminCmsTranslationsPreviewPage })));
 const AdminCmsReviewQueuePage = React.lazy(() => import('../features/admin-preview/AdminCmsReviewQueuePage').then(m => ({ default: m.AdminCmsReviewQueuePage })));
-const AdminStudentToolsPreviewPage = React.lazy(() => import('../features/admin-preview/AdminStudentToolsPreviewPage').then(m => ({ default: m.AdminStudentToolsPreviewPage })));
-const AdminStudentToolDetailPage = React.lazy(() => import('../features/admin-preview/AdminStudentToolDetailPage').then(m => ({ default: m.AdminStudentToolDetailPage })));
 const AdminCertificatesPreviewPage = React.lazy(() => import('../features/admin-preview/AdminCertificatesPreviewPage').then(m => ({ default: m.AdminCertificatesPreviewPage })));
 const AdminCertificateDetailPage = React.lazy(() => import('../features/admin-preview/AdminCertificateDetailPage').then(m => ({ default: m.AdminCertificateDetailPage })));
 const AdminFinancePreviewPage = React.lazy(() => import('../features/admin-preview/AdminFinancePreviewPage').then(m => ({ default: m.AdminFinancePreviewPage })));
@@ -663,6 +662,10 @@ const router = createBrowserRouter([
         element: <StudentToolsList />
       },
       {
+        path: 'tools/:toolKey',
+        element: <StudentToolPage />
+      },
+      {
         path: 'certificates/verify',
         element: <CertificateVerificationPage />
       },
@@ -856,11 +859,11 @@ const router = createBrowserRouter([
       },
       {
         path: 'admin/student-tools',
-        element: <AdminStudentToolsPreviewPage />
+        element: <Navigate to="/admin" replace />
       },
       {
         path: 'admin/student-tools/:id',
-        element: <AdminStudentToolDetailPage />
+        element: <Navigate to="/admin" replace />
       },
       {
         path: 'admin/certificates',

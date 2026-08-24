@@ -32,6 +32,7 @@
     "phase16:verify": "node scripts/verify-phase16-source.mjs",
     "phase15-16:closure:verify": "node scripts/verify-phase15-phase16-closure.mjs",
     "phase17:verify": "node scripts/verify-phase17-source.mjs",
+    "phase18:verify": "node scripts/verify-phase18-source.mjs",
     "stage3:degree-taxonomy:verify": "node scripts/verify-taxonomy-degree-source.mjs",
     "stage3:tests:verify": "node scripts/verify-international-test-source-baseline.mjs",
     "stage3:majors:verify": "node scripts/verify-major-source-identities.mjs",

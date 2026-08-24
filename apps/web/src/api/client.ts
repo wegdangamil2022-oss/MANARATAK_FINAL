@@ -279,7 +279,9 @@ export interface CmsFilters {
 
 export interface StudentToolFilters {
   category?: string;
-  visibilityStatus?: string;
+  visibility?: string;
+  implementationStatus?: string;
+  search?: string;
 }
 
 export interface ServiceFilters {
@@ -789,24 +791,31 @@ export interface PublicCmsContentDto {
 }
 
 export interface PublicStudentToolDto {
+  id?: string;
   toolKey: string;
-  displayName: string;
-  description?: string | null;
+  nameAr: string;
+  nameEn: string;
+  descriptionAr: string;
+  descriptionEn: string;
   category: string;
   executionType: string;
-  visibilityStatus: string;
-  aiDependencyLevel: string;
-  anonymousEnabled: boolean;
-  authenticatedEnabled: boolean;
+  visibility: string;
+  implementationStatus: string;
+  lifecycle: string;
+  availability: { publicEnabled: boolean; anonymousEnabled: boolean; authenticatedEnabled: boolean; adminOnly: boolean; maintenanceMode: boolean };
+  featureFlags: { globallyEnabled: boolean; anonymousEnabled: boolean; authenticatedEnabled: boolean; maintenanceMode: boolean };
+  estimatedMinutes: number;
+  currentVersion: { semanticVersion: string };
   launchOrder: number;
 }
 
 export interface StudentToolExecutionResponseDto {
   toolKey: string;
-  executionPublicId: string;
+  executionId: string;
+  toolVersion: string;
   status: string;
-  output?: string;
-  blockedReason?: string;
+  result?: unknown;
+  warnings?: string[];
 }
 
 export interface PublicServiceCatalogItemDto {
@@ -1581,14 +1590,15 @@ export class ApiClient {
 
   static async executeStudentTool(
     toolKey: string,
-    input: string,
+    input: unknown,
+    locale: 'ar' | 'en' = 'ar',
   ): Promise<StudentToolExecutionResponseDto> {
     const res = await apiFetch(
       `${API_BASE_URL}/public/student-tools/${encodeURIComponent(toolKey)}/execute`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input }),
+        body: JSON.stringify({ input, locale }),
       },
     );
     if (!res.ok) {
@@ -1598,7 +1608,8 @@ export class ApiClient {
           'Failed to execute student tool',
       );
     }
-    return res.json();
+    const payload = await res.json();
+    return payload.data;
   }
 
   static async getServices(

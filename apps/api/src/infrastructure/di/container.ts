@@ -36,6 +36,12 @@ import {
   Phase10CatalogRepository,
   PrismaFellowshipDefinitionRepository,
   PrismaStudentWorkspaceRepository,
+  PrismaStudentToolRegistryRepository,
+  Phase17StudentToolsAIConsumerGateway,
+  CanonicalUniversityComparisonGateway,
+  CanonicalScholarshipRecommendationGateway,
+  StudentToolRateLimitGateway,
+  DefaultRateLimiter,
   PrismaCmsRepository,
   RedisClientFactory,
   RedisStudentWorkspaceDeliveryCache,
@@ -127,6 +133,10 @@ import {
   PublicCmsUseCases,
   StudentToolRegistryUseCases,
   StudentToolExecutionUseCases,
+  GpaCalculatorHandler,
+  UniversityComparisonHandler,
+  MotivationLetterGeneratorHandler,
+  ScholarshipRecommendationHandler,
   ReferenceDataUseCases,
   AtomicAuditedOutboxMutationExecutor,
   AtomicDomainMutationCoordinator,
@@ -163,7 +173,8 @@ import { ManageAuditRecordsUseCase } from '@manaratak/application';
 import {
   AuthorizationEvaluatorService,
   ConfigurationValidationService,
-  FileIntegrityValidationService
+  FileIntegrityValidationService,
+  StudentToolHandlerRegistry
 } from '@manaratak/domain';
 
 // Routers
@@ -8123,7 +8134,18 @@ export function registerDependencies() {
       );
     }).singleton(),
     cmsRepository: asFunction(({ prisma }) => new PrismaCmsRepository(prisma)).singleton(),
-    studentToolRegistryRepository: asFunction(() => createUnavailableCapability('studentToolRegistryPersistence')).singleton(),
+    studentToolRegistryRepository: asFunction(({ prisma }) => new PrismaStudentToolRegistryRepository(prisma)).singleton(),
+    studentToolsAIConsumerGateway: asFunction(({ aiExecutionUseCases }) => new Phase17StudentToolsAIConsumerGateway(aiExecutionUseCases)).scoped(),
+    universityComparisonGateway: asFunction(({ universityRepository }) => new CanonicalUniversityComparisonGateway(universityRepository)).singleton(),
+    scholarshipRecommendationGateway: asFunction(({ scholarshipRepository }) => new CanonicalScholarshipRecommendationGateway(scholarshipRepository)).singleton(),
+    studentToolRateLimiter: asClass(DefaultRateLimiter).singleton(),
+    studentToolRateLimitGateway: asFunction(({ studentToolRateLimiter }) => new StudentToolRateLimitGateway(studentToolRateLimiter)).singleton(),
+    studentToolHandlerRegistry: asFunction(({ universityComparisonGateway, scholarshipRecommendationGateway, studentToolsAIConsumerGateway }) => new StudentToolHandlerRegistry([
+      new GpaCalculatorHandler(),
+      new UniversityComparisonHandler(universityComparisonGateway),
+      new MotivationLetterGeneratorHandler(studentToolsAIConsumerGateway),
+      new ScholarshipRecommendationHandler(scholarshipRecommendationGateway, studentToolsAIConsumerGateway),
+    ])).singleton(),
     referenceDataRepository: asFunction(({ prisma }) => new PrismaReferenceDataRepository(prisma)).singleton(),
     serviceCatalogRepository: asFunction(() => createUnavailableCapability('serviceCatalogPersistence')).singleton(),
     financeRepository: asFunction(() => createUnavailableCapability('financePersistence')).singleton(),
@@ -8270,7 +8292,7 @@ export function registerDependencies() {
     adminCmsUseCases: asFunction(({ cmsRepository, cmsDeliveryCache }) => new AdminCmsUseCases(cmsRepository, cmsDeliveryCache)).scoped(),
     publicCmsUseCases: asFunction(({ cmsRepository, cmsDeliveryCache }) => new PublicCmsUseCases(cmsRepository, cmsDeliveryCache)).scoped(),
     studentToolRegistryUseCases: asFunction(({ studentToolRegistryRepository }) => new StudentToolRegistryUseCases(studentToolRegistryRepository)).scoped(),
-    studentToolExecutionUseCases: asFunction(({ studentToolRegistryRepository, aiExecutionUseCases }) => new StudentToolExecutionUseCases(studentToolRegistryRepository, aiExecutionUseCases)).scoped(),
+    studentToolExecutionUseCases: asFunction(({ studentToolRegistryRepository, studentToolHandlerRegistry, studentToolRateLimitGateway }) => new StudentToolExecutionUseCases(studentToolRegistryRepository, studentToolHandlerRegistry, studentToolRateLimitGateway)).scoped(),
     referenceDataUseCases: asFunction(({ referenceDataRepository, atomicAuditedOutboxMutationExecutor }) =>
       new ReferenceDataUseCases(referenceDataRepository, undefined, undefined, atomicAuditedOutboxMutationExecutor)).scoped(),
     referenceResolver: asFunction(({ referenceDataRepository }) => new ReferenceResolverService(referenceDataRepository)).scoped(),

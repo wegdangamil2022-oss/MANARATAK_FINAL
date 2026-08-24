@@ -1,185 +1,168 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Button } from '@manaratak/ui';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Calculator, GraduationCap, PenLine, Search, Sparkles } from 'lucide-react';
 import { ApiClient, PublicStudentToolDto } from '../../api/client';
 import { Seo } from '../../components/Seo';
-import { useTranslation } from "../../i18n/I18nProvider";
 
-const PUBLIC_VISIBILITY_OPTIONS = [
-  { value: '', label: 'All launch states' },
-  { value: 'ACTIVE', label: 'Available now' },
-  { value: 'COMING_SOON', label: 'Coming soon' },
-  { value: 'UNDER_DEVELOPMENT', label: 'Under development' }
-];
-
+const icons: Record<string, typeof Calculator> = {
+  'gpa-calculator': Calculator,
+  'university-comparison': GraduationCap,
+  'motivation-letter-generator': PenLine,
+  'scholarship-recommendation': Sparkles,
+};
+const statusLabel: Record<string, string> = {
+  ACTIVE: 'متاحة الآن',
+  COMING_SOON: 'قريبًا',
+  UNDER_DEVELOPMENT: 'قيد التطوير',
+};
 export function StudentToolsList() {
-    const { t } = useTranslation();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [tools, setTools] = useState<PublicStudentToolDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [category, setCategory] = useState(searchParams.get('category') || '');
-  const [visibilityStatus, setVisibilityStatus] = useState(searchParams.get('visibilityStatus') || '');
-
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
   useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError(null);
-
-    ApiClient.getStudentTools({
-      category: searchParams.get('category') || undefined,
-      visibilityStatus: searchParams.get('visibilityStatus') || undefined
-    })
-      .then((result) => {
-        if (active) setTools(result);
+    let current = true;
+    ApiClient.getStudentTools()
+      .then((data) => {
+        if (current) setTools(data);
       })
-      .catch((requestError: Error) => {
-        if (active) setError(requestError.message || 'Failed to load student tools');
+      .catch((reason: Error) => {
+        if (current) setError(reason.message);
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (current) setLoading(false);
       });
-
     return () => {
-      active = false;
+      current = false;
     };
-  }, [searchParams]);
-
-  const categories = useMemo(
-    () => Array.from(new Set(tools.map((tool) => tool.category))).sort(),
-    [tools]
+  }, []);
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return q
+      ? tools.filter((tool) =>
+          `${tool.nameAr} ${tool.nameEn} ${tool.category}`.toLowerCase().includes(q),
+        )
+      : tools;
+  }, [tools, search]);
+  const available = visible.filter(
+    (tool) => tool.implementationStatus === 'IMPLEMENTED' && tool.visibility === 'ACTIVE',
   );
-
-  const applyFilters = () => {
-    const params = new URLSearchParams();
-    if (category) params.set('category', category);
-    if (visibilityStatus) params.set('visibilityStatus', visibilityStatus);
-    setSearchParams(params);
-  };
-
+  const upcoming = visible.filter(
+    (tool) => tool.implementationStatus !== 'IMPLEMENTED' || tool.visibility !== 'ACTIVE',
+  );
   return (
-    <div className="space-y-8">
-      <Seo title={t('student_tools')} description={t('explore_manaratak_student_tools_checklists_assista')} />
-      <section className="bg-gradient-to-br from-indigo-50 via-white to-emerald-50 border rounded-3xl p-5 sm:p-8 md:p-10">
-        <p className="text-sm font-semibold text-indigo-700 uppercase tracking-wide mb-2">{t('student_tools')}</p>
-        <h1 className="text-3xl font-black tracking-tight sm:text-4xl mb-3">{t('practical_tools_for_every_study_step')}</h1>
-        <p className="text-base leading-7 text-gray-700 max-w-3xl">
-          {t('explore_checklists_matching_assistants_document_bu')}</p>
+    <main dir="rtl" className="space-y-10 pb-16">
+      <Seo
+        title="أدوات الطلاب | منارتك"
+        description="أدوات أكاديمية موثوقة للتخطيط والمقارنة وإعداد الطلبات."
+      />
+      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-l from-emerald-950 via-emerald-800 to-teal-700 px-6 py-12 text-white shadow-xl sm:px-10">
+        <div className="absolute -left-12 -top-12 h-52 w-52 rounded-full bg-white/10" />
+        <p className="mb-3 text-sm font-bold text-emerald-200">منصة أدوات الطالب</p>
+        <h1 className="max-w-3xl text-3xl font-black leading-tight sm:text-5xl">
+          قراراتك الدراسية أوضح، وخطواتك أسرع
+        </h1>
+        <p className="mt-4 max-w-2xl leading-8 text-emerald-50">
+          أدوات حقيقية مرتبطة ببيانات منارتك المنشورة، مع حماية الخصوصية وإظهار صريح لما هو متاح وما
+          يزال ضمن خارطة التطوير.
+        </p>
+        <label className="mt-8 flex max-w-xl items-center gap-3 rounded-2xl bg-white px-4 py-3 text-slate-900 shadow-lg">
+          <Search className="h-5 w-5 text-emerald-700" />
+          <span className="sr-only">ابحث في الأدوات</span>
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="w-full bg-transparent outline-none"
+            placeholder="ابحث عن أداة..."
+          />
+        </label>
       </section>
-
-      <section className="flex flex-col gap-3 bg-white border rounded-2xl p-4 shadow-sm md:flex-row" aria-label="Student tool filters">
-        <select
-          value={category}
-          onChange={(event) => setCategory(event.target.value)}
-          className="min-h-12 border rounded-xl px-3 py-3"
-        >
-          <option value="">{t('all_categories_1')}</option>
-          {categories.map((item) => <option key={item} value={item}>{formatLabel(item)}</option>)}
-        </select>
-        <select
-          value={visibilityStatus}
-          onChange={(event) => setVisibilityStatus(event.target.value)}
-          className="min-h-12 border rounded-xl px-3 py-3"
-        >
-          {PUBLIC_VISIBILITY_OPTIONS.map((option) => (
-            <option key={option.value || 'all'} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-        <Button onClick={applyFilters}>{t('apply_filters_1')}</Button>
-      </section>
-
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4">{error}</div>}
-
+      {error ? <Notice tone="error">تعذر تحميل الأدوات: {error}</Notice> : null}
       {loading ? (
-        <div className="py-20 text-center text-gray-500">{t('loading_student_tools')}</div>
-      ) : tools.length === 0 ? (
-        <div className="bg-white border border-dashed rounded-2xl p-10 text-center text-gray-500">
-          {t('no_public_tools_match_these_filters_yet')}</div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tools.map((tool) => <StudentToolCard key={tool.toolKey} tool={tool} />)}
+        <div className="rounded-3xl border border-emerald-100 bg-white p-16 text-center text-slate-500">
+          جاري تحميل الأدوات...
         </div>
+      ) : (
+        <>
+          <section>
+            <Heading
+              title="أدوات جاهزة للاستخدام"
+              subtitle="أربع تجارب مكتملة تمر جميع عملياتها عبر الخادم الحقيقي."
+            />
+            <div className="grid gap-5 md:grid-cols-2">
+              {available.map((tool) => (
+                <ToolCard key={tool.toolKey} tool={tool} />
+              ))}
+            </div>
+          </section>
+          <section>
+            <Heading
+              title="خارطة الأدوات القادمة"
+              subtitle="هذه الأدوات مسجلة للتخطيط فقط، ولا تعرض تنفيذًا وهميًا."
+            />
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {upcoming.map((tool) => (
+                <ToolCard key={tool.toolKey} tool={tool} />
+              ))}
+            </div>
+          </section>
+        </>
       )}
-
-      <section className="bg-slate-50 border rounded-2xl p-6 text-sm text-slate-700">
-        <h2 className="font-semibold text-base mb-2">{t('trust_and_ai_use')}</h2>
-        <p>
-          {t('ai_assisted_tools_will_run_through_the_governed_ma')}</p>
+      <section className="rounded-3xl border border-emerald-100 bg-emerald-50 p-6 text-sm leading-7 text-emerald-950">
+        <strong>الثقة والذكاء الاصطناعي:</strong> الأدوات الذكية تتصل بمنصة Phase 17 عبر صلاحية
+        وظيفية محكومة فقط. لا تتصل بأي مزود مباشرة، وقد تظهر «غير مهيأة» إلى أن يكتمل إعداد التشغيل
+        في Google Studio.
       </section>
+    </main>
+  );
+}
+function Heading({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="mb-5">
+      <h2 className="text-2xl font-black text-slate-950">{title}</h2>
+      <p className="mt-1 text-slate-600">{subtitle}</p>
     </div>
   );
 }
-
-function StudentToolCard({ tool }: { tool: PublicStudentToolDto }) {
-    const { t } = useTranslation();
-  const isActive = tool.visibilityStatus === 'ACTIVE';
-  const usesAi = tool.aiDependencyLevel !== 'NONE';
-  const [input, setInput] = useState('');
-  const [output, setOutput] = useState<string | null>(null);
-  const [executing, setExecuting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const canExecute = isActive && usesAi && tool.executionType === 'AI_ASSISTED';
-
-  const executeTool = async () => {
-    if (!canExecute || !input.trim()) return;
-    setExecuting(true);
-    setOutput(null);
-    setError(null);
-    try {
-      const result = await ApiClient.executeStudentTool(tool.toolKey, input);
-      setOutput(result.output || result.blockedReason || 'No output returned.');
-    } catch (requestError: any) {
-      setError(requestError.message || 'Unable to execute tool.');
-    } finally {
-      setExecuting(false);
-    }
-  };
-
+function ToolCard({ tool }: { tool: PublicStudentToolDto }) {
+  const active = tool.implementationStatus === 'IMPLEMENTED' && tool.visibility === 'ACTIVE';
+  const Icon = icons[tool.toolKey] ?? Sparkles;
   return (
-    <article className="bg-white border rounded-2xl shadow-sm p-5 sm:p-6 flex flex-col min-h-72">
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full">
-          {formatLabel(tool.category)}
+    <article className="flex min-h-56 flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-lg">
+      <div className="flex items-start justify-between gap-4">
+        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-100 text-emerald-800">
+          <Icon className="h-6 w-6" />
         </span>
-        <span className={`text-xs font-semibold px-3 py-1 rounded-full ${isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-          {isActive ? 'Available' : formatLabel(tool.visibilityStatus)}
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-bold ${active ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}
+        >
+          {statusLabel[tool.visibility] ?? 'قيد التخطيط'}
         </span>
       </div>
-
-      <h2 className="text-xl font-black leading-snug mb-3">{tool.displayName}</h2>
-      <p className="text-base leading-7 text-gray-600 flex-1">{tool.description || 'A guided MANARATAK student utility.'}</p>
-
-      <div className="flex flex-wrap gap-2 mt-5 mb-5 text-xs">
-        <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-md">{formatLabel(tool.executionType)}</span>
-        {usesAi && <span className="bg-purple-50 text-purple-700 px-2 py-1 rounded-md">{t('ai_assisted_1')}</span>}
-        {tool.anonymousEnabled && <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded-md">{t('guest_access')}</span>}
-        {!tool.anonymousEnabled && tool.authenticatedEnabled && <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded-md">{t('sign_in_required')}</span>}
+      <h3 className="mt-5 text-xl font-black text-slate-950">{tool.nameAr}</h3>
+      <p className="mt-2 flex-1 text-sm leading-7 text-slate-600">{tool.descriptionAr}</p>
+      <div className="mt-5 flex items-center justify-between text-xs text-slate-500">
+        <span>
+          {tool.estimatedMinutes ? `${tool.estimatedMinutes} دقائق` : 'ضمن خارطة التطوير'}
+        </span>
+        {active ? (
+          <Link
+            className="rounded-xl bg-emerald-700 px-4 py-2.5 font-bold text-white hover:bg-emerald-800"
+            to={`/tools/${tool.toolKey}`}
+          >
+            فتح الأداة
+          </Link>
+        ) : (
+          <span className="font-bold text-amber-700">لا يوجد تنفيذ بعد</span>
+        )}
       </div>
-
-      {canExecute ? (
-        <div className="space-y-3">
-          <textarea
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder={t('describe_what_you_need_help_with')}
-            className="w-full border rounded-xl px-3 py-3 text-base min-h-28"
-          />
-          <Button onClick={executeTool} disabled={executing || !input.trim()}>
-            {executing ? 'Running...' : 'Run AI tool'}
-          </Button>
-          {error && <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3">{error}</div>}
-          {output && <div className="text-sm text-gray-700 bg-gray-50 border rounded-lg p-3 whitespace-pre-wrap">{output}</div>}
-        </div>
-      ) : (
-        <Button disabled title={isActive ? 'This tool will be connected to its execution engine when enabled.' : 'This tool is not available yet.'}>
-          {isActive ? 'Open tool (execution pending)' : 'Coming soon'}
-        </Button>
-      )}
     </article>
   );
 }
-
-function formatLabel(value: string): string {
-  return value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+function Notice({ children }: { children: React.ReactNode; tone?: string }) {
+  return (
+    <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800">
+      {children}
+    </div>
+  );
 }

@@ -12,6 +12,7 @@ export * from './ai-platform/enums/AISafetyDecision';
 export * from './ai-platform/services/AICostGuardService';
 export * from './ai-platform/services/AISafetyPolicyService';
 export * from './ai-platform/services/PromptRegistryService';
+export * from './student-tools';
 export * from './api-foundation/aggregates/ApiService';
 export * from './api-foundation/enums/ApiLifecycleState';
 export * from './api-foundation/events/ApiServiceActivatedEvent';
