@@ -47,6 +47,7 @@ export class UniversityImportChangePlanner {
       const existing = this.identities && sourceReferenceId ? await this.identities.findBySourceReferenceId(sourceReferenceId) : null;
       if (stage !== 'STAGE_1' && !this.identities) validationIssues.push({ code: 'DATABASE_IDENTITY_CHECK_REQUIRED', path: sourceReferenceId, message: 'Later stages require database identity resolution before commit.' });
       if (stage !== 'STAGE_1' && this.identities && !existing) validationIssues.push({ code: 'UNIVERSITY_IDENTITY_NOT_FOUND', path: sourceReferenceId, message: 'Later-stage data cannot create a university.' });
+      if (stage === 'STAGE_3') this.validateAdmissionRequirements(payload, handoff.handoffId, validationIssues);
       changes.push({ sequence: changes.length + 1, sourceReferenceId, entityType: 'UNIVERSITY', entityKey: existing?.id ?? sourceReferenceId, operation: existing ? 'UPDATE' : 'CREATE', afterState: payload });
       for (const child of this.deriveStageChanges(stage, sourceReferenceId, payload)) {
         changes.push({ ...child, sequence: changes.length + 1 });
@@ -61,7 +62,10 @@ export class UniversityImportChangePlanner {
     if (stage === 'STAGE_3') {
       const faculties = array(payload.faculties);
       const programs = this.programRecords(payload);
-      const tests = array(payload.acceptedLanguageTests);
+      const requirements = arrayOfRecords(payload.admissionRequirements).filter(requirement =>
+        text(requirement.internationalTestId) &&
+        (text(requirement.academicProgramId) || text(requirement.academicProgramSourceReferenceId))
+      );
       return [
         ...faculties.map(name => child('ORGANIZATION_UNIT', `faculty:${normalize(name)}`, { unitType: 'FACULTY', name, createsAcademicTaxonomyIdentity: false })),
         ...programs.map(program => child('ACADEMIC_PROGRAM', `program:${normalize(program.sourceProgramName)}`, {
@@ -75,7 +79,7 @@ export class UniversityImportChangePlanner {
             degreeMappingSource: program.degreeLevelId ? program.degreeMappingSource : undefined,
           },
         })),
-        ...tests.map(name => child('ADMISSION_REQUIREMENT', `test:${normalize(name)}`, { sourceTestName: name, resolution: 'INTERNATIONAL_TEST_REFERENCE_REQUIRED' })),
+        ...requirements.map((requirement, index) => child('ADMISSION_REQUIREMENT', `requirement:${index + 1}`, requirement)),
       ];
     }
     if (stage === 'STAGE_4') {
@@ -102,6 +106,28 @@ export class UniversityImportChangePlanner {
       return arrayOfRecords(payload.rankings).map(ranking => child('RANKING', `${ranking.provider}:${ranking.verifiedAt}:${ranking.scope}`, ranking));
     }
     return [];
+  }
+
+  private validateAdmissionRequirements(
+    payload: Record<string, unknown>,
+    path: string,
+    issues: Array<{ code: string; path?: string; message: string }>,
+  ): void {
+    const acceptedTests = array(payload.acceptedLanguageTests);
+    const requirements = arrayOfRecords(payload.admissionRequirements);
+    if (acceptedTests.length > 0 && requirements.length === 0) {
+      issues.push({
+        code: 'ADMISSION_REQUIREMENT_CANONICAL_RESOLUTION_REQUIRED',
+        path,
+        message: 'Accepted test names must be resolved to an International Test and an academic program before commit.',
+      });
+    }
+    requirements.forEach((requirement, index) => {
+      if (!text(requirement.internationalTestId))
+        issues.push({ code: 'CANONICAL_INTERNATIONAL_TEST_REQUIRED', path: `${path}.admissionRequirements.${index}`, message: 'Canonical International Test ID is required.' });
+      if (!text(requirement.academicProgramId) && !text(requirement.academicProgramSourceReferenceId))
+        issues.push({ code: 'CANONICAL_ACADEMIC_PROGRAM_REQUIRED', path: `${path}.admissionRequirements.${index}`, message: 'Academic program ID or source reference is required.' });
+    });
   }
 
   private programRecords(payload: Record<string, unknown>): Array<{

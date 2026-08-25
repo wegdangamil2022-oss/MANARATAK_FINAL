@@ -202,6 +202,15 @@ export interface UniversityStage3Payload {
   hasLanguageRequirements?: boolean;
   requiredLanguages: readonly string[];
   acceptedLanguageTests: readonly string[];
+  admissionRequirements?: ReadonlyArray<{
+    sourceTestName?: string;
+    academicProgramId?: string;
+    academicProgramSourceReferenceId?: string;
+    internationalTestId: string;
+    testVariantId?: string;
+    testVersionId?: string;
+    minimumScore?: number;
+  }>;
   officialLanguageRequirementsUrl?: string;
   hasInternationalScholarships?: boolean;
   internationalScholarships: ReadonlyArray<{ name: string; officialUrl: string }>;

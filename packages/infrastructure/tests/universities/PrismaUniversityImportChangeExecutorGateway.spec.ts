@@ -42,7 +42,7 @@ describe('PrismaUniversityImportChangeExecutorGateway', () => {
         }),
       },
       universitySourceRecord: {
-        findFirst: vi.fn().mockResolvedValue(null),
+        findUnique: vi.fn().mockResolvedValue(null),
         create: vi.fn().mockResolvedValue({ id: 'source-1', sourceHash: 'hash-1' }),
       },
       auditRecord: { create: vi.fn() },
@@ -84,6 +84,29 @@ describe('PrismaUniversityImportChangeExecutorGateway', () => {
     expect(transaction.universityImportChange.create).toHaveBeenCalledTimes(2);
     expect(transaction.auditRecord.create).toHaveBeenCalledOnce();
     expect(transaction.transactionalOutboxRecord.create).toHaveBeenCalledOnce();
+    expect(transaction.universitySourceRecord.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ sourceIdentityKey: 'STAGE_1|artifact-1|row:1' }),
+    }));
+  });
+
+  it('fails closed when immutable source provenance belongs to another University', async () => {
+    const transaction = {
+      universityImportChangeSet: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn(), update: vi.fn() },
+      universityImportChange: { create: vi.fn() },
+      university: { findUnique: vi.fn().mockResolvedValue({ id: 'db-uni-1', publicId: 'INS-DZA-0001' }) },
+      universitySourceRecord: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'source-1', universityId: 'db-uni-OTHER' }),
+        update: vi.fn(), create: vi.fn(),
+      },
+    };
+    const prisma = { $transaction: vi.fn(async (work) => work(transaction)) };
+    const gateway = new PrismaUniversityImportChangeExecutorGateway(prisma as never);
+    const plan = {
+      changeSetId: 'STAGE_3:artifact-1', stage: 'STAGE_3' as const, sourceArtifactId: 'artifact-1', validationIssues: [], databaseWrites: 0 as const,
+      changes: [{ sequence: 1, sourceReferenceId: 'INS-DZA-0001', entityType: 'SOURCE_RECORD' as const, entityKey: 'handoff-1', operation: 'UPSERT_CHILD' as const, afterState: { sourceRowNumber: 1, contentHash: 'hash-1' } }],
+    };
+    await expect(gateway.apply(plan, 'admin-1')).rejects.toThrow('UNIVERSITY_SOURCE_PROVENANCE_OWNERSHIP_MISMATCH');
+    expect(transaction.universitySourceRecord.update).not.toHaveBeenCalled();
   });
 
   it('keeps a program without canonical DegreeLevel in review instead of inferring from university-level degrees', async () => {

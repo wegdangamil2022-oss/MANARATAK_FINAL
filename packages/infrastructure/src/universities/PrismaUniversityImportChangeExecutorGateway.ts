@@ -200,10 +200,16 @@ export class PrismaUniversityImportChangeExecutorGateway implements UniversityIm
         return this.applied(university.id, record.id, before, record);
       }
       case 'ADMISSION_REQUIREMENT': {
-        const academicProgramId = this.requiredString(
-          after.academicProgramId,
-          'CANONICAL_ACADEMIC_PROGRAM_REQUIRED',
-        );
+        const explicitProgramId = this.string(after.academicProgramId);
+        const programSourceReferenceId = this.string(after.academicProgramSourceReferenceId);
+        const academicProgram = explicitProgramId
+          ? await transaction.universityAcademicProgram.findUnique({ where: { id: explicitProgramId } })
+          : programSourceReferenceId
+            ? await transaction.universityAcademicProgram.findFirst({ where: { universityId: university.id, sourceReferenceId: programSourceReferenceId } })
+            : null;
+        if (!academicProgram || academicProgram.universityId !== university.id)
+          throw new Error('CANONICAL_ACADEMIC_PROGRAM_REQUIRED');
+        const academicProgramId = academicProgram.id;
         const internationalTestId = this.requiredString(
           after.internationalTestId,
           'CANONICAL_INTERNATIONAL_TEST_REQUIRED',
@@ -343,14 +349,21 @@ export class PrismaUniversityImportChangeExecutorGateway implements UniversityIm
       }
       case 'SOURCE_RECORD': {
         const sourceRowNumber = this.number(after.sourceRowNumber) ?? null;
-        const before = await transaction.universitySourceRecord.findFirst({
-          where: { stage: plan.stage, sourceArtifactId: plan.sourceArtifactId, sourceRowNumber },
-        });
+        const sourceHash = this.requiredString(after.contentHash, 'SOURCE_HASH_REQUIRED');
+        const sourceIdentityKey = [
+          plan.stage,
+          plan.sourceArtifactId,
+          sourceRowNumber === null ? `hash:${sourceHash}` : `row:${sourceRowNumber}`,
+        ].join('|');
+        const before = await transaction.universitySourceRecord.findUnique({ where: { sourceIdentityKey } });
+        if (before && before.universityId !== university.id)
+          throw new Error('UNIVERSITY_SOURCE_PROVENANCE_OWNERSHIP_MISMATCH');
         const data = {
+          sourceIdentityKey,
           stage: plan.stage,
           sourceArtifactId: plan.sourceArtifactId,
           sourceRowNumber,
-          sourceHash: this.requiredString(after.contentHash, 'SOURCE_HASH_REQUIRED'),
+          sourceHash,
           importedAt: new Date(),
         };
         const record = before

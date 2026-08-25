@@ -406,6 +406,7 @@ export interface AcademicProgramIntegrationDto {
   degreeLevelCanonicalCode: string; // Stable boundary reference (e.g., BACHELOR, MASTER)
   degreeLevelId?: string;
   majorId?: string; // Canonical Major identity relationship
+  majorMappingState?: 'CANONICALLY_MAPPED' | 'MAJOR_REVIEW_REQUIRED' | 'UNMAPPED';
   facultyName?: string; // Institution-specific organizational data (not a taxonomy node)
   departmentName?: string; // Optional department context
   campusIds?: string[]; // Multi-campus support (does not structurally block multi-campus)

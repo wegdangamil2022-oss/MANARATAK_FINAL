@@ -16,8 +16,8 @@ export class UniversityPublicationReadinessPolicy implements PublicationReadines
     if (!entity.countryReferenceId) blockingIssues.push(issue('UNIVERSITY_CANONICAL_COUNTRY_REFERENCE_MISSING', 'countryReferenceId', 'Canonical country reference is required; country text alone is insufficient.'));
 
     programs.forEach((program, index) => {
-      if (program.status === 'MATCHED' && !program.majorId) blockingIssues.push(issue('UNIVERSITY_PROGRAM_MAJOR_REFERENCE_MISSING', `academicPrograms.${index}.majorId`, 'MATCHED program requires canonical Major ID.'));
-      if (program.status === 'MATCHED' && !program.degreeLevelCanonicalCode && !program.degreeLevelId) blockingIssues.push(issue('UNIVERSITY_PROGRAM_DEGREE_REFERENCE_MISSING', `academicPrograms.${index}.degreeLevelCanonicalCode`, 'MATCHED program requires canonical DegreeLevel reference.'));
+      if (program.majorMappingState === 'CANONICALLY_MAPPED' && !program.majorId) blockingIssues.push(issue('UNIVERSITY_PROGRAM_MAJOR_REFERENCE_MISSING', `academicPrograms.${index}.majorId`, 'CANONICALLY_MAPPED program requires canonical Major ID.'));
+      if (program.majorMappingState === 'CANONICALLY_MAPPED' && !program.degreeLevelCanonicalCode && !program.degreeLevelId) blockingIssues.push(issue('UNIVERSITY_PROGRAM_DEGREE_REFERENCE_MISSING', `academicPrograms.${index}.degreeLevelCanonicalCode`, 'CANONICALLY_MAPPED program requires canonical DegreeLevel reference.'));
     });
 
     if (acceptedTests.length > 0 && !requirements.some(requirement => requirement.internationalTestId)) {

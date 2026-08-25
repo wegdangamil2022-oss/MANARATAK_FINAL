@@ -59,6 +59,29 @@ describe('UniversityImportChangePlan', () => {
       .toMatchObject({ sourceProgramName: 'Computer Science', degreeLevelId: 'degree-bachelor', status: 'DRAFT' });
   });
 
+  it('blocks named accepted tests until canonical test and program identities are resolved', async () => {
+    const plan = await new UniversityImportChangePlanner({
+      findBySourceReferenceId: vi.fn().mockResolvedValue({ id: 'db-1', publicId: 'INS-DZA-0001' }),
+    }).plan('STAGE_3', [handoff(true, {
+      sourceReferenceId: 'INS-DZA-0001', acceptedLanguageTests: ['IELTS'],
+    })]);
+    expect(plan.validationIssues.map(issue => issue.code)).toContain('ADMISSION_REQUIREMENT_CANONICAL_RESOLUTION_REQUIRED');
+    expect(plan.changes.some(change => change.entityType === 'ADMISSION_REQUIREMENT')).toBe(false);
+  });
+
+  it('emits executable admission requirements only with canonical identities', async () => {
+    const plan = await new UniversityImportChangePlanner({
+      findBySourceReferenceId: vi.fn().mockResolvedValue({ id: 'db-1', publicId: 'INS-DZA-0001' }),
+    }).plan('STAGE_3', [handoff(true, {
+      sourceReferenceId: 'INS-DZA-0001',
+      acceptedLanguageTests: ['IELTS'],
+      admissionRequirements: [{ sourceTestName: 'IELTS', academicProgramId: 'program-1', internationalTestId: 'test-ielts' }],
+    })]);
+    expect(plan.validationIssues).toEqual([]);
+    expect(plan.changes.find(change => change.entityType === 'ADMISSION_REQUIREMENT')?.afterState)
+      .toMatchObject({ academicProgramId: 'program-1', internationalTestId: 'test-ielts' });
+  });
+
   it('blocks commit and rollback without the recovery gate and explicit approval', async () => {
     const gateway = { apply: vi.fn(), rollback: vi.fn() };
     const executor = new UniversityImportChangeExecutor(gateway);

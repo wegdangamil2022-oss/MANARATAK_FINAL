@@ -496,13 +496,16 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
         .map((unit) => [unit.sourceReferenceId, unit.id]),
     );
     for (const unit of details.organizationUnits ?? []) {
+      const campusId = unit.campusSourceReferenceId
+        ? campusIds.get(unit.campusSourceReferenceId)
+        : undefined;
+      if (unit.campusSourceReferenceId && !campusId)
+        throw new Error(`UNIVERSITY_CAMPUS_REFERENCE_NOT_FOUND:${unit.campusSourceReferenceId}`);
       const created = await this.prisma.universityOrganizationUnit.create({
         data: {
           universityId: id,
           sourceReferenceId: unit.sourceReferenceId,
-          campusId: unit.campusSourceReferenceId
-            ? campusIds.get(unit.campusSourceReferenceId)
-            : undefined,
+          campusId,
           unitType: unit.unitType,
           name: unit.name,
           normalizedName: unit.name.trim().toLocaleLowerCase(),
@@ -524,13 +527,16 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
     }
 
     for (const program of details.academicPrograms ?? []) {
+      const organizationUnitId = program.organizationUnitSourceReferenceId
+        ? unitIds.get(program.organizationUnitSourceReferenceId)
+        : undefined;
+      if (program.organizationUnitSourceReferenceId && !organizationUnitId)
+        throw new Error(`UNIVERSITY_ORGANIZATION_REFERENCE_NOT_FOUND:${program.organizationUnitSourceReferenceId}`);
       const created = await this.prisma.universityAcademicProgram.create({
         data: {
           universityId: id,
           sourceReferenceId: program.sourceReferenceId,
-          organizationUnitId: program.organizationUnitSourceReferenceId
-            ? unitIds.get(program.organizationUnitSourceReferenceId)
-            : undefined,
+          organizationUnitId,
           sourceProgramName: program.sourceProgramName,
           normalizedName: program.sourceProgramName.trim().toLocaleLowerCase(),
           degreeLevelId: program.degreeLevelId,

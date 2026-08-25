@@ -1109,6 +1109,7 @@ model UniversityRanking {
 
 model UniversitySourceRecord {
   id               String                    @id @default(uuid())
+  sourceIdentityKey String                    @unique
   universityId     String
   importRecordId   String?
   stage            String
@@ -1124,7 +1125,7 @@ model UniversitySourceRecord {
   translations     UniversityTranslation[]   @relation("UniversityTranslationSourceRecord")
   localizedTexts   UniversityLocalizedText[] @relation("UniversityLocalizedTextSourceRecord")
 
-  @@unique([stage, sourceArtifactId, sourceRowNumber])
+  @@index([stage, sourceArtifactId, sourceRowNumber])
   @@index([universityId])
   @@index([sourceHash])
 }
