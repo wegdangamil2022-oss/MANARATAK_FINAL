@@ -1,62 +1,52 @@
 # Phase4.15 Report
 
-## Implementation Summary
+> **W0 current-state reconciliation (2026-08-25): `ACTIVE_IMPLEMENTED — CI_ENFORCED`.** The historical Husky hook files described by the original report are absent. Git governance is now enforced through maintained repository scripts plus the GitHub Actions source-quality job instead of claiming nonexistent local hooks.
 
-The Git Foundation has been successfully established following strict enterprise guidelines. The setup strictly governs commit messages and branch naming conventions through custom generic shell scripts executed via Husky hooks. The validation logic mandates the use of Conventional Commits, preventing unstructured or disorganized changes from entering the repository. Branch naming conventions ensure all branches categorize clearly into structural types (`feat/`, `fix/`, `chore/`, etc.). The infrastructure remains completely unaware of any domain contexts, enabling universal reusability across any future feature or module.
+## Current Git Governance Baseline
 
-## Files Created / Modified
+Active enforcement paths:
 
-**Scripts & Hooks**
+- `scripts/git/validate-commit-message.mjs`
+  - validates Conventional Commit subjects;
+  - permits merge/revert system commits.
+- `scripts/git/validate-branch-name.mjs`
+  - permits `main`, `develop`, or categorized lowercase branches such as `feat/...`, `fix/...`, `docs/...`, `refactor/...`, `chore/...`, `ci/...`, and approved release/hotfix forms.
+- `.github/workflows/ci.yml`
+  - checks PR branch names;
+  - validates commit subjects from the PR range (or the current pushed commit);
+  - runs the source-quality, typecheck, lint, build, and unit-test gates.
 
-- `scripts/git/validate-commit-msg.sh` (Created)
-- `scripts/git/validate-branch-name.sh` (Created)
-- `.husky/_/husky.sh` (Created)
-- `.husky/pre-commit` (Created)
-- `.husky/commit-msg` (Created)
+Local validation can be invoked through:
 
-## Git Validation
+- `npm run git:validate:commit -- "fix(api): example"`
+- `npm run git:validate:branch -- "fix/example"`
 
-- **Git Governance Isolation:** Established. The hooks enforce repository standards independently of any application code.
-- **Commit Validation Neutrality:** Verified. `validate-commit-msg.sh` strictly enforces generic `type(scope): subject` structures.
-- **Branch Validation Neutrality:** Verified. `validate-branch-name.sh` ensures generic categorizations without mandating feature-specific names.
-- **Zero Business Workflow:** Verified. No deployment or business-oriented scripts exist in the hooks.
+## Historical Husky Record
 
-## Compilation Status
+The original Phase 4.15 report described `.husky/pre-commit`, `.husky/commit-msg`, and shell scripts under `scripts/git/`. Those historical files are not part of the current baseline. W0 deliberately does **not** recreate obsolete hooks merely to match documentation; the authoritative enforcement mechanism is CI plus the maintained validation scripts above.
 
-`npm run build` executed successfully across the entire monorepo with 0 compilation errors.
+## Governance Rules
 
-## Architecture Validation
+- Conventional Commit validation is a blocking CI gate.
+- PR branch naming is a blocking CI gate.
+- `main` and `develop` are protected canonical branch names.
+- Local hooks are optional developer ergonomics, not the source of governance truth.
+- Any future local hook system must call the same maintained validators rather than duplicate policy logic.
 
-- **Clean Architecture:** Enforced.
-- **DDD Boundaries:** Enforced.
-- **SOLID Principles:** Enforced.
-- **Git Governance Isolation:** Confirmed.
-- **Dependency Rule:** Compliant.
-- **Zero Business Leakage:** Verified successfully.
+## Validation Status
 
-## ARB Pre-validation Results
-
-- Clean Architecture: ✓
-- DDD: ✓
-- SOLID: ✓
-- Dependency Rule: ✓
-- Dependency Inversion: ✓
-- Layer Isolation: ✓
-- Git Governance Isolation: ✓
-- Hook Isolation: ✓
-- Commit Validation Neutrality: ✓
-- Branch Validation Neutrality: ✓
-- Repository Integrity: ✓
-- Zero Business Workflow: ✓
-- Zero Business Leakage: ✓
-- Production Readiness: ✓
+- **Commit message validator:** `ACTIVE_IMPLEMENTED`
+- **Branch name validator:** `ACTIVE_IMPLEMENTED`
+- **CI enforcement:** `ACTIVE_IMPLEMENTED`
+- **Historical Husky hook claim:** `SUPERSEDED`
+- **Repository hosting branch-protection settings:** external/runtime governance evidence, not proven by source alone
 
 ## Approval Status
 
-Phase 4.15
-IMPLEMENTED
-Revision: 4.15.0
-READY FOR ARCHITECTURE REVIEW
+Phase 4.15  
+`ACTIVE_IMPLEMENTED — CI_ENFORCED`  
+Revision: 4.15.1-W0  
+CURRENT GIT GOVERNANCE BASELINE RECORDED
 
 ---
 

@@ -14,6 +14,12 @@ import {
   UpdateCertificateTemplateDto,
 } from '@manaratak/domain';
 
+export interface CertificateSigningRuntimeConfiguration {
+  signingKeyReference?: string;
+  signingSecret?: string;
+  productionLike?: boolean;
+}
+
 export interface IssueCertificateFromCourseCompletionCommand extends CourseCompletedEventPayload {
   recipientDisplayName?: string | null;
   templateId?: string;
@@ -40,6 +46,7 @@ export class CertificateUseCases {
     private readonly certificateRepository: ICertificateRepository,
     private readonly courseRepository: ICourseRepository,
     private readonly assetRepository?: IAssetRecordRepository,
+    private readonly signingRuntime: CertificateSigningRuntimeConfiguration = {},
   ) {}
 
   public async ensureDefaultCourseTemplate(): Promise<void> {
@@ -152,7 +159,7 @@ export class CertificateUseCases {
       competencies: command.competencies ?? [],
       digitalSignature: this.sign(verificationHash),
       signingKeyReference:
-        process.env.CERTIFICATE_SIGNING_KEY_REFERENCE ?? 'runtime-kms-key-required',
+        this.signingRuntime.signingKeyReference ?? 'runtime-kms-key-required',
       metadata: {
         sealed,
         issuedFromEvent: 'CourseCompleted',
@@ -357,8 +364,8 @@ export class CertificateUseCases {
     return createHash('sha256').update(value).digest('hex');
   }
   private sign(hash: string): string {
-    const secret = process.env.CERTIFICATE_SIGNING_SECRET;
-    if (!secret && process.env.NODE_ENV === 'production')
+    const secret = this.signingRuntime.signingSecret;
+    if (!secret && this.signingRuntime.productionLike)
       throw new Error('CERTIFICATE_SIGNING_PROVIDER_NOT_CONFIGURED');
     return createHmac('sha256', secret ?? 'source-only-development-signing-key')
       .update(hash)

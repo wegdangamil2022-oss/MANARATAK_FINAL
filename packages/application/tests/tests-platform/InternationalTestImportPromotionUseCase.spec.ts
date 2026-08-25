@@ -47,8 +47,9 @@ describe('InternationalTestImportPromotionUseCase', () => {
       providerName: 'British Council',
       officialRegistrationUrl: 'https://ielts.org/register',
       officialSourceUrl: 'https://ielts.org',
+      officialLinks: [{ linkType: 'REGISTRATION', url: 'https://ielts.org/register' }],
       acceptedFor: ['University Admission', 'Scholarships'],
-      scoreScale: '0-9 band score',
+      scoreScale: { overallMinimum: 0, overallMaximum: 9, scoreIncrement: 0.5 },
       validityPeriodMonths: 24,
       currencyCode: 'USD',
       feeAmountMinorUnits: '25000',
@@ -64,6 +65,7 @@ describe('InternationalTestImportPromotionUseCase', () => {
       create: vi.fn().mockImplementation((data) => Promise.resolve({ id: 'test-1', createdAt: new Date(), updatedAt: new Date(), ...data })),
       findById: vi.fn(),
       findBySlug: vi.fn(),
+      findPublishedBySlug: vi.fn(),
       findByDedupKey: vi.fn().mockResolvedValue(null),
       updateStatus: vi.fn(),
       list: vi.fn(),
@@ -153,7 +155,27 @@ describe('InternationalTestImportPromotionUseCase', () => {
       upsertDegreeRelationship,
     };
 
-    const richUseCase = new InternationalTestImportPromotionUseCase(richRepo, undefined, referenceResolver);
+    const degreeLevelRepository: any = {
+      getDegreeLevelById: vi.fn().mockResolvedValue({
+        id: 'degree-bachelor',
+        canonicalCode: 'BACHELOR',
+        status: 'ACTIVE',
+      }),
+    };
+    const academicTaxonomyRepository: any = {
+      getNode: vi.fn().mockResolvedValue({
+        nodeId: 'taxonomy-language-studies',
+        status: 'ACTIVE',
+      }),
+    };
+    const richUseCase = new InternationalTestImportPromotionUseCase(
+      richRepo,
+      undefined,
+      referenceResolver,
+      undefined,
+      degreeLevelRepository,
+      academicTaxonomyRepository,
+    );
 
     const richRecord: ImportRecordDto = {
       id: 'record-rich-1',

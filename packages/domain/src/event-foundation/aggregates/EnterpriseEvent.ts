@@ -31,6 +31,35 @@ export class EnterpriseEvent {
     this._lifecycleState = EventLifecycleState.CREATED;
   }
 
+  public static rehydrate(input: {
+    id: string;
+    reference: string;
+    ownerReference: string;
+    type: string;
+    category: string;
+    payloadMetadata: Record<string, unknown>;
+    version: string;
+    metadata: Record<string, unknown>;
+    correlationReference?: string;
+    causationReference?: string;
+    lifecycleState: EventLifecycleState;
+  }): EnterpriseEvent {
+    const event = new EnterpriseEvent(
+      EnterpriseEventId.from(input.id),
+      EventReference.from(input.reference),
+      EventOwnerReference.from(input.ownerReference),
+      EventDefinition.create(input.type, input.category),
+      EventPayloadMetadata.create(input.payloadMetadata),
+      EventVersion.create(input.version),
+      EventMetadata.create(input.metadata),
+      input.correlationReference ? EventCorrelationReference.from(input.correlationReference) : undefined,
+      input.causationReference ? EventCausationReference.from(input.causationReference) : undefined,
+    );
+    event._lifecycleState = input.lifecycleState;
+    event.clearDomainEvents();
+    return event;
+  }
+
   public static create(
     reference: EventReference,
     ownerReference: EventOwnerReference,

@@ -1,5 +1,8 @@
 # MANARATAK 2.0: Phase 2.15 Identity Security Foundation
 
+> **Current security topology clarification (W0, 2026-08-25):** The active REST namespace is **`/api/v1`** and the current physical deployment is a Modular Monolith. mTLS is mandatory only when a module is physically extracted and communicates over a network boundary; in-process module calls remain governed by authorization, contracts, and event boundaries.
+
+
 ## Phase 2.15 — Identity & Security Foundation
 
 ### 1. Document Information
@@ -119,7 +122,7 @@ Authentication is the process of verifying a claimed identity.
 Authorization is the process of verifying permissions after successful authentication.
 
 - **Decoupled Gateway Authorization**: The API Gateway validates tokens and checks general path permissions before routing requests.
-- **Row-Level Security Enforcement**: Domain microservices perform secondary checks to confirm record-level ownership before completing database modifications.
+- **Row-Level Security Enforcement**: Domain modules perform secondary checks to confirm record-level ownership before completing database modifications.
 
 ---
 
@@ -250,7 +253,7 @@ To guarantee absolute binary containment, protect internal processing workers, a
 
 - **Web Application Firewall (WAF)**: Filters SQL injection, cross-site scripting (XSS), and malicious request formats at the platform edge.
 - **Strict Rate Limiting**: Prevents denial of service by restricting requests per IP and authenticated session.
-- **Mutual TLS (mTLS)**: Enforced for all inter-service and internal microservice communications.
+- **Mutual TLS (mTLS)**: Required for network traffic between physically extracted services. It is not applicable to in-process module calls inside the current Modular Monolith.
 
 ---
 
@@ -365,13 +368,13 @@ This matrix maps Bounded Context operations to their required security classific
 
 | Bounded Context | Business Capability | Target Resource              | Security Classification | Required Role     | Access Model          |
 | :-------------- | :------------------ | :--------------------------- | :---------------------- | :---------------- | :-------------------- |
-| **Scholarship** | Directory Search    | `/v2/public/scholarships`    | Tier 1 (Public)         | `ROLE_ANONYMOUS`  | Unrestricted (Cached) |
-| **Student**     | Update Profile      | `/v2/portal/students/{id}`   | Tier 3 (PII)            | `ROLE_STUDENT`    | Row-Level ABAC        |
-| **Student**     | Register Passport   | `/v2/portal/assets/register` | Tier 3 (PII)            | `ROLE_STUDENT`    | Pre-signed quarantine |
-| **Student**     | Submit Application  | `/v2/portal/applications`    | Tier 3 (PII)            | `ROLE_STUDENT`    | Row-Level ABAC        |
-| **Knowledge**   | Publish Guide       | `/v2/admin/articles`         | Tier 1 (Public)         | `ROLE_EDITOR`     | RBAC + MFA            |
-| **Import**      | Sync Scraper Feed   | `/v2/internal/ingest`        | Tier 2 (Internal)       | `ROLE_API_CLIENT` | mTLS private routing  |
-| **Import**      | Audit Quarantine    | `/v2/admin/quarantine`       | Tier 2 (Internal)       | `ROLE_ADMIN`      | RBAC + MFA            |
+| **Scholarship** | Directory Search    | `/api/v1/public/scholarships`    | Tier 1 (Public)         | `ROLE_ANONYMOUS`  | Unrestricted (Cached) |
+| **Student**     | Update Profile      | `/api/v1/portal/students/{id}`   | Tier 3 (PII)            | `ROLE_STUDENT`    | Row-Level ABAC        |
+| **Student**     | Register Passport   | `/api/v1/portal/assets/register` | Tier 3 (PII)            | `ROLE_STUDENT`    | Pre-signed quarantine |
+| **Student**     | Submit Application  | `/api/v1/portal/applications`    | Tier 3 (PII)            | `ROLE_STUDENT`    | Row-Level ABAC        |
+| **Knowledge**   | Publish Guide       | `/api/v1/admin/articles`         | Tier 1 (Public)         | `ROLE_EDITOR`     | RBAC + MFA            |
+| **Import**      | Sync Scraper Feed   | `/api/v1/internal/ingest`        | Tier 2 (Internal)       | `ROLE_API_CLIENT` | mTLS when physically extracted  |
+| **Import**      | Audit Quarantine    | `/api/v1/admin/quarantine`       | Tier 2 (Internal)       | `ROLE_ADMIN`      | RBAC + MFA            |
 
 ---
 

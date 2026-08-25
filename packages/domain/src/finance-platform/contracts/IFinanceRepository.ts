@@ -35,16 +35,27 @@ export interface FinanceMutationContext {
   reason?: string;
   expectedVersion?: number;
 }
+export interface FinanceApprovalBinding {
+  approvalId: string;
+  actionType: string;
+  targetReferenceId: string;
+  payloadHash: string;
+  policyReference: string;
+  makerId: string;
+  amount?: MoneyAmount | null;
+}
 export interface PostLedgerTransactionInput extends FinanceMutationContext {
   businessReferenceType: string;
   businessReferenceId: string;
   postings: LedgerPostingInput[];
   reversalOfId?: string | null;
+  approval?: FinanceApprovalBinding;
 }
 
 export interface IFinanceRepository {
   findInvoiceById(id: string): Promise<FinanceInvoiceDto | null>;
   findInvoiceByNumber(invoiceNumber: string): Promise<FinanceInvoiceDto | null>;
+  findPaymentById(id: string): Promise<FinancePaymentDto | null>;
   listInvoices(filters: FinanceInvoiceFilters): Promise<PaginatedFinanceResult<FinanceInvoiceDto>>;
   listPaymentsForInvoice(invoiceId: string): Promise<FinancePaymentDto[]>;
 
@@ -90,6 +101,7 @@ export interface IFinanceRepository {
   reverseLedgerTransaction(
     transactionId: string,
     context: FinanceMutationContext,
+    approval: FinanceApprovalBinding,
   ): Promise<FinancialTransactionDto>;
 
   createWallet(
@@ -120,16 +132,40 @@ export interface IFinanceRepository {
     at: Date,
   ): Promise<ExchangeRateDto | null>;
   listExchangeRates(): Promise<ExchangeRateDto[]>;
+  activateExchangeRate(
+    id: string,
+    approval: FinanceApprovalBinding,
+    context: FinanceMutationContext,
+  ): Promise<ExchangeRateDto>;
 
   createTransfer(
     data: Omit<MoneyTransferDto, 'id' | 'createdAt' | 'updatedAt' | 'version'>,
     context: FinanceMutationContext,
   ): Promise<MoneyTransferDto>;
   getTransfer(id: string): Promise<MoneyTransferDto | null>;
+  lockTransferRate(
+    id: string,
+    rate: ExchangeRateDto,
+    targetAmount: MoneyAmount,
+    context: FinanceMutationContext,
+  ): Promise<MoneyTransferDto>;
+  calculateTransferFee(
+    id: string,
+    feeAmount: MoneyAmount,
+    policyReference: string,
+    context: FinanceMutationContext,
+  ): Promise<MoneyTransferDto>;
   transitionTransfer(
     id: string,
     status: TransferStatus,
     context: FinanceMutationContext,
+    evidence?: {
+      approval?: FinanceApprovalBinding;
+      bankProvider?: string;
+      bankProviderReference?: string;
+      providerStatus?: 'PROCESSING' | 'SETTLED' | 'FAILED' | 'REVERSED';
+      providerFailureCode?: string;
+    },
   ): Promise<MoneyTransferDto>;
   listTransfers(): Promise<MoneyTransferDto[]>;
 
@@ -137,6 +173,7 @@ export interface IFinanceRepository {
     data: Omit<FinancialApprovalDto, 'id' | 'createdAt' | 'decisions'>,
     context: FinanceMutationContext,
   ): Promise<FinancialApprovalDto>;
+  getApproval(id: string): Promise<FinancialApprovalDto | null>;
   decideApproval(
     id: string,
     decision: 'APPROVE' | 'REJECT',
@@ -150,6 +187,22 @@ export interface IFinanceRepository {
     data: Omit<RefundDto, 'id' | 'createdAt'>,
     context: FinanceMutationContext,
   ): Promise<RefundDto>;
+  getRefund(id: string): Promise<RefundDto | null>;
+  beginRefundProcessing(
+    id: string,
+    approval: FinanceApprovalBinding,
+    context: FinanceMutationContext,
+  ): Promise<RefundDto>;
+  completeRefundAtomic(
+    id: string,
+    providerEvidence: { gatewayProvider: string; gatewayReference: string },
+    context: FinanceMutationContext,
+  ): Promise<RefundDto>;
+  failRefund(
+    id: string,
+    failureCode: string,
+    context: FinanceMutationContext,
+  ): Promise<RefundDto>;
   listRefunds(): Promise<RefundDto[]>;
   createCommission(
     data: Omit<CommissionDto, 'id' | 'createdAt' | 'updatedAt'>,
@@ -158,6 +211,7 @@ export interface IFinanceRepository {
   listCommissions(): Promise<CommissionDto[]>;
   saveEstimate(
     data: Omit<FinancialEstimateDto, 'id' | 'generatedAt'>,
+    context: FinanceMutationContext,
   ): Promise<FinancialEstimateDto>;
   runReconciliation(): Promise<ReconciliationIssueDto[]>;
   getFinanceOverview(): Promise<FinanceOverviewDto>;

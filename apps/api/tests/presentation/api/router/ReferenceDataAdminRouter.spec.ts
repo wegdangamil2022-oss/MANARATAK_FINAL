@@ -11,6 +11,7 @@ describe('ReferenceDataAdminRouter', () => {
     upsertCity: vi.fn(),
     previewCountryImport: vi.fn(),
     previewCountryDerivedReferences: vi.fn(),
+    listCountries: vi.fn(),
     listRegions: vi.fn(),
     listCities: vi.fn(),
   });
@@ -28,6 +29,17 @@ describe('ReferenceDataAdminRouter', () => {
     );
     return app;
   };
+
+  it('GET /admin/reference-data/countries preserves an explicit activeOnly=false filter', async () => {
+    const useCases = createUseCases();
+    useCases.listCountries.mockResolvedValue([]);
+    const app = createApp(useCases);
+
+    const res = await request(app).get('/admin/reference-data/countries?activeOnly=false&q=Egypt');
+
+    expect(res.status).toBe(200);
+    expect(useCases.listCountries).toHaveBeenCalledWith({ activeOnly: false, q: 'Egypt' });
+  });
 
   it('POST /admin/reference-data/countries/import-preview validates and delegates without applying', async () => {
     const useCases = createUseCases();
@@ -94,13 +106,13 @@ describe('ReferenceDataAdminRouter', () => {
     useCases.upsertCountry.mockResolvedValue({ iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt' });
     const app = createApp(useCases);
 
-    const payload = { iso3Code: 'EGY', name: 'Egypt', iso2Code: 'XX' }; // The URL param should override 'XX'
+    const payload = { iso3Code: 'EGY', name: 'Egypt', nameAr: 'مصر', iso2Code: 'XX' }; // The URL param should override 'XX'
     const res = await request(app).put('/admin/reference-data/countries/EG').send(payload);
 
     expect(res.status).toBe(200);
     expect(res.body.iso2Code).toBe('EG');
     expect(useCases.upsertCountry).toHaveBeenCalledWith(
-      { iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt' },
+      { iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt', nameAr: 'مصر' },
       expect.objectContaining({ actorId: 'admin-X', source: 'admin-reference-data-api' }),
     );
   });
@@ -185,5 +197,15 @@ describe('ReferenceDataAdminRouter', () => {
 
     expect(res.status).toBe(400);
     expect(useCases.upsertCity).not.toHaveBeenCalled();
+  });
+
+  it('does not collapse unknown infrastructure failures into HTTP 400', async () => {
+    const useCases = createUseCases();
+    useCases.listCountries.mockRejectedValue(new Error('DATABASE_UNAVAILABLE'));
+    const app = createApp(useCases);
+
+    const res = await request(app).get('/admin/reference-data/countries');
+
+    expect(res.status).toBe(500);
   });
 });

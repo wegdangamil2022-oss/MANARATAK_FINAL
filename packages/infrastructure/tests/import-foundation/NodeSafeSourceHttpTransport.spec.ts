@@ -18,3 +18,28 @@ describe('NodeSafeSourceHttpTransport offline behavior', () => {
   it('enforces bytes in the real request executor', async () => { const factory = ((_url: URL, _options: unknown, callback: (response: EventEmitter & { headers: object; statusCode: number }) => void) => { const request = new EventEmitter() as EventEmitter & { setTimeout: () => void; destroy: (error?: Error) => void; end: () => void }; request.setTimeout = () => undefined; request.destroy = (error) => { if (error) request.emit('error', error); }; request.end = () => queueMicrotask(() => { const response = Object.assign(new EventEmitter(), { headers: {}, statusCode: 200 }); callback(response); response.emit('data', Buffer.from([1,2])); response.emit('end'); }); return request; }) as unknown as typeof https.request; await expect(new NodePinnedSourceRequestExecutor(factory).execute({ url: new URL('https://safe.example/catalog/a'), pinnedAddress: '93.184.216.34', timeoutMs: 10, maxBytes: 1 })).rejects.toThrow('SOURCE_RESPONSE_TOO_LARGE'); });
   it('enforces timeout and pins lookup in the real request executor', async () => { let pinned: unknown; const factory = ((_url: URL, options: { lookup: Function }, _callback: Function) => { options.lookup('safe.example', {}, (_error: unknown, address: string) => { pinned = address; }); const request = new EventEmitter() as EventEmitter & { setTimeout: (_ms: number, callback: () => void) => void; destroy: (error?: Error) => void; end: () => void }; request.setTimeout = (_ms, callback) => queueMicrotask(callback); request.destroy = (error) => request.emit('error', error); request.end = () => undefined; return request; }) as unknown as typeof https.request; await expect(new NodePinnedSourceRequestExecutor(factory).execute({ url: new URL('https://safe.example/catalog/a'), pinnedAddress: '93.184.216.34', timeoutMs: 1, maxBytes: 10 })).rejects.toThrow('SOURCE_REQUEST_TIMEOUT'); expect(pinned).toBe('93.184.216.34'); });
 });
+
+describe('NodeSafeSourceHttpTransport hard resource ceilings', () => {
+  it('clamps caller-provided response size and timeout to hard ceilings', async () => {
+    const executor = new FakeExecutor([ok]);
+    await new NodeSafeSourceHttpTransport(policy(), executor).get(source, {
+      maxResponseBytes: 999 * 1024 * 1024,
+      timeoutMs: 999_999,
+    });
+    expect(executor.calls[0].maxBytes).toBe(10 * 1024 * 1024);
+    expect(executor.calls[0].timeoutMs).toBe(30_000);
+  });
+
+  it('rejects non-positive or non-integer resource bounds', async () => {
+    await expect(
+      new NodeSafeSourceHttpTransport(policy(), new FakeExecutor([ok])).get(source, {
+        maxResponseBytes: 0,
+      }),
+    ).rejects.toThrow('SOURCE_MAX_RESPONSE_BYTES_INVALID');
+    await expect(
+      new NodeSafeSourceHttpTransport(policy(), new FakeExecutor([ok])).get(source, {
+        timeoutMs: 1.5,
+      }),
+    ).rejects.toThrow('SOURCE_TIMEOUT_INVALID');
+  });
+});

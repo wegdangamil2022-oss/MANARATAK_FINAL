@@ -11,11 +11,12 @@ export class EnvironmentPaymentGatewayAdapter implements IPaymentGateway {
   constructor(
     providerKey: string,
     private readonly secretEnvironmentVariable: string,
+    private readonly readSecret: (reference: string) => string | undefined = () => undefined,
   ) {
     this.providerKey = providerKey;
   }
   isConfigured() {
-    return Boolean(process.env[this.secretEnvironmentVariable]);
+    return Boolean(this.readSecret(this.secretEnvironmentVariable)?.trim());
   }
   async authorize(_request: PaymentGatewayRequest): Promise<never> {
     throw this.unavailable();
@@ -48,11 +49,12 @@ export class EnvironmentFxRateProviderAdapter implements IFxRateProvider {
   constructor(
     providerKey: string,
     private readonly secretEnvironmentVariable: string,
+    private readonly readSecret: (reference: string) => string | undefined = () => undefined,
   ) {
     this.providerKey = providerKey;
   }
   isConfigured() {
-    return Boolean(process.env[this.secretEnvironmentVariable]);
+    return Boolean(this.readSecret(this.secretEnvironmentVariable)?.trim());
   }
   async fetchRate(_sourceCurrency: string, _targetCurrency: string): Promise<never> {
     throw new Error(
@@ -68,16 +70,31 @@ export class EnvironmentBankTransferGatewayAdapter implements IBankTransferGatew
   constructor(
     providerKey: string,
     private readonly secretEnvironmentVariable: string,
+    private readonly readSecret: (reference: string) => string | undefined = () => undefined,
   ) {
     this.providerKey = providerKey;
   }
   isConfigured() {
-    return Boolean(process.env[this.secretEnvironmentVariable]);
+    return Boolean(this.readSecret(this.secretEnvironmentVariable)?.trim());
   }
-  async submit(_transferReference: string, _idempotencyKey: string): Promise<never> {
+  async submit(_request: import('@manaratak/domain').BankTransferSubmission): Promise<never> {
     throw new Error(
       this.isConfigured()
         ? `Bank provider ${this.providerKey} runtime transport is pending`
+        : `BANK_PROVIDER_NOT_CONFIGURED:${this.providerKey}`,
+    );
+  }
+  async getStatus(_providerReference: string, _idempotencyKey: string): Promise<never> {
+    throw new Error(
+      this.isConfigured()
+        ? `Bank provider ${this.providerKey} runtime transport is pending`
+        : `BANK_PROVIDER_NOT_CONFIGURED:${this.providerKey}`,
+    );
+  }
+  async reverse(_providerReference: string, _idempotencyKey: string): Promise<never> {
+    throw new Error(
+      this.isConfigured()
+        ? `Bank provider ${this.providerKey} reversal transport is pending`
         : `BANK_PROVIDER_NOT_CONFIGURED:${this.providerKey}`,
     );
   }

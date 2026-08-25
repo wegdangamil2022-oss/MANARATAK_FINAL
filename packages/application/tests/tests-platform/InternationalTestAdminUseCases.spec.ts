@@ -18,6 +18,7 @@ describe('InternationalTestAdminUseCases', () => {
       list: vi.fn(),
       findById: vi.fn(),
       findBySlug: vi.fn(),
+      findPublishedBySlug: vi.fn(),
       findByDedupKey: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -137,6 +138,8 @@ describe('InternationalTestAdminUseCases', () => {
         providerId: 'provider-idp',
         isSourceVerified: true,
         testCategory: InternationalTestCategory.LANGUAGE_PROFICIENCY,
+        scoreScale: { overallMinimum: 0, overallMaximum: 9 },
+        officialLinks: [{ linkType: 'REGISTRATION', url: 'https://ielts.org/register' }],
         completenessStatus: InternationalTestCompletenessStatus.COMPLETE
       });
 
@@ -182,6 +185,8 @@ describe('InternationalTestAdminUseCases', () => {
         providerId: 'provider-idp',
         isSourceVerified: true,
         testCategory: InternationalTestCategory.LANGUAGE_PROFICIENCY,
+        scoreScale: { overallMinimum: 0, overallMaximum: 9 },
+        officialLinks: [{ linkType: 'REGISTRATION', url: 'https://ielts.org/register' }],
         status: InternationalTestStatus.READY_TO_PUBLISH
       });
 

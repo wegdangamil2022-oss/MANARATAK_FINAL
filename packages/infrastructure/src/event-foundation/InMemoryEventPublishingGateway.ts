@@ -4,6 +4,7 @@ import { EnterpriseEvent } from '@manaratak/domain';
 export type EnterpriseEventListener = (event: EnterpriseEvent) => Promise<void> | void;
 
 export class InMemoryEventPublishingGateway implements IEventPublishingGateway {
+  public readonly persistenceClassification = 'DEVELOPMENT_ONLY' as const;
   private readonly listeners: EnterpriseEventListener[] = [];
   private readonly publishedEvents: EnterpriseEvent[] = [];
 

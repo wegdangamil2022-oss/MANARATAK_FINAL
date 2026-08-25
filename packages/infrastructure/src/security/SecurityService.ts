@@ -19,7 +19,7 @@ export class SecurityService implements ISecurityService {
   constructor(rateLimiter?: IRateLimiter, csrfOptions?: CsrfOptions) {
     this.rateLimiter = rateLimiter || new DefaultRateLimiter();
     this.csrfMaxAgeMs = csrfOptions?.maxAgeMs ?? 86400000; // 24 hours
-    this.csrfDefaultSecret = csrfOptions?.defaultSecret ?? process.env.CSRF_SECRET ?? 'manaratak-default-csrf-secret';
+    this.csrfDefaultSecret = csrfOptions?.defaultSecret ?? 'manaratak-default-csrf-secret';
   }
 
   getRateLimiter(): IRateLimiter {

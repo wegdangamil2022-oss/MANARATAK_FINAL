@@ -52,8 +52,7 @@ interface MajorTransactionContext extends AtomicPersistenceContext {
 export class PrismaMajorRepository implements ITransactionalMajorRepository {
   constructor(
     private readonly prisma: PrismaClient,
-    private readonly legacyOptionalFieldFiltersEnabled =
-      process.env.MANARATAK_MAJOR_LEGACY_OPTIONAL_FILTERS === 'true',
+    private readonly legacyOptionalFieldFiltersEnabled = false,
   ) {}
 
   withTransaction(context: AtomicPersistenceContext): IMajorRepository {

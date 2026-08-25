@@ -135,6 +135,36 @@ export const InternationalTestImportPayloadSchema = z.object({
     mergeSuggestions: z.unknown().optional(),
   }).passthrough().optional(),
 
+  // Canonical relationships (Phase 7/8 IDs are authoritative)
+  countryRelationships: z.array(z.object({
+    canonicalReferenceId: z.string().min(1),
+    referenceCode: z.string().min(1).optional(),
+    relationshipType: z.string().min(1),
+    notes: z.string().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  }).passthrough()).optional(),
+  languageRelationships: z.array(z.object({
+    canonicalReferenceId: z.string().min(1),
+    referenceCode: z.string().min(1).optional(),
+    relationshipType: z.string().min(1),
+    notes: z.string().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  }).passthrough()).optional(),
+  academicTaxonomyRelationships: z.array(z.object({
+    taxonomyNodeId: z.string().min(1),
+    relationshipType: z.string().min(1),
+    confidence: z.number().min(0).max(1).optional(),
+    notes: z.string().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  }).passthrough()).optional(),
+  degreeRelationships: z.array(z.object({
+    degreeLevelId: z.string().min(1),
+    canonicalCode: z.string().min(1).optional(),
+    relationshipType: z.string().min(1),
+    notes: z.string().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  }).passthrough()).optional(),
+
   // Missing / readiness
   missingFields: z.array(z.string()).optional(),
   readinessWarnings: z.array(z.string()).optional(),

@@ -1,5 +1,8 @@
 # MANARATAK 2.0: Phase 2.27 Solution Review
 
+> **Current deployment interpretation (W0, 2026-08-25):** Phase 2 capability boundaries are logical bounded contexts inside the Enterprise Modular Monolith. “Microservice” language below is retained only as future extraction intent and must not be read as a current physical deployment requirement.
+
+
 ## Phase 2.27 — Solution Review
 
 ### 1. Document Information
@@ -60,7 +63,7 @@ The phase sequence ensures a logical, foundation-first progression of architectu
 1. **Foundational Domain & Data Layer (2.1 to 2.8)**: Established the solution scope, business capability maps, entity relationships, physical databases, and canonical models before creating interfaces.
 2. **User Experience & Interaction Layer (2.9 to 2.11)**: Mapped user journeys, screen wireflows, and design system tokens over the established data boundaries.
 3. **Core Integration & Security Layer (2.12 to 2.17)**: Defined REST contract rules, event communication flows, identity assertions, workflow engines, and search indices over the structural data.
-4. **Generic & Supporting Capabilities (2.18 to 2.22)**: Built out CMS structures, import pipelines, AI assist guidelines, notification channels, and analytical pipelines as decoupled, non-sovereign microservices.
+4. **Generic & Supporting Capabilities (2.18 to 2.22)**: Built out CMS structures, import pipelines, AI assist guidelines, notification channels, and analytical pipelines as decoupled, non-sovereign **modules/capabilities**, each remaining extractable into a future service if operational evidence justifies it.
 5. **Quality & Release Operations (2.23 to 2.26)**: Outlined the deployment environments, testing strategies, data migration paths, and progressive rollouts necessary to operationalize the platform.
 
 ---
@@ -68,7 +71,7 @@ The phase sequence ensures a logical, foundation-first progression of architectu
 ### 7. Non-Duplication of Architectures
 
 - **Centralized Logic**: Key system processes (validation checks, deduplication metrics, and merge rules) are implemented as centralized pipelines, preventing duplicate business logic across different connectors or domains.
-- **Universal Template Repositories**: Notification and CMS templates are managed in a single, unified structure rather than being duplicated in individual microservices.
+- **Universal Template Repositories**: Notification and CMS templates are managed in a single, unified structure rather than being duplicated in individual modules or future extracted services.
 - **Reusable Security Policies**: Authentication, JWT validation, and rate-limiting are handled by centralized gateway proxies, keeping domain services focused on business transactions.
 
 ---

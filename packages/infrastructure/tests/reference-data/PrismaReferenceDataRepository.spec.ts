@@ -28,9 +28,9 @@ function createMockPrismaClient() {
     },
     referenceCity: {
       findMany: vi.fn(),
-      findFirst: vi.fn(),
+      findUnique: vi.fn(),
       update: vi.fn(),
-      create: vi.fn()
+      upsert: vi.fn()
     }
   } as unknown as PrismaClient;
 }
@@ -455,30 +455,39 @@ describe('PrismaReferenceDataRepository', () => {
   });
 
   describe('Cities', () => {
-    it('listCities builds filters for activeOnly, countryIso2Code, region, and q', async () => {
-      const dbRecords = [
+    it('listCities builds bounded filters and maps the administrative region relation', async () => {
+      mockPrisma.referenceCity.findMany.mockResolvedValue([
         {
           id: 'city-1',
           countryIso2Code: 'EG',
           name: 'Cairo',
+          nameAr: 'القاهرة',
           region: 'Cairo Governorate',
           timezone: 'Africa/Cairo',
           latitude: 30.0444,
           longitude: 31.2357,
           isActive: true,
           metadata: null,
+          administrativeRegionId: 'region-eg-c',
+          administrativeRegion: {
+            id: 'region-eg-c',
+            countryIso2Code: 'EG',
+            regionCode: 'EG-C',
+            name: 'Cairo Governorate',
+            nameAr: 'محافظة القاهرة',
+            localName: null,
+            regionType: 'GOVERNORATE',
+          },
           createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-
-      mockPrisma.referenceCity.findMany.mockResolvedValue(dbRecords);
+          updatedAt: new Date(),
+        },
+      ]);
 
       const filters: ReferenceDataFilters = {
         activeOnly: true,
         countryIso2Code: 'EG',
         region: 'Cairo Governorate',
-        q: 'Cai'
+        q: 'Cai',
       };
 
       const result = await repository.listCities(filters);
@@ -490,190 +499,175 @@ describe('PrismaReferenceDataRepository', () => {
           region: 'Cairo Governorate',
           OR: [
             { name: { contains: 'Cai', mode: 'insensitive' } },
-            { timezone: { contains: 'Cai', mode: 'insensitive' } }
-          ]
+            { timezone: { contains: 'Cai', mode: 'insensitive' } },
+          ],
         },
         include: { administrativeRegion: true },
-        orderBy: { name: 'asc' }
+        orderBy: { name: 'asc' },
       });
-
-      expect(result).toEqual([
-        {
-          id: 'city-1',
-          countryIso2Code: 'EG',
-          name: 'Cairo',
-          region: 'Cairo Governorate',
-          administrativeRegionId: undefined,
-          administrativeRegion: null,
-          timezone: 'Africa/Cairo',
-          latitude: 30.0444,
-          longitude: 31.2357,
-          isActive: true,
-          metadata: undefined
-        }
-      ]);
-    });
-
-    it('upsertCity calls findFirst with countryIso2Code + name only when region is undefined', async () => {
-      const input: UpsertReferenceCityDto = {
-        countryIso2Code: 'EG',
+      expect(result[0]).toMatchObject({
+        id: 'city-1',
         name: 'Cairo',
-        isActive: true
-      };
-
-      mockPrisma.referenceCity.findFirst.mockResolvedValue(null);
-      mockPrisma.referenceCity.create.mockResolvedValue({
-        id: 'city-new',
-        countryIso2Code: 'EG',
-        name: 'Cairo',
-        region: null,
-        timezone: null,
-        latitude: null,
-        longitude: null,
-        isActive: true,
-        metadata: null,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-
-      await repository.upsertCity(input);
-
-      expect(mockPrisma.referenceCity.findFirst).toHaveBeenCalledWith({
-        where: {
-          countryIso2Code: 'EG',
-          name: 'Cairo'
-        },
-        include: { administrativeRegion: true }
-      });
-      expect(mockPrisma.referenceCity.create).toHaveBeenCalled();
-    });
-
-    it('upsertCity calls findFirst with countryIso2Code + name + region when region is defined', async () => {
-      const input: UpsertReferenceCityDto = {
-        countryIso2Code: 'EG',
-        name: 'Cairo',
-        region: 'Giza',
-        isActive: true
-      };
-
-      mockPrisma.referenceCity.findFirst.mockResolvedValue(null);
-      mockPrisma.referenceCity.create.mockResolvedValue({
-        id: 'city-new',
-        countryIso2Code: 'EG',
-        name: 'Cairo',
-        region: 'Giza',
-        timezone: null,
-        latitude: null,
-        longitude: null,
-        isActive: true,
-        metadata: null,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-
-      await repository.upsertCity(input);
-
-      expect(mockPrisma.referenceCity.findFirst).toHaveBeenCalledWith({
-        where: {
-          countryIso2Code: 'EG',
-          name: 'Cairo',
-          region: 'Giza'
-        },
-        include: { administrativeRegion: true }
+        nameAr: 'القاهرة',
+        administrativeRegionId: 'region-eg-c',
       });
     });
 
-    it('upsertCity updates by id when existing city is found', async () => {
+    it('updates the exact canonical-key row when it already exists', async () => {
       const input: UpsertReferenceCityDto = {
         countryIso2Code: 'EG',
         name: 'Cairo',
+        region: 'Cairo Governorate',
         timezone: 'Africa/Cairo',
-        isActive: true
+        isActive: true,
       };
-
-      mockPrisma.referenceCity.findFirst.mockResolvedValue({
+      mockPrisma.referenceCity.findUnique.mockResolvedValue({
         id: 'city-existing',
+        canonicalIdentityKey: 'existing-key',
         countryIso2Code: 'EG',
         name: 'Cairo',
-        region: null,
+        nameAr: null,
+        region: 'Cairo Governorate',
         timezone: null,
         latitude: null,
         longitude: null,
+        administrativeRegionId: null,
+        administrativeRegion: null,
         isActive: true,
         metadata: null,
-        createdAt: new Date(),
-        updatedAt: new Date()
       });
-
       mockPrisma.referenceCity.update.mockResolvedValue({
         id: 'city-existing',
         countryIso2Code: 'EG',
         name: 'Cairo',
-        region: null,
+        nameAr: null,
+        region: 'Cairo Governorate',
         timezone: 'Africa/Cairo',
         latitude: null,
         longitude: null,
+        administrativeRegionId: null,
+        administrativeRegion: null,
         isActive: true,
         metadata: null,
-        createdAt: new Date(),
-        updatedAt: new Date()
       });
 
       const result = await repository.upsertCity(input);
 
-      expect(mockPrisma.referenceCity.update).toHaveBeenCalledWith({
+      const canonicalWhere = mockPrisma.referenceCity.findUnique.mock.calls[0][0].where;
+      expect(canonicalWhere.canonicalIdentityKey).toMatch(/^[a-f0-9]{64}$/);
+      expect(mockPrisma.referenceCity.update).toHaveBeenCalledWith(expect.objectContaining({
         where: { id: 'city-existing' },
         include: { administrativeRegion: true },
-        data: {
-          timezone: 'Africa/Cairo',
-          latitude: undefined,
-          longitude: undefined,
-          isActive: true,
-          metadata: undefined
-        }
-      });
+      }));
+      expect(mockPrisma.referenceCity.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.referenceCity.upsert).not.toHaveBeenCalled();
       expect(result.timezone).toBe('Africa/Cairo');
     });
 
-    it('upsertCity creates a new record when no existing city is found', async () => {
+    it('claims one unambiguous pre-W3 legacy row and assigns its canonical key', async () => {
       const input: UpsertReferenceCityDto = {
         countryIso2Code: 'EG',
         name: 'Alexandria',
-        timezone: 'Africa/Cairo',
-        isActive: true
+        region: 'Alexandria Governorate',
+        isActive: true,
       };
-
-      mockPrisma.referenceCity.findFirst.mockResolvedValue(null);
-      mockPrisma.referenceCity.create.mockResolvedValue({
-        id: 'city-alex',
+      mockPrisma.referenceCity.findUnique.mockResolvedValue(null);
+      mockPrisma.referenceCity.findMany.mockResolvedValue([
+        {
+          id: 'legacy-city',
+          canonicalIdentityKey: null,
+          countryIso2Code: 'EG',
+          name: 'Alexandria',
+          region: 'Alexandria Governorate',
+        },
+      ]);
+      mockPrisma.referenceCity.update.mockResolvedValue({
+        id: 'legacy-city',
         countryIso2Code: 'EG',
         name: 'Alexandria',
-        region: null,
+        nameAr: null,
+        region: 'Alexandria Governorate',
+        timezone: null,
+        latitude: null,
+        longitude: null,
+        administrativeRegionId: null,
+        administrativeRegion: null,
+        isActive: true,
+        metadata: null,
+      });
+
+      await repository.upsertCity(input);
+
+      expect(mockPrisma.referenceCity.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({
+          canonicalIdentityKey: null,
+          countryIso2Code: 'EG',
+          name: { equals: 'Alexandria', mode: 'insensitive' },
+          region: { equals: 'Alexandria Governorate', mode: 'insensitive' },
+        }),
+        take: 2,
+      }));
+      expect(mockPrisma.referenceCity.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'legacy-city' },
+        data: expect.objectContaining({ canonicalIdentityKey: expect.stringMatching(/^[a-f0-9]{64}$/) }),
+      }));
+      expect(mockPrisma.referenceCity.upsert).not.toHaveBeenCalled();
+    });
+
+    it('fails closed when multiple legacy rows match one canonical city identity', async () => {
+      mockPrisma.referenceCity.findUnique.mockResolvedValue(null);
+      mockPrisma.referenceCity.findMany.mockResolvedValue([
+        { id: 'legacy-1' },
+        { id: 'legacy-2' },
+      ]);
+
+      await expect(repository.upsertCity({
+        countryIso2Code: 'US',
+        name: 'Springfield',
+        region: 'Illinois',
+      })).rejects.toThrow('REFERENCE_CITY_LEGACY_IDENTITY_AMBIGUOUS');
+
+      expect(mockPrisma.referenceCity.update).not.toHaveBeenCalled();
+      expect(mockPrisma.referenceCity.upsert).not.toHaveBeenCalled();
+    });
+
+    it('uses database upsert on the unique canonical key for a new W3 city identity', async () => {
+      const input: UpsertReferenceCityDto = {
+        countryIso2Code: 'EG',
+        name: 'Aswan',
+        region: 'Aswan Governorate',
+        timezone: 'Africa/Cairo',
+        isActive: true,
+      };
+      mockPrisma.referenceCity.findUnique.mockResolvedValue(null);
+      mockPrisma.referenceCity.findMany.mockResolvedValue([]);
+      mockPrisma.referenceCity.upsert.mockResolvedValue({
+        id: 'city-aswan',
+        countryIso2Code: 'EG',
+        name: 'Aswan',
+        nameAr: null,
+        region: 'Aswan Governorate',
         timezone: 'Africa/Cairo',
         latitude: null,
         longitude: null,
+        administrativeRegionId: null,
+        administrativeRegion: null,
         isActive: true,
         metadata: null,
-        createdAt: new Date(),
-        updatedAt: new Date()
       });
 
       const result = await repository.upsertCity(input);
 
-      expect(mockPrisma.referenceCity.create).toHaveBeenCalledWith({
-        include: { administrativeRegion: true },
-        data: {
-          countryIso2Code: 'EG',
-          name: 'Alexandria',
-          region: undefined,
-          timezone: 'Africa/Cairo',
-          latitude: undefined,
-          longitude: undefined,
-          isActive: true,
-          metadata: undefined
-        }
+      const call = mockPrisma.referenceCity.upsert.mock.calls[0][0];
+      expect(call.where.canonicalIdentityKey).toMatch(/^[a-f0-9]{64}$/);
+      expect(call.create).toMatchObject({
+        canonicalIdentityKey: call.where.canonicalIdentityKey,
+        countryIso2Code: 'EG',
+        name: 'Aswan',
+        region: 'Aswan Governorate',
       });
-      expect(result.name).toBe('Alexandria');
+      expect(result.name).toBe('Aswan');
     });
   });
+
 });

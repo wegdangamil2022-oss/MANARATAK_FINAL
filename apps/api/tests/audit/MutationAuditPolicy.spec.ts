@@ -48,4 +48,11 @@ describe('MutationAuditPolicy', () => {
       result: 'SUCCESS'
     }, { reliability: 'REQUIRED' })).rejects.toThrow('database unavailable');
   });
+  it('classifies protected legacy control-plane mutations as critical audit events', () => {
+    expect(MutationAuditPolicy.classify(request('POST', '/api/v1/background-jobs/job-1/start'), 'CONTROL_PLANE'))
+      .toBe('CRITICAL_AUDIT_REQUIRED');
+    expect(MutationAuditPolicy.classify(request('GET', '/api/v1/background-jobs/job-1/status'), 'CONTROL_PLANE'))
+      .toBe('NO_AUDIT_REQUIRED');
+  });
+
 });

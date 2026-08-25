@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { 
-  Role, 
+  Role,
+  Policy,
   PermissionReference, 
   RoleAssignment, 
   AuthorizationEvaluatorService, 
@@ -265,4 +266,68 @@ describe('Runtime RBAC Authority & Permission Evaluation', () => {
     expect(res.statusCode).toBe(403);
     expect(res.payload.error.code).toBe('ADMIN_PERMISSION_DENIED');
   });
+  it('fails closed when a role references a policy that no longer exists', async () => {
+    await roleRepo.save(new Role({
+      id: 'dangling-policy-admin',
+      name: 'Dangling Policy Admin',
+      description: 'Must not receive access when the referenced policy cannot be loaded',
+      permissions: [new PermissionReference('admin:settings:manage')],
+      policyIds: ['missing-policy'],
+    }));
+    await assignmentRepo.save(new RoleAssignment({
+      id: 'assign-dangling-policy-admin',
+      identityId: 'dangling-policy-user',
+      roleId: 'dangling-policy-admin',
+      assignedAt: new Date(),
+    }));
+
+    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard('admin:settings:manage', evaluatorService);
+    const req = { authUserId: 'dangling-policy-user', headers: {}, ip: '203.0.113.10', socket: {} } as any;
+    const res = createResponse();
+    const next = vi.fn();
+
+    await guard(req, res as any, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('enforces attached IP policy through the real permission middleware context', async () => {
+    await policyRepo.save(new Policy({
+      id: 'policy-office-ip',
+      name: 'Office IP',
+      description: 'Restrict admin access to a trusted address',
+      ruleType: 'IP',
+      ruleConfiguration: '203.0.113.10',
+    }));
+    await roleRepo.save(new Role({
+      id: 'conditional-admin',
+      name: 'Conditional Admin',
+      description: 'Admin access restricted by policy',
+      permissions: [new PermissionReference('admin:settings:manage')],
+      policyIds: ['policy-office-ip'],
+    }));
+    await assignmentRepo.save(new RoleAssignment({
+      id: 'assign-conditional-admin',
+      identityId: 'conditional-user',
+      roleId: 'conditional-admin',
+      assignedAt: new Date(),
+    }));
+
+    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard('admin:settings:manage', evaluatorService);
+
+    const allowedReq = { authUserId: 'conditional-user', headers: {}, ip: '203.0.113.10', socket: {} } as any;
+    const allowedRes = createResponse();
+    const allowedNext = vi.fn();
+    await guard(allowedReq, allowedRes as any, allowedNext);
+    expect(allowedNext).toHaveBeenCalledOnce();
+
+    const deniedReq = { authUserId: 'conditional-user', headers: {}, ip: '203.0.113.99', socket: {} } as any;
+    const deniedRes = createResponse();
+    const deniedNext = vi.fn();
+    await guard(deniedReq, deniedRes as any, deniedNext);
+    expect(deniedNext).not.toHaveBeenCalled();
+    expect(deniedRes.statusCode).toBe(403);
+  });
+
 });

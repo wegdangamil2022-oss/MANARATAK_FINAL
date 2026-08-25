@@ -2,6 +2,10 @@ import { randomUUID } from 'crypto';
 import {
   IReferenceDataRepository,
   ITransactionalReferenceDataRepository,
+  IReferenceDataValidationService,
+  ReferenceDataValidationService,
+  ReferenceDataValidationIssue,
+  ReferenceDataValidationSeverity,
   OutboxProcessingState,
   ReferenceCityDto,
   ReferenceCountryDto,
@@ -17,6 +21,7 @@ import {
 import { AtomicAuditedOutboxMutationExecutor } from '../../event-foundation/use-cases/AtomicAuditedOutboxMutationExecutor';
 import { CountryImportPreviewService, CountrySourceRecord } from '../services/CountryImportPreviewService';
 import { CountryDerivedReferencePreviewService } from '../services/CountryDerivedReferencePreviewService';
+import { ReferenceDataInvariantError, ReferenceDataNotFoundError, ReferenceDataValidationError } from '../ReferenceDataErrors';
 
 export interface ReferenceDataMutationContext {
   actorId: string;
@@ -31,6 +36,7 @@ export class ReferenceDataUseCases {
     private readonly countryImportPreview = new CountryImportPreviewService(),
     private readonly derivedReferencePreview = new CountryDerivedReferencePreviewService(),
     private readonly atomicMutationExecutor?: AtomicAuditedOutboxMutationExecutor,
+    private readonly validationService: IReferenceDataValidationService = new ReferenceDataValidationService(),
   ) {}
 
   public previewCountryImport(input: {
@@ -69,7 +75,7 @@ export class ReferenceDataUseCases {
   public async getCountry(iso2Code: string): Promise<ReferenceCountryDto> {
     const country = await this.repository.getCountry(iso2Code);
     if (!country || !country.isActive) {
-      throw new Error(`Country not found: ${iso2Code}`);
+      throw new ReferenceDataNotFoundError('COUNTRY', iso2Code);
     }
     return country;
   }
@@ -77,7 +83,7 @@ export class ReferenceDataUseCases {
   public async getCurrency(isoCode: string): Promise<ReferenceCurrencyDto> {
     const currency = await this.repository.getCurrency(isoCode);
     if (!currency || !currency.isActive) {
-      throw new Error(`Currency not found: ${isoCode}`);
+      throw new ReferenceDataNotFoundError('CURRENCY', isoCode);
     }
     return currency;
   }
@@ -85,39 +91,48 @@ export class ReferenceDataUseCases {
   public async getLanguage(isoCode: string): Promise<ReferenceLanguageDto> {
     const language = await this.repository.getLanguage(isoCode);
     if (!language || !language.isActive) {
-      throw new Error(`Language not found: ${isoCode}`);
+      throw new ReferenceDataNotFoundError('LANGUAGE', isoCode);
     }
     return language;
   }
 
-  public upsertCountry(data: UpsertReferenceCountryDto, context?: ReferenceDataMutationContext): Promise<ReferenceCountryDto> {
+  public async upsertCountry(data: UpsertReferenceCountryDto, context?: ReferenceDataMutationContext): Promise<ReferenceCountryDto> {
+    this.assertCanonicalValidation('COUNTRY', this.validationService.validateCountry(data).issues);
     return this.atomicUpsert('COUNTRY', data.iso2Code, context, transaction => transaction.repository.upsertCountryInTransaction(data, transaction.context), () => this.repository.upsertCountry(data));
   }
 
-  public upsertCurrency(data: UpsertReferenceCurrencyDto, context?: ReferenceDataMutationContext): Promise<ReferenceCurrencyDto> {
+  public async upsertCurrency(data: UpsertReferenceCurrencyDto, context?: ReferenceDataMutationContext): Promise<ReferenceCurrencyDto> {
+    this.assertCanonicalValidation('CURRENCY', this.validationService.validateCurrency(data).issues);
     return this.atomicUpsert('CURRENCY', data.isoCode, context, transaction => transaction.repository.upsertCurrencyInTransaction(data, transaction.context), () => this.repository.upsertCurrency(data));
   }
 
-  public upsertLanguage(data: UpsertReferenceLanguageDto, context?: ReferenceDataMutationContext): Promise<ReferenceLanguageDto> {
+  public async upsertLanguage(data: UpsertReferenceLanguageDto, context?: ReferenceDataMutationContext): Promise<ReferenceLanguageDto> {
+    this.assertCanonicalValidation('LANGUAGE', this.validationService.validateLanguage(data).issues);
     return this.atomicUpsert('LANGUAGE', data.isoCode, context, transaction => transaction.repository.upsertLanguageInTransaction(data, transaction.context), () => this.repository.upsertLanguage(data));
   }
 
   public async upsertCity(data: UpsertReferenceCityDto, context?: ReferenceDataMutationContext): Promise<ReferenceCityDto> {
+    this.assertCanonicalValidation('CITY', this.validationService.validateCity(data).issues);
     const country = await this.repository.getCountry(data.countryIso2Code);
     if (!country || !country.isActive) {
-      throw new Error(`Active canonical country not found: ${data.countryIso2Code}`);
+      throw new ReferenceDataNotFoundError('ACTIVE_COUNTRY', data.countryIso2Code);
     }
     if (data.administrativeRegionId) {
       const region = await this.repository.getRegionById(data.administrativeRegionId);
       if (!region) {
-        throw new Error(`Canonical region not found: ${data.administrativeRegionId}`);
+        throw new ReferenceDataNotFoundError('REGION', data.administrativeRegionId);
       }
       if (region.countryIso2Code !== country.iso2Code) {
-        throw new Error('City administrative region must belong to the selected country.');
+        throw new ReferenceDataInvariantError('City administrative region must belong to the selected country.');
       }
     }
     const identity = `${data.countryIso2Code}:${data.name}:${data.region ?? ''}`;
     return this.atomicUpsert('CITY', identity, context, transaction => transaction.repository.upsertCityInTransaction(data, transaction.context), () => this.repository.upsertCity(data));
+  }
+
+  private assertCanonicalValidation(entityType: string, issues: readonly ReferenceDataValidationIssue[]): void {
+    const errors = issues.filter((issue) => issue.severity === ReferenceDataValidationSeverity.ERROR);
+    if (errors.length > 0) throw new ReferenceDataValidationError(entityType, errors);
   }
 
   private atomicUpsert<T>(

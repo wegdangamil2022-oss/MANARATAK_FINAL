@@ -305,6 +305,7 @@ export class PrismaImportRepository {
     validationErrors?: any;
     promotedEntityId?: string;
     processingNotes?: string;
+    rawPayload?: any;
   }): Promise<any> {
     if (this.prisma) {
       const record = await this.prisma.importRecord.update({
@@ -314,6 +315,7 @@ export class PrismaImportRepository {
           validationErrors: updates.validationErrors,
           promotedEntityId: updates.promotedEntityId,
           processingNotes: updates.processingNotes,
+          rawPayload: updates.rawPayload,
         },
       });
       return record;

@@ -213,14 +213,16 @@ describe('InternationalTestUnifiedProfileValidation (P9J-3B)', () => {
     expect(report.issues.some(i => i.field.includes('countryIso2Code'))).toBe(true);
   });
 
-  it('should produce readiness warnings for incomplete optional features', () => {
+  it('should classify a reviewable profile missing publication-mandatory fields as NEEDS_REVIEW', () => {
     const report = InternationalTestValidationService.validate({
       canonicalName: 'Basic Test',
       providerName: 'Basic Provider',
       testCategory: InternationalTestCategory.ACADEMIC_PLACEMENT
     });
 
-    expect(report.isComplete).toBe(true);
+    expect(report.isComplete).toBe(false);
+    expect(report.canBeReviewed).toBe(true);
+    expect(report.status).toBe(InternationalTestCompletenessStatus.NEEDS_REVIEW);
     expect(report.issues.some(i => i.severity === InternationalTestValidationSeverity.WARNING)).toBe(true);
   });
 });

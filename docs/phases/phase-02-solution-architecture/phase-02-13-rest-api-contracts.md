@@ -1,5 +1,8 @@
 # MANARATAK 2.0: Phase 2.13 REST API Contracts
 
+> **Current contract namespace clarification (W0, 2026-08-25):** The authoritative active REST namespace is **`/api/v1`**. Historical `/api/v1` examples in this Phase 2 contract are superseded by `docs/architecture/standards/std-api-001-interface-standards.md` and the live API version registry. Breaking changes require a new `/api/vN` namespace.
+
+
 ## Phase 2.13 — REST API Contracts
 
 ### 1. Document Information
@@ -19,7 +22,7 @@
 
 The purpose of this document is to define the definitive, implementation-agnostic **REST API Contracts** for the MANARATAK 2.0 platform. Building directly on the foundational rules established in the _API Architecture Design (v2.12)_ and the _Canonical Data Model (v2.7)_, this specification establishes the strict schemas, payload contracts, validation constraints, and serialization rules for every operational interface.
 
-This document acts as the formal, binding agreement between backend microservices and consumer clients (including the web client, integration nodes, and external scraping tools). To prevent visual and backend code leakage, all contracts are specified using abstract, technology-neutral JSON structures. No implementation files, database scripts, OpenAPI definitions, Swagger files, or controllers are included, maintaining a pure enterprise architecture-level perspective.
+This document acts as the formal, binding agreement between backend platform modules and consumer clients (including the web client, integration nodes, and external scraping tools). To prevent visual and backend code leakage, all contracts are specified using abstract, technology-neutral JSON structures. No implementation files, database scripts, OpenAPI definitions, Swagger files, or controllers are included, maintaining a pure enterprise architecture-level perspective.
 
 ---
 
@@ -60,7 +63,7 @@ To ensure isolation and prevent privilege escalation, contracts are grouped into
 
 #### 6.1. Endpoint PUB-101: List Scholarships
 
-- **URI Path**: `GET /v2/public/scholarships`
+- **URI Path**: `GET /api/v1/public/scholarships`
 - **Purpose**: Fetches a paginated, filtered catalog of active scholarship opportunities.
 - **Query Parameters**:
   - `destination-country` (String, Optional): ISO-3166-1 alpha-2 code.
@@ -110,7 +113,7 @@ To ensure isolation and prevent privilege escalation, contracts are grouped into
 
 #### 7.1. Endpoint PRT-201: Update Student Portfolio
 
-- **URI Path**: `PUT /v2/portal/students/{student_business_key}/portfolio`
+- **URI Path**: `PUT /api/v1/portal/students/{student_business_key}/portfolio`
 - **Purpose**: Replaces or updates the student's demographic profile and academic history.
 - **Route Constraints**: `{student_business_key}` must match the authenticated student JWT subject ID.
 - **Abstract Request Shape**:
@@ -168,7 +171,7 @@ To ensure isolation and prevent privilege escalation, contracts are grouped into
 
 #### 8.1. Endpoint PRT-301: Submit Application
 
-- **URI Path**: `POST /v2/portal/applications`
+- **URI Path**: `POST /api/v1/portal/applications`
 - **Purpose**: Submits a drafted application for verification, checking all document constraints.
 - **Headers Required**:
   - `X-Idempotency-Key` (String, Required): Cryptographically secure transaction UUID.
@@ -212,7 +215,7 @@ To ensure isolation and prevent privilege escalation, contracts are grouped into
 
 #### 9.1. Endpoint CMS-401: Create Article
 
-- **URI Path**: `POST /v2/admin/articles`
+- **URI Path**: `POST /api/v1/admin/articles`
 - **Purpose**: Publishes or saves a new content guide to the platform Knowledge Center.
 - **Abstract Request Shape**:
   ```json
@@ -255,7 +258,7 @@ To ensure isolation and prevent privilege escalation, contracts are grouped into
 
 #### 10.1. Endpoint ADM-501: Resolve Quarantine Record
 
-- **URI Path**: `POST /v2/admin/quarantine-records/{quarantine_id}/resolve`
+- **URI Path**: `POST /api/v1/admin/quarantine-records/{quarantine_id}/resolve`
 - **Purpose**: Bypasses or corrects a quarantined integration payload, allowing re-submission.
 - **Abstract Request Shape**:
   ```json
@@ -294,7 +297,7 @@ To ensure isolation and prevent privilege escalation, contracts are grouped into
 
 #### 11.1. Endpoint INT-601: Ingest Scraping Batch
 
-- **URI Path**: `POST /v2/internal/ingestion-tasks`
+- **URI Path**: `POST /api/v1/internal/ingestion-tasks`
 - **Purpose**: Ingests raw batch records parsed by scrapers. Maps and validates payloads against the CDM.
 - **Abstract Request Shape**:
   ```json
@@ -333,11 +336,11 @@ To ensure isolation and prevent privilege escalation, contracts are grouped into
 
 Symmetrical API endpoints adhere to standardized structural URI layouts:
 
-- **Public Resources**: `/v2/public/{resource-collection}`
-- **Student Resources**: `/v2/portal/students/{student_key}/{resource-collection}`
-- **Editorial Content**: `/v2/admin/{resource-collection}`
-- **Quarantine & Audits**: `/v2/admin/quarantine-records`
-- **Service communications**: `/v2/internal/{resource-collection}`
+- **Public Resources**: `/api/v1/public/{resource-collection}`
+- **Student Resources**: `/api/v1/portal/students/{student_key}/{resource-collection}`
+- **Editorial Content**: `/api/v1/admin/{resource-collection}`
+- **Quarantine & Audits**: `/api/v1/admin/quarantine-records`
+- **Service communications**: `/api/v1/internal/{resource-collection}`
 
 ---
 
@@ -427,7 +430,7 @@ To protect the platform's performance from massive queries, all collection endpo
 
 Filters on directory lists are restricted to standard, flat query parameters:
 
-- **Schema**: `/v2/public/scholarships?destination-country=DE&funding-type=FULLY_FUNDED`
+- **Schema**: `/api/v1/public/scholarships?destination-country=DE&funding-type=FULLY_FUNDED`
 - **Handling**: Multi-value queries are passed as comma-separated strings (e.g., `?degree-level=BACHELOR,MASTER`).
 
 ---
@@ -438,7 +441,7 @@ Sort rules use a unified, explicit parameter structure:
 
 - **Parameter**: `sort={field-name}`
 - **Direction**: Descending direction is specified by prefixing the field name with a minus sign (`-`).
-  - _Example_: `/v2/public/scholarships?sort=-deadline`
+  - _Example_: `/api/v1/public/scholarships?sort=-deadline`
 
 ---
 
@@ -464,7 +467,7 @@ All asset operations (document ingestion, validation query, and secure retrieval
 
 #### 23.1. Register Asset Ingestion (PRT-401)
 
-- **URI Path**: `POST /v2/portal/assets/register`
+- **URI Path**: `POST /api/v1/portal/assets/register`
 - **Purpose**: Registers the intent to upload an asset, validating file size, type, and checksum prior to generating ingestion coordinates.
 - **Abstract Request Shape**:
   ```json
@@ -494,7 +497,7 @@ All asset operations (document ingestion, validation query, and secure retrieval
 
 #### 23.2. Query Asset Status (PRT-402)
 
-- **URI Path**: `GET /v2/portal/assets/{asset_id}/status`
+- **URI Path**: `GET /api/v1/portal/assets/{asset_id}/status`
 - **Purpose**: Retrieves the real-time processing, validation, and sanitization status of an ingested binary asset.
 - **Abstract Success Shape**:
   ```json
@@ -514,7 +517,7 @@ All asset operations (document ingestion, validation query, and secure retrieval
 
 #### 23.3. Secure Asset Retrieval (PRT-403)
 
-- **URI Path**: `GET /v2/portal/assets/{asset_id}/signed-url`
+- **URI Path**: `GET /api/v1/portal/assets/{asset_id}/signed-url`
 - **Purpose**: Generates a secure, short-lived CDN retrieval URL for authorized consumers of sensitive or private documents.
 - **Abstract Success Shape**:
   ```json
@@ -557,8 +560,8 @@ To maintain absolute system-wide alignment and protect API integrity across desi
 
 ### 26. Versioning Contracts
 
-- **Path Segregation**: Versioning is enforced via the URI path prefix (e.g., `/v2/`).
-- **Contract Stability**: No breaking updates can occur within the `/v2/` namespace. Breaking schema shifts (e.g., deleting fields) require deploying the `/v3/` endpoint context.
+- **Path Segregation**: Versioning is enforced via the URI path prefix (e.g., `/api/v1/`).
+- **Contract Stability**: No breaking updates can occur within the `/api/v1/` namespace. Breaking schema shifts (e.g., deleting fields) require deploying the `/v3/` endpoint context.
 
 ---
 
@@ -572,7 +575,7 @@ To maintain absolute system-wide alignment and protect API integrity across desi
 
 ### 28. Contract Evolution Rules
 
-- **Additions**: Adding optional fields or new, non-breaking endpoints are deployed directly inside the current active major version (`/v2/`).
+- **Additions**: Adding optional fields or new, non-breaking endpoints are deployed directly inside the current active major version (`/api/v1/`).
 - **Deprecations**: Modifications that remove or change required properties must trigger a new major version deployment (`/v3/`), remaining backward-compatible during the 6-month deprecation period.
 
 ---
@@ -663,7 +666,7 @@ sequenceDiagram
     participant PortalS as Portal Service
     participant EAP as Enterprise Asset Platform
 
-    Student->>GW: POST /v2/portal/applications [JWT & X-Idempotency-Key]
+    Student->>GW: POST /api/v1/portal/applications [JWT & X-Idempotency-Key]
     activate GW
     Note over Student,GW: Header: Accept-Language: ar
     GW->>GW: Verify Rate Limits & Sanitize Payloads
@@ -689,13 +692,13 @@ sequenceDiagram
 
 | Business Capability       | Bounded Context     | Contract ID | Target Path                                   | Target Method |
 | :------------------------ | :------------------ | :---------- | :-------------------------------------------- | :------------ |
-| **Scholarship Discovery** | Scholarship Context | `PUB-101`   | `/v2/public/scholarships`                     | `GET`         |
-| **Academic Catalog**      | Academic Context    | `PUB-202`   | `/v2/public/academic-programs`                | `GET`         |
-| **Portfolio Update**      | Student Context     | `PRT-201`   | `/v2/portal/students/{student_key}/portfolio` | `PUT`         |
-| **Application Submit**    | Student Context     | `PRT-301`   | `/v2/portal/applications`                     | `POST`        |
-| **CMS Publishing**        | Knowledge Context   | `CMS-401`   | `/v2/admin/articles`                          | `POST`        |
-| **Quarantine Audit**      | Import Context      | `ADM-501`   | `/v2/admin/quarantine-records/{id}/resolve`   | `POST`        |
-| **Batch Ingestion**       | Import Context      | `INT-601`   | `/v2/internal/ingestion-tasks`                | `POST`        |
+| **Scholarship Discovery** | Scholarship Context | `PUB-101`   | `/api/v1/public/scholarships`                     | `GET`         |
+| **Academic Catalog**      | Academic Context    | `PUB-202`   | `/api/v1/public/academic-programs`                | `GET`         |
+| **Portfolio Update**      | Student Context     | `PRT-201`   | `/api/v1/portal/students/{student_key}/portfolio` | `PUT`         |
+| **Application Submit**    | Student Context     | `PRT-301`   | `/api/v1/portal/applications`                     | `POST`        |
+| **CMS Publishing**        | Knowledge Context   | `CMS-401`   | `/api/v1/admin/articles`                          | `POST`        |
+| **Quarantine Audit**      | Import Context      | `ADM-501`   | `/api/v1/admin/quarantine-records/{id}/resolve`   | `POST`        |
+| **Batch Ingestion**       | Import Context      | `INT-601`   | `/api/v1/internal/ingestion-tasks`                | `POST`        |
 
 ---
 
@@ -725,7 +728,7 @@ sequenceDiagram
 #### Strengths:
 
 1. **Flawless REST Resource Design**: All API endpoints utilize consistent, plural, kebab-case resources, keeping routes clean, logical, and focused on entities.
-2. **Rigorous Security Verification**: The integration of access tokens, row-level student authorization constraints, mTLS, and multi-tier rate limiting guarantees complete protection.
+2. **Rigorous Security Verification**: The integration of access tokens, row-level student authorization constraints, mTLS for physically extracted service traffic, and multi-tier rate limiting provide defense-in-depth.
 3. **Pristine Agnostic Contract Boundaries**: The specification remains completely conceptual, detailing JSON contract structures without leaking framework-specific dependencies (such as NestJS or Prisma) or SQL code.
 4. **Deterministic Validation Checks**: Defining detailed validation error arrays and idempotency structures ensures robust, fault-tolerant request handling.
 5. **Seamless Bilingual Support**: Representing localizable fields as structured bilingual compounds ensures equal coverage for Arabic and English, satisfying key business rules.

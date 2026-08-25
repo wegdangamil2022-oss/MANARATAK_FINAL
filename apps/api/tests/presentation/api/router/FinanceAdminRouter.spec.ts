@@ -27,6 +27,7 @@ describe('FinanceAdminRouter', () => {
       FinanceAdminRouter.create({
         financeAdminUseCases: financeAdminUseCases as any,
         financePlatformUseCases: financePlatformUseCases as any,
+        authEvaluatorService: { evaluatePermission: vi.fn().mockResolvedValue({ isGranted: true }) } as any,
       }),
     );
 
@@ -75,6 +76,7 @@ describe('FinanceAdminRouter', () => {
       FinanceAdminRouter.create({
         financeAdminUseCases: financeAdminUseCases as any,
         financePlatformUseCases: financePlatformUseCases as any,
+        authEvaluatorService: { evaluatePermission: vi.fn().mockResolvedValue({ isGranted: true }) } as any,
       }),
     );
 

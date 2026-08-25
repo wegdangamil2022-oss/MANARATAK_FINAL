@@ -74,6 +74,7 @@ describe('AdminAcademicTaxonomyUseCases', () => {
 
   beforeEach(() => {
     mockRepo = {
+      executeSerializable: vi.fn(),
       listNodes: vi.fn().mockResolvedValue([mockNode, mockChildNode]),
       getNode: vi.fn().mockResolvedValue(mockNode),
       getNodeByCanonicalKey: vi.fn().mockResolvedValue(mockNode),
@@ -92,11 +93,16 @@ describe('AdminAcademicTaxonomyUseCases', () => {
       addMapping: vi.fn().mockResolvedValue(mockMapping),
       removeMapping: vi.fn().mockResolvedValue(undefined),
     };
+    vi.mocked(mockRepo.executeSerializable).mockImplementation(async (operation) => operation(mockRepo));
 
     mockValidationService = {
       validateNode: vi.fn().mockReturnValue({
+        deterministicKey: 'DISCIPLINE|CUSTOM_NATIONAL|0611',
+        requiredFields: ['nodeType', 'canonicalCode', 'canonicalName', 'status', 'standardType'],
+        presentFields: ['nodeType', 'canonicalCode', 'canonicalName', 'status', 'standardType'],
+        missingFields: [],
+        isComplete: true,
         canBeReviewed: true,
-        completenessScore: 100,
         issues: [],
       }),
       validateEdge: vi.fn().mockReturnValue([]),
@@ -116,7 +122,7 @@ describe('AdminAcademicTaxonomyUseCases', () => {
     const report = useCases.validateNode(input);
 
     expect(mockValidationService.validateNode).toHaveBeenCalledWith(input);
-    expect(report.completenessScore).toBe(100);
+    expect(report.canBeReviewed).toBe(true);
   });
 
   it('upsertNode calls validation before repository.upsertNode and returns node with report', async () => {
@@ -132,13 +138,17 @@ describe('AdminAcademicTaxonomyUseCases', () => {
     expect(mockValidationService.validateNode).toHaveBeenCalledWith(input);
     expect(mockRepo.upsertNode).toHaveBeenCalledWith(input);
     expect(result.node).toEqual(mockNode);
-    expect(result.report.completenessScore).toBe(100);
+    expect(result.report.canBeReviewed).toBe(true);
   });
 
   it('upsertNode throws and does not call repository when validation has ERROR severity', async () => {
     vi.mocked(mockValidationService.validateNode).mockReturnValue({
+      deterministicKey: 'UNKNOWN',
+      requiredFields: ['nodeType', 'canonicalCode', 'canonicalName', 'status', 'standardType'],
+      presentFields: ['nodeType', 'canonicalName', 'status', 'standardType'],
+      missingFields: ['canonicalCode'],
+      isComplete: false,
       canBeReviewed: false,
-      completenessScore: 0,
       issues: [
         {
           fieldName: 'canonicalCode',
@@ -164,8 +174,12 @@ describe('AdminAcademicTaxonomyUseCases', () => {
 
   it('upsertNode allows WARNING/INFO and persists node', async () => {
     vi.mocked(mockValidationService.validateNode).mockReturnValue({
+      deterministicKey: 'DISCIPLINE|CUSTOM_NATIONAL|0611',
+      requiredFields: ['nodeType', 'canonicalCode', 'canonicalName', 'status', 'standardType'],
+      presentFields: ['nodeType', 'canonicalCode', 'canonicalName', 'status', 'standardType'],
+      missingFields: [],
+      isComplete: true,
       canBeReviewed: true,
-      completenessScore: 80,
       issues: [
         {
           fieldName: 'metadata',
@@ -199,6 +213,7 @@ describe('AdminAcademicTaxonomyUseCases', () => {
 
     const result = await useCases.addEdge(edgeInput);
 
+    expect(mockRepo.executeSerializable).toHaveBeenCalledTimes(1);
     expect(mockRepo.listNodes).toHaveBeenCalled();
     expect(mockValidationService.validateEdge).toHaveBeenCalledWith({
       edge: edgeInput,
@@ -311,12 +326,18 @@ describe('AdminAcademicTaxonomyUseCases', () => {
       confidence: 0.9,
     };
 
+    vi.mocked(mockRepo.getNode)
+      .mockResolvedValueOnce({ ...mockNode, standardType: AcademicStandardType.ISCED })
+      .mockResolvedValueOnce({ ...mockChildNode, standardType: AcademicStandardType.CIP });
+
     const result = await useCases.addMapping(mappingInput);
 
     expect(mockRepo.listMappings).toHaveBeenCalledWith('node_parent');
     expect(mockValidationService.validateMapping).toHaveBeenCalledWith({
       mapping: mappingInput,
       existingMappings: [mockMapping],
+      sourceNode: { ...mockNode, standardType: AcademicStandardType.ISCED },
+      targetNode: { ...mockChildNode, standardType: AcademicStandardType.CIP },
     });
     expect(mockRepo.addMapping).toHaveBeenCalledWith(mappingInput);
     expect(result).toEqual(mockMapping);

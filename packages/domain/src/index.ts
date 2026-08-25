@@ -338,6 +338,7 @@ export * from './import-foundation/value-objects/MergeProposal';
 export * from './reference-data/dto/ReferenceDataContracts';
 export * from './reference-data/contracts/IReferenceDataRepository';
 export * from './reference-data/contracts/IReferenceResolver';
+export * from './reference-data/contracts/IReferenceResolutionRepository';
 export * from './reference-data/validation/ReferenceDataValidationTypes';
 export * from './reference-data/contracts/IReferenceDataValidationService';
 export * from './reference-data/services/ReferenceDataValidationService';
@@ -346,3 +347,5 @@ export * from './reference-data/contracts/IReferenceDataSeedPlanner';
 export * from './reference-data/services/ReferenceDataSeedPlanner';
 export * from './academic-taxonomy';
 export * from './degree-level';
+
+export * from './hierarchy';

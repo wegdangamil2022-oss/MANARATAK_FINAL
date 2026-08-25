@@ -34,7 +34,7 @@ describe('PrismaImportQueueGateway', () => {
     const record = prisma.importRecord.create.mock.calls[0][0].data;
     expect(record.processingNotes).toContain('token=[REDACTED]');
     expect(record.processingNotes).not.toContain('secret-value');
-    expect(prisma.importBatch.update).toHaveBeenCalledWith({ where: { id: 'batch-1' }, data: { batchStatus: ImportJobStatus.DLQ, failedRecords: { increment: 1 } } });
+    expect(prisma.importBatch.update).toHaveBeenCalledWith({ where: { id: 'batch-1' }, data: expect.objectContaining({ batchStatus: ImportJobStatus.DLQ, failedRecords: { increment: 1 }, claimedBy: null, claimUntil: null }) });
     expect(prisma.$transaction).toHaveBeenCalledOnce();
   });
 
@@ -46,6 +46,78 @@ describe('PrismaImportQueueGateway', () => {
     expect(report?.progress).toBe(50);
     expect(report?.checkpoint).toEqual({ recordOffset: 50 });
   });
+
+  it('reclaims an expired RUNNING job using a race-safe conditional claim', async () => {
+    const tx = {
+      importBatch: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'batch-abandoned' }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue({ attemptCount: 4 }),
+      },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const gateway = new PrismaImportQueueGateway(prisma as any);
+    const now = new Date('2026-08-25T10:00:00.000Z');
+
+    const lease = await gateway.claimNextJob({ workerId: 'worker-new', leaseDurationMs: 30_000, now });
+    expect(lease).toMatchObject({ batchId: 'batch-abandoned', workerId: 'worker-new', attempt: 4 });
+    expect(tx.importBatch.findFirst.mock.calls[0][0].where.OR).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          batchStatus: ImportJobStatus.RUNNING,
+          claimUntil: { lt: now },
+        }),
+      ]),
+    );
+  });
+
+  it('does not allow a stale worker to complete an expired lease', async () => {
+    const prisma = mockPrisma();
+    prisma.importBatch.updateMany.mockResolvedValue({ count: 0 });
+    const now = new Date('2026-08-25T10:00:00.000Z');
+    const gateway = new PrismaImportQueueGateway(prisma as any);
+    const lease = {
+      batchId: 'batch-1',
+      workerId: 'worker-old',
+      attempt: 2,
+      claimUntil: new Date('2026-08-25T09:59:00.000Z'),
+    };
+    await expect(gateway.completeClaimedJob(lease, now)).resolves.toBe(false);
+    expect(prisma.importBatch.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ claimUntil: { gte: now } }),
+      }),
+    );
+  });
+
+  it('fresh replay clears checkpoint and stale lease control state atomically', async () => {
+    const tx = {
+      importBatch: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      importRecord: { deleteMany: vi.fn().mockResolvedValue({ count: 2 }) },
+    };
+    const prisma = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const gateway = new PrismaImportQueueGateway(prisma as any);
+    await expect(gateway.replayJob({ batchId: 'batch-1', fromCheckpoint: false })).resolves.toBe(true);
+    expect(tx.importBatch.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          batchStatus: ImportJobStatus.QUEUED,
+          processedRecords: 0,
+          failedRecords: 0,
+          attemptCount: 0,
+          claimedBy: null,
+          claimUntil: null,
+          lastError: null,
+        }),
+      }),
+    );
+    expect(tx.importRecord.deleteMany).toHaveBeenCalledWith({
+      where: { batchId: 'batch-1', status: 'CHECKPOINT' },
+    });
+  });
+
 });
 
 function mockPrisma() {

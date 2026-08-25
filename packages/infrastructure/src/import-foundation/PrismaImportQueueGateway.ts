@@ -16,6 +16,7 @@ import type {
 
 export class PrismaImportQueueGateway implements IImportQueueGateway {
   public readonly persistenceClassification = 'DURABLE' as const;
+
   public constructor(private readonly prisma: PrismaClient) {
     if (!prisma) throw new Error('IMPORT_QUEUE_DURABLE_PERSISTENCE_REQUIRED');
   }
@@ -29,7 +30,13 @@ export class PrismaImportQueueGateway implements IImportQueueGateway {
     if (batch.batchStatus === ImportJobStatus.CREATED) {
       await this.prisma.importBatch.updateMany({
         where: { id: command.batchId, batchStatus: ImportJobStatus.CREATED },
-        data: { batchStatus: ImportJobStatus.QUEUED, availableAt: new Date() },
+        data: {
+          batchStatus: ImportJobStatus.QUEUED,
+          availableAt: new Date(),
+          claimedBy: null,
+          claimUntil: null,
+          lastError: null,
+        },
       });
     }
     return command.batchId;
@@ -38,15 +45,13 @@ export class PrismaImportQueueGateway implements IImportQueueGateway {
   async getJobStatus(batchId: string): Promise<ImportJobStatusDto | null> {
     const batch = await this.prisma.importBatch.findUnique({ where: { id: batchId } });
     if (!batch) return null;
+
     const checkpoint = await this.prisma.importRecord.findFirst({
       where: { batchId, status: 'CHECKPOINT' },
       orderBy: { createdAt: 'desc' },
     });
-    const deadLetter = await this.prisma.importRecord.findFirst({
-      where: { batchId, status: 'DLQ' },
-      orderBy: { createdAt: 'desc' },
-    });
     const completed = batch.processedRecords + batch.failedRecords;
+
     return {
       batchId,
       status: batch.batchStatus as ImportJobStatus,
@@ -60,7 +65,7 @@ export class PrismaImportQueueGateway implements IImportQueueGateway {
       createdAt: batch.createdAt,
       updatedAt: batch.updatedAt,
       checkpoint: checkpoint ? this.recordPayload(checkpoint.rawPayload) : undefined,
-      lastError: deadLetter?.processingNotes ?? undefined,
+      lastError: batch.lastError ?? undefined,
       attemptCount: batch.attemptCount,
       availableAt: batch.availableAt,
       claimedBy: batch.claimedBy ?? undefined,
@@ -73,15 +78,23 @@ export class PrismaImportQueueGateway implements IImportQueueGateway {
       command.batchId,
       [ImportJobStatus.QUEUED, ImportJobStatus.RUNNING],
       ImportJobStatus.PAUSED,
+      {
+        claimedBy: null,
+        claimUntil: null,
+        ...(command.reason ? { lastError: this.sanitize(command.reason) } : {}),
+      },
     );
   }
+
   resumeJob(command: ResumeImportJobCommand): Promise<boolean> {
     return this.transition(
       command.batchId,
       [ImportJobStatus.PAUSED, ImportJobStatus.RESUMING],
       ImportJobStatus.QUEUED,
+      { availableAt: new Date(), claimedBy: null, claimUntil: null, lastError: null },
     );
   }
+
   cancelJob(command: CancelImportJobCommand): Promise<boolean> {
     return this.transition(
       command.batchId,
@@ -93,8 +106,14 @@ export class PrismaImportQueueGateway implements IImportQueueGateway {
         ImportJobStatus.CANCELLING,
       ],
       ImportJobStatus.CANCELLED,
+      {
+        claimedBy: null,
+        claimUntil: null,
+        ...(command.reason ? { lastError: this.sanitize(command.reason) } : {}),
+      },
     );
   }
+
   markJobRunning(batchId: string): Promise<boolean> {
     return this.transition(
       batchId,
@@ -102,41 +121,44 @@ export class PrismaImportQueueGateway implements IImportQueueGateway {
       ImportJobStatus.RUNNING,
     );
   }
+
   markJobCompleted(batchId: string): Promise<boolean> {
     return this.transition(batchId, [ImportJobStatus.RUNNING], ImportJobStatus.COMPLETED, {
-      processedRecords: undefined,
+      claimedBy: null,
+      claimUntil: null,
+      lastError: null,
     });
   }
-  markJobFailed(batchId: string, _reason: string): Promise<boolean> {
+
+  markJobFailed(batchId: string, reason: string): Promise<boolean> {
     return this.transition(
       batchId,
       [ImportJobStatus.RUNNING, ImportJobStatus.FAILED_RETRYABLE],
       ImportJobStatus.FAILED_PERMANENT,
+      { claimedBy: null, claimUntil: null, lastError: this.sanitize(reason) },
     );
   }
 
   async claimNextJob(command: ClaimImportJobCommand): Promise<ImportJobLease | null> {
-    if (!command.workerId.trim() || command.leaseDurationMs < 1)
+    if (!command.workerId.trim() || !Number.isFinite(command.leaseDurationMs) || command.leaseDurationMs < 1) {
       throw new Error('INVALID_IMPORT_WORKER_CLAIM');
+    }
+
     const now = command.now ?? new Date();
     const claimUntil = new Date(now.getTime() + command.leaseDurationMs);
+    const reclaimableWhere = this.reclaimableWhere(now, command.batchId);
+
     return this.prisma.$transaction(async (client) => {
       const candidate = await client.importBatch.findFirst({
-        where: {
-          batchStatus: { in: [ImportJobStatus.QUEUED, ImportJobStatus.FAILED_RETRYABLE] },
-          availableAt: { lte: now },
-          OR: [{ claimUntil: null }, { claimUntil: { lt: now } }],
-        },
+        where: reclaimableWhere,
         orderBy: [{ availableAt: 'asc' }, { createdAt: 'asc' }],
         select: { id: true },
       });
       if (!candidate) return null;
+
+      // Repeat the eligibility predicate in the write to make the claim race-safe.
       const claimed = await client.importBatch.updateMany({
-        where: {
-          id: candidate.id,
-          batchStatus: { in: [ImportJobStatus.QUEUED, ImportJobStatus.FAILED_RETRYABLE] },
-          OR: [{ claimUntil: null }, { claimUntil: { lt: now } }],
-        },
+        where: this.reclaimableWhere(now, candidate.id),
         data: {
           batchStatus: ImportJobStatus.RUNNING,
           claimedBy: command.workerId,
@@ -146,6 +168,7 @@ export class PrismaImportQueueGateway implements IImportQueueGateway {
         },
       });
       if (claimed.count !== 1) return null;
+
       const job = await client.importBatch.findUniqueOrThrow({
         where: { id: candidate.id },
         select: { attemptCount: true },
@@ -164,6 +187,7 @@ export class PrismaImportQueueGateway implements IImportQueueGateway {
     leaseDurationMs: number,
     now = new Date(),
   ): Promise<ImportJobLease | null> {
+    if (!Number.isFinite(leaseDurationMs) || leaseDurationMs < 1) return null;
     const claimUntil = new Date(now.getTime() + leaseDurationMs);
     const updated = await this.prisma.importBatch.updateMany({
       where: {
@@ -177,9 +201,14 @@ export class PrismaImportQueueGateway implements IImportQueueGateway {
     return updated.count === 1 ? { ...lease, claimUntil } : null;
   }
 
-  async completeClaimedJob(lease: ImportJobLease): Promise<boolean> {
+  async completeClaimedJob(lease: ImportJobLease, now = new Date()): Promise<boolean> {
     const updated = await this.prisma.importBatch.updateMany({
-      where: { id: lease.batchId, batchStatus: ImportJobStatus.RUNNING, claimedBy: lease.workerId },
+      where: {
+        id: lease.batchId,
+        batchStatus: ImportJobStatus.RUNNING,
+        claimedBy: lease.workerId,
+        claimUntil: { gte: now },
+      },
       data: {
         batchStatus: ImportJobStatus.COMPLETED,
         claimedBy: null,
@@ -203,11 +232,13 @@ export class PrismaImportQueueGateway implements IImportQueueGateway {
     const exponent =
       policy.backoffStrategy === 'exponential' ? Math.max(0, command.lease.attempt - 1) : 0;
     const delay = Math.min(policy.maxDelayMs, policy.initialDelayMs * Math.pow(2, exponent));
+
     const updated = await this.prisma.importBatch.updateMany({
       where: {
         id: command.lease.batchId,
         batchStatus: ImportJobStatus.RUNNING,
         claimedBy: command.lease.workerId,
+        claimUntil: { gte: now },
       },
       data: {
         batchStatus: nextStatus,
@@ -224,24 +255,38 @@ export class PrismaImportQueueGateway implements IImportQueueGateway {
   }
 
   async replayJob(command: ReplayImportJobCommand): Promise<boolean> {
-    const data: any = { batchStatus: ImportJobStatus.QUEUED };
-    if (!command.fromCheckpoint) Object.assign(data, { processedRecords: 0, failedRecords: 0 });
-    const updated = await this.prisma.importBatch.updateMany({
-      where: {
-        id: command.batchId,
-        batchStatus: {
-          in: [
-            ImportJobStatus.COMPLETED,
-            ImportJobStatus.PARTIALLY_COMPLETED,
-            ImportJobStatus.FAILED_PERMANENT,
-            ImportJobStatus.DLQ,
-            ImportJobStatus.CANCELLED,
-          ],
+    const now = new Date();
+    const terminalStatuses = [
+      ImportJobStatus.COMPLETED,
+      ImportJobStatus.PARTIALLY_COMPLETED,
+      ImportJobStatus.FAILED_PERMANENT,
+      ImportJobStatus.DLQ,
+      ImportJobStatus.CANCELLED,
+    ];
+
+    return this.prisma.$transaction(async (client) => {
+      const updated = await client.importBatch.updateMany({
+        where: { id: command.batchId, batchStatus: { in: terminalStatuses } },
+        data: {
+          batchStatus: ImportJobStatus.QUEUED,
+          availableAt: now,
+          claimedBy: null,
+          claimUntil: null,
+          lastError: null,
+          ...(command.fromCheckpoint
+            ? {}
+            : { processedRecords: 0, failedRecords: 0, attemptCount: 0 }),
         },
-      },
-      data,
+      });
+      if (updated.count !== 1) return false;
+
+      if (!command.fromCheckpoint) {
+        await client.importRecord.deleteMany({
+          where: { batchId: command.batchId, status: 'CHECKPOINT' },
+        });
+      }
+      return true;
     });
-    return updated.count === 1;
   }
 
   async recordCheckpoint(batchId: string, checkpoint: ImportCheckpoint): Promise<void> {
@@ -282,9 +327,33 @@ export class PrismaImportQueueGateway implements IImportQueueGateway {
       }),
       this.prisma.importBatch.update({
         where: { id: dto.batchId },
-        data: { batchStatus: ImportJobStatus.DLQ, failedRecords: { increment: 1 } },
+        data: {
+          batchStatus: ImportJobStatus.DLQ,
+          failedRecords: { increment: 1 },
+          claimedBy: null,
+          claimUntil: null,
+          lastError: this.sanitize(dto.reason),
+        },
       }),
     ]);
+  }
+
+  private reclaimableWhere(now: Date, batchId?: string): Record<string, unknown> {
+    return {
+      ...(batchId ? { id: batchId } : {}),
+      OR: [
+        {
+          batchStatus: { in: [ImportJobStatus.QUEUED, ImportJobStatus.FAILED_RETRYABLE] },
+          availableAt: { lte: now },
+          OR: [{ claimUntil: null }, { claimUntil: { lt: now } }],
+        },
+        {
+          // Worker-crash recovery: a RUNNING job becomes claimable when its lease expires.
+          batchStatus: ImportJobStatus.RUNNING,
+          claimUntil: { lt: now },
+        },
+      ],
+    };
   }
 
   private async transition(
@@ -308,6 +377,7 @@ export class PrismaImportQueueGateway implements IImportQueueGateway {
       ? (value as Record<string, unknown>)
       : undefined;
   }
+
   private sanitize(value: string): string {
     return value
       .replace(/(password|token|secret|authorization)\s*[=:]\s*\S+/gi, '$1=[REDACTED]')

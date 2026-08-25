@@ -2,8 +2,8 @@
 
 | Area | Before | After | Remaining limitation |
 |---|---|---|---|
-| Country | ISO codes, relationship rows, and JSON IDs could all appear authoritative | Semantic writes resolve Phase 7 IDs; standard codes are compatibility/provenance | DB schema/backfill pending |
-| Language | Relationship uses language code | Source relationship contract uses canonical ID | DB schema/backfill pending |
+| Country | ISO codes, relationship rows, and JSON IDs could all appear authoritative | Semantic writes resolve and persist Phase 7 IDs; ISO2 is compatibility/provenance; source migration/FK prepared | Existing legacy rows require Google Studio reconciliation/backfill |
+| Language | Relationship uses language code | Semantic writes resolve and persist canonical Phase 7 ID; language code remains compatibility; source migration/FK prepared | Existing legacy rows require Google Studio reconciliation/backfill |
 | Currency | Fee code accepted and import silently defaulted to USD | Application resolves active Phase 7 Currency; silent default removed | Currency ID persistence pending |
 | DegreeLevel | Nullable ID and required code coexist | Source relationship uses canonical `degreeLevelId`; code is compatibility only | Existing rows require reconciliation |
 | Availability | JSON IDs and country relationship table overlap | `CANONICAL_REFERENCE_IDS` selected as authoritative; other representation is `LEGACY_TO_BACKFILL` | Migration required to remove duplicate truth |
@@ -14,7 +14,7 @@
 ## Classification
 
 - Availability `availableCountryIds` and `availableCityIds`: `CANONICAL_REFERENCE`, `AUTHORITATIVE`.
-- Country/language relationship codes and fee currency code: `STANDARD_CODE_ONLY`, retained as compatibility/provenance pending migration.
+- Country/language relationship canonical IDs: `CANONICAL_REFERENCE`, authoritative for new writes; their codes remain compatibility/provenance. Legacy code-only rows are pending Google Studio reconciliation. Fee currency code remains `STANDARD_CODE_ONLY` pending its separately governed migration.
 - Relationship tables overlapping availability: `DUPLICATE_SSoT`, `LEGACY_TO_BACKFILL`.
 - Center `cityName`: `DISPLAY_ONLY_STRING` unless a future use case proves semantic City linkage.
 - Center/provider `countryIso2Code`: standard external key; semantic relationships must resolve through Phase 7.
@@ -47,3 +47,12 @@ Routers already use Application use cases and contain no direct Prisma access. N
 - API promotion and the legacy direct import script are blocked until `WP1_RECOVERY_GATE=CLOSED` and `ALLOW_DATABASE_MUTATIONS=YES`.
 - No test content, identity, slug, relationship, or database row was changed.
 - Promotion, persistence counters, relationship integrity, and rollback evidence remain runtime-only closure items.
+
+
+## W5 Source Remediation Update (2026-08-25)
+
+- Root Admin and import promotion now use one canonical relationship service for Country, Language, Academic Taxonomy and DegreeLevel references; unresolved/inactive identities fail closed before persistence.
+- `InternationalTestCountryRelationship` and `InternationalTestLanguageRelationship` source schema now carry `canonicalReferenceId` foreign keys while preserving standard codes only as compatibility projections.
+- A source-only migration and a default read-only reconciliation utility are prepared. No migration/backfill was executed here; legacy-row reconciliation and NOT NULL promotion remain `PENDING_GOOGLE_STUDIO`.
+- Public test detail is filtered by canonical database lifecycle/visibility predicates, and compatibility JSON reserved keys cannot shadow persisted lifecycle/security fields.
+- Database writes in this remediation environment: `0`.

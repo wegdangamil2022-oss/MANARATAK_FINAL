@@ -20,7 +20,9 @@ const checks = {
   immutable_reversal:
     source.repository.includes('reverseLedgerTransaction') &&
     source.repository.includes("businessReferenceType: 'REVERSAL'"),
-  atomic_financial_writes: source.repository.includes('this.db.$transaction(work)'),
+  atomic_financial_writes:
+    source.repository.includes('this.db.$transaction(work') &&
+    source.repository.includes("isolationLevel: 'Serializable'"),
   optimistic_concurrency: source.repository.includes('version: current.version'),
   idempotency_hashing:
     source.repository.includes("createHash('sha256')") &&

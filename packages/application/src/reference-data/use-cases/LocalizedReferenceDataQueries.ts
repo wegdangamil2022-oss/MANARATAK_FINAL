@@ -9,6 +9,7 @@ import {
 } from '@manaratak/domain';
 import { DEFAULT_LOCALE, type SupportedLocale } from '@manaratak/shared';
 import { ApplicationLocaleProjectionService } from '../../localization/ApplicationLocaleProjectionService';
+import { ReferenceDataNotFoundError } from '../ReferenceDataErrors';
 
 export class LocalizedReferenceDataQueries {
   constructor(
@@ -61,7 +62,7 @@ export class LocalizedReferenceDataQueries {
     locale: SupportedLocale = DEFAULT_LOCALE,
   ): Promise<ReferenceCountryDto> {
     const record = await this.repository.getCountry(iso2Code);
-    if (!record || !record.isActive) throw new Error(`Country not found: ${iso2Code}`);
+    if (!record || !record.isActive) throw new ReferenceDataNotFoundError('COUNTRY', iso2Code);
     return this.projection.projectReferenceCountry(record, locale);
   }
 
@@ -70,7 +71,7 @@ export class LocalizedReferenceDataQueries {
     locale: SupportedLocale = DEFAULT_LOCALE,
   ): Promise<ReferenceCurrencyDto> {
     const record = await this.repository.getCurrency(isoCode);
-    if (!record || !record.isActive) throw new Error(`Currency not found: ${isoCode}`);
+    if (!record || !record.isActive) throw new ReferenceDataNotFoundError('CURRENCY', isoCode);
     return this.projection.projectReferenceCurrency(record, locale);
   }
 
@@ -79,7 +80,7 @@ export class LocalizedReferenceDataQueries {
     locale: SupportedLocale = DEFAULT_LOCALE,
   ): Promise<ReferenceLanguageDto> {
     const record = await this.repository.getLanguage(isoCode);
-    if (!record || !record.isActive) throw new Error(`Language not found: ${isoCode}`);
+    if (!record || !record.isActive) throw new ReferenceDataNotFoundError('LANGUAGE', isoCode);
     return this.projection.projectReferenceLanguage(record, locale);
   }
 }

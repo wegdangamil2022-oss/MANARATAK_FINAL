@@ -8,11 +8,16 @@
     "dev": "DISABLE_HMR=true npm run dev -w @manaratak/web",
     "dev:admin": "npm run dev -w @manaratak/admin",
     "build": "npm run build --workspaces --if-present",
+    "build:cached": "turbo run build",
     "start": "npm run start -w @manaratak/api",
     "lint": "eslint .",
+    "quality:source": "node scripts/quality/verify-source-quality.mjs",
+    "quality:source:baseline": "node scripts/quality/verify-source-quality.mjs --write-baseline",
+    "w0:verify": "node scripts/verify-w0-source.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "clean": "npm run clean --workspaces --if-present && rm -rf node_modules dist",
     "test": "vitest run --config vitest.config.ts",
+    "test:cached": "turbo run test",
     "test:unit": "vitest run --config vitest.config.ts",
     "test:database": "vitest run --config vitest.database.config.ts",
     "db:generate": "prisma generate --schema=packages/infrastructure/prisma/schema.prisma",
@@ -49,11 +54,18 @@
     "db:remediation:dry-run": "tsx scripts/db-remediation-gate.ts migration-dry-run",
     "db:remediation:rollback-plan": "tsx scripts/db-remediation-gate.ts rollback-plan",
     "db:remediation:deploy": "tsx scripts/db-remediation-gate.ts deploy",
-    "verify:local": "npm run typecheck && npm run lint && npm run build && npm run test && npm run e2e",
+    "verify:local": "npm run quality:source && npm run typecheck && npm run lint && npm run build && npm run test && npm run e2e",
     "typecheck": "tsc -b",
+    "git:validate:commit": "node scripts/git/validate-commit-message.mjs",
+    "git:validate:branch": "node scripts/git/validate-branch-name.mjs",
     "e2e": "playwright test --config=apps/web/playwright.config.ts",
     "test:coverage": "vitest run --coverage",
-    "postinstall": "npm run db:generate"
+    "postinstall": "npm run db:generate",
+    "w1:verify": "node scripts/verify-w1-source.mjs",
+    "w2:verify": "node scripts/verify-w2-source.mjs",
+    "w3:verify": "node scripts/verify-w3-source.mjs",
+    "w4:verify": "node scripts/verify-w4-source.mjs",
+    "w5:verify": "node scripts/verify-w5-source.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -108,7 +120,7 @@
     "packages/*"
   ],
   "engines": {
-    "node": ">=20.0.0",
-    "npm": ">=10.0.0"
+    "node": ">=22.16.0 <23",
+    "npm": ">=10.9.0 <11"
   }
 }

@@ -6,83 +6,76 @@
 
 The Architecture Review Board (ARB) concluded the historical Phase 4 architecture review. The documents form a designed baseline; current implementation and runtime status must be read from the remediation reports.
 
-## 2. Foundation Completion Statement
+## 2. W0 Current Capability Reconciliation
 
-The ARB officially verifies the complete and successful implementation of the following enterprise foundations:
+The July 2026 sign-off remains a **historical architecture milestone**, not a blanket statement that every originally named implementation still exists. Current source status is governed by the following classification:
 
-- ✓ 4.1 Monorepo Implementation
-- ✓ 4.2 Development Environment Implementation
-- ✓ 4.3 Backend Core Implementation
-- ✓ 4.4 Frontend Core Implementation
-- ✓ 4.5 Database Implementation
-- ✓ 4.6 Authentication Implementation
-- ✓ 4.7 Authorization Implementation
-- ✓ 4.8 Configuration Implementation
-- ✓ 4.9 Logging Implementation
-- ✓ 4.10 Error Handling Implementation
-- ✓ 4.11 Validation Implementation
-- ✓ 4.12 File Storage Implementation
-- ✓ 4.13 API Implementation
-- ✓ 4.14 Testing Implementation
-- ✓ 4.15 Git Implementation
-- ✓ 4.16 CI/CD Implementation
-- ✓ 4.17 Containerization Implementation
-- ✓ 4.18 Monitoring Implementation
-- ✓ 4.19 Security Implementation
+| Foundation area | W0 current status | Current evidence / note |
+|---|---|---|
+| Monorepo / development environment | `ACTIVE_IMPLEMENTED` | npm workspaces, TypeScript, root source gates, pinned Node baseline |
+| Backend / frontend foundations | `ACTIVE_IMPLEMENTED` | `apps/api`, `apps/web`, `apps/admin` |
+| Database design / Prisma source | `SOURCE_IMPLEMENTED_RUNTIME_PROOF_PENDING` | Prisma schema/migrations exist; live DB state belongs to Google Studio proof |
+| Authentication / authorization / configuration | `SOURCE_IMPLEMENTED_WITH_OPEN_REMEDIATION` | Active source exists; confirmed Phase 5/W1 findings override historical blanket certification |
+| Logging / errors / validation | `ACTIVE_IMPLEMENTED` | Current packages/source paths exist; runtime proof remains environment-specific |
+| File storage 4.12 | `SUPERSEDED_BY_EAP_CURRENT_CAPABILITY` | Active EAP gateway/adapter replaces historical `LocalStorageProvider` / `StorageService` |
+| API 4.13 | `ACTIVE_IMPLEMENTED` | live Express `/api/v1` composition; production composition still has later remediation findings |
+| Testing 4.14 | `SUPERSEDED_BY_CURRENT_TEST_ARCHITECTURE` | root/package Vitest, source verifiers, Playwright; no `@manaratak/testing` package |
+| Git 4.15 | `ACTIVE_IMPLEMENTED — CI_ENFORCED` | maintained commit/branch validators + GitHub Actions; historical Husky hooks absent |
+| CI/CD 4.16 | `SOURCE_IMPLEMENTED_RUNTIME_VALIDATION_PENDING` | GitHub Actions source gates exist |
+| Containerization 4.17 | `DEFERRED` | no application Dockerfile/runtime image |
+| Monitoring / security | `SOURCE_IMPLEMENTED_WITH_OPEN_REMEDIATION` | source exists; open audit findings and runtime evidence prevent blanket production-readiness claims |
 
-## 3. Architecture Certification
+## 3. Architecture Certification Scope
 
-The ARB certifies that the implementation strictly complies with the approved architectural constraints:
+The architectural principles remain governing requirements, but compliance is **evidence-based per current source**:
 
-- **Clean Architecture:** Enforced. High-level policies remain entirely decoupled from low-level details.
-- **Domain-Driven Design (DDD):** Enforced. Domain primitives are established generically.
-- **SOLID Principles:** Enforced. Responsibilities are clearly segregated across the workspace.
-- **Dependency Rule:** Enforced. Dependencies flow strictly inward toward the Core/Domain.
-- **Layer Isolation:** Enforced. Presentation, Application, Domain, and Infrastructure boundaries are impenetrable.
-- **Provider Neutrality:** Enforced. All infrastructure services (e.g., databases, loggers, monitoring) are abstracted behind generic interfaces.
+- Clean Architecture and inward dependency rules remain mandatory.
+- Domain boundaries are logical modules in the current Enterprise Modular Monolith.
+- Provider neutrality remains mandatory behind ports/gateways.
+- A historical report cannot override a confirmed current-source finding.
+- Physical runtime readiness, database state, provider behavior, and distributed guarantees require explicit runtime evidence.
 
-## 4. Implementation Certification
+## 4. Implementation Certification Scope
 
-The ARB certifies the technical execution of the codebase:
+Current implementation claims are valid only when backed by an existing source path and a reproducible gate. Removed/replaced components are classified as `SUPERSEDED` rather than recreated for documentary consistency.
 
-- **Zero Business Leakage:** Verified. The entire foundation contains no domain-specific terminology or workflows.
-- **Infrastructure Isolation:** Verified. Concrete implementations exist only in the infrastructure or application-level entry points.
-- **Workspace Integrity:** Verified. The monorepo efficiently manages inter-package dependencies.
-- **Build Integrity:** Verified. The entire codebase compiles cleanly with strict TypeScript configurations.
+The W0 source-quality baseline is:
+
+- `npm run quality:source`
+- `npm run typecheck`
+- `npm run lint`
+- `npm run build`
+- `npm run test:unit`
+- relevant phase/source verifiers
+
+Environment-dependent database/browser/provider proof is intentionally separate.
 
 ## 5. Enterprise Readiness Assessment
 
-The implemented foundations provide a highly scalable, secure, and robust platform. The system is equipped with standardized error handling, comprehensive logging, telemetry integration, decoupled security middleware, and CI/CD/Git governance. The platform is unequivocally prepared to support complex business domain implementations.
+Phase 4 provides a useful foundation, but **production/runtime readiness is not globally certified by this historical document**. Current readiness is the aggregate result of the active remediation register plus the Google Studio runtime closure evidence.
 
-## 6. Official ARB Resolution
+## 6. Official ARB Resolution — W0 Interpretation
 
-The Architecture Review Board resolves that the Phase 4 Implementation fully satisfies the technical, structural, and strategic requirements of the MANARATAK 2.0 Enterprise Platform. All architectural standards have been rigorously maintained throughout the code generation process.
+The original Phase 4 approval is retained as a historical architecture decision. W0 supersedes only stale implementation-status claims, not the governing architectural principles.
 
-## 7. Implementation Baseline Declaration
+## 7. Current Baseline Declaration
 
-The current state of the repository is hereby frozen and declared the **Official Implementation Baseline**. All future business-domain development must strictly adhere to the patterns, abstractions, and rules established in this baseline. Modification of these core foundations requires formal ARB petition and approval.
+The current baseline is the repository source at the audited commit plus approved remediation changes. Any later source change must satisfy the active quality gates and must not rely on removed historical components.
 
-## 8. Final Sign-off
+## 8. Historical Sign-off
 
-**Chief Enterprise Solution Architect & Chairman of the ARB**
-_Date:_ 2026-07-16
-_Status:_ Verified & Certified
+**Original sign-off date:** 2026-07-16  
+**Historical status:** Approved architecture milestone  
+**Current implementation status:** Reconciled by W0; see the matrix above
 
-## 9. Final Approval Decision
+## 9. W0 Approval Decision
 
-==================================================
+`PHASE 4 HISTORICAL APPROVAL RETAINED`  
+`CURRENT IMPLEMENTATION CLAIMS RECONCILED`  
+Revision: **4.21.1-W0**  
+`RUNTIME PROOF STILL REQUIRED WHERE ENVIRONMENT-DEPENDENT`
 
-PHASE 4 COMPLETED
-
-APPROVED
-
-Revision: 4.21.0
-
-IMPLEMENTATION BASELINE CERTIFIED
-
-READY TO PROCEED TO PHASE 5
-
-## 8. Enterprise Shared Contracts Baseline Integration
+## 10. Enterprise Shared Contracts Baseline Integration
 
 The Enterprise Shared Contracts Consolidation Program documents have been officially integrated into this baseline. They are the permanent architectural reference for all shared contracts:
 
@@ -93,7 +86,7 @@ The Enterprise Shared Contracts Consolidation Program documents have been offici
 
 All future business-domain development must adhere to the patterns and abstractions defined within these specifications.
 
-## 10. Enterprise Lifecycle Framework Baseline Integration
+## 11. Enterprise Lifecycle Framework Baseline Integration
 
 The Enterprise Lifecycle Framework Program documents have been officially integrated into this baseline. They are the permanent architectural reference for all state, status, and lifecycle governance:
 
@@ -103,7 +96,7 @@ The Enterprise Lifecycle Framework Program documents have been officially integr
 - [04 Migration & Integration Plan](../../../architecture/lifecycle-framework/04-migration-integration-plan.md)
   All future business-domain development must adhere to the governance rules, transition constraints, and naming conventions defined within these specifications.
 
-## 11. Enterprise Foundation Baseline Integration
+## 12. Enterprise Foundation Baseline Integration
 
 The Enterprise Foundation Program documents have been officially integrated into this baseline. They are the permanent architectural reference for all shared enterprise technical capabilities:
 
@@ -114,9 +107,9 @@ The Enterprise Foundation Program documents have been officially integrated into
 
 All future business-domain development must adhere to the patterns and abstractions defined within these specifications.
 
-## 12. Transactional Outbox Baseline Integration
+## 13. Transactional Outbox Baseline Integration
 
-The Enterprise Transactional Outbox Program documents have been officially integrated into this baseline as the permanent architectural reference for reliable enterprise event publishing. The current source baseline has not yet implemented the persistence, dispatcher, or atomic integration needed to eliminate the dual-write problem:
+The Enterprise Transactional Outbox Program documents remain the architectural reference for reliable enterprise event publishing. Current source now contains outbox persistence/migration, store/dispatcher, and atomic integration paths; **live database/runtime correctness is still `RUNTIME_PROOF_REQUIRED`** and must be proven in Google Studio before production closure:
 
 - [Transactional Outbox Discovery & Assessment](../../../architecture/reports/outbox-discovery-assessment.md)
 - [Enterprise Transactional Outbox Blueprint](../../../architecture/reports/outbox-blueprint.md)

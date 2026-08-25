@@ -1,5 +1,8 @@
 import {
   IReferenceDataRepository,
+  IReferenceDataValidationService,
+  ReferenceDataValidationService,
+  ReferenceDataValidationSeverity,
   ReferenceDataSeedBatch,
   ReferenceDataSeedStatus,
   UpsertReferenceCountryDto,
@@ -9,7 +12,10 @@ import {
 } from '@manaratak/domain';
 
 export class ReferenceDataSeedApplyService {
-  constructor(private readonly repository: IReferenceDataRepository) {}
+  constructor(
+    private readonly repository: IReferenceDataRepository,
+    private readonly validationService: IReferenceDataValidationService = new ReferenceDataValidationService(),
+  ) {}
 
   public async applyBatch(
     batch: ReferenceDataSeedBatch,
@@ -43,18 +49,43 @@ export class ReferenceDataSeedApplyService {
 
     for (const record of batch.records) {
       switch (record.entityType) {
-        case 'COUNTRY':
-          await this.repository.upsertCountry(record.payload as UpsertReferenceCountryDto);
+        case 'COUNTRY': {
+          const payload = record.payload as UpsertReferenceCountryDto;
+          this.assertNoCanonicalErrors(this.validationService.validateCountry(payload).issues);
+          await this.repository.upsertCountry(payload);
           break;
-        case 'CURRENCY':
-          await this.repository.upsertCurrency(record.payload as UpsertReferenceCurrencyDto);
+        }
+        case 'CURRENCY': {
+          const payload = record.payload as UpsertReferenceCurrencyDto;
+          this.assertNoCanonicalErrors(this.validationService.validateCurrency(payload).issues);
+          await this.repository.upsertCurrency(payload);
           break;
-        case 'LANGUAGE':
-          await this.repository.upsertLanguage(record.payload as UpsertReferenceLanguageDto);
+        }
+        case 'LANGUAGE': {
+          const payload = record.payload as UpsertReferenceLanguageDto;
+          this.assertNoCanonicalErrors(this.validationService.validateLanguage(payload).issues);
+          await this.repository.upsertLanguage(payload);
           break;
-        case 'CITY':
-          await this.repository.upsertCity(record.payload as UpsertReferenceCityDto);
+        }
+        case 'CITY': {
+          const payload = record.payload as UpsertReferenceCityDto;
+          this.assertNoCanonicalErrors(this.validationService.validateCity(payload).issues);
+          const country = await this.repository.getCountry(payload.countryIso2Code);
+          if (!country || !country.isActive) {
+            throw new Error(`REFERENCE_DATA_SEED_ACTIVE_COUNTRY_REQUIRED:${payload.countryIso2Code}`);
+          }
+          if (payload.administrativeRegionId) {
+            const region = await this.repository.getRegionById(payload.administrativeRegionId);
+            if (!region) {
+              throw new Error(`REFERENCE_DATA_SEED_REGION_NOT_FOUND:${payload.administrativeRegionId}`);
+            }
+            if (region.countryIso2Code !== country.iso2Code) {
+              throw new Error('REFERENCE_DATA_SEED_CITY_REGION_COUNTRY_MISMATCH');
+            }
+          }
+          await this.repository.upsertCity(payload);
           break;
+        }
         default:
           throw new Error(`Unsupported entityType: ${(record as any).entityType}`);
       }
@@ -68,4 +99,10 @@ export class ReferenceDataSeedApplyService {
       records: batch.records.map(r => ({ ...r }))
     };
   }
+  private assertNoCanonicalErrors(issues: readonly { severity: ReferenceDataValidationSeverity }[]): void {
+    if (issues.some((issue) => issue.severity === ReferenceDataValidationSeverity.ERROR)) {
+      throw new Error('REFERENCE_DATA_SEED_CANONICAL_VALIDATION_FAILED');
+    }
+  }
+
 }

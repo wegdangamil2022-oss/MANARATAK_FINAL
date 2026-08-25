@@ -32,6 +32,8 @@ export interface IInternationalTestRepository {
   // Legacy / current application compatibility methods
   findById(id: string): Promise<InternationalTestDto | null>;
   findBySlug(slug: string): Promise<InternationalTestDto | null>;
+  /** Public boundary: predicate is enforced in persistence, not after DTO mapping. */
+  findPublishedBySlug(slug: string): Promise<InternationalTestDto | null>;
   findByDedupKey(dedupKey: string): Promise<InternationalTestDto | null>;
   create(data: UpsertInternationalTestDto): Promise<InternationalTestDto>;
   update(id: string, data: Partial<UpsertInternationalTestDto>): Promise<InternationalTestDto>;

@@ -30,6 +30,6 @@ export interface IImportQueueGateway {
     leaseDurationMs: number,
     now?: Date,
   ): Promise<ImportJobLease | null>;
-  completeClaimedJob(lease: ImportJobLease): Promise<boolean>;
+  completeClaimedJob(lease: ImportJobLease, now?: Date): Promise<boolean>;
   failClaimedJob(command: FailImportJobCommand): Promise<'RETRY_SCHEDULED' | 'DLQ' | 'LEASE_LOST'>;
 }

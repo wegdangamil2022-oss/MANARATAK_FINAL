@@ -6,6 +6,7 @@ import {
   AcademicTaxonomyStatus,
   AcademicStandardType,
   AcademicMappingStrength,
+  DegreeLevelStatus,
 } from '@manaratak/domain';
 
 export class AcademicTaxonomyAdminRouter {
@@ -217,7 +218,7 @@ export class AcademicTaxonomyAdminRouter {
       nameEn: z.string().min(1),
       nameAr: z.string().min(1),
       displayRank: z.number().int().optional(),
-      status: z.string().optional(),
+      status: z.nativeEnum(DegreeLevelStatus).optional(),
     });
 
     router.get('/degree-levels', asyncHandler(async (req: Request, res: Response) => {

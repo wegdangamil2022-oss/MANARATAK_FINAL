@@ -9,10 +9,10 @@ import {
 export class LocalAssetStorageGateway implements IAssetStorageGateway {
   constructor(
     private readonly localBucketName: string = 'local-dev-bucket',
-    private readonly localRoot: string = process.env.MANARATAK_LOCAL_ASSET_ROOT
-      || path.resolve(process.cwd(), 'storage', 'assets'),
+    private readonly localRoot: string = path.resolve(process.cwd(), 'storage', 'assets'),
+    productionLike: boolean = false,
   ) {
-    if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging') {
+    if (productionLike) {
       throw new Error('LOCAL_ASSET_STORAGE_DEVELOPMENT_ONLY');
     }
   }

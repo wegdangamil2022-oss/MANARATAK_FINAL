@@ -1,5 +1,8 @@
 # MANARATAK 2.0: Phase 2.3 Domain Model Design
 
+> **Current topology clarification (W0, 2026-08-25):** MANARATAK 2.0 currently executes as an **Enterprise Modular Monolith / modular monorepo**. Bounded contexts are logically isolated through contracts, dependency rules, and events. Any reference in this Phase 2 design to a “microservice” is an **extractable future service boundary**, not a mandate for a separate process, database, network hop, service mesh, or mTLS channel today.
+
+
 ## Phase 2.3 — Domain Model Design
 
 ### 1. Document Information
@@ -217,7 +220,7 @@ classDiagram
 
 #### Recommended Improvements:
 
-1. Proceed directly to **Phase 2.4 — Bounded Context Design**, where these logical aggregates are mapped to physically isolated microservice and Bounded Context boundaries, establishing the official enterprise Context Map.
+1. Proceed directly to **Phase 2.4 — Bounded Context Design**, where these logical aggregates are mapped to strictly isolated **logical module / Bounded Context boundaries inside the current Enterprise Modular Monolith**, establishing the official enterprise Context Map. Physical microservice extraction is a future deployment option and is not a current implementation requirement.
 
 #### Approval Decision:
 

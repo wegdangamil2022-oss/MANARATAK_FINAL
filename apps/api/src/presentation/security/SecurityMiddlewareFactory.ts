@@ -260,7 +260,12 @@ export class SecurityMiddlewareFactory {
           return;
         }
 
-        const decision = await evaluator.evaluatePermission(principalId, requiredPermission);
+        const decision = await evaluator.evaluatePermission(principalId, requiredPermission, {
+          ip: req.ip || req.socket?.remoteAddress || undefined,
+          requestTime: new Date(),
+          userAgent: req.headers['user-agent'],
+          correlationId: req.headers['x-correlation-id'],
+        });
 
         const correlationId = (req.headers['x-correlation-id'] as string) || (req as any).id || 'N/A';
         if (process.env.NODE_ENV !== 'test') {

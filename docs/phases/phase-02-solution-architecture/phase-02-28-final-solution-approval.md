@@ -74,7 +74,7 @@ The Architecture Review Board formally confirms that:
 
 The following fundamental architectural decisions form the architectural baseline:
 
-1. **Modular Monolith to Microservice Path**: Execute development as a highly isolated Modular Monrepo, allowing clean physical division of domains for future microservice extraction without code rewrites.
+1. **Modular Monolith to Microservice Path**: **W0 clarification:** the Modular Monolith is the current physical deployment baseline; microservice extraction is conditional and future-facing. Execute development as a highly isolated Modular Monorepo, allowing clean physical division of domains for future microservice extraction without code rewrites.
 2. **Transactional Outbox for Event Consistency**: Mandate that all cross-context modifications must commit event payloads to a local database outbox table in the same ACID transaction as the state change, ensuring at-least-once message delivery.
 3. **Mandatory Bilingual Data Symmetries**: Require parallel Arabic and English properties across all public content models, blocking partial translations from production deployment.
 4. **Human-in-the-Loop Gateway Control**: Restrict supporting engines (such as the AI and Import subsystems) to passive roles. These engines may write draft records but are prohibited from executing automated state transitions or public publishes.

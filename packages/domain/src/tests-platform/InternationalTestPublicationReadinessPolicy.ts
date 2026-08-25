@@ -43,7 +43,33 @@ export class InternationalTestPublicationReadinessPolicy implements PublicationR
     if (!entity.isSourceVerified) {
       blockingIssues.push({ code: 'INTERNATIONAL_TEST_SOURCE_NOT_VERIFIED', message: 'Source identity must be verified before publication', field: 'isSourceVerified' });
     }
+    const scoreScale = entity.scoreScale;
+    if (!scoreScale || !Number.isFinite(scoreScale.overallMinimum) || !Number.isFinite(scoreScale.overallMaximum) || scoreScale.overallMinimum > scoreScale.overallMaximum) {
+      blockingIssues.push({
+        code: 'INTERNATIONAL_TEST_NORMALIZED_SCORE_SCALE_REQUIRED',
+        message: 'A normalized score scale with valid minimum and maximum is required for publication',
+        field: 'scoreScale',
+      });
+    }
+    const registrationLink = entity.officialLinks?.find(link => link.linkType === 'REGISTRATION');
+    if (!registrationLink || !this.isHttpUrl(registrationLink.url)) {
+      blockingIssues.push({
+        code: 'INTERNATIONAL_TEST_OFFICIAL_REGISTRATION_URL_REQUIRED',
+        message: 'A normalized official REGISTRATION URL is required for publication',
+        field: 'officialLinks',
+      });
+    }
 
     return { blockingIssues, warnings };
+  }
+
+  private isHttpUrl(value: string | undefined): boolean {
+    if (!value) return false;
+    try {
+      const url = new URL(value);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
   }
 }

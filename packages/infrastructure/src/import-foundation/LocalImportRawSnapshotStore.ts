@@ -3,7 +3,9 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { IImportRawSnapshotStore, SourceAcquisitionResult, StoredImportRawSnapshot } from '@manaratak/application';
 export class LocalImportRawSnapshotStore implements IImportRawSnapshotStore {
-  constructor(private readonly rootDirectory = path.resolve(process.env.IMPORT_RAW_SNAPSHOT_DIR ?? 'var/import-raw')) {}
+  public readonly persistenceClassification = 'DEVELOPMENT_ONLY' as const;
+
+  constructor(private readonly rootDirectory = path.resolve('var/import-raw')) {}
   async store(acquisition: SourceAcquisitionResult): Promise<StoredImportRawSnapshot> {
     const sha256 = createHash('sha256').update(acquisition.rawBytes).digest('hex'); const snapshotId = `raw_${sha256}`;
     await fs.mkdir(this.rootDirectory, { recursive: true }); const finalPath = path.join(this.rootDirectory, `${snapshotId}.bin`); const metadataPath = path.join(this.rootDirectory, `${snapshotId}.json`); const temporaryPath = `${finalPath}.${process.pid}.tmp`; const metadataTemporaryPath = `${metadataPath}.${process.pid}.tmp`;

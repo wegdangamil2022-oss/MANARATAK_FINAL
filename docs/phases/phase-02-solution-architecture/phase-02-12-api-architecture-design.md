@@ -1,5 +1,8 @@
 # MANARATAK 2.0: Phase 2.12 API Architecture Design
 
+> **Current API/topology clarification (W0, 2026-08-25):** The active API namespace is **`/api/v1`**, aligned with `STD-API-001` and the live Express router. The current runtime is a Modular Monolith. References to internal modules or future extracted services/mTLS describe the **future extracted-service posture**; in-process modules communicate through explicit contracts/events and do not require network mTLS.
+
+
 ## Phase 2.12 — API Architecture Design
 
 ### 1. Document Information
@@ -28,7 +31,7 @@ This specification serves as the absolute blueprint for all physical interfaces,
 The API Architecture of MANARATAK 2.0 is governed by these foundational design principles:
 
 1. **Strict RESTful and Resource-Oriented Modeling**: APIs must model the business domain as identifiable resources rather than actions or function endpoints. Every endpoint must correspond to a distinct business entity or aggregate defined in the _Domain Model Design (v2.3)_.
-2. **Security by Design**: Trust is never assumed. Every API boundary (especially between public networks, authenticated client apps, internal microservices, and external providers) must enforce authentication, authorization checks, payload sanitization, and strict rate limits.
+2. **Security by Design**: Trust is never assumed. Every API boundary (especially between public networks, authenticated client apps, internal modules or future extracted services, and external providers) must enforce authentication, authorization checks, payload sanitization, and strict rate limits.
 3. **Bilingual Parity Preservation**: APIs must natively support bilingual metadata exchange. Querying or submitting resources must support symmetrical Arabic and English properties within standard payloads, adhering to the _Canonical Data Model (v2.7)_.
 4. **API-First Decoupling**: Systems and client applications must depend strictly on stable, versioned API contracts. Changes to internal database models or business services must be fully absorbed behind the API layer, guaranteeing zero disruption to clients.
 5. **Agnostic Independence**: API specifications define logical parameters, transport rules, and HTTP payloads. They are completely independent of underlying languages, frameworks, operating systems, and deployment configurations.
@@ -105,7 +108,7 @@ Private, isolated communication interfaces used exclusively for inter-service RP
 
 - **Characteristics**:
   - Fully isolated from public internet ingress (accessible only within private subnets).
-  - Uses mutual TLS (mTLS) or secure service-to-service API keys.
+  - When the boundary is physically networked/extracted, uses mutual TLS (mTLS) or an ARB-approved service-to-service credential. In-process module calls do not create a synthetic network boundary.
   - Bypasses standard client rate-limits, relying instead on network queue controls.
 - **Primary Scope**:
   - Raw ingestion payloads mapped to CDM pipelines, log aggregation, and security auditing.
@@ -133,10 +136,10 @@ Resources are modeled to represent logical domain aggregates. Deeply nested rela
 
 The platform’s URI structure is highly predictable and designed around versioned, clean logical scopes:
 
-- **Public Directory Endpoint**: `https://api.manaratak.com/v2/public/scholarships`
-- **Student Portal Workspace**: `https://api.manaratak.com/v2/portal/applications/{application_id}`
-- **Administrative Console**: `https://api.manaratak.com/v2/admin/quarantine-records`
-- **Internal Sync Service**: `https://api.manaratak.com/v2/internal/ingestion-tasks`
+- **Public Directory Endpoint**: `https://api.manaratak.com/api/v1/public/scholarships`
+- **Student Portal Workspace**: `https://api.manaratak.com/api/v1/portal/applications/{application_id}`
+- **Administrative Console**: `https://api.manaratak.com/api/v1/admin/quarantine-records`
+- **Internal Sync Service**: `https://api.manaratak.com/api/v1/internal/ingestion-tasks`
 
 ---
 
@@ -241,7 +244,7 @@ To protect the platform's performance from massive queries, all collection endpo
 
 Faceted filters on directories utilize explicit, flat URL query string parameters mapped directly to canonical fields:
 
-- **Allowed Pattern**: `https://api.manaratak.com/v2/public/scholarships?destination-country=DE&funding-type=FULLY_FUNDED`
+- **Allowed Pattern**: `https://api.manaratak.com/api/v1/public/scholarships?destination-country=DE&funding-type=FULLY_FUNDED`
 - **Array Filters**: Multiple values are passed using comma-separated string parameters rather than nested brackets (e.g., `?degree-level=BACHELOR,MASTER`).
 - **System Safeguard**: Unrecognized query parameters are strictly ignored by the API routing layer rather than throwing errors.
 
@@ -271,7 +274,7 @@ Full-text search queries utilize a dedicated text keyword parameter:
 
 To support evolutionary API development without breaking client applications, the platform enforces **URI Path Versioning**:
 
-- **Major Version Path**: The API path must always contain the active major version segment immediately after the root domain (e.g., `/v2/`).
+- **Major Version Path**: The API path must always contain the active major version segment immediately after the root domain (e.g., `/api/v1/`).
 - **Backward Compatibility**: Patch and minor version updates (e.g., adding an optional field) are deployed directly within the active major version path. Renaming or deleting required properties requires releasing a new major path (e.g., `/v3/`).
 
 ---
@@ -290,7 +293,7 @@ To prevent duplicate state changes during network retries (e.g., a student click
 The security architecture enforces a zero-trust model across all layers of the communication track:
 
 ```
-[Incoming Payload] ===(Rate Limiter)===> [WAF Sanitizer] ===(mTLS / JWT JWT)===> [RBAC Policies] ===(Domain Execution)
+[Incoming Payload] ===(Rate Limiter)===> [WAF Sanitizer] ===(JWT / extracted-service mTLS)===> [RBAC Policies] ===(Domain Execution)
 ```
 
 ---
@@ -348,7 +351,7 @@ To secure document verification workflows, prevent malicious file execution, and
 
 The EAP ingestion lifecycle consists of eight explicit, highly synchronized stages:
 
-1. **Upload Registration**: The client registers its upload intent with EAP via `/v2/portal/assets/register`, supplying the file name, size, SHA-256 checksum, and MIME type. EAP validates these parameters against strict, context-specific policies.
+1. **Upload Registration**: The client registers its upload intent with EAP via `/api/v1/portal/assets/register`, supplying the file name, size, SHA-256 checksum, and MIME type. EAP validates these parameters against strict, context-specific policies.
 2. **Upload Coordination**: Upon validation, EAP generates a short-lived (maximum 5 minutes), restricted, pre-signed upload URL accompanied by specific security headers.
 3. **Quarantine Storage**: The client uploads the binary directly to the isolated **Quarantine Bucket** using an HTTP `PUT` request with the returned parameters. No core API application server resources are consumed by raw streaming.
 4. **Validation Pipeline**: The upload triggers an asynchronous EAP ingestion worker. The worker performs magic-bytes sniffing to verify that the file's binary header matches its declared extension, rejecting spoofed MIME types.
@@ -426,7 +429,7 @@ The operational states of an API contract are strictly governed:
 
 To support enterprise operational health and security tracking, APIs must emit key observability telemetry:
 
-- **Transaction Tracing**: Every inbound request is assigned a unique `X-Correlation-ID` header. This ID must cascade across all downstream microservices and log traces to enable continuous request tracking.
+- **Transaction Tracing**: Every inbound request is assigned a unique `X-Correlation-ID` header. This ID must cascade across all downstream modules or extracted services and log traces to enable continuous request tracking.
 - **Security Audit Logs**: All administrative and authenticated transactional mutations must emit structured, immutable audit records detailing the actor, time, payload delta, and IP location.
 
 ---
@@ -451,7 +454,7 @@ When consuming external academic directories or scraper feeds:
 
 ### 36. Internal Service Communication Principles
 
-- **Secure mTLS**: Internal microservice communication must enforce mutual TLS encryption and network isolation policies.
+- **Secure extracted-service transport**: Current in-process module communication does not use network mTLS. If a bounded context is physically extracted into a service, service-to-service traffic must use mTLS (or an ARB-approved equivalent) plus network isolation.
 - **Message Broker Queues**: High-latency transactions (such as processing batch scraper logs or queuing verification emails) are offloaded to asynchronous message broker queues to maintain high API responsiveness.
 
 ---
@@ -469,7 +472,7 @@ sequenceDiagram
     participant AppS as Application Service
     participant EAP as Enterprise Asset Platform
 
-    Student->>GW: POST /v2/portal/applications {payload} [JWT & X-Idempotency-Key]
+    Student->>GW: POST /api/v1/portal/applications {payload} [JWT & X-Idempotency-Key]
     activate GW
     GW->>GW: Verify Rate Limits & Sanitize Inputs
     GW->>AuthS: Validate JWT Access Token
@@ -503,13 +506,13 @@ This matrix maps Bounded Context capabilities to their corresponding secure API 
 
 | Business Capability          | Bounded Context     | Target Resource Path           | HTTP Verb | Authentication Requirement   |
 | :--------------------------- | :------------------ | :----------------------------- | :-------- | :--------------------------- |
-| **Scholarship Discovery**    | Scholarship Context | `/v2/public/scholarships`      | `GET`     | Unauthenticated (Public)     |
-| **Academic Catalog**         | Academic Context    | `/v2/public/academic-programs` | `GET`     | Unauthenticated (Public)     |
-| **Save Bookmark**            | Student Context     | `/v2/portal/saved-items`       | `POST`    | Authenticated (Student)      |
-| **Register Asset Ingestion** | EAP Context         | `/v2/portal/assets/register`   | `POST`    | Authenticated (Student)      |
-| **Submit Application**       | Student Context     | `/v2/portal/applications`      | `POST`    | Authenticated (Student)      |
-| **Publish Article**          | Knowledge Context   | `/v2/admin/articles`           | `POST`    | Authenticated (Editor, RBAC) |
-| **Scraper Ingestion**        | Import Context      | `/v2/internal/ingestion-tasks` | `POST`    | Internal mTLS (Private)      |
+| **Scholarship Discovery**    | Scholarship Context | `/api/v1/public/scholarships`      | `GET`     | Unauthenticated (Public)     |
+| **Academic Catalog**         | Academic Context    | `/api/v1/public/academic-programs` | `GET`     | Unauthenticated (Public)     |
+| **Save Bookmark**            | Student Context     | `/api/v1/portal/saved-items`       | `POST`    | Authenticated (Student)      |
+| **Register Asset Ingestion** | EAP Context         | `/api/v1/portal/assets/register`   | `POST`    | Authenticated (Student)      |
+| **Submit Application**       | Student Context     | `/api/v1/portal/applications`      | `POST`    | Authenticated (Student)      |
+| **Publish Article**          | Knowledge Context   | `/api/v1/admin/articles`           | `POST`    | Authenticated (Editor, RBAC) |
+| **Scraper Ingestion**        | Import Context      | `/api/v1/internal/ingestion-tasks` | `POST`    | Private module boundary; mTLS if extracted      |
 
 ---
 
@@ -540,9 +543,9 @@ This matrix maps Bounded Context capabilities to their corresponding secure API 
 
 1. **Flawless RESTful Resource Modeling**: All API paths are designed around clear plural nouns using kebab-case notation, keeping endpoints clean, logical, and focused on resources.
 2. **Pristine Agnostic Boundaries**: The specification successfully remains at a high architectural level, containing zero implementation leakage (no Express/NestJS imports, no prisma classes, and no SQL statements).
-3. **Uncompromising Security Standards**: The integration of short-lived JWTs, row-level ownership checks, mTLS, and multi-tier rate limiting guarantees complete protection across all access layers.
+3. **Uncompromising Security Standards**: The integration of short-lived JWTs, row-level ownership checks, mTLS for physically extracted service traffic, and multi-tier rate limiting provide defense-in-depth across access layers.
 4. **Resilient Transaction Management**: Using cursor-based pagination, standard HTTP method mappings, and idempotency key checks protects database performance and prevents duplicate state-changing requests.
-5. **Robust Backward Compatibility**: Implementing explicit major-version pathing (`/v2/`) combined with deprecation sunset headers protects running ingestion pipelines from crashing during minor updates.
+5. **Robust Backward Compatibility**: Implementing explicit major-version pathing (`/api/v1/`) combined with deprecation sunset headers protects running ingestion pipelines from crashing during minor updates.
 
 #### Weaknesses:
 

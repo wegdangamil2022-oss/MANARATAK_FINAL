@@ -70,17 +70,19 @@ export class AdminAcademicTaxonomyUseCases {
   }
 
   public async addEdge(data: UpsertAcademicTaxonomyEdgeDto): Promise<AcademicTaxonomyEdgeDto> {
-    const existingNodes = await this.repository.listNodes();
-    const existingEdges = await this.repository.listEdges();
+    return this.repository.executeSerializable(async (transactionRepository) => {
+      const existingNodes = await transactionRepository.listNodes();
+      const existingEdges = await transactionRepository.listEdges();
 
-    const issues = this.validationService.validateEdge({
-      edge: data,
-      existingNodes,
-      existingEdges,
+      const issues = this.validationService.validateEdge({
+        edge: data,
+        existingNodes,
+        existingEdges,
+      });
+      this.assertNoErrors(issues, 'Edge validation failed');
+
+      return transactionRepository.addEdge(data);
     });
-    this.assertNoErrors(issues, 'Edge validation failed');
-
-    return this.repository.addEdge(data);
   }
 
   public async removeEdge(edgeId: string): Promise<void> {
@@ -114,11 +116,17 @@ export class AdminAcademicTaxonomyUseCases {
   public async addMapping(
     data: UpsertAcademicStandardMappingDto
   ): Promise<AcademicStandardMappingDto> {
-    const existingMappings = await this.repository.listMappings(data.sourceNodeId);
+    const [sourceNode, targetNode, existingMappings] = await Promise.all([
+      this.repository.getNode(data.sourceNodeId),
+      this.repository.getNode(data.targetNodeId),
+      this.repository.listMappings(data.sourceNodeId),
+    ]);
 
     const issues = this.validationService.validateMapping({
       mapping: data,
       existingMappings,
+      sourceNode,
+      targetNode,
     });
     this.assertNoErrors(issues, 'Mapping validation failed');
 

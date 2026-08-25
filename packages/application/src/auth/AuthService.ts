@@ -7,7 +7,6 @@ import {
 } from '@manaratak/core';
 import { ICredentialVerifier, DenyAllCredentialVerifier } from './ICredentialVerifier';
 
-export * from './JwtTokenProvider';
 export * from './InMemorySessionManager';
 export * from './ICredentialVerifier';
 

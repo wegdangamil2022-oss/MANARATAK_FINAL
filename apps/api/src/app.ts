@@ -2,7 +2,7 @@ import * as awilix from 'awilix';
 import express, { Router, Express, Request, Response } from 'express';
 import * as path from 'path';
 import { container, registerDependencies } from './infrastructure/di/container.js';
-import { isDatabaseRequiredForRuntime } from './infrastructure/di/RuntimeDependencyPolicy.js';
+import { createRateLimiterForRuntime, isDatabaseRequiredForRuntime } from './infrastructure/di/RuntimeDependencyPolicy.js';
 import { 
   PrismaConnection,
   AsyncLogContext,
@@ -14,11 +14,7 @@ import {
   ZodValidationProvider,
   DefaultSanitizer,
   ValidationService,
-  LocalStorageProvider,
-  StorageService,
-  DefaultMonitoringProvider,
   MonitoringService,
-  DefaultRateLimiter,
   SecurityService,
   DatabaseHealthChecker,
   RedisClientFactory,
@@ -70,7 +66,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
 
   bootstrapPromise = (async () => {
     try {
-      const currentEnv = options?.env || process.env;
+      const currentEnv: Record<string, string | undefined> = { ...(options?.env ?? process.env) };
 
       let url = currentEnv.DATABASE_URL;
       if (!url || url.includes('postgres-host') || url.includes('placeholder')) {
@@ -79,7 +75,6 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
           const encodedPassword = encodeURIComponent(SQL_PASSWORD);
           url = `postgresql://${SQL_USER}:${encodedPassword}@localhost/${SQL_DB_NAME}?host=${SQL_HOST}`;
           currentEnv.DATABASE_URL = url;
-          process.env.DATABASE_URL = url;
         }
       }
 
@@ -134,8 +129,10 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
       const monitoringService = options?.monitoringService || new AppMonitoringService(undefined);
 
       // Bootstrap Security
-      const rateLimiter = options?.rateLimiter || new DefaultRateLimiter();
-      const securityService = options?.securityService || new AppSecurityService(rateLimiter);
+      const rateLimiter = options?.rateLimiter || createRateLimiterForRuntime(currentEnv, logger);
+      const securityService = options?.securityService || new AppSecurityService(rateLimiter, {
+        defaultSecret: config.getOptional<string>('CSRF_SECRET') || currentEnv.CSRF_SECRET,
+      });
 
       // Assert Production Security Guardrails
       SecurityValidator.assertProductionSecurity(currentEnv, securityService, rateLimiter);
@@ -152,8 +149,8 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     const rateLimitMax = parseInt(config.getOptional<string>('SECURITY_RATE_LIMIT_MAX') || '100', 10);
     const rateLimitWindow = parseInt(config.getOptional<string>('SECURITY_RATE_LIMIT_WINDOW_MS') || '60000', 10);
     const adminAuthMode = SecurityMiddlewareFactory.resolveAdminAuthMode({
-      NODE_ENV: config.getOptional<string>('NODE_ENV') || process.env.NODE_ENV,
-      ADMIN_AUTH_MODE: config.getOptional<string>('ADMIN_AUTH_MODE') || process.env.ADMIN_AUTH_MODE,
+      NODE_ENV: config.getOptional<string>('NODE_ENV') || currentEnv.NODE_ENV,
+      ADMIN_AUTH_MODE: config.getOptional<string>('ADMIN_AUTH_MODE') || currentEnv.ADMIN_AUTH_MODE,
     });
     // Security Middleware
     app.use(SecurityMiddlewareFactory.createSecurityHeaders({ enabled: cspEnabled }));
@@ -172,7 +169,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     app.use(monitoringMiddleware.generate());
 
     // Register DI Dependencies
-    registerDependencies();
+    registerDependencies(currentEnv, config);
     container.register({ 
       monitoringService: awilix.asValue(monitoringService),
       securityService: awilix.asValue(securityService)
@@ -284,7 +281,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
       const sessionSecret = (req.headers['x-session-secret'] as string) 
         || (req as any).session?.secret 
         || config.getOptional<string>('SESSION_SECRET') 
-        || process.env.SESSION_SECRET 
+        || currentEnv.SESSION_SECRET
         || '';
       const token = securityService.generateCsrfToken(sessionSecret);
       res.setHeader('X-CSRF-Token', token);
@@ -354,20 +351,29 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     v1Router.use('/admin/majors', requireAdminPermission('admin:majors:manage'), container.resolve<Router>('majorAdminRouter'));
     v1Router.use('/public/majors', container.resolve<Router>('majorPublicRouter'));
 
-    // 3. Present But Not Currently Required Routers (Lazy) - Phase 5 Enterprise Core Foundation Services
+    // 3. Phase 5 enterprise control-plane services.
+    // Legacy route locations are preserved for compatibility, but every mutation-capable
+    // control-plane router is now inside the same strict auth + audit + RBAC boundary as /admin.
+    const protectControlPlane = (permission: string, routerName: string) => [
+      SecurityMiddlewareFactory.createAdminGuard({ mode: adminAuthMode, tokenProvider: adminTokenProvider }),
+      new MutationAuditMiddleware(auditRecordRepository, 'CONTROL_PLANE').generate(),
+      requireAdminPermission(permission),
+      lazyRouter(routerName),
+    ];
+
     v1Router.use('/admin/authorization', requireAdminPermission('admin:authorization:manage'), lazyRouter('authorizationAdminRouter'));
-    v1Router.use('/authorization', lazyRouter('authorizationRuntimeRouter'));
+    v1Router.use('/authorization', ...protectControlPlane('admin:authorization:manage', 'authorizationRuntimeRouter'));
     v1Router.use('/admin/settings', requireAdminPermission('admin:settings:manage'), lazyRouter('settingsAdminRouter'));
-    v1Router.use('/settings', lazyRouter('settingsRuntimeRouter'));
-    v1Router.use('/files', lazyRouter('fileManagementRouter'));
-    v1Router.use('/notifications', lazyRouter('notificationRouter'));
+    v1Router.use('/settings', ...protectControlPlane('admin:settings:manage', 'settingsRuntimeRouter'));
+    v1Router.use('/files', ...protectControlPlane('admin:assets:manage', 'fileManagementRouter'));
+    v1Router.use('/notifications', ...protectControlPlane('admin:platform:manage', 'notificationRouter'));
     v1Router.use('/search', lazyRouter('searchRouter'));
-    v1Router.use('/cache', lazyRouter('cacheRouter'));
-    v1Router.use('/background-jobs', lazyRouter('backgroundJobRouter'));
-    v1Router.use('/workflows', lazyRouter('workflowRouter'));
-    v1Router.use('/api-services', lazyRouter('apiFoundationRouter'));
-    v1Router.use('/shared-components', lazyRouter('sharedComponentRouter'));
-    v1Router.use('/enterprise-events', lazyRouter('enterpriseEventRouter'));
+    v1Router.use('/cache', ...protectControlPlane('admin:platform:manage', 'cacheRouter'));
+    v1Router.use('/background-jobs', ...protectControlPlane('admin:platform:manage', 'backgroundJobRouter'));
+    v1Router.use('/workflows', ...protectControlPlane('admin:platform:manage', 'workflowRouter'));
+    v1Router.use('/api-services', ...protectControlPlane('admin:platform:manage', 'apiFoundationRouter'));
+    v1Router.use('/shared-components', ...protectControlPlane('admin:platform:manage', 'sharedComponentRouter'));
+    v1Router.use('/enterprise-events', ...protectControlPlane('admin:platform:manage', 'enterpriseEventRouter'));
 
     // 4. Future Phase 11+ Routers (Lazy) - Post-Phase-10 Extensions
     v1Router.use('/admin/scholarships', requireAdminPermission('admin:scholarships:manage'), lazyRouter('scholarshipAdminRouter'));

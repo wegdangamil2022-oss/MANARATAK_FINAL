@@ -2,7 +2,6 @@ import {
   IInternationalTestRepository,
   InternationalTestDto,
   InternationalTestFilters,
-  InternationalTestStatus,
   PaginatedInternationalTestResult,
 } from '@manaratak/domain';
 import { DEFAULT_LOCALE, type SupportedLocale } from '@manaratak/shared';
@@ -19,10 +18,12 @@ export class LocalizedInternationalTestPublicUseCases {
     locale: SupportedLocale = DEFAULT_LOCALE,
   ): Promise<PaginatedInternationalTestResult<InternationalTestDto>> {
     const safeFilters = filters ?? {};
+    const requestedPage = typeof safeFilters.page === 'number' ? safeFilters.page : 1;
     const requestedPageSize = typeof safeFilters.pageSize === 'number' ? safeFilters.pageSize : 20;
     const paginated = await this.repository.listPublished({
       ...safeFilters,
-      pageSize: Math.min(requestedPageSize, 50),
+      page: Math.max(1, Math.floor(requestedPage)),
+      pageSize: Math.min(50, Math.max(1, Math.floor(requestedPageSize))),
     });
     return {
       ...paginated,
@@ -34,8 +35,8 @@ export class LocalizedInternationalTestPublicUseCases {
     slug: string,
     locale: SupportedLocale = DEFAULT_LOCALE,
   ): Promise<InternationalTestDto> {
-    const test = await this.repository.findBySlug(slug);
-    if (!test || test.status !== InternationalTestStatus.PUBLISHED) {
+    const test = await this.repository.findPublishedBySlug(slug);
+    if (!test) {
       throw new Error('International test not found');
     }
     return this.projection.projectInternationalTest(test, locale);

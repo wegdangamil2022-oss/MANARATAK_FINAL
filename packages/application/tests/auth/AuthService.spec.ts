@@ -1,13 +1,35 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { AuthService } from '../../src/auth/AuthService';
-import { JwtTokenProvider } from '../../src/auth/JwtTokenProvider';
+import type { ITokenProvider, TokenPayload, AuthTokens } from '@manaratak/core';
 import { InMemorySessionManager } from '../../src/auth/InMemorySessionManager';
 import { ICredentialVerifier } from '../../src/auth/ICredentialVerifier';
+
+
+class TestTokenProvider implements ITokenProvider {
+  private counter = 0;
+  async generateTokens(payload: TokenPayload): Promise<AuthTokens> {
+    this.counter += 1;
+    return {
+      accessToken: `access:${payload.userId}:${this.counter}`,
+      refreshToken: `refresh:${payload.userId}:${this.counter}`,
+    };
+  }
+  async verifyAccessToken(token: string): Promise<TokenPayload> {
+    const [, userId] = token.split(':');
+    if (!token.startsWith('access:') || !userId) throw new Error('Invalid access token');
+    return { userId };
+  }
+  async verifyRefreshToken(token: string): Promise<TokenPayload> {
+    const [, userId] = token.split(':');
+    if (!token.startsWith('refresh:') || !userId) throw new Error('Invalid refresh token');
+    return { userId };
+  }
+}
 
 describe('AuthService and Package Helpers', () => {
   describe('ICredentialVerifier and Login', () => {
     it('login without credential fails', async () => {
-      const tokenProvider = new JwtTokenProvider('test-secret-key-must-be-long-enough-32-chars');
+      const tokenProvider = new TestTokenProvider();
       const sessionManager = new InMemorySessionManager();
       const authService = new AuthService(tokenProvider, sessionManager);
 
@@ -15,7 +37,7 @@ describe('AuthService and Package Helpers', () => {
     });
 
     it('login with known email but invalid credential fails', async () => {
-      const tokenProvider = new JwtTokenProvider('test-secret-key-must-be-long-enough-32-chars');
+      const tokenProvider = new TestTokenProvider();
       const sessionManager = new InMemorySessionManager();
       const fakeVerifier: ICredentialVerifier = {
         verify: async (_userId, credentialValue) => credentialValue === 'correct-password',
@@ -26,7 +48,7 @@ describe('AuthService and Package Helpers', () => {
     });
 
     it('login with known email and verified credential succeeds using injected fake verifier', async () => {
-      const tokenProvider = new JwtTokenProvider('test-secret-key-must-be-long-enough-32-chars');
+      const tokenProvider = new TestTokenProvider();
       const sessionManager = new InMemorySessionManager();
       const fakeVerifier: ICredentialVerifier = {
         verify: async (_userId, credentialValue) => credentialValue === 'correct-password',
@@ -76,19 +98,4 @@ describe('AuthService and Package Helpers', () => {
     });
   });
 
-  describe('JwtTokenProvider Signature Verification', () => {
-    it('JWT signature verification rejects tampered tokens', async () => {
-      const secret = 'another-very-long-secret-key-32-chars-at-least';
-      const tokenProvider = new JwtTokenProvider(secret);
-
-      const tokens = await tokenProvider.generateTokens({ userId: 'user-123' });
-      const validToken = tokens.accessToken;
-
-      // Tamper with payload segment
-      const parts = validToken.split('.');
-      const tamperedToken = `${parts[0]}.eyJ1c2VySWQiOiJ1c2VyLTQ1NiIsImlhdCI6MTY5MDcyNDAwMCwiZXhwIjoxNjkwNzI3NjAwfQ.${parts[2]}`;
-
-      await expect(tokenProvider.verifyAccessToken(tamperedToken)).rejects.toThrow();
-    });
-  });
 });

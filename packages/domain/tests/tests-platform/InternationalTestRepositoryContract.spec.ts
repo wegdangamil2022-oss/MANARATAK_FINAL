@@ -19,6 +19,14 @@ class MockInternationalTestRepository implements IInternationalTestRepository {
     return this.items.find(item => item.slug === slug) || null;
   }
 
+  async findPublishedBySlug(slug: string): Promise<InternationalTestDto | null> {
+    return this.items.find(item =>
+      item.slug === slug &&
+      item.status === InternationalTestStatus.PUBLISHED &&
+      item.isPubliclyVisible === true
+    ) || null;
+  }
+
   async findByDedupKey(dedupKey: string): Promise<InternationalTestDto | null> {
     return this.items.find(item => item.canonicalDedupKey === dedupKey) || null;
   }
@@ -67,7 +75,9 @@ class MockInternationalTestRepository implements IInternationalTestRepository {
   }
 
   async listPublished(filters?: Omit<InternationalTestFilters, 'status'>): Promise<PaginatedInternationalTestResult<InternationalTestDto>> {
-    return this.list({ ...filters, status: InternationalTestStatus.PUBLISHED });
+    const listed = await this.list({ ...filters, status: InternationalTestStatus.PUBLISHED });
+    const data = listed.data.filter(item => item.isPubliclyVisible === true);
+    return { ...listed, data, total: data.length };
   }
 
   async listTests(filters: InternationalTestFilters): Promise<PaginatedInternationalTestResult<InternationalTestDto>> {
@@ -118,6 +128,7 @@ describe('InternationalTestRepositoryContract', () => {
     expect(updated?.status).toBe(InternationalTestStatus.READY_TO_PUBLISH);
 
     await repo.updateStatus(created.id, InternationalTestStatus.PUBLISHED);
+    await repo.update(created.id, { isPubliclyVisible: true });
     const publishedList = await repo.listPublished();
     expect(publishedList.total).toBe(1);
     expect(publishedList.data[0].id).toBe(created.id);
@@ -127,6 +138,7 @@ describe('InternationalTestRepositoryContract', () => {
     const repo: IInternationalTestRepository = new MockInternationalTestRepository();
     expect(typeof repo.findById).toBe('function');
     expect(typeof repo.findBySlug).toBe('function');
+    expect(typeof repo.findPublishedBySlug).toBe('function');
     expect(typeof repo.findByDedupKey).toBe('function');
     expect(typeof repo.create).toBe('function');
     expect(typeof repo.update).toBe('function');

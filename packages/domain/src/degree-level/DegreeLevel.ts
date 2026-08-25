@@ -1,3 +1,11 @@
+export enum DegreeLevelStatus {
+  ACTIVE = 'ACTIVE',
+  DEPRECATED = 'DEPRECATED',
+  ARCHIVED = 'ARCHIVED',
+  SUPERSEDED = 'SUPERSEDED',
+  MERGED = 'MERGED',
+}
+
 export const CANONICAL_DEGREE_LEVEL_CODES = [
   'ASSOCIATE',
   'DIPLOMA',
@@ -21,7 +29,7 @@ export interface DegreeLevelDto {
   nameEn: string;
   nameAr: string;
   displayRank: number;
-  status: string;
+  status: DegreeLevelStatus;
   aliases?: Record<string, any> | null;
   metadata?: Record<string, any> | null;
   createdAt: Date;
@@ -33,7 +41,7 @@ export interface UpsertDegreeLevelDto {
   nameEn: string;
   nameAr: string;
   displayRank?: number;
-  status?: string;
+  status?: DegreeLevelStatus;
   aliases?: Record<string, any> | null;
   metadata?: Record<string, any> | null;
 }

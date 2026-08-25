@@ -1,5 +1,16 @@
 import { MoneyAmount } from '../value-objects';
 
+/** Canonical Phase 7 currency projection consumed by Finance. */
+export interface CanonicalFinanceCurrency {
+  referenceId: string;
+  currencyCode: string;
+  scale: number;
+  active: boolean;
+}
+export interface IFinanceCurrencyReferenceGateway {
+  resolveCurrency(currencyCode: string): Promise<CanonicalFinanceCurrency | null>;
+}
+
 export interface PaymentGatewayRequest {
   paymentReference: string;
   amount: MoneyAmount;
@@ -7,7 +18,7 @@ export interface PaymentGatewayRequest {
   idempotencyKey: string;
 }
 export interface PaymentGatewayResult {
-  status: 'AUTHORIZED' | 'CAPTURED' | 'FAILED';
+  status: 'AUTHORIZED' | 'CAPTURED' | 'COMPLETED' | 'FAILED';
   gatewayReference: string;
   safeMaskedMetadata?: Record<string, string>;
   failureCode?: string;
@@ -27,6 +38,10 @@ export interface IPaymentGateway {
     idempotencyKey: string,
   ): Promise<PaymentGatewayResult>;
 }
+export interface IPaymentGatewayRegistry {
+  get(providerKey: string): IPaymentGateway | null;
+}
+
 export interface IFxRateProvider {
   readonly providerKey: string;
   isConfigured(): boolean;
@@ -40,11 +55,27 @@ export interface IFxRateProvider {
     effectiveAt: Date;
   }>;
 }
+
+export interface BankTransferSubmission {
+  transferReference: string;
+  destinationReferenceId: string;
+  sourceAmount: MoneyAmount;
+  targetAmount: MoneyAmount;
+  feeAmount: MoneyAmount;
+  idempotencyKey: string;
+}
+export interface BankTransferEvidence {
+  providerReference: string;
+  status: 'PROCESSING' | 'SETTLED' | 'FAILED' | 'REVERSED';
+  failureCode?: string;
+}
 export interface IBankTransferGateway {
   readonly providerKey: string;
   isConfigured(): boolean;
-  submit(
-    transferReference: string,
-    idempotencyKey: string,
-  ): Promise<{ providerReference: string; status: 'PROCESSING' }>;
+  submit(request: BankTransferSubmission): Promise<BankTransferEvidence>;
+  getStatus(providerReference: string, idempotencyKey: string): Promise<BankTransferEvidence>;
+  reverse(providerReference: string, idempotencyKey: string): Promise<BankTransferEvidence>;
+}
+export interface IBankTransferGatewayRegistry {
+  get(providerKey: string): IBankTransferGateway | null;
 }

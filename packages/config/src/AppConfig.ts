@@ -86,15 +86,19 @@ export const AppConfigSchema = z.preprocess((input) => {
       }
     }
 
-    // 2. REDIS_URL (optional in prod/staging, but validate format if provided)
-    if (data.REDIS_URL && data.REDIS_URL.trim() !== '') {
-      if (!data.REDIS_URL.startsWith('redis://') && !data.REDIS_URL.startsWith('rediss://')) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'REDIS_URL must start with redis:// or rediss://',
-          path: ['REDIS_URL'],
-        });
-      }
+    // 2. REDIS_URL — required for distributed production/staging rate limiting.
+    if (!data.REDIS_URL || data.REDIS_URL.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'REDIS_URL is required in production/staging for distributed rate limiting',
+        path: ['REDIS_URL'],
+      });
+    } else if (!data.REDIS_URL.startsWith('redis://') && !data.REDIS_URL.startsWith('rediss://')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'REDIS_URL must start with redis:// or rediss://',
+        path: ['REDIS_URL'],
+      });
     }
 
     // 3. JWT_SECRET

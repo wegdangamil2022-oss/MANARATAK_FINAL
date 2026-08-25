@@ -12,6 +12,10 @@ export class EnterpriseEventSpecification implements ISpecification<EnterpriseEv
     }
   ) {}
 
+  public getCriteria(): Readonly<{ reference?: string; ownerReference?: string; type?: string; lifecycleState?: string }> {
+    return { ...this.criteria };
+  }
+
   public isSatisfiedBy(event: EnterpriseEvent): boolean {
     if (this.criteria.reference && event.getReference().getValue() !== this.criteria.reference) {
       return false;

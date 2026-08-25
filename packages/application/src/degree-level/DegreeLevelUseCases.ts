@@ -2,6 +2,7 @@ import {
   CANONICAL_DEGREE_LEVEL_CODES,
   CanonicalDegreeLevelCode,
   DegreeLevelDto,
+  DegreeLevelStatus,
   IDegreeLevelRepository
 } from '@manaratak/domain';
 
@@ -9,7 +10,7 @@ export interface UpdateDegreeLevelCommand {
   nameEn: string;
   nameAr: string;
   displayRank?: number;
-  status?: string;
+  status?: DegreeLevelStatus;
 }
 
 export class DegreeLevelUseCases {
@@ -34,8 +35,8 @@ export class DegreeLevelUseCases {
       canonicalCode: this.assertCanonicalCode(existing.canonicalCode),
       nameEn: command.nameEn,
       nameAr: command.nameAr,
-      displayRank: command.displayRank,
-      status: command.status,
+      displayRank: command.displayRank ?? existing.displayRank,
+      status: command.status ?? existing.status,
       aliases: existing.aliases,
       metadata: existing.metadata
     });

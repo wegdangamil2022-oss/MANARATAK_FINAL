@@ -92,9 +92,12 @@ export class AcademicTaxonomySeedPlanner implements IAcademicTaxonomySeedPlanner
           break;
         }
         case 'MAPPING': {
+          const mapping = record.payload as UpsertAcademicStandardMappingDto;
           issues = this.validationService.validateMapping({
-            mapping: record.payload as UpsertAcademicStandardMappingDto,
+            mapping,
             existingMappings,
+            sourceNode: existingNodes.find((node) => node.nodeId === mapping.sourceNodeId) ?? null,
+            targetNode: existingNodes.find((node) => node.nodeId === mapping.targetNodeId) ?? null,
           });
           canBeApplied = !issues.some(
             (i) => i.severity === AcademicTaxonomyValidationSeverity.ERROR

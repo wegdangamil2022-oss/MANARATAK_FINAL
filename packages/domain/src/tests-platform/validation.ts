@@ -44,7 +44,7 @@ export interface RawTestInput {
   };
   sections?: Array<{ scoreMinimum?: number; scoreMaximum?: number }>;
   fees?: Array<{ amount?: number; currencyCode?: string }> | { amount?: number; currencyCode?: string };
-  officialLinks?: Array<{ url?: string }>;
+  officialLinks?: Array<{ linkType?: string; url?: string }>;
   preparationMaterials?: Array<{ url?: string; assetId?: string }>;
   availability?: {
     availableCountryIds?: unknown[];
@@ -68,7 +68,7 @@ export class InternationalTestValidationService implements IInternationalTestVal
   public static validate(input: unknown): InternationalTestCompletenessReport {
     const payload = (input && typeof input === 'object' ? input : {}) as RawTestInput;
     // Required fields check
-    const requiredFields = ['canonicalName', 'providerName', 'testCategory'];
+    const requiredFields = ['canonicalName', 'providerName', 'testCategory', 'scoreScale', 'officialRegistrationUrl'];
     const presentFields: string[] = [];
     const missingFields: string[] = [];
     const issues: InternationalTestValidationIssue[] = [];
@@ -144,22 +144,33 @@ export class InternationalTestValidationService implements IInternationalTestVal
       });
     }
 
-    // Score scale sanity check
+    // Canonical publication profile requires a normalized score scale with explicit bounds.
     const scale = payload.scoreScale;
-    if (scale) {
+    if (scale && typeof scale === 'object') {
       const min = scale.overallMinimum !== undefined ? scale.overallMinimum : scale.scoreMinimum;
       const max = scale.overallMaximum !== undefined ? scale.overallMaximum : scale.scoreMaximum;
-      if (min !== undefined && max !== undefined && Number(min) > Number(max)) {
+      if (min === undefined || max === undefined || !Number.isFinite(Number(min)) || !Number.isFinite(Number(max))) {
+        missingFields.push('scoreScale');
+        issues.push({
+          field: 'scoreScale',
+          message: 'A normalized score scale with explicit minimum and maximum is required for a complete test profile',
+          severity: InternationalTestValidationSeverity.WARNING
+        });
+      } else if (Number(min) > Number(max)) {
+        missingFields.push('scoreScale');
         issues.push({
           field: 'scoreScale.overallMinimum',
           message: 'Score scale minimum cannot exceed maximum',
           severity: InternationalTestValidationSeverity.ERROR
         });
+      } else {
+        presentFields.push('scoreScale');
       }
     } else {
+      missingFields.push('scoreScale');
       issues.push({
         field: 'scoreScale',
-        message: 'Score scale definition is recommended for complete test profile',
+        message: 'A normalized score scale is required for a complete test profile',
         severity: InternationalTestValidationSeverity.WARNING
       });
     }
@@ -214,7 +225,8 @@ export class InternationalTestValidationService implements IInternationalTestVal
       }
     }
 
-    // Official links / URL shape check
+    // Official links / URL shape check. Only a normalized REGISTRATION link is publication evidence.
+    let hasOfficialRegistrationLink = false;
     if (Array.isArray(payload.officialLinks) && payload.officialLinks.length > 0) {
       for (let i = 0; i < payload.officialLinks.length; i++) {
         const link = payload.officialLinks[i];
@@ -225,11 +237,18 @@ export class InternationalTestValidationService implements IInternationalTestVal
             severity: InternationalTestValidationSeverity.ERROR
           });
         }
+        if (link?.linkType === 'REGISTRATION' && isValidUrl(link.url)) {
+          hasOfficialRegistrationLink = true;
+        }
       }
-    } else if (!payload.officialSourceUrl || !isValidUrl(payload.officialSourceUrl)) {
+    }
+    if (hasOfficialRegistrationLink) {
+      presentFields.push('officialRegistrationUrl');
+    } else {
+      missingFields.push('officialRegistrationUrl');
       issues.push({
         field: 'officialLinks',
-        message: 'Official registration link is recommended',
+        message: 'A normalized official REGISTRATION link is required for a complete test profile',
         severity: InternationalTestValidationSeverity.WARNING
       });
     }
@@ -312,11 +331,12 @@ export class InternationalTestValidationService implements IInternationalTestVal
     }
 
     const hasErrors = issues.some(i => i.severity === InternationalTestValidationSeverity.ERROR);
+    const coreIdentityPresent = ['canonicalName', 'providerName', 'testCategory'].every(field => presentFields.includes(field));
+    const canBeReviewed = coreIdentityPresent && !hasErrors;
     const isComplete = missingFields.length === 0 && !hasErrors;
-    const canBeReviewed = isComplete;
 
     const currentStatus = payload.status;
-    const canBePublished = canBeReviewed && (
+    const canBePublished = isComplete && (
       currentStatus === InternationalTestStatus.READY_TO_PUBLISH ||
       currentStatus === InternationalTestStatus.PUBLISHED ||
       currentStatus === 'READY_TO_PUBLISH' ||

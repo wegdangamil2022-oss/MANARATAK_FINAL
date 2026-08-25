@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { CanonicalDegreeLevelCode, IDegreeLevelRepository, DegreeLevelDto, UpsertDegreeLevelDto } from '@manaratak/domain';
+import { CanonicalDegreeLevelCode, DegreeLevelStatus, IDegreeLevelRepository, DegreeLevelDto, UpsertDegreeLevelDto } from '@manaratak/domain';
 
 export class DegreeLevelRepository implements IDegreeLevelRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -31,17 +31,17 @@ export class DegreeLevelRepository implements IDegreeLevelRepository {
       update: {
         nameEn: data.nameEn,
         nameAr: data.nameAr,
-        displayRank: data.displayRank ?? 0,
-        status: data.status ?? 'ACTIVE',
-        aliases: data.aliases ?? {},
-        metadata: data.metadata ?? {},
+        displayRank: data.displayRank,
+        status: data.status,
+        aliases: data.aliases === undefined ? undefined : data.aliases ?? {},
+        metadata: data.metadata === undefined ? undefined : data.metadata ?? {},
       },
       create: {
         canonicalCode: data.canonicalCode,
         nameEn: data.nameEn,
         nameAr: data.nameAr,
         displayRank: data.displayRank ?? 0,
-        status: data.status ?? 'ACTIVE',
+        status: data.status ?? DegreeLevelStatus.ACTIVE,
         aliases: data.aliases ?? {},
         metadata: data.metadata ?? {},
       },
@@ -56,7 +56,7 @@ export class DegreeLevelRepository implements IDegreeLevelRepository {
       nameEn: record.nameEn,
       nameAr: record.nameAr,
       displayRank: record.displayRank,
-      status: record.status,
+      status: record.status as DegreeLevelStatus,
       aliases: record.aliases ? (record.aliases as Record<string, any>) : undefined,
       metadata: record.metadata ? (record.metadata as Record<string, any>) : undefined,
       createdAt: record.createdAt,

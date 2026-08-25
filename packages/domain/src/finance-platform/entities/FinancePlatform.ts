@@ -50,10 +50,11 @@ export function assertPaymentTransition(from: string, to: string): void {
 }
 const invoiceTransitions: Record<string, readonly string[]> = {
   DRAFT: ['ISSUED', 'VOIDED'],
-  ISSUED: ['PARTIALLY_PAID', 'PAID', 'OVERDUE', 'VOIDED'],
-  PARTIALLY_PAID: ['PAID', 'OVERDUE', 'VOIDED'],
-  OVERDUE: ['PARTIALLY_PAID', 'PAID', 'VOIDED'],
+  ISSUED: ['PARTIALLY_PAID', 'PAID', 'CREDITED', 'OVERDUE', 'VOIDED'],
+  PARTIALLY_PAID: ['PAID', 'CREDITED', 'OVERDUE', 'VOIDED'],
+  OVERDUE: ['PARTIALLY_PAID', 'PAID', 'CREDITED', 'VOIDED'],
   PAID: [],
+  CREDITED: [],
   VOIDED: [],
 };
 export function assertInvoiceTransition(from: string, to: string): void {
@@ -70,6 +71,7 @@ export interface FinancialAccountDto {
   scale: number;
   version: number;
   active: boolean;
+  systemManaged: boolean;
   createdAt: Date | string;
 }
 export interface LedgerPostingInput {
@@ -157,6 +159,8 @@ export interface ExchangeRateDto {
   source: 'MANUAL_OVERRIDE' | 'AUTOMATIC_PROVIDER';
   providerReference?: string | null;
   approved: boolean;
+  makerId?: string | null;
+  approvalId?: string | null;
   effectiveFrom: Date | string;
   effectiveTo?: Date | string | null;
   marginBasisPoints: number;
@@ -183,7 +187,12 @@ export function convertMoneyExact(
   marginBasisPoints = 0,
 ): MoneyAmount {
   assertValidMoneyAmount(source);
-  if (!/^\d+$/.test(numerator) || !/^\d+$/.test(denominator) || BigInt(denominator) === BigInt(0))
+  if (
+    !/^\d+$/.test(numerator) ||
+    !/^\d+$/.test(denominator) ||
+    BigInt(numerator) <= BigInt(0) ||
+    BigInt(denominator) <= BigInt(0)
+  )
     throw new Error('Invalid exact exchange rate');
   if (!Number.isInteger(marginBasisPoints) || marginBasisPoints < 0 || marginBasisPoints > 10_000)
     throw new Error('Invalid exchange margin');
@@ -204,10 +213,17 @@ export interface MoneyTransferDto {
   publicId: string;
   sourceWalletId: string;
   destinationReferenceId: string;
+  destinationCurrencyCode: string;
   sourceAmount: MoneyAmount;
   targetAmount?: MoneyAmount | null;
   rateId?: string | null;
   feeAmount?: MoneyAmount | null;
+  feePolicyReference?: string | null;
+  bankProvider?: string | null;
+  bankProviderReference?: string | null;
+  providerStatus?: string | null;
+  settlementTransactionId?: string | null;
+  reversalTransactionId?: string | null;
   status: TransferStatus;
   makerId: string;
   correlationId: string;
@@ -227,7 +243,7 @@ const transferTransitions: Record<TransferStatus, readonly TransferStatus[]> = {
   SETTLED: ['COMPLETED', 'REVERSED'],
   COMPLETED: ['REVERSED'],
   REJECTED: [],
-  FAILED: ['REVERSED'],
+  FAILED: [],
   CANCELLED: [],
   REVERSED: [],
 };
@@ -244,6 +260,9 @@ export interface FinancialApprovalDto {
   amount?: MoneyAmount | null;
   makerId: string;
   requiredApprovals: number;
+  payloadHash: string;
+  policyReference: string;
+  consumedAt?: Date | string | null;
   status: ApprovalStatus;
   expiresAt?: Date | string | null;
   createdAt: Date | string;
@@ -275,6 +294,9 @@ export interface RefundDto {
   status: RefundStatus;
   makerId: string;
   approvalId?: string | null;
+  gatewayProvider?: string | null;
+  gatewayReference?: string | null;
+  failureCode?: string | null;
   completedAt?: Date | string | null;
   createdAt: Date | string;
 }
@@ -336,6 +358,7 @@ export interface CommissionDto {
   amount: MoneyAmount;
   status: CommissionStatus;
   policyReference: string;
+  calculationBasisPoints?: number | null;
   createdAt: Date | string;
   updatedAt: Date | string;
 }

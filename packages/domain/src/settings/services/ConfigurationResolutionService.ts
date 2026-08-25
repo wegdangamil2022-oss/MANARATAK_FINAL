@@ -10,8 +10,8 @@ export interface ResolutionOptions {
 
 export class ConfigurationResolutionService {
   constructor(
-    private readonly definitionRepo?: ISettingDefinitionRepository,
-    private readonly assignmentRepo?: ISettingAssignmentRepository
+    private readonly definitionRepo: ISettingDefinitionRepository,
+    private readonly assignmentRepo: ISettingAssignmentRepository
   ) {}
 
   public async resolve(
@@ -20,10 +20,6 @@ export class ConfigurationResolutionService {
     scopeIdOrTenantId?: string,
     options?: ResolutionOptions
   ): Promise<unknown> {
-    if (!this.definitionRepo || !this.assignmentRepo) {
-      return null;
-    }
-
     const definition = await this.definitionRepo.findByKey(key);
     if (!definition) {
       return null;

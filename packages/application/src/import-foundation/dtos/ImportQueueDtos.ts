@@ -28,6 +28,8 @@ export interface ImportJobStatusDto {
 export interface ClaimImportJobCommand {
   workerId: string;
   leaseDurationMs: number;
+  /** Optional targeted claim used by the synchronous compatibility bridge. */
+  batchId?: string;
   now?: Date;
 }
 

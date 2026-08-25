@@ -72,7 +72,7 @@ describe('localized public query adapters', () => {
 
   it('projects International Test result without changing test identity', async () => {
     const repository = {
-      findBySlug: vi.fn().mockResolvedValue({
+      findPublishedBySlug: vi.fn().mockResolvedValue({
         id: 'test-1',
         canonicalName: 'IELTS',
         displayName: 'IELTS',

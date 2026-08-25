@@ -22,10 +22,12 @@ export class ImportWorkerProtocol {
   async runOne(
     workerId: string,
     process: ImportWorkerProcessor,
+    batchId?: string,
   ): Promise<'IDLE' | 'COMPLETED' | 'RETRY_SCHEDULED' | 'DLQ'> {
     const lease = await this.queue.claimNextJob({
       workerId,
       leaseDurationMs: this.leaseDurationMs,
+      batchId,
     });
     if (!lease) return 'IDLE';
 

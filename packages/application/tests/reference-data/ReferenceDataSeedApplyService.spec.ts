@@ -20,9 +20,11 @@ describe('ReferenceDataSeedApplyService', () => {
       listCurrencies: vi.fn(),
       listLanguages: vi.fn(),
       listCities: vi.fn(),
+      listRegions: vi.fn(),
       getCountry: vi.fn(),
       getCurrency: vi.fn(),
       getLanguage: vi.fn(),
+      getRegionById: vi.fn(),
       upsertCountry: vi.fn().mockImplementation(async (data) => ({ ...data, isActive: true })),
       upsertCurrency: vi.fn().mockImplementation(async (data) => ({ ...data, isActive: true })),
       upsertLanguage: vi.fn().mockImplementation(async (data) => ({ ...data, isActive: true })),
@@ -178,6 +180,37 @@ describe('ReferenceDataSeedApplyService', () => {
     );
   });
 
+  it('re-validates payload at apply time and rejects stale green validation reports', async () => {
+    const batch: ReferenceDataSeedBatch = {
+      seedBatchId: 'b-stale-green',
+      sourceName: 'ISO',
+      sourceVersion: '1.0',
+      status: ReferenceDataSeedStatus.READY_TO_APPLY,
+      records: [
+        {
+          entityType: 'COUNTRY',
+          deterministicKey: 'eg',
+          payload: { iso2Code: 'eg', iso3Code: 'EGY', name: 'Egypt' } as UpsertReferenceCountryDto,
+          validationReport: {
+            entityType: 'COUNTRY',
+            deterministicKey: 'eg',
+            requiredFields: ['iso2Code', 'iso3Code', 'name'],
+            presentFields: ['iso2Code', 'iso3Code', 'name'],
+            missingFields: [],
+            issues: [],
+            isComplete: true,
+            canBeImported: true
+          }
+        }
+      ],
+      createdAt: new Date(),
+      validationSummary: { totalRecords: 1, validRecords: 1, invalidRecords: 0 }
+    };
+
+    await expect(service.applyBatch(batch, 'operator')).rejects.toThrow('REFERENCE_DATA_SEED_CANONICAL_VALIDATION_FAILED');
+    expect(mockRepo.upsertCountry).not.toHaveBeenCalled();
+  });
+
   it('applies COUNTRY, CURRENCY, LANGUAGE, CITY through repository upsert methods', async () => {
     const countryPayload: UpsertReferenceCountryDto = { iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt' };
     const currencyPayload: UpsertReferenceCurrencyDto = { isoCode: 'EGP', name: 'Egyptian Pound' };
@@ -255,6 +288,9 @@ describe('ReferenceDataSeedApplyService', () => {
       validationSummary: { totalRecords: 4, validRecords: 4, invalidRecords: 0 }
     };
 
+    vi.mocked(mockRepo.getCountry).mockResolvedValue({
+      id: 'country-eg', iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt', isActive: true,
+    });
     const result = await service.applyBatch(batch, 'system-admin');
 
     expect(mockRepo.upsertCountry).toHaveBeenCalledWith(countryPayload);
@@ -265,6 +301,36 @@ describe('ReferenceDataSeedApplyService', () => {
     expect(result.status).toBe(ReferenceDataSeedStatus.APPLIED);
     expect(result.appliedBy).toBe('system-admin');
     expect(result.appliedAt).toBeInstanceOf(Date);
+  });
+
+  it('rejects a CITY seed whose canonical administrative region belongs to another country', async () => {
+    vi.mocked(mockRepo.getCountry).mockResolvedValue({
+      id: 'country-eg', iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt', isActive: true,
+    });
+    vi.mocked(mockRepo.getRegionById).mockResolvedValue({
+      id: 'region-us-ca', countryIso2Code: 'US', regionCode: 'US-CA', name: 'California',
+    });
+    const batch: ReferenceDataSeedBatch = {
+      seedBatchId: 'b-city-region-mismatch',
+      sourceName: 'geo',
+      sourceVersion: '1',
+      status: ReferenceDataSeedStatus.READY_TO_APPLY,
+      records: [{
+        entityType: 'CITY',
+        deterministicKey: 'EG:Cairo',
+        payload: { countryIso2Code: 'EG', name: 'Cairo', administrativeRegionId: 'region-us-ca' },
+        validationReport: {
+          entityType: 'CITY', deterministicKey: 'EG:Cairo', requiredFields: [], presentFields: [],
+          missingFields: [], issues: [], isComplete: true, canBeImported: true,
+        },
+      }],
+      createdAt: new Date(),
+      validationSummary: { totalRecords: 1, validRecords: 1, invalidRecords: 0 },
+    };
+
+    await expect(service.applyBatch(batch, 'operator'))
+      .rejects.toThrow('REFERENCE_DATA_SEED_CITY_REGION_COUNTRY_MISMATCH');
+    expect(mockRepo.upsertCity).not.toHaveBeenCalled();
   });
 
   it('does not mutate the original batch object', async () => {

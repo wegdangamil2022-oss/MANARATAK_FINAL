@@ -15,6 +15,9 @@ import {
 } from './enums';
 
 export interface IAcademicTaxonomyRepository {
+  /** Execute a hierarchy mutation against one serializable graph snapshot. */
+  executeSerializable<T>(operation: (repository: IAcademicTaxonomyRepository) => Promise<T>): Promise<T>;
+
   // Node methods
   listNodes(filters?: AcademicTaxonomyFilters): Promise<AcademicTaxonomyNodeDto[]>;
   getNode(nodeId: string): Promise<AcademicTaxonomyNodeDto | null>;

@@ -1,20 +1,11 @@
 export * from './security/DefaultRateLimiter';
-export class InMemoryMonitorRepository {}
-export class InMemoryMonitoringExecutionGateway {}
-export class InMemorySecurityEnforcementGateway {}
-export class InMemoryConfigurationResolutionGateway {}
-export class InMemoryLocalizationExecutionGateway {}
-export class InMemoryLoggingExecutionGateway {}
-export class InMemorySharedComponentRenderingGateway {}
-export class InMemoryApiExposureGateway {}
+export * from './security/RedisRateLimiter';
 export * from './background-jobs/InMemoryBackgroundJobExecutionGateway';
-export class InMemoryCacheExecutionGateway {}
-export class InMemoryIntegrationExecutionGateway {}
-export class InMemorySearchEngineGateway {}
 export * from './event-foundation/InMemoryEventPublishingGateway';
+export * from './event-foundation/PrismaEnterpriseEventRepository';
+export * from './event-foundation/PrismaEventPublishingGateway';
 export * from './event-foundation/PrismaTransactionalOutboxStore';
 export * from './event-foundation/PrismaAtomicPersistenceUnitOfWork';
-export class InMemoryWorkflowExecutionGateway {}
 export * from './universities/PrismaUniversityRepository';
 export * from './scholarships/PrismaScholarshipRepository';
 export * from './scholarships/PrismaScholarshipImportDecisionPorts';
@@ -42,8 +33,6 @@ export * from './audit/AuditSecretSanitizer';
 export * from './audit/PrismaAuditRecordRepository';
 export * from './audit/InMemoryAuditRecordRepository';
 export * from './certificates/PrismaCertificateRepository';
-export class PrismaServiceCatalogRepository {}
-export class PrismaCareerPathRepository {}
 export * from './courses/PrismaCourseRepository';
 export * from './courses/PrismaCourseRelationshipRepository';
 export * from './courses/PrismaExternalCourseProviderRepository';
@@ -52,53 +41,18 @@ export * from './courses/PrismaCourseImportTransferGateway';
 export * from './courses/PrismaImportedCourseOperationsRepository';
 export * from './courses/SafeImportedCourseLinkChecker';
 export * from './courses/ExternalCourseProviderSeed';
-export class PrismaAlumniRepository {}
-export class InMemorySettingsRepository {}
-export class InMemoryAuthService {}
-export class InMemoryFileRepository {}
-export class PrismaConfigurationRepository {}
 
-export class PrismaSettingsRepository {}
-export class PrismaNotificationIntentRepository {}
-export class PrismaNotificationTemplateRepository {}
-export class JwtTokenService {}
-export class BcryptPasswordHashingService {}
 export * from './authorization/PrismaRoleRepository';
 export * from './authorization/PrismaPolicyRepository';
 export * from './authorization/PrismaRoleAssignmentRepository';
 export * from './authorization/AdminBootstrapVerifier';
-export class MemoryFileRepository {}
-export class S3FileRepository {}
-export class PostgresFileRepository {}
-export class FileIntegrityService {}
-export class LocalDiskFileRepository {}
 
-export class InternationalTestCategory { constructor(..._args: any[]) {} }
 export * from './authorization/InMemoryRoleRepository';
 export * from './authorization/InMemoryPolicyRepository';
 export * from './authorization/InMemoryRoleAssignmentRepository';
 export * from './authorization/DefaultPolicyEvaluator';
-export class InMemorySettingDefinitionRepository { constructor(..._args: any[]) {} }
-export class InMemorySettingAssignmentRepository { constructor(..._args: any[]) {} }
-export class InMemoryFileRecordRepository { constructor(..._args: any[]) {} }
-export class MockStorageProviderGateway { constructor(..._args: any[]) {} }
-export class InMemoryNotificationIntentRepository { constructor(..._args: any[]) {} }
-export class InMemoryNotificationTemplateRepository { constructor(..._args: any[]) {} }
-export class MockNotificationPreferenceGateway { constructor(..._args: any[]) {} }
-export class InMemorySearchRequestRepository { constructor(..._args: any[]) {} }
-export class InMemoryCacheEntryRepository { constructor(..._args: any[]) {} }
 export * from './background-jobs/InMemoryBackgroundJobRepository';
 export * from './event-foundation/InMemoryEnterpriseEventRepository';
-export class InMemoryWorkflowRepository { constructor(..._args: any[]) {} }
-export class InMemoryApiServiceRepository { constructor(..._args: any[]) {} }
-export class InMemorySharedComponentRepository { constructor(..._args: any[]) {} }
-export class InMemoryComponentRenderingGateway { constructor(..._args: any[]) {} }
-export class InMemoryLogEntryRepository { constructor(..._args: any[]) {} }
-export class InMemoryLogExecutionGateway { constructor(..._args: any[]) {} }
-export class InMemorySecurityPolicyRepository { constructor(..._args: any[]) {} }
-export class InMemoryConfigurationRepository { constructor(..._args: any[]) {} }
-export class InMemoryIntegrationRepository { constructor(..._args: any[]) {} }
-export class InMemoryLocalizationRepository { constructor(..._args: any[]) {} }
 export * from './courses/PrismaCourseCurriculumRepository';
 export * from './courses/PrismaCourseProgressRepository';
 export * from './cms/PrismaCmsRepository';
@@ -108,7 +62,7 @@ export * from './reference-data/PrismaReferenceDataRepository';
 export * from './academic-taxonomy/PrismaAcademicTaxonomyRepository';
 export * from './finance-platform/PrismaFinanceRepository';
 export * from './finance-platform/ProviderNeutralFinanceGateways';
-export class PrismaCareerRepository { constructor(..._args: any[]) {} }
+export * from './finance-platform/FinanceSafetyGateways';
 export { PrismaAIPlatformRepository, PrismaAIPlatformRepository as PrismaAIExecutionRepository } from './ai-platform/PrismaAIPlatformRepository';
 export * from './ai-platform/ProviderAdapters';
 export * from './ai-platform/EnvironmentAIAsyncPayloadProtector';
@@ -119,7 +73,7 @@ export class PrismaConnection {
     if (!this.instance) {
       try {
         const { PrismaClient } = await import('@prisma/client');
-        const dbUrl = config?.getOptional ? config.getOptional('DATABASE_URL') : process.env.DATABASE_URL;
+        const dbUrl = config?.getOptional ? config.getOptional('DATABASE_URL') : undefined;
         this.instance = new PrismaClient(dbUrl ? { datasources: { db: { url: dbUrl } } } : undefined);
       } catch (err: any) {
         if (logger?.error) {
@@ -156,9 +110,6 @@ export class DefaultErrorSerializer {
 export * from './validation/ZodValidationProvider';
 export * from './validation/DefaultSanitizer';
 export * from './validation/ValidationService';
-export class LocalStorageProvider { constructor(..._args: any[]) {} }
-export class StorageService { constructor(..._args: any[]) {} }
-export class DefaultMonitoringProvider { constructor(..._args: any[]) {} }
 export * from './monitoring/MonitoringService';
 export * from './monitoring/DatabaseHealthChecker';
 export * from './monitoring/RedisHealthChecker';
@@ -171,6 +122,7 @@ export * from './identity/PrismaIdentityRepository';
 export * from './identity/IdentityMapper';
 export * from './auth/PrismaSessionManager';
 export * from './auth/PasswordHasher';
+export * from './auth/JwtTokenProvider';
 export * from './auth/PrismaCredentialVerifier';
 export * from './import-foundation/InMemorySourceRegistryGateway';
 export * from './import-foundation/PrismaSourceRegistryGateway';

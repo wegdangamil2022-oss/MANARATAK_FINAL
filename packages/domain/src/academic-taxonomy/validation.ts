@@ -17,6 +17,7 @@ import {
   AcademicMappingStrength,
 } from './enums';
 import { AcademicTaxonomyDeterministicKey } from './key';
+import { HierarchyValidationService, ICycleDetectionValidator } from '../hierarchy';
 
 export interface IAcademicTaxonomyValidationService {
   validateNode(
@@ -37,32 +38,9 @@ export interface IAcademicTaxonomyValidationService {
   validateMapping(input: {
     mapping: UpsertAcademicStandardMappingDto;
     existingMappings: AcademicStandardMappingDto[];
+    sourceNode?: AcademicTaxonomyNodeDto | null;
+    targetNode?: AcademicTaxonomyNodeDto | null;
   }): AcademicTaxonomyValidationIssue[];
-}
-
-function hasPath(
-  startId: string,
-  targetId: string,
-  edges: Array<{ parentNodeId: string; childNodeId: string }>
-): boolean {
-  if (startId === targetId) return true;
-  const visited = new Set<string>();
-  const queue = [startId];
-  visited.add(startId);
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    if (current === targetId) return true;
-
-    for (const edge of edges) {
-      if (edge.parentNodeId === current && !visited.has(edge.childNodeId)) {
-        visited.add(edge.childNodeId);
-        queue.push(edge.childNodeId);
-      }
-    }
-  }
-
-  return false;
 }
 
 const REQUIRED_NODE_FIELDS = [
@@ -91,6 +69,10 @@ const FORBIDDEN_PHASE_06_METADATA_KEYS = [
 ];
 
 export class AcademicTaxonomyValidationService implements IAcademicTaxonomyValidationService {
+  constructor(
+    private readonly cycleDetectionValidator: ICycleDetectionValidator = new HierarchyValidationService(),
+  ) {}
+
   validateNode(
     input: AcademicTaxonomyNodeDto | UpsertAcademicTaxonomyNodeDto
   ): AcademicTaxonomyCompletenessReport {
@@ -350,7 +332,7 @@ export class AcademicTaxonomyValidationService implements IAcademicTaxonomyValid
     }
 
     if (parentId && childId && parentId !== childId && parentNodeExists && childNodeExists) {
-      if (hasPath(childId, parentId, existingEdges)) {
+      if (!this.cycleDetectionValidator.validateNoCycles(parentId, childId, existingEdges)) {
         issues.push({
           fieldName: 'edge',
           code: 'CYCLE_DETECTED',
@@ -447,9 +429,11 @@ export class AcademicTaxonomyValidationService implements IAcademicTaxonomyValid
   validateMapping(input: {
     mapping: UpsertAcademicStandardMappingDto;
     existingMappings: AcademicStandardMappingDto[];
+    sourceNode?: AcademicTaxonomyNodeDto | null;
+    targetNode?: AcademicTaxonomyNodeDto | null;
   }): AcademicTaxonomyValidationIssue[] {
     const issues: AcademicTaxonomyValidationIssue[] = [];
-    const { mapping, existingMappings } = input;
+    const { mapping, existingMappings, sourceNode, targetNode } = input;
 
     const sourceNodeId = mapping.sourceNodeId?.trim();
     const targetNodeId = mapping.targetNodeId?.trim();
@@ -503,6 +487,75 @@ export class AcademicTaxonomyValidationService implements IAcademicTaxonomyValid
         message: 'targetStandard must be a valid AcademicStandardType',
         severity: AcademicTaxonomyValidationSeverity.ERROR,
       });
+    }
+
+    if (
+      mapping.sourceStandard &&
+      mapping.targetStandard &&
+      mapping.sourceStandard === mapping.targetStandard
+    ) {
+      issues.push({
+        fieldName: 'targetStandard',
+        code: 'SAME_STANDARD_MAPPING_FORBIDDEN',
+        message: 'sourceStandard and targetStandard must be different standards',
+        severity: AcademicTaxonomyValidationSeverity.ERROR,
+      });
+    }
+
+    if (sourceNodeId) {
+      if (!sourceNode) {
+        issues.push({
+          fieldName: 'sourceNodeId',
+          code: 'SOURCE_NODE_NOT_FOUND',
+          message: `Source node with id "${sourceNodeId}" does not exist`,
+          severity: AcademicTaxonomyValidationSeverity.ERROR,
+        });
+      } else {
+        if (sourceNode.status !== AcademicTaxonomyStatus.ACTIVE) {
+          issues.push({
+            fieldName: 'sourceNodeId',
+            code: 'SOURCE_NODE_NOT_ACTIVE',
+            message: `Source node "${sourceNodeId}" must be ACTIVE`,
+            severity: AcademicTaxonomyValidationSeverity.ERROR,
+          });
+        }
+        if (mapping.sourceStandard && sourceNode.standardType !== mapping.sourceStandard) {
+          issues.push({
+            fieldName: 'sourceStandard',
+            code: 'SOURCE_STANDARD_MISMATCH',
+            message: `Source node standard ${sourceNode.standardType} does not match ${mapping.sourceStandard}`,
+            severity: AcademicTaxonomyValidationSeverity.ERROR,
+          });
+        }
+      }
+    }
+
+    if (targetNodeId) {
+      if (!targetNode) {
+        issues.push({
+          fieldName: 'targetNodeId',
+          code: 'TARGET_NODE_NOT_FOUND',
+          message: `Target node with id "${targetNodeId}" does not exist`,
+          severity: AcademicTaxonomyValidationSeverity.ERROR,
+        });
+      } else {
+        if (targetNode.status !== AcademicTaxonomyStatus.ACTIVE) {
+          issues.push({
+            fieldName: 'targetNodeId',
+            code: 'TARGET_NODE_NOT_ACTIVE',
+            message: `Target node "${targetNodeId}" must be ACTIVE`,
+            severity: AcademicTaxonomyValidationSeverity.ERROR,
+          });
+        }
+        if (mapping.targetStandard && targetNode.standardType !== mapping.targetStandard) {
+          issues.push({
+            fieldName: 'targetStandard',
+            code: 'TARGET_STANDARD_MISMATCH',
+            message: `Target node standard ${targetNode.standardType} does not match ${mapping.targetStandard}`,
+            severity: AcademicTaxonomyValidationSeverity.ERROR,
+          });
+        }
+      }
     }
 
     if (

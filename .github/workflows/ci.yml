@@ -21,13 +21,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20.x
+          node-version: 22.16.0
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Validate branch naming
+        if: github.event_name == 'pull_request'
+        run: node scripts/git/validate-branch-name.mjs "${{ github.head_ref }}"
+      - name: Validate commit messages
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            git log --format=%s "origin/${{ github.base_ref }}..HEAD" | while IFS= read -r message; do
+              node scripts/git/validate-commit-message.mjs "$message"
+            done
+          else
+            node scripts/git/validate-commit-message.mjs "$(git log -1 --format=%s)"
+          fi
+      - name: Source architecture and accessibility gate
+        run: npm run quality:source
       - name: Typecheck
         run: npm run typecheck
       - name: Lint
@@ -48,7 +66,7 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20.x
+          node-version: 22.16.0
           cache: npm
       - name: Install dependencies
         run: npm ci

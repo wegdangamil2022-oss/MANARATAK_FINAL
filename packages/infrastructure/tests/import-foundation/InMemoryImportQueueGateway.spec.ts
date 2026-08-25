@@ -323,3 +323,33 @@ describe('InMemoryImportQueueGateway', () => {
     });
   });
 });
+
+describe('InMemoryImportQueueGateway lease recovery hardening', () => {
+  it('reclaims an expired RUNNING lease and rejects completion by the stale worker', async () => {
+    const gateway = new InMemoryImportQueueGateway();
+    const batchId = 'batch-expired-running';
+    await gateway.enqueueImportJob({
+      batchId,
+      targetDomain: ImportTargetDomain.Generic,
+      sourceSystem: 'TEST',
+    });
+    const expiredLease = {
+      batchId,
+      workerId: 'worker-old',
+      attempt: 1,
+      claimUntil: new Date('2026-08-25T10:00:00.000Z'),
+    };
+    gateway.setLeaseForTesting(batchId, expiredLease);
+
+    const replacement = await gateway.claimNextJob({
+      workerId: 'worker-new',
+      leaseDurationMs: 30_000,
+      now: new Date('2026-08-25T10:01:00.000Z'),
+    });
+    expect(replacement?.workerId).toBe('worker-new');
+    expect(replacement?.attempt).toBe(1); // persisted job snapshot had not counted the synthetic test lease
+    await expect(
+      gateway.completeClaimedJob(expiredLease, new Date('2026-08-25T10:01:00.000Z')),
+    ).resolves.toBe(false);
+  });
+});

@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { LocalizedPublicUniversityUseCases, LocalizedReferenceDataQueries } from '@manaratak/application';
+import { LocalizedPublicUniversityUseCases, LocalizedReferenceDataQueries, ReferenceDataNotFoundError } from '@manaratak/application';
 import { IReferenceDataRepository, IUniversityRepository } from '@manaratak/domain';
 import { localeQuerySchema, parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract';
 
@@ -48,9 +48,12 @@ export class ReferenceDataPublicRouter {
       res.json({ data: await localized.listCities(filters, locale) });
     }));
 
-    router.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    router.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
       if (err instanceof z.ZodError) return res.status(400).json(toApiValidationErrorPayload(err));
-      res.status(400).json({ error: err.message || 'An error occurred' });
+      if (err instanceof ReferenceDataNotFoundError) {
+        return res.status(404).json({ error: err.code, entityType: err.entityType, reference: err.reference });
+      }
+      return next(err);
     });
     return router;
   }

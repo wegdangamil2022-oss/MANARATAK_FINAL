@@ -99,7 +99,15 @@ export class ProductionReadinessValidator {
     }
 
     this.requireNonLocalUrl(env.DATABASE_URL, 'database.production_url', 'Database', 'DATABASE_URL', findings);
-    if (env.REDIS_URL) {
+    if (!env.REDIS_URL) {
+      findings.push({
+        id: 'redis.production_url_required',
+        severity: 'BLOCKER',
+        area: 'Redis',
+        message: 'REDIS_URL is required for distributed production rate limiting and runtime state.',
+        recommendation: 'Configure a managed Redis endpoint using redis:// or rediss:// before production startup.'
+      });
+    } else {
       this.requireNonLocalUrl(env.REDIS_URL, 'redis.production_url', 'Redis', 'REDIS_URL', findings);
     }
 

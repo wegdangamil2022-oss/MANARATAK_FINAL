@@ -1,6 +1,11 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { ReferenceDataUseCases } from '@manaratak/application';
+import {
+  ReferenceDataInvariantError,
+  ReferenceDataNotFoundError,
+  ReferenceDataUseCases,
+  ReferenceDataValidationError,
+} from '@manaratak/application';
 
 export class ReferenceDataAdminRouter {
   public static create(cradle: { referenceDataUseCases: ReferenceDataUseCases }): Router {
@@ -24,9 +29,10 @@ export class ReferenceDataAdminRouter {
     };
 
     const countrySchema = z.object({
-      iso2Code: z.string().length(2),
-      iso3Code: z.string().length(3),
+      iso2Code: z.string().regex(/^[A-Z]{2}$/),
+      iso3Code: z.string().regex(/^[A-Z]{3}$/),
       name: z.string().min(1),
+      nameAr: z.string().min(1).nullable().optional(),
       officialName: z.string().nullable().optional(),
       region: z.string().nullable().optional(),
       subregion: z.string().nullable().optional(),
@@ -39,18 +45,20 @@ export class ReferenceDataAdminRouter {
     });
 
     const currencySchema = z.object({
-      isoCode: z.string().length(3),
-      numericCode: z.string().nullable().optional(),
+      isoCode: z.string().regex(/^[A-Z]{3}$/),
+      numericCode: z.string().regex(/^\d{3}$/).nullable().optional(),
       name: z.string().min(1),
+      nameAr: z.string().min(1).nullable().optional(),
       symbol: z.string().nullable().optional(),
-      minorUnit: z.number().int().min(0).nullable().optional(),
+      minorUnit: z.number().int().min(0).max(4).nullable().optional(),
       isActive: z.boolean().optional(),
       metadata: z.record(z.string(), z.unknown()).optional(),
     });
 
     const languageSchema = z.object({
-      isoCode: z.string().min(2),
+      isoCode: z.string().regex(/^[a-z]{2,8}(-[a-z0-9]+)*$/),
       name: z.string().min(1),
+      nameAr: z.string().min(1).nullable().optional(),
       nativeName: z.string().nullable().optional(),
       direction: z.enum(['LTR', 'RTL']),
       isActive: z.boolean().optional(),
@@ -58,22 +66,34 @@ export class ReferenceDataAdminRouter {
     });
 
     const citySchema = z.object({
-      countryIso2Code: z.string().length(2),
+      countryIso2Code: z.string().regex(/^[A-Z]{2}$/),
       name: z.string().min(1),
+      nameAr: z.string().min(1).nullable().optional(),
       region: z.string().nullable().optional(),
       timezone: z.string().nullable().optional(),
-      latitude: z.number().nullable().optional(),
-      longitude: z.number().nullable().optional(),
+      latitude: z.number().min(-90).max(90).nullable().optional(),
+      longitude: z.number().min(-180).max(180).nullable().optional(),
       administrativeRegionId: z.string().uuid().nullable().optional(),
       isActive: z.boolean().optional(),
       metadata: z.record(z.string(), z.unknown()).optional(),
     });
 
+    const explicitBooleanQuery = z.preprocess((value) => {
+      if (value === undefined) return undefined;
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (normalized === 'true' || normalized === '1') return true;
+        if (normalized === 'false' || normalized === '0') return false;
+      }
+      return value;
+    }, z.boolean().optional());
+
     const querySchema = z.object({
       region: z.string().optional(),
       countryIso2Code: z.string().optional(),
       q: z.string().optional(),
-      activeOnly: z.coerce.boolean().optional(),
+      activeOnly: explicitBooleanQuery,
     });
 
     const countryImportPreviewSchema = z.object({
@@ -169,11 +189,20 @@ export class ReferenceDataAdminRouter {
       }),
     );
 
-    router.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    router.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ error: 'Validation Error', details: err.issues });
       }
-      res.status(400).json({ error: err instanceof Error ? err.message : 'An error occurred' });
+      if (err instanceof ReferenceDataValidationError) {
+        return res.status(422).json({ error: err.code, entityType: err.entityType, details: err.issues });
+      }
+      if (err instanceof ReferenceDataNotFoundError) {
+        return res.status(404).json({ error: err.code, entityType: err.entityType, reference: err.reference });
+      }
+      if (err instanceof ReferenceDataInvariantError) {
+        return res.status(422).json({ error: err.code, message: err.message });
+      }
+      return next(err);
     });
 
     return router;

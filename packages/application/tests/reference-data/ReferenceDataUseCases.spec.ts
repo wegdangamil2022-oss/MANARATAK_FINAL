@@ -75,6 +75,13 @@ describe('ReferenceDataUseCases', () => {
       await expect(useCases.getCountry('XX')).rejects.toThrow('Country not found: XX');
     });
 
+    it('rejects non-canonical country codes before repository mutation', async () => {
+      const invalid = { iso2Code: 'eg', iso3Code: 'EGY', name: 'Egypt' } as UpsertReferenceCountryDto;
+
+      await expect(useCases.upsertCountry(invalid)).rejects.toThrow('canonical validation failed');
+      expect(repository.upsertCountry).not.toHaveBeenCalled();
+    });
+
     it('upsertCountry delegates strict input and returns result', async () => {
       const mockInput: UpsertReferenceCountryDto = { iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt', isActive: true };
       const mockResult: ReferenceCountryDto = { ...mockInput, isActive: true };
@@ -176,6 +183,19 @@ describe('ReferenceDataUseCases', () => {
 
       expect(repository.listCities).toHaveBeenCalledWith({ activeOnly: true, ...filters });
       expect(result).toEqual(mockResult);
+    });
+
+    it('rejects impossible city coordinates before relation lookup or mutation', async () => {
+      const invalid = {
+        countryIso2Code: 'EG',
+        name: 'Cairo',
+        latitude: 100,
+        longitude: 31.2,
+      } as UpsertReferenceCityDto;
+
+      await expect(useCases.upsertCity(invalid)).rejects.toThrow('canonical validation failed');
+      expect(repository.getCountry).not.toHaveBeenCalled();
+      expect(repository.upsertCity).not.toHaveBeenCalled();
     });
 
     it('upsertCity delegates strict input', async () => {

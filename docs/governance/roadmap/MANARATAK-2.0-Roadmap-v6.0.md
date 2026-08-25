@@ -3,11 +3,11 @@
 ## 1. Document Information
 
 - **Title:** MANARATAK 2.0 Official Enterprise Roadmap
-- **Version:** 5.0
+- **Version:** 6.0
 - **Status:** Approved & Finalized
 - **Approval Status:** Formal Baseline
 - **Authors:** Chief Enterprise Software Architect
-- **Last Updated:** 2026-07-21
+- **Last Updated:** 2026-08-25
 - **Baseline:** Enterprise Foundation Baseline, Enterprise Domain Architecture Baseline, ADR-024 (Enterprise Asset Platform Adoption)
 
 ## 2. Revision History
@@ -19,17 +19,24 @@
 
 ## 3. Executive Summary
 
-This document serves as the official Enterprise Roadmap for the MANARATAK 2.0 platform. The Enterprise Foundation has been completed and fully incorporates the Enterprise Asset Platform (EAP) as a centralized, cross-cutting shared platform, replacing legacy file management baselines. Core enterprise domains have been architecturally defined. A critical architectural extraction has been performed where the Certificates Platform has been separated from the Learning Platform. The enterprise is now entering the domain implementation stage.
+This document serves as the official Enterprise Roadmap for the MANARATAK 2.0 platform. The approved architecture remains a 24-phase Enterprise Modular Monolith roadmap. Source implementation is present through **Phase 19 — Enterprise Finance & Payments Platform**. A deep Phase 2–19 source audit completed on baseline `e57aad8c52a3ee6d686671870e0bf0392ba7417f`; dependency-aware source remediation is now in progress. Database migration execution, live provider verification, distributed-runtime evidence, and final operational closure remain deferred to the approved Google Studio runtime runbook.
 
 ## 4. Current Project Status
 
-This roadmap documents the approved enterprise architecture baseline. Note that some domain architecture specifications have already been completed before their corresponding implementation phases have started.
+This roadmap documents both the approved phase model and the current source-state checkpoint.
 
-- **Architecture Baseline Status:**
-  - Baselined: Phases 1-9 (Enterprise Foundation featuring the Enterprise Asset Platform), Phase 13 (Learning Platform), Phase 14 (Enterprise Certificates Platform).
-- **Implementation Status:**
-  - Completed: Phases 1-9 (with EAP formally established).
-  - Next Implementation Wave: Phase 10 (Majors & Disciplines), Phase 11 (Universities & Institutions), Phase 12 (Scholarships).
+- **Architecture / Contract Status:**
+  - Phase numbering and ownership remain frozen at **24 phases**.
+  - Active architecture/contracts exist through the implemented Phase 19 boundary, subject to remediation findings where source and historical documentation drifted.
+- **Source Implementation Status:**
+  - Source implementation is present through **Phases 1–19**.
+  - **Phase 2–19 deep source audit:** complete.
+  - **Dependency-aware remediation:** in progress, beginning with W0 authority/quality-gate stabilization.
+- **Runtime / Database Status:**
+  - PostgreSQL-backed migration, backfill, recovery, provider, concurrency, and end-to-end runtime proofs are **not closed by source presence alone**.
+  - These remain `PENDING_GOOGLE_STUDIO` and must follow backup/recovery gates before any data mutation.
+- **Future Roadmap Status:**
+  - **Phases 20–24:** not yet treated as completed implementation.
 
 ## 5. Complete Roadmap
 
@@ -76,43 +83,43 @@ This section tracks the progress of the enterprise across two distinct dimension
 
 Architecture milestones represent the completion and formal approval of architecture specifications and domain contracts.
 
-- **Enterprise Foundation (Phases 1-9):** Completed & Baselined (Refined to incorporate the Enterprise Asset Platform per ADR-024)
-- **Learning Platform (Phase 13):** Completed & Baselined
-- **Enterprise Certificates Platform (Phase 14):** Extraction Completed & Baselined
-- **Majors & Disciplines (Phase 10):** In Progress
-- **Universities & Institutions (Phase 11):** Planned
-- **Scholarships (Phase 12):** Planned
-- **Phases 15-24:** Future
+- **Phases 1–19:** Architecture/contracts are present in the repository and are the active implementation boundary under remediation.
+- **Phase 1:** Constitution / governing architecture authority.
+- **Phases 2–19:** Deep source audit complete; remediation findings take precedence over historical “fully certified” claims until closed.
+- **Phases 20–24:** Future roadmap scope; implementation completion is not claimed here.
 
 ### 7.2 Implementation Milestones
 
 Implementation milestones represent actual software development progress against the baselined architecture.
 
-- **Enterprise Foundation (Phases 1-9):** Completed (EAP transition scheduled for verification in Phase 05 baseline refactoring)
-- **Next Implementation Wave (Phases 10-12):** Planned
-- **Learning Platform (Phase 13):** Future
-- **Enterprise Certificates Platform (Phase 14):** Future
-- **Phases 15-24:** Future
+- **Phases 1–19:** Source implementation present.
+- **Phases 2–19:** Source audit discovery complete; remediation is active and therefore these phases are **not yet globally closed for production/runtime**.
+- **Database/runtime closure:** Deferred to Google Studio after source remediation and backup/recovery proof.
+- **Phases 20–24:** Future implementation scope.
 
 ## 8. Architecture Freeze Status
 
-- **Enterprise Foundation (Phases 1-9):** Frozen (EAP specifications frozen per ADR-024)
-- **Academic Taxonomy (Phase 8):** Frozen
-- **Learning Platform (Phase 13):** Frozen
-- **Enterprise Certificates Platform (Phase 14):** Frozen
-- **Majors & Disciplines (Phase 10):** Draft
-- **Universities & Institutions (Phase 11):** Draft
-- **Scholarships (Phase 12):** Draft
+- **Phase numbering / ownership (1–24):** Frozen by Roadmap v6.0.
+- **Current physical topology:** Enterprise Modular Monolith; microservice extraction remains future/conditional.
+- **Current API namespace:** `/api/v1` per `STD-API-001` and the live API registry.
+- **Current canonical data posture:** relational canonical IDs/FKs inside the shared persistence boundary; compatibility strings may not replace canonical identity.
+- **Phases 2–19 source behavior:** under dependency-aware remediation; no historical certification overrides a confirmed open finding.
 
 ## 9. Upcoming Work
 
-The enterprise is now embarking on the next integrated implementation wave, which includes:
+The current work is **source remediation and verification**, not new phase implementation.
 
-- **Phase 10:** Majors & Disciplines
-- **Phase 11:** Universities & Institutions
-- **Phase 12:** Scholarships
+Execution follows the frozen dependency-aware remediation plan:
 
-These phases belong to the same implementation wave because they collectively form the foundational institutional and financial aid structures required before the Learning Platform (Phase 13) can associate its catalog with external universities and funding opportunities.
+1. authority/quality gates;
+2. cross-cutting security/composition;
+3. durability/import foundations;
+4. canonical reference/taxonomy foundations;
+5. dependency-ordered domain remediation through Phase 19;
+6. Google Studio runtime/database closure;
+7. only then resume future roadmap implementation (Phases 20–24).
+
+No later phase is considered production-closed merely because source files or historical completion reports exist.
 
 ## 10. Architecture Governance Rules
 

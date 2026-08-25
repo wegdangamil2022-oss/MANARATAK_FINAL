@@ -43,22 +43,27 @@ The ARB conducted a rigorous multi-directional audit to detect discrepancies bet
 
 ---
 
-#### 3.2 Sovereignty & Separation Check (فحص العزل وفصل الصلاحيات)
+#### 3.2 Canonical Reference Ownership & Relational Integrity (W0 supersession)
 
-A critical risk in complex relational systems is schema lock contention between highly static taxonomic data (Lookups) and fast-mutating, transactional core entities (Rich Domains):
+> **Supersession notice — 2026-08-25:** The historical “Phase 4 Lookups / no physical FK / string-only reference” doctrine in the original sealed report is **superseded**. Roadmap v6.0 assigns the capability to **Phase 7 — Global Reference Data**, and the current approved persistence model is a canonical relational model inside the Modular Monolith.
 
-- **Physical Isolation of Reference Data (Phase 4 Lookups)**: The ARB confirms that global static lookup taxonomies (e.g., ISO Country Codes, Currency Tables, Standardized Degree Level classifications) are stored in independent tables inside the `manaratak_academic_db` or localized caches.
-- **Zero Cross-Database Physical Foreign Keys**: To prevent database locks, there are **no physical database foreign-key constraints** linking core tables in the _Scholarship Context_ (`manaratak_scholarship_db`) or _Student Profile Context_ (`manaratak_profile_db`) to static reference tables.
-- **Logical flat-key referencing**: Connections are represented purely by logical, flat business keys (e.g., `lookup_degree_code` string values). Downstream services query reference data from highly indexed, read-optimized local caches or isolated lookup endpoints, completely preventing schema lock propagation.
+The active rule is:
 
-##### Analysis & Recommendations Matrix:
+- **Reference ownership remains centralized in Phase 7**. Business domains must not fork or redefine canonical countries, currencies, languages, academic taxonomy keys, or equivalent reference identities.
+- **Canonical relational foreign keys are allowed and preferred** when two records are persisted in the same relational persistence boundary and the relationship is part of the canonical model.
+- **String/code snapshots may exist only as compatibility, import lineage, denormalized read data, or external-provider identifiers**. They must not outrank canonical IDs or become a second source of truth.
+- **Cross-database isolation is not a current deployment requirement.** If a bounded context is physically extracted in the future, cross-service references must be re-evaluated through an ADR/migration plan rather than pre-emptively weakening today’s relational integrity.
+- **No polymorphic loose joins** remains an active rule; explicit indexed relations are preferred where the target type is known.
 
-| Checked Aspect          | Current State (الوضع الحالي)                                        | Compliance Level (مدى الامتثال) | Final ARB Recommendation (التوصية المعمارية النهائية)                                 |
-| :---------------------- | :------------------------------------------------------------------ | :-----------------------------: | :------------------------------------------------------------------------------------ |
-| **Schema Isolation**    | Decoupled database partitions for Lookups and Rich Domains.         |       **100% compliant**        | Approved. Strictly forbid cross-schema foreign keys at the database server level.     |
-| **Relational Coupling** | Logical string-based referencing used instead of physical FK joins. |       **100% compliant**        | Approved. Reference tables must be indexed heavily and served from redis/local cache. |
+##### Current ARB Decision Matrix
 
----
+| Checked Aspect | Current Active Rule | Compliance Intent | ARB Decision |
+| :-- | :-- | :--: | :-- |
+| **Reference ownership** | Phase 7 owns canonical reference identities. | **Required** | No domain-local competing SSoT. |
+| **Relational integrity** | Use explicit canonical FKs inside the current shared relational persistence boundary. | **Required** | Preserve database-enforced integrity where applicable. |
+| **Compatibility strings** | External/provider codes may be stored only as secondary metadata/lineage. | **Conditional** | Never replace canonical IDs. |
+| **Future service extraction** | Revisit relation transport only when a bounded context is physically extracted. | **Future ADR** | Do not design today as if separate databases already exist. |
+
 
 #### 3.3 Over-Engineering Detection (كشف فخاخ التضخم المعماري)
 

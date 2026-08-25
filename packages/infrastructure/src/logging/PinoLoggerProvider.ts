@@ -10,7 +10,7 @@ export class PinoLoggerProvider implements ILoggerProvider {
       this.pinoInstance = pinoInstanceOrOpts as PinoLogger;
     } else {
       const opts = (pinoInstanceOrOpts as { level?: string; destination?: any }) || {};
-      const level = opts.level || process.env.LOG_LEVEL || 'info';
+      const level = opts.level || 'info';
       this.pinoInstance = pino({
         level,
         timestamp: pino.stdTimeFunctions.isoTime,

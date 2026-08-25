@@ -4,7 +4,6 @@ import {
   ImportRecordDto,
   ImportRecordStatus,
   InternationalTestCategory,
-  InternationalTestCompletenessClassifier,
   InternationalTestCompletenessStatus,
   InternationalTestDeduplicationService,
   InternationalTestDeliveryMode,
@@ -18,8 +17,12 @@ import {
   UpsertInternationalTestScoreScaleDto,
   IReferenceResolver,
   ITransactionalInternationalTestRepository,
+  IDegreeLevelRepository,
+  IAcademicTaxonomyRepository,
+  UpsertInternationalTestDto,
 } from '@manaratak/domain';
 import { AtomicDomainMutationCoordinator } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
+import { InternationalTestCanonicalRelationshipService } from './InternationalTestCanonicalRelationshipService';
 
 export type InternationalTestPromotionResult =
   | { type: 'CREATED'; testId: string }
@@ -27,13 +30,37 @@ export type InternationalTestPromotionResult =
   | { type: 'REJECTED'; reason: string }
   | { type: 'FAILED'; error: string };
 
+interface LegacyInternationalTestImportCompatibilityFields {
+  officialRegistrationUrl?: string;
+  officialSourceUrl?: string;
+  acceptedFor?: string[];
+  validityPeriodMonths?: number;
+  currencyCode?: string;
+  feeAmountMinorUnits?: string;
+  feeScale?: number;
+  availableCountries?: string[];
+  testCenters?: unknown[];
+  sampleMaterialAssetIds?: string[];
+  preparationResourceRefs?: unknown[];
+}
+
 export class InternationalTestImportPromotionUseCase {
+  private readonly canonicalRelationshipService: InternationalTestCanonicalRelationshipService;
+
   constructor(
     private readonly repository: IInternationalTestRepository,
     private readonly validationService: IInternationalTestValidationService = new InternationalTestValidationService(),
     private readonly referenceResolver?: IReferenceResolver,
     private readonly atomicMutations?: AtomicDomainMutationCoordinator,
-  ) {}
+    private readonly degreeLevelRepository?: IDegreeLevelRepository,
+    private readonly academicTaxonomyRepository?: IAcademicTaxonomyRepository,
+  ) {
+    this.canonicalRelationshipService = new InternationalTestCanonicalRelationshipService(
+      referenceResolver,
+      degreeLevelRepository,
+      academicTaxonomyRepository,
+    );
+  }
 
   public async promote(record: ImportRecordDto): Promise<InternationalTestPromotionResult> {
     if (this.atomicMutations) {
@@ -56,6 +83,9 @@ export class InternationalTestImportPromotionUseCase {
               transactional.withTransaction!(transaction),
               this.validationService,
               this.referenceResolver,
+              undefined,
+              this.degreeLevelRepository,
+              this.academicTaxonomyRepository,
             ).promote(record);
             if (result.type === 'FAILED') throw new Error(result.error);
             if (result.type === 'REJECTED' || result.type === 'DUPLICATE') {
@@ -91,7 +121,15 @@ export class InternationalTestImportPromotionUseCase {
         return { type: 'REJECTED', reason: 'Payload fails schema validation' };
       }
 
-      const payload = validation.data;
+      const parsedPayload = validation.data;
+      const canonicalRelationships = await this.canonicalRelationshipService.canonicalize(
+        parsedPayload as unknown as Partial<UpsertInternationalTestDto>,
+      );
+      // Import payloads intentionally accept legacy flat compatibility fields via
+      // the schema's passthrough contract. Preserve that shape while canonical
+      // relationships replace only the normalized relationship collections.
+      const payload = { ...parsedPayload, ...canonicalRelationships } as Partial<UpsertInternationalTestDto> &
+        LegacyInternationalTestImportCompatibilityFields & typeof parsedPayload;
       const referenceIssue = await this.validateReferenceInputs(payload);
       if (referenceIssue) return { type: 'REJECTED', reason: referenceIssue };
       const domainReport = this.validationService.validate(payload);
@@ -105,7 +143,10 @@ export class InternationalTestImportPromotionUseCase {
         };
       }
 
-      const completenessStatus = InternationalTestCompletenessClassifier.classify(payload);
+      const completenessStatus = {
+        state: domainReport.status,
+        missingFields: domainReport.missingFields,
+      };
       if (completenessStatus.state === InternationalTestCompletenessStatus.INCOMPLETE) {
         return { type: 'REJECTED', reason: 'Record classified as INCOMPLETE' };
       }
@@ -158,7 +199,10 @@ export class InternationalTestImportPromotionUseCase {
             : undefined),
         feeScale: payload.feeScale || 2,
         availableCountries: payload.availableCountries || payload.availability?.availableCountryIds,
-        testCenters: payload.testCenters || payload.availability?.testCenters,
+        testCenters:
+          payload.testCenters ||
+          (payload.availability as (typeof payload.availability & { testCenters?: unknown[] }) | undefined)
+            ?.testCenters,
         sampleMaterialAssetIds:
           payload.sampleMaterialAssetIds ||
           payload.preparationMaterials
@@ -166,6 +210,10 @@ export class InternationalTestImportPromotionUseCase {
             .filter((a): a is string => Boolean(a)),
         preparationResourceRefs: payload.preparationResourceRefs || payload.preparationMaterials,
         registrationRequirements: payload.registrationRequirements,
+        countryRelationships: payload.countryRelationships,
+        languageRelationships: payload.languageRelationships,
+        academicTaxonomyRelationships: payload.academicTaxonomyRelationships,
+        degreeRelationships: payload.degreeRelationships,
         status:
           completenessStatus.state === InternationalTestCompletenessStatus.COMPLETE
             ? InternationalTestStatus.IMPORTED
@@ -229,7 +277,9 @@ export class InternationalTestImportPromotionUseCase {
                 InternationalTestDeliveryMode.IN_PERSON,
               isActive: v.isActive !== false,
               specificOfficialUrl: v.specificOfficialUrl,
-              administrativeNotes: v.administrativeNotes || v.description,
+              administrativeNotes:
+                v.administrativeNotes ||
+                (v as typeof v & { description?: string }).description,
             });
           }
         }
@@ -404,8 +454,11 @@ export class InternationalTestImportPromotionUseCase {
     const availability = this.recordFrom(payload.availability);
     const countryIds = this.stringArray(availability?.availableCountryIds);
     for (const countryId of countryIds) {
-      const country = await this.referenceResolver?.resolveCountry({ id: countryId, standardCode: countryId });
-      if (!country?.standardCode) continue;
+      if (!this.referenceResolver) throw new Error('Canonical Reference resolver is not configured');
+      const country = await this.referenceResolver.resolveCountry({ id: countryId, standardCode: countryId });
+      if (!country?.active || !country.standardCode) {
+        throw new Error(`Active canonical Country not found: ${countryId}`);
+      }
       await this.repository.upsertCountryRelationship(testId, {
         canonicalReferenceId: country.id,
         referenceCode: country.standardCode,
@@ -431,11 +484,14 @@ export class InternationalTestImportPromotionUseCase {
   private async persistLanguageRelationships(testId: string, payload: Record<string, unknown>): Promise<void> {
     if (typeof this.repository.upsertLanguageRelationship !== 'function') return;
     for (const languageRef of this.stringArray(payload.relatedLanguages)) {
-      const language = await this.referenceResolver?.resolveLanguage({
+      if (!this.referenceResolver) throw new Error('Canonical Reference resolver is not configured');
+      const language = await this.referenceResolver.resolveLanguage({
         standardCode: languageRef,
         alias: languageRef,
       });
-      if (!language?.standardCode) continue;
+      if (!language?.active || !language.standardCode) {
+        throw new Error(`Active canonical Language not found: ${languageRef}`);
+      }
       await this.repository.upsertLanguageRelationship(testId, {
         canonicalReferenceId: language.id,
         referenceCode: language.standardCode,
@@ -526,11 +582,13 @@ export class InternationalTestImportPromotionUseCase {
   private async validateReferenceInputs(payload: {
     fees?: Array<{ currencyCode?: string }>;
     availability?: { availableCountryIds?: string[]; availableCityIds?: string[] };
+    relatedLanguages?: string[];
   }): Promise<string | null> {
     const hasReferences = Boolean(
       payload.fees?.length ||
       payload.availability?.availableCountryIds?.length ||
-      payload.availability?.availableCityIds?.length,
+      payload.availability?.availableCityIds?.length ||
+      payload.relatedLanguages?.length,
     );
     if (hasReferences && !this.referenceResolver)
       return 'Canonical Reference resolver is not configured';
@@ -544,11 +602,18 @@ export class InternationalTestImportPromotionUseCase {
     }
     for (const countryId of payload.availability?.availableCountryIds || []) {
       const country = await this.referenceResolver!.resolveCountry({ id: countryId });
-      if (!country?.active) return `Active canonical Country not found: ${countryId}`;
+      if (!country?.active || !country.standardCode) return `Active canonical Country not found: ${countryId}`;
     }
     for (const cityId of payload.availability?.availableCityIds || []) {
       const city = await this.referenceResolver!.resolveCity({ id: cityId });
       if (!city?.active) return `Active canonical City not found: ${cityId}`;
+    }
+    for (const languageRef of payload.relatedLanguages || []) {
+      const language = await this.referenceResolver!.resolveLanguage({
+        standardCode: languageRef,
+        alias: languageRef,
+      });
+      if (!language?.active) return `Active canonical Language not found: ${languageRef}`;
     }
     return null;
   }

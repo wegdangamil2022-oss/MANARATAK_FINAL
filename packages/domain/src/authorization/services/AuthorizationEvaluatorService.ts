@@ -75,7 +75,11 @@ export class AuthorizationEvaluatorService {
       let allPoliciesPassed = true;
       for (const policyId of role.policyIds) {
         const policy = await this.policyRepository.findById(policyId);
-        if (!policy) continue;
+        if (!policy) {
+          allPoliciesPassed = false;
+          failedPolicyReasons.push(`Referenced policy not found: ${policyId}`);
+          break;
+        }
 
         const policyDecision = await this.policyEvaluator.evaluate(policy, context);
         if (!policyDecision.isGranted) {

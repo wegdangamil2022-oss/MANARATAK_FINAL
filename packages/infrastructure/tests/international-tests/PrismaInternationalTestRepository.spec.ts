@@ -15,6 +15,7 @@ describe('PrismaInternationalTestRepository', () => {
     mockPrisma = {
       internationalTest: {
         findUnique: vi.fn(),
+        findFirst: vi.fn(),
         findMany: vi.fn(),
         count: vi.fn(),
         create: vi.fn(),
@@ -91,6 +92,90 @@ describe('PrismaInternationalTestRepository', () => {
     expect(result?.scoreScale?.overallMaximum).toBe(9);
   });
 
+
+  it('should prevent compatibility JSON from shadowing canonical lifecycle/security fields', async () => {
+    mockPrisma.internationalTest.findUnique.mockResolvedValue({
+      id: 'test-shadow',
+      canonicalName: 'Canonical SAT',
+      providerName: 'College Board',
+      testCategory: InternationalTestCategory.UNDERGRAD_ADMISSION,
+      status: InternationalTestStatus.READY_TO_PUBLISH,
+      isPubliclyVisible: false,
+      isSourceVerified: false,
+      optionalFields: {
+        status: InternationalTestStatus.PUBLISHED,
+        isPubliclyVisible: true,
+        isSourceVerified: true,
+        canonicalName: 'Shadow SAT',
+        harmlessCompatibilityNote: 'preserved',
+      },
+    });
+
+    const result = await repository.findById('test-shadow');
+
+    expect(result?.status).toBe(InternationalTestStatus.READY_TO_PUBLISH);
+    expect(result?.isPubliclyVisible).toBe(false);
+    expect(result?.isSourceVerified).toBe(false);
+    expect(result?.canonicalName).toBe('Canonical SAT');
+    expect(result?.harmlessCompatibilityNote).toBe('preserved');
+    expect((result?.optionalFields as any)?.status).toBeUndefined();
+  });
+
+  it('should enforce published and visible predicates inside findPublishedBySlug', async () => {
+    mockPrisma.internationalTest.findFirst.mockResolvedValue(null);
+
+    const result = await repository.findPublishedBySlug('private-test');
+
+    expect(result).toBeNull();
+    expect(mockPrisma.internationalTest.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          slug: 'private-test',
+          status: InternationalTestStatus.PUBLISHED,
+          isPubliclyVisible: true,
+        },
+      }),
+    );
+  });
+
+  it('should persist root canonical relationships into normalized nested writes', async () => {
+    mockPrisma.internationalTest.create.mockResolvedValue({
+      id: 'test-rel',
+      canonicalName: 'IELTS Academic',
+      providerName: 'IDP',
+      testCategory: InternationalTestCategory.LANGUAGE_PROFICIENCY,
+      status: InternationalTestStatus.IMPORTED,
+      isPubliclyVisible: false,
+      isSourceVerified: false,
+      optionalFields: {},
+      countryRelationships: [],
+      languageRelationships: [],
+      academicTaxonomyRelationships: [],
+      degreeRelationships: [],
+    });
+
+    await repository.create({
+      canonicalName: 'IELTS Academic',
+      providerName: 'IDP',
+      testCategory: InternationalTestCategory.LANGUAGE_PROFICIENCY,
+      countryRelationships: [{ canonicalReferenceId: 'country-gb', referenceCode: 'GB', relationshipType: 'AVAILABLE_IN' }],
+      languageRelationships: [{ canonicalReferenceId: 'language-en', referenceCode: 'en', relationshipType: 'RELATED_LANGUAGE' }],
+      academicTaxonomyRelationships: [{ taxonomyNodeId: 'tax-language', relationshipType: 'REQUIRED_FOR' }],
+      degreeRelationships: [{ degreeLevelId: 'degree-bachelor', canonicalCode: 'BACHELOR', relationshipType: 'ACCEPTED_FOR' }],
+    });
+
+    expect(mockPrisma.internationalTest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          countryRelationships: { create: [expect.objectContaining({ canonicalReferenceId: 'country-gb', countryIso2Code: 'GB' })] },
+          languageRelationships: { create: [expect.objectContaining({ canonicalReferenceId: 'language-en', languageIsoCode: 'en' })] },
+          academicTaxonomyRelationships: { create: [expect.objectContaining({ taxonomyNodeId: 'tax-language' })] },
+          degreeRelationships: { create: [expect.objectContaining({ degreeLevelId: 'degree-bachelor', degreeLevelCode: 'BACHELOR' })] },
+        }),
+      }),
+    );
+  });
+
   it('should list and apply status, category, provider, search filters correctly', async () => {
     mockPrisma.internationalTest.findMany.mockResolvedValue([{
       id: 'test-1',
@@ -132,6 +217,7 @@ describe('PrismaInternationalTestRepository', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           status: { in: [InternationalTestStatus.PUBLISHED] },
+          isPubliclyVisible: true,
           providerName: 'IDP'
         })
       })

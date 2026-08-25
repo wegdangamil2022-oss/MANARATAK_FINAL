@@ -70,8 +70,7 @@ function asMetadata(value: Prisma.JsonValue | null): Record<string, unknown> | u
 export class PrismaUniversityRepository implements ITransactionalUniversityRepository {
   constructor(
     private readonly prisma: PrismaClient,
-    private readonly legacyCountryTextFiltersEnabled = process.env
-      .MANARATAK_UNIVERSITY_LEGACY_COUNTRY_FILTERS === 'true',
+    private readonly legacyCountryTextFiltersEnabled = false,
   ) {}
 
   withTransaction(context: AtomicPersistenceContext): IUniversityRepository {

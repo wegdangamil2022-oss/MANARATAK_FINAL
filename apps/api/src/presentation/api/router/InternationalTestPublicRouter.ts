@@ -14,8 +14,8 @@ export class InternationalTestPublicRouter {
       completenessStatus: z.nativeEnum(InternationalTestCompletenessStatus).optional(),
       testCategory: z.nativeEnum(InternationalTestCategory).optional(),
       providerName: z.string().optional(),
-      page: z.string().optional().transform((value) => value ? parseInt(value, 10) : 1),
-      pageSize: z.string().optional().transform((value) => value ? Math.min(parseInt(value, 10), 50) : 20),
+      page: z.coerce.number().int().min(1).max(1000000).default(1),
+      pageSize: z.coerce.number().int().min(1).max(50).default(20),
     }).merge(localeQuerySchema);
 
     router.get('/', asyncHandler(async (req: Request, res: Response) => {
@@ -27,11 +27,11 @@ export class InternationalTestPublicRouter {
       res.json(await localized.getPublishedBySlug(req.params.slug, parseRequestLocale(req.query)));
     }));
 
-    router.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    router.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
       if (err instanceof z.ZodError) return res.status(400).json(toApiValidationErrorPayload(err));
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('not found')) return res.status(404).json({ error: message });
-      res.status(400).json({ error: message || 'An error occurred' });
+      next(err);
     });
     return router;
   }

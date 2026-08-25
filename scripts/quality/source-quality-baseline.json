@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-24T23:54:55.061Z",
+  "policy": "Existing debt is explicitly baselined; CI rejects any new package/file cycles or covered JSX accessibility violations. Baseline entries must be removed when the underlying debt is remediated.",
+  "fingerprints": [
+    "a11y-click-keyboard:apps/web/src/features/admin-preview/AdminScholarshipsPreviewPage.tsx:ee039eed73c4ae4a:1",
+    "package-cycle:@manaratak/application <-> @manaratak/infrastructure"
+  ]
+}

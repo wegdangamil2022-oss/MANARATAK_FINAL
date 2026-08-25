@@ -295,9 +295,33 @@ describe('AcademicTaxonomyValidationService - Graph & Relations Validation', () 
     });
   });
 
+  const mappingSourceNode: AcademicTaxonomyNodeDto = {
+    ...nodeA,
+    standardType: AcademicStandardType.ISCED,
+  };
+  const mappingTargetNode: AcademicTaxonomyNodeDto = {
+    ...nodeB,
+    standardType: AcademicStandardType.CIP,
+  };
+  const validateMapping = (
+    input: Parameters<AcademicTaxonomyValidationService['validateMapping']>[0]
+  ) => service.validateMapping({
+    ...input,
+    sourceNode: input.sourceNode ?? (
+      input.mapping.sourceNodeId === 'node_A' ? mappingSourceNode : undefined
+    ),
+    targetNode: input.targetNode ?? (
+      input.mapping.targetNodeId === 'node_B'
+        ? mappingTargetNode
+        : input.mapping.targetNodeId === 'node_A'
+          ? mappingSourceNode
+          : undefined
+    ),
+  });
+
   describe('validateMapping', () => {
     it('returns no ERROR for a valid mapping', () => {
-      const issues = service.validateMapping({
+      const issues = validateMapping({
         mapping: {
           sourceNodeId: 'node_A',
           targetNodeId: 'node_B',
@@ -314,7 +338,7 @@ describe('AcademicTaxonomyValidationService - Graph & Relations Validation', () 
     });
 
     it('produces ERROR when sourceNodeId or targetNodeId is missing', () => {
-      const issues1 = service.validateMapping({
+      const issues1 = validateMapping({
         mapping: {
           sourceNodeId: '',
           targetNodeId: 'node_B',
@@ -333,7 +357,7 @@ describe('AcademicTaxonomyValidationService - Graph & Relations Validation', () 
         })
       );
 
-      const issues2 = service.validateMapping({
+      const issues2 = validateMapping({
         mapping: {
           sourceNodeId: 'node_A',
           targetNodeId: '',
@@ -354,7 +378,7 @@ describe('AcademicTaxonomyValidationService - Graph & Relations Validation', () 
     });
 
     it('produces ERROR when sourceNodeId equals targetNodeId', () => {
-      const issues = service.validateMapping({
+      const issues = validateMapping({
         mapping: {
           sourceNodeId: 'node_A',
           targetNodeId: 'node_A',
@@ -375,7 +399,7 @@ describe('AcademicTaxonomyValidationService - Graph & Relations Validation', () 
     });
 
     it('produces ERROR for invalid standards or strength', () => {
-      const issues = service.validateMapping({
+      const issues = validateMapping({
         mapping: {
           sourceNodeId: 'node_A',
           targetNodeId: 'node_B',
@@ -420,7 +444,7 @@ describe('AcademicTaxonomyValidationService - Graph & Relations Validation', () 
         createdAt: new Date(),
       };
 
-      const issues = service.validateMapping({
+      const issues = validateMapping({
         mapping: {
           sourceNodeId: 'node_A',
           targetNodeId: 'node_B',
@@ -441,7 +465,7 @@ describe('AcademicTaxonomyValidationService - Graph & Relations Validation', () 
     });
 
     it('emits WARNING when strength is UNKNOWN', () => {
-      const issues = service.validateMapping({
+      const issues = validateMapping({
         mapping: {
           sourceNodeId: 'node_A',
           targetNodeId: 'node_B',
@@ -464,8 +488,49 @@ describe('AcademicTaxonomyValidationService - Graph & Relations Validation', () 
       );
     });
 
+    it('rejects same-standard crosswalks even when endpoint nodes are active', () => {
+      const issues = validateMapping({
+        mapping: {
+          sourceNodeId: 'node_A',
+          targetNodeId: 'node_B',
+          sourceStandard: AcademicStandardType.ISCED,
+          targetStandard: AcademicStandardType.ISCED,
+          strength: AcademicMappingStrength.RELATED,
+        },
+        existingMappings: [],
+        sourceNode: mappingSourceNode,
+        targetNode: { ...mappingTargetNode, standardType: AcademicStandardType.ISCED },
+      });
+
+      expect(issues).toContainEqual(expect.objectContaining({
+        code: 'SAME_STANDARD_MAPPING_FORBIDDEN',
+        severity: AcademicTaxonomyValidationSeverity.ERROR,
+      }));
+    });
+
+    it('rejects inactive endpoints and declared standards that disagree with canonical nodes', () => {
+      const issues = validateMapping({
+        mapping: {
+          sourceNodeId: 'node_A',
+          targetNodeId: 'node_B',
+          sourceStandard: AcademicStandardType.CIP,
+          targetStandard: AcademicStandardType.ISCED,
+          strength: AcademicMappingStrength.RELATED,
+        },
+        existingMappings: [],
+        sourceNode: { ...mappingSourceNode, status: AcademicTaxonomyStatus.ARCHIVED },
+        targetNode: mappingTargetNode,
+      });
+
+      expect(issues.map((issue) => issue.code)).toEqual(expect.arrayContaining([
+        'SOURCE_NODE_NOT_ACTIVE',
+        'SOURCE_STANDARD_MISMATCH',
+        'TARGET_STANDARD_MISMATCH',
+      ]));
+    });
+
     it('produces ERROR when confidence is outside 0..1 range', () => {
-      const issues = service.validateMapping({
+      const issues = validateMapping({
         mapping: {
           sourceNodeId: 'node_A',
           targetNodeId: 'node_B',
@@ -487,7 +552,7 @@ describe('AcademicTaxonomyValidationService - Graph & Relations Validation', () 
     });
 
     it('emits WARNING when EXACT mapping lacks confidence score', () => {
-      const issues = service.validateMapping({
+      const issues = validateMapping({
         mapping: {
           sourceNodeId: 'node_A',
           targetNodeId: 'node_B',

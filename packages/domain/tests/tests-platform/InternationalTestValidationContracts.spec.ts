@@ -70,6 +70,8 @@ describe('InternationalTestValidationContracts', () => {
       providerName: 'ETS',
       testCategory: InternationalTestCategory.LANGUAGE_PROFICIENCY,
       status: InternationalTestStatus.IMPORTED,
+      scoreScale: { overallMinimum: 0, overallMaximum: 120 },
+      officialLinks: [{ linkType: 'REGISTRATION', url: 'https://www.ets.org/toefl/register' }],
       importEvidence: {
         sourceTrustLevel: InternationalTestSourceTrustLevel.AUTHORITATIVE
       }
@@ -84,12 +86,28 @@ describe('InternationalTestValidationContracts', () => {
       providerName: 'ETS',
       testCategory: InternationalTestCategory.LANGUAGE_PROFICIENCY,
       status: InternationalTestStatus.READY_TO_PUBLISH,
+      scoreScale: { overallMinimum: 0, overallMaximum: 120 },
+      officialLinks: [{ linkType: 'REGISTRATION', url: 'https://www.ets.org/toefl/register' }],
       importEvidence: {
         sourceTrustLevel: InternationalTestSourceTrustLevel.AUTHORITATIVE
       }
     });
 
     expect(reportWithReadyStatus.canBePublished).toBe(true);
+  });
+
+
+  it('should emit NEEDS_REVIEW when canonical identity is valid but publication-mandatory profile fields are missing', () => {
+    const report = InternationalTestValidationService.validate({
+      canonicalName: 'Basic Test',
+      providerName: 'Basic Provider',
+      testCategory: InternationalTestCategory.ACADEMIC_PLACEMENT
+    });
+
+    expect(report.isComplete).toBe(false);
+    expect(report.canBeReviewed).toBe(true);
+    expect(report.status).toBe(InternationalTestCompletenessStatus.NEEDS_REVIEW);
+    expect(report.missingFields).toEqual(expect.arrayContaining(['scoreScale', 'officialRegistrationUrl']));
   });
 
   it('should ensure validation contracts contain no Phase 10 major or Phase 19 payment execution fields', () => {

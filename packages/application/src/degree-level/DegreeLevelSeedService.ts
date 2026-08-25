@@ -1,4 +1,4 @@
-import { IDegreeLevelRepository, UpsertDegreeLevelDto } from '@manaratak/domain';
+import { DegreeLevelStatus, IDegreeLevelRepository, UpsertDegreeLevelDto } from '@manaratak/domain';
 
 export class DegreeLevelSeedService {
   constructor(private readonly repository: IDegreeLevelRepository) {}
@@ -10,49 +10,49 @@ export class DegreeLevelSeedService {
         nameEn: 'Diploma',
         nameAr: 'دبلوم',
         displayRank: 10,
-        status: 'ACTIVE',
+        status: DegreeLevelStatus.ACTIVE,
       },
       {
         canonicalCode: 'ASSOCIATE',
         nameEn: 'Associate Degree',
         nameAr: 'درجة مشارك',
         displayRank: 20,
-        status: 'ACTIVE',
+        status: DegreeLevelStatus.ACTIVE,
       },
       {
         canonicalCode: 'BACHELOR',
         nameEn: 'Bachelor',
         nameAr: 'بكالوريوس',
         displayRank: 30,
-        status: 'ACTIVE',
+        status: DegreeLevelStatus.ACTIVE,
       },
       {
         canonicalCode: 'MASTER',
         nameEn: 'Master',
         nameAr: 'ماجستير',
         displayRank: 40,
-        status: 'ACTIVE',
+        status: DegreeLevelStatus.ACTIVE,
       },
       {
         canonicalCode: 'FELLOWSHIP',
         nameEn: 'Fellowship',
         nameAr: 'زمالة',
         displayRank: 50,
-        status: 'ACTIVE',
+        status: DegreeLevelStatus.ACTIVE,
       },
       {
         canonicalCode: 'DOCTORATE',
         nameEn: 'Doctorate',
         nameAr: 'دكتوراه',
         displayRank: 60,
-        status: 'ACTIVE',
+        status: DegreeLevelStatus.ACTIVE,
       },
       {
         canonicalCode: 'CERTIFICATE',
         nameEn: 'Certificate',
         nameAr: 'شهادة',
         displayRank: 70,
-        status: 'ACTIVE',
+        status: DegreeLevelStatus.ACTIVE,
       }
     ];
 

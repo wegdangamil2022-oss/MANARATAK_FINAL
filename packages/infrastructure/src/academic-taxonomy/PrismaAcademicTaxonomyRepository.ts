@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import {
   IAcademicTaxonomyRepository,
   AcademicTaxonomyNodeDto,
@@ -18,6 +18,34 @@ import {
 
 export class PrismaAcademicTaxonomyRepository implements IAcademicTaxonomyRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  async executeSerializable<T>(
+    operation: (repository: IAcademicTaxonomyRepository) => Promise<T>,
+  ): Promise<T> {
+    // The API's explicit in-memory development adapter is intentionally not a
+    // real Prisma client and cannot provide database isolation. Keep it usable
+    // for source/dev flows while production-like Prisma paths always execute
+    // the graph check + mutation inside SERIALIZABLE isolation.
+    if (typeof (this.prisma as unknown as { $transaction?: unknown }).$transaction !== 'function') {
+      return operation(this);
+    }
+
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(
+          async (transactionClient) =>
+            operation(new PrismaAcademicTaxonomyRepository(transactionClient as unknown as PrismaClient)),
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (error) {
+        const retryable =
+          error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034';
+        if (!retryable || attempt === maxAttempts) throw error;
+      }
+    }
+    throw new Error('ACADEMIC_TAXONOMY_SERIALIZABLE_TRANSACTION_EXHAUSTED');
+  }
 
   async listNodes(filters?: AcademicTaxonomyFilters): Promise<AcademicTaxonomyNodeDto[]> {
     const where: any = {};

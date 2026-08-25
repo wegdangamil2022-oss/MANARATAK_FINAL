@@ -150,7 +150,7 @@ This matrix maps identified problem statements to their corresponding platform a
 
 | Problem Statement                 | Solution Capability                   | Primary Target Bounded Context | Core Design Specification        |
 | :-------------------------------- | :------------------------------------ | :----------------------------- | :------------------------------- |
-| **System Domain Coupling**        | Decoupled Domain Microservices        | Scholarship, Academic, Profile | Bounded Context Design (v2.4)    |
+| **System Domain Coupling**        | Decoupled Domain Modules (future-extractable services)        | Scholarship, Academic, Profile | Bounded Context Design (v2.4)    |
 | **Fragile, Manual Data Ingress**  | Decoupled Provider-Connector Scrapers | Import Foundation              | Import Foundation Design (v2.19) |
 | **Translation Drift**             | Symmetrical Bilingual JSON Schemas    | All Domains                    | Canonical Data Model (v2.7)      |
 | **Lack of Student Communication** | Asynchronous Notification Router      | Notification Foundation        | Notification Foundation (v2.21)  |

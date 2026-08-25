@@ -174,7 +174,7 @@ The analytics layer maintains the platform's security and compliance standards:
 The conceptual analytics model is architected to facilitate future integration with specialized big-data pipelines:
 
 - **Warehouse Agnosticism**: Because analytical models ingest standard, decoupled JSON integration events, the backend storage can transition to a dedicated analytical data warehouse (such as BigQuery or Snowflake) in future phases without breaking core system models.
-- **Stable Integration Contracts**: Authoritative domain microservices remain completely untouched during downstream reporting upgrades, shielding transaction layers from analytical evolutions.
+- **Stable Integration Contracts**: Authoritative domain modules (or future extracted services) remain completely untouched during downstream reporting upgrades, shielding transaction layers from analytical evolutions.
 
 ---
 

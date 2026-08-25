@@ -820,6 +820,28 @@ model CourseFieldProvenance {
   @@index([reviewStatus])
 }
 
+// --- Enterprise Event Foundation ---
+
+model EnterpriseEventRecord {
+  id                   String   @id
+  reference            String   @unique
+  ownerReference       String
+  eventType            String
+  category             String
+  payloadMetadata      Json
+  version              String
+  metadata             Json
+  correlationReference String?
+  causationReference   String?
+  lifecycleState       String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([ownerReference])
+  @@index([eventType, lifecycleState])
+  @@index([lifecycleState])
+}
+
 // --- Transactional Outbox ---
 
 model TransactionalOutboxRecord {
@@ -2154,37 +2176,45 @@ model InternationalTestPolicy {
 }
 
 model InternationalTestCountryRelationship {
-  id               String   @id @default(uuid())
-  testId           String
-  countryIso2Code  String
+  id                   String   @id @default(uuid())
+  testId               String
+  canonicalReferenceId String?
+  countryIso2Code      String
   relationshipType String
   notes            String?
   metadata         Json?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  test InternationalTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  test             InternationalTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  canonicalCountry ReferenceCountry?  @relation(fields: [canonicalReferenceId], references: [id], onDelete: Restrict)
 
   @@unique([testId, countryIso2Code, relationshipType])
+  @@unique([testId, canonicalReferenceId, relationshipType])
   @@index([testId])
+  @@index([canonicalReferenceId])
   @@index([countryIso2Code])
   @@index([relationshipType])
 }
 
 model InternationalTestLanguageRelationship {
-  id               String   @id @default(uuid())
-  testId           String
-  languageIsoCode  String
+  id                   String   @id @default(uuid())
+  testId               String
+  canonicalReferenceId String?
+  languageIsoCode      String
   relationshipType String
   notes            String?
   metadata         Json?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  test InternationalTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  test              InternationalTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  canonicalLanguage ReferenceLanguage? @relation(fields: [canonicalReferenceId], references: [id], onDelete: Restrict)
 
   @@unique([testId, languageIsoCode, relationshipType])
+  @@unique([testId, canonicalReferenceId, relationshipType])
   @@index([testId])
+  @@index([canonicalReferenceId])
   @@index([languageIsoCode])
   @@index([relationshipType])
 }
@@ -3028,6 +3058,7 @@ model ReferenceCountry {
   scholarships           Scholarship[]                @relation("ScholarshipPrimaryCountry")
   scholarshipEligibility ScholarshipEligibilityItem[] @relation("ScholarshipEligibilityCountry")
   externalCourseProviders ExternalCourseProvider[]       @relation("ExternalCourseProviderHeadquartersCountry")
+  internationalTestCountryRelationships InternationalTestCountryRelationship[]
 
   @@index([region])
   @@index([isActive])
@@ -3069,6 +3100,7 @@ model ReferenceLanguage {
   updatedAt  DateTime @updatedAt
   courses    Course[] @relation("CourseLearningLanguageReference")
   scholarships Scholarship[] @relation("ScholarshipStudyLanguage")
+  internationalTestLanguageRelationships InternationalTestLanguageRelationship[]
 
   @@index([isActive])
   @@index([name])
@@ -3077,6 +3109,7 @@ model ReferenceLanguage {
 
 model ReferenceCity {
   id                     String                @id @default(uuid())
+  canonicalIdentityKey   String?               @unique
   countryIso2Code        String
   name                   String
   nameAr                 String?
@@ -3629,6 +3662,9 @@ model FinanceInvoiceRecord {
   publicId String @unique
   invoiceNumber String @unique
   correlationId String
+  // W4: legacy rows remain nullable until controlled GS19 backfill; all new writes populate both fields.
+  idempotencyKeyHash String? @unique
+  requestFingerprint String?
   originDomain String
   originReferenceId String
   studentReferenceId String?
@@ -3673,7 +3709,7 @@ model FinancePaymentRecord {
   invoice FinanceInvoiceRecord @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
   attempts FinancePaymentAttemptRecord[]
   @@index([invoiceId, status])
-  @@index([gatewayProvider, gatewayReference])
+  @@unique([gatewayProvider, gatewayReference])
 }
 
 model FinancePaymentAttemptRecord {
@@ -3698,8 +3734,10 @@ model FinancialAccountRecord {
   scale Int
   version Int @default(1)
   active Boolean @default(true)
+  systemManaged Boolean @default(false)
   createdAt DateTime @default(now())
   entries FinancialLedgerEntryRecord[]
+  wallet FinanceWalletRecord?
   @@unique([ownerReferenceId, type, currencyCode])
 }
 
@@ -3712,10 +3750,12 @@ model FinancialTransactionRecord {
   idempotencyKeyHash String @unique
   currencyCode String
   scale Int
-  reversalOfId String?
+  reversalOfId String? @unique
   createdBy String
   createdAt DateTime @default(now())
   entries FinancialLedgerEntryRecord[]
+  reversalOf FinancialTransactionRecord? @relation("FinancialTransactionReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversal FinancialTransactionRecord? @relation("FinancialTransactionReversal")
   @@index([correlationId])
   @@index([businessReferenceType, businessReferenceId])
 }
@@ -3749,6 +3789,7 @@ model FinanceWalletRecord {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   holds FinanceWalletHoldRecord[]
+  account FinancialAccountRecord @relation(fields: [accountId], references: [id], onDelete: Restrict)
   @@index([ownerReferenceId, status])
 }
 
@@ -3779,6 +3820,8 @@ model FinanceExchangeRateRecord {
   source String
   providerReference String?
   approved Boolean @default(false)
+  makerId String?
+  approvalId String? @unique
   effectiveFrom DateTime
   effectiveTo DateTime?
   marginBasisPoints Int @default(0)
@@ -3791,6 +3834,8 @@ model FinanceTransferRecord {
   publicId String @unique
   sourceWalletId String
   destinationReferenceId String
+  // W4: nullable only for pre-remediation rows pending GS19 reconciliation/backfill.
+  destinationCurrencyCode String?
   sourceCurrencyCode String
   sourceScale Int
   sourceAmountMinorUnits String
@@ -3799,6 +3844,13 @@ model FinanceTransferRecord {
   targetAmountMinorUnits String?
   rateId String?
   feeAmountMinorUnits String?
+  feePolicyReference String?
+  bankProvider String?
+  bankProviderReference String? @unique
+  providerStatus String?
+  providerFailureCode String?
+  settlementTransactionId String? @unique
+  reversalTransactionId String? @unique
   status String
   makerId String
   correlationId String
@@ -3820,6 +3872,10 @@ model FinanceApprovalRecord {
   scale Int?
   makerId String
   requiredApprovals Int
+  // W4: legacy approvals are intentionally non-executable until backfilled/recreated.
+  payloadHash String?
+  policyReference String?
+  consumedAt DateTime?
   status String
   expiresAt DateTime?
   createdAt DateTime @default(now())
@@ -3850,6 +3906,9 @@ model FinanceRefundRecord {
   status String
   makerId String
   approvalId String?
+  gatewayProvider String?
+  gatewayReference String?
+  failureCode String?
   completedAt DateTime?
   createdAt DateTime @default(now())
   @@index([paymentId, status])
@@ -3892,6 +3951,8 @@ model FinanceCommissionRecord {
   scale Int
   status String
   policyReference String
+  // W4: legacy commission rows are reconciled in GS19 before this can become required.
+  calculationBasisPoints Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@unique([sourcePaymentId, recipientReferenceId, policyReference])

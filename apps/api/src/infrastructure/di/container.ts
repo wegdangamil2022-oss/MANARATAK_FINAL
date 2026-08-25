@@ -3,13 +3,16 @@ import { PrismaClient } from '@prisma/client';
 
 import {
   HierarchyValidationService,
-  ConfigurationResolutionService
+  AcademicTaxonomyValidationService,
+  ReferenceDataValidationService,
+  ConfigurationResolutionService,
+  ImportRetryPolicy
 } from '@manaratak/domain';
 
 import { createContainer, InjectionMode, asClass, asValue, asFunction } from 'awilix';
 import { Router } from 'express';
 import { ConfigurationRegistry } from '@manaratak/config';
-import { createAssetStorageGatewayForRuntime } from './RuntimeDependencyPolicy';
+import { createAssetStorageGatewayForRuntime, createImportRawSnapshotStoreForRuntime } from './RuntimeDependencyPolicy';
 
 // Repositories & Gateways
 import {
@@ -21,6 +24,8 @@ import {
   DefaultPolicyEvaluator,
   InMemoryEnterpriseEventRepository,
   InMemoryEventPublishingGateway,
+  PrismaEnterpriseEventRepository,
+  PrismaEventPublishingGateway,
   PrismaScholarshipRepository,
   PrismaUniversityRepository,
   PrismaCourseRepository,
@@ -50,6 +55,11 @@ import {
   RedisCmsDeliveryCache,
   PrismaReferenceDataRepository,
   PrismaFinanceRepository,
+  PrismaFinanceCurrencyReferenceGateway,
+  FinancePaymentGatewayRegistry,
+  FinanceBankTransferGatewayRegistry,
+  EnvironmentPaymentGatewayAdapter,
+  EnvironmentBankTransferGatewayAdapter,
   PrismaInternationalTestRepository,
   PrismaImportRepository,
   InMemoryImportQueueGateway,
@@ -71,9 +81,9 @@ import {
   PrismaAcademicTaxonomyRepository,
   DegreeLevelRepository,
   PrismaScholarshipCanonicalLookupGateway,
-  NodeSafeSourceHttpTransport, LocalImportRawSnapshotStore, SourceAcquisitionLimiter,
+  NodeSafeSourceHttpTransport, SourceAcquisitionLimiter,
   StaticHtmlSourceConnector, SitemapSourceConnector, OfficialFeedSourceConnector, OfficialApiSourceConnector, ManualUploadSourceConnector, InMemorySourceRegistryGateway, PrismaSourceRegistryGateway, PrismaScholarshipImportVerificationDecisionPort, PrismaScholarshipImportCanonicalResolutionDecisionPort, InMemoryScholarshipImportVerificationDecisionPort, InMemoryScholarshipImportCanonicalResolutionDecisionPort
-, PrismaSessionManager, PrismaCredentialVerifier, PrismaAIPlatformRepository, createDefaultAIProviderRegistry, EnvironmentAIAsyncPayloadProtector} from '@manaratak/infrastructure';
+, PrismaSessionManager, PrismaCredentialVerifier, PrismaAIPlatformRepository, createDefaultAIProviderRegistry, EnvironmentAIAsyncPayloadProtector, JwtTokenProvider} from '@manaratak/infrastructure';
 
 // UseCases
 import {
@@ -161,6 +171,7 @@ import {
   AIEvaluationUseCases,
   AIKnowledgeUseCases,
   ImportAdminUseCases,
+  ImportWorkerProtocol,
   IngestAssetUseCase,
   ProcessAssetLifecycleUseCase,
   AdminAcademicTaxonomyUseCases,
@@ -186,7 +197,7 @@ import {
 // Routers
 import { IdentityRouter } from '../../presentation/api/router/IdentityRouter';
 import { AuthRouter } from '../../presentation/api/router/AuthRouter';
-import { AuthService, JwtTokenProvider } from '@manaratak/application';
+import { AuthService } from '@manaratak/application';
 import { AuthorizationAdminRouter } from '../../presentation/api/router/AuthorizationAdminRouter';
 import { AuthorizationRuntimeRouter } from '../../presentation/api/router/AuthorizationRuntimeRouter';
 import { SettingsAdminRouter } from '../../presentation/api/router/SettingsAdminRouter';
@@ -8080,23 +8091,30 @@ export function createInMemoryPrismaClient() {
   };
 }
 
-export function registerDependencies() {
-  let url = process.env.DATABASE_URL;
+export function registerDependencies(
+  runtimeEnvironment: Readonly<Record<string, string | undefined>> = process.env,
+  runtimeConfiguration: { getOptional?<T = string>(key: string): T | undefined } | null = ConfigurationRegistry.getOptionalInstance(),
+) {
+  const effectiveEnvironment: Record<string, string | undefined> = { ...runtimeEnvironment };
+  let url = effectiveEnvironment.DATABASE_URL;
   if (!url || url.includes('postgres-host') || url.includes('placeholder')) {
-    const { SQL_USER, SQL_PASSWORD, SQL_HOST, SQL_DB_NAME } = process.env;
+    const { SQL_USER, SQL_PASSWORD, SQL_HOST, SQL_DB_NAME } = effectiveEnvironment;
     if (SQL_USER && SQL_PASSWORD && SQL_HOST && SQL_DB_NAME) {
       const encodedPassword = encodeURIComponent(SQL_PASSWORD);
       url = `postgresql://${SQL_USER}:${encodedPassword}@localhost/${SQL_DB_NAME}?host=${SQL_HOST}`;
-      process.env.DATABASE_URL = url;
+      effectiveEnvironment.DATABASE_URL = url;
     }
   }
 
-  const isPrisma = !!process.env.DATABASE_URL;
+  const isPrisma = Boolean(url);
+  const productionLike = effectiveEnvironment.NODE_ENV === 'production' || effectiveEnvironment.NODE_ENV === 'staging';
+  const readConfig = <T = string>(key: string): T | undefined =>
+    runtimeConfiguration?.getOptional?.<T>(key) ?? (effectiveEnvironment[key] as T | undefined);
 
   container.register({
     prisma: asFunction(() => {
       if (!isPrisma) return createUnavailableCapability('database');
-      const currentUrl = process.env.DATABASE_URL;
+      const currentUrl = effectiveEnvironment.DATABASE_URL;
       if (!currentUrl || currentUrl.includes('postgres-host') || currentUrl.includes('placeholder')) {
         throw new Error('DATABASE_URL is not set or contains a placeholder. Please configure a valid DATABASE_URL environment variable.');
       }
@@ -8105,9 +8123,9 @@ export function registerDependencies() {
     // --- Repositories ---
     scholarshipRepository: asFunction(({ prisma }) => new PrismaScholarshipRepository(prisma)).singleton(),
     scholarshipCanonicalLookupGateway: asFunction(({ prisma }) => new PrismaScholarshipCanonicalLookupGateway(prisma)).singleton(),
-    universityRepository: asFunction(({ prisma }) => new PrismaUniversityRepository(prisma)).singleton(),
-    majorRepository: asFunction(({ prisma }) => new PrismaMajorRepository(prisma)).singleton(),
-    phase10CatalogRepository: asFunction(({ prisma }) => new Phase10CatalogRepository(prisma)).singleton(),
+    universityRepository: asFunction(({ prisma }) => new PrismaUniversityRepository(prisma, readConfig<string>('MANARATAK_UNIVERSITY_LEGACY_COUNTRY_FILTERS') === 'true')).singleton(),
+    majorRepository: asFunction(({ prisma }) => new PrismaMajorRepository(prisma, readConfig<string>('MANARATAK_MAJOR_LEGACY_OPTIONAL_FILTERS') === 'true')).singleton(),
+    phase10CatalogRepository: asFunction(({ prisma }) => new Phase10CatalogRepository(prisma, { catalogPath: readConfig<string>('MANARATAK_PHASE10_CATALOG_PATH'), productionLike })).singleton(),
     fellowshipDefinitionRepository: asFunction(({ prisma }) => new PrismaFellowshipDefinitionRepository(prisma)).singleton(),
     courseRepository: asFunction(({ prisma }) => new PrismaCourseRepository(prisma)).singleton(),
     externalCourseProviderRepository: asFunction(({ prisma }) => new PrismaExternalCourseProviderRepository(prisma)).singleton(),
@@ -8120,22 +8138,22 @@ export function registerDependencies() {
     certificateRepository: asFunction(({ prisma }) => new PrismaCertificateRepository(prisma)).singleton(),
     studentWorkspaceRepository: asFunction(({ prisma }) => new PrismaStudentWorkspaceRepository(prisma)).singleton(),
     studentWorkspaceDeliveryCache: asFunction(() => {
-      const redisUrl = process.env.REDIS_URL?.trim();
+      const redisUrl = readConfig<string>('REDIS_URL')?.trim();
       if (!redisUrl) return null;
       return new RedisStudentWorkspaceDeliveryCache(
         RedisClientFactory.createClient({
           REDIS_URL: redisUrl,
-          REDIS_NAMESPACE: process.env.REDIS_NAMESPACE,
+          REDIS_NAMESPACE: readConfig<string>('REDIS_NAMESPACE'),
         }),
       );
     }).singleton(),
     cmsDeliveryCache: asFunction(() => {
-      const redisUrl = process.env.REDIS_URL?.trim();
+      const redisUrl = readConfig<string>('REDIS_URL')?.trim();
       if (!redisUrl) return null;
       return new RedisCmsDeliveryCache(
         RedisClientFactory.createClient({
           REDIS_URL: redisUrl,
-          REDIS_NAMESPACE: process.env.REDIS_NAMESPACE,
+          REDIS_NAMESPACE: readConfig<string>('REDIS_NAMESPACE'),
         }),
       );
     }).singleton(),
@@ -8159,11 +8177,36 @@ export function registerDependencies() {
     referenceDataRepository: asFunction(({ prisma }) => new PrismaReferenceDataRepository(prisma)).singleton(),
     serviceCatalogRepository: asFunction(() => createUnavailableCapability('serviceCatalogPersistence')).singleton(),
     financeRepository: asFunction(({ prisma }) => new PrismaFinanceRepository(prisma)).singleton(),
+    financeCurrencyReferenceGateway: asFunction(({ prisma }) => new PrismaFinanceCurrencyReferenceGateway(prisma)).singleton(),
+    financePaymentGatewayRegistry: asFunction(() => {
+      const providerKey = readConfig<string>('FINANCE_PAYMENT_PROVIDER_KEY')?.trim() || 'PRIMARY_PAYMENT';
+      const secretReference = readConfig<string>('FINANCE_PAYMENT_PROVIDER_SECRET_REFERENCE')?.trim() || 'FINANCE_PAYMENT_PROVIDER_SECRET';
+      return new FinancePaymentGatewayRegistry([
+        new EnvironmentPaymentGatewayAdapter(providerKey, secretReference, (reference) => readConfig<string>(reference)),
+      ]);
+    }).singleton(),
+    financeBankTransferGatewayRegistry: asFunction(() => {
+      const providerKey = readConfig<string>('FINANCE_BANK_PROVIDER_KEY')?.trim() || 'PRIMARY_BANK';
+      const secretReference = readConfig<string>('FINANCE_BANK_PROVIDER_SECRET_REFERENCE')?.trim() || 'FINANCE_BANK_PROVIDER_SECRET';
+      return new FinanceBankTransferGatewayRegistry([
+        new EnvironmentBankTransferGatewayAdapter(providerKey, secretReference, (reference) => readConfig<string>(reference)),
+      ]);
+    }).singleton(),
+    financeTransferFeePolicy: asFunction(() => {
+      const raw = readConfig<string>('FINANCE_TRANSFER_FEE_BPS')?.trim();
+      const basisPoints = raw ? Number(raw) : 0;
+      if (!Number.isInteger(basisPoints) || basisPoints < 0 || basisPoints > 10_000)
+        throw new Error('FINANCE_TRANSFER_FEE_BPS must be an integer between 0 and 10000');
+      return {
+        policyReference: readConfig<string>('FINANCE_TRANSFER_FEE_POLICY_REFERENCE')?.trim() || (basisPoints === 0 ? 'NO_TRANSFER_FEE_V1' : 'CONFIGURED_TRANSFER_FEE_V1'),
+        basisPoints,
+      };
+    }).singleton(),
     careerRepository: asFunction(() => createUnavailableCapability('careerPersistence')).singleton(),
     internationalTestRepository: asFunction(({ prisma }) => new PrismaInternationalTestRepository(prisma)).singleton(),
     aiPlatformRepository: asFunction(({ prisma }) => new PrismaAIPlatformRepository(prisma)).singleton(),
     aiExecutionRepository: asFunction(({ aiPlatformRepository }) => aiPlatformRepository).singleton(),
-    aiAsyncPayloadProtector: asFunction(() => new EnvironmentAIAsyncPayloadProtector()).singleton(),
+    aiAsyncPayloadProtector: asFunction(() => new EnvironmentAIAsyncPayloadProtector('AI_ASYNC_PAYLOAD_KEY', effectiveEnvironment)).singleton(),
     importRepository: asFunction(({ prisma }) => new PrismaImportRepository(prisma)).singleton(),
     academicTaxonomyRepository: asFunction(({ prisma }) => new PrismaAcademicTaxonomyRepository(prisma)).singleton(),
     degreeLevelRepository: asFunction(({ prisma }) => new DegreeLevelRepository(prisma)).singleton(),
@@ -8175,7 +8218,21 @@ export function registerDependencies() {
     importQueueGateway: asFunction(({ prisma }) => isPrisma
       ? new PrismaImportQueueGateway(prisma)
       : new InMemoryImportQueueGateway()).singleton(),
-    safeSourceHttpTransport: asClass(NodeSafeSourceHttpTransport).singleton(),
+    importWorkerRetryPolicy: asFunction(() => ImportRetryPolicy.create({
+      maxAttempts: 5,
+      dlqAfterAttempts: 5,
+      backoffStrategy: 'exponential',
+      initialDelayMs: 1_000,
+      maxDelayMs: 60_000,
+      retryableErrorCodes: [
+        'SOURCE_REQUEST_TIMEOUT',
+        'SOURCE_UPSTREAM_UNAVAILABLE',
+        'IMPORT_TRANSIENT_FAILURE',
+      ],
+    })).singleton(),
+    importWorkerProtocol: asFunction(({ importQueueGateway, importWorkerRetryPolicy }) =>
+      new ImportWorkerProtocol(importQueueGateway, importWorkerRetryPolicy, 30_000)).singleton(),
+    safeSourceHttpTransport: asFunction(() => new NodeSafeSourceHttpTransport()).singleton(),
     staticHtmlSourceConnector: asFunction(({ safeSourceHttpTransport }) => new StaticHtmlSourceConnector(safeSourceHttpTransport)).singleton(),
     sitemapSourceConnector: asFunction(({ safeSourceHttpTransport }) => new SitemapSourceConnector(safeSourceHttpTransport)).singleton(),
     officialFeedSourceConnector: asFunction(({ safeSourceHttpTransport }) => new OfficialFeedSourceConnector(safeSourceHttpTransport)).singleton(),
@@ -8183,8 +8240,8 @@ export function registerDependencies() {
     manualUploadSourceConnector: asClass(ManualUploadSourceConnector).singleton(),
     sourceConnectorRegistry: asFunction(({ staticHtmlSourceConnector, sitemapSourceConnector, officialFeedSourceConnector, officialApiSourceConnector, manualUploadSourceConnector }) =>
       new SourceConnectorRegistry([staticHtmlSourceConnector, sitemapSourceConnector, officialFeedSourceConnector, officialApiSourceConnector, manualUploadSourceConnector])).singleton(),
-    importRawSnapshotStore: asClass(LocalImportRawSnapshotStore).singleton(),
-    sourceAcquisitionLimiter: asClass(SourceAcquisitionLimiter).singleton(),
+    importRawSnapshotStore: asFunction(() => createImportRawSnapshotStoreForRuntime(effectiveEnvironment, readConfig<string>('IMPORT_RAW_SNAPSHOT_DIR'))).singleton(),
+    sourceAcquisitionLimiter: asFunction(() => new SourceAcquisitionLimiter()).singleton(),
     acquireImportSourceUseCase: asFunction(({ sourceConnectorRegistry, importRawSnapshotStore, sourceAcquisitionLimiter }) =>
       new AcquireImportSourceUseCase(sourceConnectorRegistry, importRawSnapshotStore, sourceAcquisitionLimiter)).scoped(),
     sourceRegistryGateway: asFunction(({ prisma }) => isPrisma ? new PrismaSourceRegistryGateway(prisma) : new InMemorySourceRegistryGateway()).singleton(),
@@ -8196,7 +8253,7 @@ export function registerDependencies() {
     scholarshipImportCanonicalResolutionDecisionPort: asFunction(({ prisma }) => isPrisma ? new PrismaScholarshipImportCanonicalResolutionDecisionPort(prisma) : new InMemoryScholarshipImportCanonicalResolutionDecisionPort()).singleton(),
     scholarshipImportDecisionUseCases: asFunction(({ importRepository, scholarshipImportVerificationDecisionPort, scholarshipImportCanonicalResolutionDecisionPort, scholarshipCanonicalResolutionService }) => new ScholarshipImportDecisionUseCases(importRepository, scholarshipImportVerificationDecisionPort, scholarshipImportCanonicalResolutionDecisionPort, scholarshipCanonicalResolutionService)).scoped(),
     assetRecordRepository: asFunction(({ prisma }) => new PrismaAssetRecordRepository(prisma)).singleton(),
-    assetStorageGateway: asFunction(() => createAssetStorageGatewayForRuntime(process.env)).singleton(),
+    assetStorageGateway: asFunction(() => createAssetStorageGatewayForRuntime(effectiveEnvironment)).singleton(),
     assetMalwareScannerGateway: asClass(NoopAssetMalwareScannerGateway).singleton(),
     assetSanitizationGateway: asClass(NoopAssetSanitizationGateway).singleton(),
     assetUsageRegistryGateway: asFunction(() => createUnavailableCapability('assetUsageRegistry')).singleton(),
@@ -8208,7 +8265,10 @@ export function registerDependencies() {
     localizationExecutionGateway: asFunction(() => createUnavailableCapability('localizationExecution')).singleton(),
 
     hierarchyValidationService: asClass(HierarchyValidationService).singleton(),
-    configurationResolutionService: asClass(ConfigurationResolutionService).singleton(),
+    referenceDataValidationService: asClass(ReferenceDataValidationService).singleton(),
+    academicTaxonomyValidationService: asFunction(({ hierarchyValidationService }) =>
+      new AcademicTaxonomyValidationService(hierarchyValidationService)).singleton(),
+    configurationResolutionService: asFunction(({ settingDefinitionRepo, settingAssignmentRepo }) => new ConfigurationResolutionService(settingDefinitionRepo, settingAssignmentRepo)).singleton(),
 
     identityRepository: asFunction((cradle: any) => isPrisma ? new PrismaIdentityRepository(cradle.prisma) : new InMemoryIdentityRepository()).singleton(),
     roleRepository: asFunction(({ prisma }) => isPrisma ? new PrismaRoleRepository(prisma) : new InMemoryRoleRepository()).singleton(),
@@ -8229,7 +8289,11 @@ export function registerDependencies() {
     searchRequestRepo: asFunction(() => createUnavailableCapability('searchRequestPersistence')).singleton(),
     cacheEntryRepo: asFunction(() => createUnavailableCapability('cachePersistence')).singleton(),
     bgJobRepo: asFunction(() => createUnavailableCapability('backgroundJobPersistence')).singleton(),
-    enterpriseEventRepo: asClass(InMemoryEnterpriseEventRepository).singleton(),
+    enterpriseEventRepo: asFunction(({ prisma }) => {
+      if (isPrisma) return new PrismaEnterpriseEventRepository(prisma);
+      if (productionLike) return createUnavailableCapability('enterpriseEventPersistence');
+      return new InMemoryEnterpriseEventRepository();
+    }).singleton(),
     workflowRepo: asFunction(() => createUnavailableCapability('workflowPersistence')).singleton(),
     apiServiceRepo: asFunction(() => createUnavailableCapability('apiServicePersistence')).singleton(),
     sharedComponentRepo: asFunction(() => createUnavailableCapability('sharedComponentPersistence')).singleton(),
@@ -8246,12 +8310,16 @@ export function registerDependencies() {
     searchEngineGateway: asFunction(() => createUnavailableCapability('searchEngine')).singleton(),
     cacheExecutionGateway: asFunction(() => createUnavailableCapability('cacheExecution')).singleton(),
     bgJobGateway: asFunction(() => createUnavailableCapability('backgroundJobExecution')).singleton(),
-    eventPublishingGateway: asClass(InMemoryEventPublishingGateway).singleton(),
+    eventPublishingGateway: asFunction(({ prisma }) => {
+      if (isPrisma) return new PrismaEventPublishingGateway(prisma);
+      if (productionLike) return createUnavailableCapability('enterpriseEventPublishing');
+      return new InMemoryEventPublishingGateway();
+    }).singleton(),
     workflowExecutionGateway: asFunction(() => createUnavailableCapability('workflowExecution')).singleton(),
     apiExposureGateway: asFunction(() => createUnavailableCapability('apiExposure')).singleton(),
     renderingGateway: asFunction(() => createUnavailableCapability('componentRendering')).singleton(),
     logExecutionGateway: asFunction(() => createUnavailableCapability('logExecution')).singleton(),
-    aiProviderRegistry: asFunction(() => createDefaultAIProviderRegistry()).singleton(),
+    aiProviderRegistry: asFunction(() => createDefaultAIProviderRegistry({ readSecret: (reference) => readConfig<string>(reference) })).singleton(),
 
     // --- Domain Services ---
     policyEvaluator: asClass(DefaultPolicyEvaluator).singleton(),
@@ -8298,23 +8366,29 @@ export function registerDependencies() {
     courseCompletionEventPublisher: asFunction(({ manageEnterpriseEventsUseCase }) => new EnterpriseCourseCompletionEventPublisher(manageEnterpriseEventsUseCase)).scoped(),
     courseProgressUseCases: asFunction(({ courseRepository, courseCurriculumRepository, courseProgressRepository, courseCompletionEventPublisher }) => new CourseProgressUseCases(courseRepository, courseCurriculumRepository, courseProgressRepository, courseCompletionEventPublisher)).scoped(),
     nativeCourseUseCases: asFunction(({ courseRepository, courseCurriculumRepository, assetRecordRepository }) => new NativeCourseUseCases(courseRepository, courseCurriculumRepository, assetRecordRepository)).scoped(),
-    certificateUseCases: asFunction(({ certificateRepository, courseRepository, assetRecordRepository }) => new CertificateUseCases(certificateRepository, courseRepository, assetRecordRepository)).scoped(),
+    certificateUseCases: asFunction(({ certificateRepository, courseRepository, assetRecordRepository }) => new CertificateUseCases(certificateRepository, courseRepository, assetRecordRepository, { signingKeyReference: readConfig<string>('CERTIFICATE_SIGNING_KEY_REFERENCE'), signingSecret: readConfig<string>('CERTIFICATE_SIGNING_SECRET'), productionLike })).scoped(),
     studentWorkspaceUseCases: asFunction(({ studentWorkspaceRepository, studentWorkspaceDeliveryCache }) => new StudentWorkspaceUseCases(studentWorkspaceRepository, studentWorkspaceDeliveryCache)).scoped(),
     adminCmsUseCases: asFunction(({ cmsRepository, cmsDeliveryCache }) => new AdminCmsUseCases(cmsRepository, cmsDeliveryCache)).scoped(),
     publicCmsUseCases: asFunction(({ cmsRepository, cmsDeliveryCache }) => new PublicCmsUseCases(cmsRepository, cmsDeliveryCache)).scoped(),
     studentToolRegistryUseCases: asFunction(({ studentToolRegistryRepository, studentToolActivationReadinessService, studentToolHealthService, studentToolDependencyHealthGateway }) => new StudentToolRegistryUseCases(studentToolRegistryRepository, studentToolActivationReadinessService, studentToolHealthService, studentToolDependencyHealthGateway)).scoped(),
     studentToolExecutionUseCases: asFunction(({ studentToolRegistryRepository, studentToolHandlerRegistry, studentToolRateLimitGateway, studentToolDependencyHealthGateway, studentToolSaveGateway }) => new StudentToolExecutionUseCases(studentToolRegistryRepository, studentToolHandlerRegistry, studentToolRateLimitGateway, studentToolDependencyHealthGateway, studentToolSaveGateway)).scoped(),
-    referenceDataUseCases: asFunction(({ referenceDataRepository, atomicAuditedOutboxMutationExecutor }) =>
-      new ReferenceDataUseCases(referenceDataRepository, undefined, undefined, atomicAuditedOutboxMutationExecutor)).scoped(),
+    referenceDataUseCases: asFunction(({ referenceDataRepository, atomicAuditedOutboxMutationExecutor, referenceDataValidationService }) =>
+      new ReferenceDataUseCases(referenceDataRepository, undefined, undefined, atomicAuditedOutboxMutationExecutor, referenceDataValidationService)).scoped(),
     referenceResolver: asFunction(({ referenceDataRepository }) => new ReferenceResolverService(referenceDataRepository)).scoped(),
     adminServiceCatalogUseCases: asFunction(({ serviceCatalogRepository }) => new AdminServiceCatalogUseCases(serviceCatalogRepository)).scoped(),
     publicServiceCatalogUseCases: asFunction(({ serviceCatalogRepository }) => new PublicServiceCatalogUseCases(serviceCatalogRepository)).scoped(),
     financeAdminUseCases: asFunction(({ financeRepository }) => new FinanceAdminUseCases(financeRepository)).scoped(),
-    financePlatformUseCases: asFunction(({ financeRepository }) => new FinancePlatformUseCases(financeRepository)).scoped(),
+    financePlatformUseCases: asFunction(({ financeRepository, financeCurrencyReferenceGateway, financePaymentGatewayRegistry, financeBankTransferGatewayRegistry, financeTransferFeePolicy }) =>
+      new FinancePlatformUseCases(financeRepository, {
+        currencyReference: financeCurrencyReferenceGateway,
+        paymentGateways: financePaymentGatewayRegistry,
+        bankTransferGateways: financeBankTransferGatewayRegistry,
+        transferFeePolicy: financeTransferFeePolicy,
+      })).scoped(),
     financeStudentUseCases: asFunction(({ financeRepository }) => new FinanceStudentUseCases(financeRepository)).scoped(),
     careerAdminUseCases: asFunction(({ careerRepository }) => new CareerAdminUseCases(careerRepository)).scoped(),
     careerPublicUseCases: asFunction(({ careerRepository }) => new CareerPublicUseCases(careerRepository)).scoped(),
-    internationalTestAdminUseCases: asFunction(({ internationalTestRepository, referenceResolver, degreeLevelRepository, atomicDomainMutationCoordinator }) =>
+    internationalTestAdminUseCases: asFunction(({ internationalTestRepository, referenceResolver, degreeLevelRepository, academicTaxonomyRepository, atomicDomainMutationCoordinator }) =>
       new InternationalTestAdminUseCases(
         internationalTestRepository,
         undefined,
@@ -8322,11 +8396,19 @@ export function registerDependencies() {
         undefined,
         referenceResolver,
         degreeLevelRepository,
-        atomicDomainMutationCoordinator
+        atomicDomainMutationCoordinator,
+        academicTaxonomyRepository
       )
     ).scoped(),
-    internationalTestImportPromotionUseCase: asFunction(({ internationalTestRepository, referenceResolver, atomicDomainMutationCoordinator }) =>
-      new InternationalTestImportPromotionUseCase(internationalTestRepository, undefined, referenceResolver, atomicDomainMutationCoordinator)
+    internationalTestImportPromotionUseCase: asFunction(({ internationalTestRepository, referenceResolver, degreeLevelRepository, academicTaxonomyRepository, atomicDomainMutationCoordinator }) =>
+      new InternationalTestImportPromotionUseCase(
+        internationalTestRepository,
+        undefined,
+        referenceResolver,
+        atomicDomainMutationCoordinator,
+        degreeLevelRepository,
+        academicTaxonomyRepository
+      )
     ).scoped(),
     internationalTestPublicUseCases: asFunction(({ internationalTestRepository }) => new InternationalTestPublicUseCases(internationalTestRepository)).scoped(),
     aiExecutionUseCases: asFunction(({ aiPlatformRepository, aiProviderRegistry, aiAsyncPayloadProtector }) => new AIExecutionOrchestrator(aiPlatformRepository, aiProviderRegistry, aiAsyncPayloadProtector)).scoped(),
@@ -8334,11 +8416,11 @@ export function registerDependencies() {
     aiWorkflowUseCases: asFunction(({ aiPlatformRepository, aiExecutionUseCases }) => new AIWorkflowUseCases(aiPlatformRepository, aiExecutionUseCases)).scoped(),
     aiEvaluationUseCases: asFunction(({ aiPlatformRepository, aiExecutionUseCases }) => new AIEvaluationUseCases(aiPlatformRepository, aiExecutionUseCases)).scoped(),
     aiKnowledgeUseCases: asFunction(({ aiPlatformRepository, aiProviderRegistry }) => new AIKnowledgeUseCases(aiPlatformRepository, aiProviderRegistry)).scoped(),
-    importAdminUseCases: asFunction(({ importRepository, importQueueGateway, importHandoffDispatcher }) => new ImportAdminUseCases(importRepository, importQueueGateway, importHandoffDispatcher)).scoped(),
+    importAdminUseCases: asFunction(({ importRepository, importQueueGateway, importHandoffDispatcher, importWorkerProtocol }) => new ImportAdminUseCases(importRepository, importQueueGateway, importHandoffDispatcher, importWorkerProtocol)).scoped(),
     majorImportStagingUseCase: asFunction(({ importAdminUseCases }) => new MajorImportStagingUseCase(importAdminUseCases)).scoped(),
     ingestAssetUseCase: asFunction(({ assetRecordRepository, assetStorageGateway }) => new IngestAssetUseCase(assetRecordRepository, assetStorageGateway)).scoped(),
     processAssetLifecycleUseCase: asFunction(({ assetRecordRepository, assetStorageGateway, assetUsageRegistryGateway, assetMalwareScannerGateway, assetSanitizationGateway }) => new ProcessAssetLifecycleUseCase(assetRecordRepository, assetStorageGateway, assetUsageRegistryGateway, assetMalwareScannerGateway, assetSanitizationGateway)).scoped(),
-    adminAcademicTaxonomyUseCases: asFunction(({ academicTaxonomyRepository }) => new AdminAcademicTaxonomyUseCases(academicTaxonomyRepository)).scoped(),
+    adminAcademicTaxonomyUseCases: asFunction(({ academicTaxonomyRepository, academicTaxonomyValidationService }) => new AdminAcademicTaxonomyUseCases(academicTaxonomyRepository, academicTaxonomyValidationService)).scoped(),
     publicAcademicTaxonomyUseCases: asFunction(({ academicTaxonomyRepository }) => new PublicAcademicTaxonomyUseCases(academicTaxonomyRepository)).scoped(),
     // Identity
     provisionIdentityUseCase: asFunction(({ identityRepository }) => new ProvisionIdentityUseCase(identityRepository)).scoped(),
@@ -8421,22 +8503,16 @@ export function registerDependencies() {
     assetPlatformRouter: asFunction((cradle) => AssetPlatformRouter.create(cradle)).singleton(),
     identityRouter: asFunction((cradle) => IdentityRouter.create(cradle)).singleton(),
     tokenProvider: asFunction(() => {
-      const configSecret = ConfigurationRegistry.isInitialized()
-        ? ConfigurationRegistry.getOptionalInstance()?.getOptional<string>('JWT_SECRET')
-        : undefined;
-      const jwtSecret = configSecret || process.env.JWT_SECRET;
+      const jwtSecret = readConfig<string>('JWT_SECRET');
       if (!jwtSecret) {
         throw new Error('JWT_SECRET configuration is required but missing.');
       }
-      const accessTokenTtl = ConfigurationRegistry.isInitialized() ? ConfigurationRegistry.getOptionalInstance()?.getOptional<number>("ACCESS_TOKEN_TTL_SECONDS") : undefined;
-      const refreshTokenTtl = ConfigurationRegistry.isInitialized() ? ConfigurationRegistry.getOptionalInstance()?.getOptional<number>("SESSION_TTL_SECONDS") : undefined;
-      return new JwtTokenProvider(jwtSecret, { accessTokenTtl: accessTokenTtl || Number(process.env.ACCESS_TOKEN_TTL_SECONDS) || 3600, refreshTokenTtl: refreshTokenTtl || Number(process.env.SESSION_TTL_SECONDS) || 604800 });
+      const accessTokenTtl = Number(readConfig<number | string>('ACCESS_TOKEN_TTL_SECONDS') ?? 3600);
+      const refreshTokenTtl = Number(readConfig<number | string>('SESSION_TTL_SECONDS') ?? 604800);
+      return new JwtTokenProvider(jwtSecret, { accessTokenTtl, refreshTokenTtl });
     }).singleton(),
     sessionManager: asFunction(({ prisma }) => {
-      const configTtl = ConfigurationRegistry.isInitialized()
-        ? ConfigurationRegistry.getOptionalInstance()?.getOptional<number>('SESSION_TTL_SECONDS')
-        : undefined;
-      const ttl = configTtl || Number(process.env.SESSION_TTL_SECONDS) || 604800;
+      const ttl = Number(readConfig<number | string>('SESSION_TTL_SECONDS') ?? 604800);
       return new PrismaSessionManager(prisma, ttl);
     }).singleton(),
     authService: asFunction(({ tokenProvider, sessionManager, credentialVerifier }) => new AuthService(tokenProvider, sessionManager, credentialVerifier)).singleton(),

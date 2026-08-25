@@ -232,10 +232,15 @@ describe('Phase 09 P9J-3D: IELTS Academic Import Dry-Run Readiness', () => {
     } as unknown as IInternationalTestRepository;
 
     const referenceResolver: IReferenceResolver = {
-      resolveCountry: vi.fn(async ({ id }) => ({ id: id!, type: 'COUNTRY', active: true })),
+      resolveCountry: vi.fn(async ({ id }) => ({ id: id!, standardCode: id!, type: 'COUNTRY', active: true })),
       resolveRegion: vi.fn().mockResolvedValue(null),
       resolveCity: vi.fn(async ({ id }) => ({ id: id!, type: 'CITY', active: true })),
-      resolveLanguage: vi.fn().mockResolvedValue(null),
+      resolveLanguage: vi.fn(async ({ standardCode, alias }) => ({
+        id: `language-${standardCode || alias}`,
+        standardCode: standardCode === 'English' ? 'en' : (standardCode || 'en'),
+        type: 'LANGUAGE',
+        active: true,
+      })),
       resolveCurrency: vi.fn(async ({ standardCode }) => ({ id: standardCode!, standardCode, type: 'CURRENCY', active: true })),
     };
     const promotionUseCase = new InternationalTestImportPromotionUseCase(mockRepo, undefined, referenceResolver);

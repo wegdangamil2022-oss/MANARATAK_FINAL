@@ -165,7 +165,7 @@ Inside every Domain Package, the internal folder structure must reflect DDD and 
 
 ### 15. Workspace Boundaries
 
-The monorepo enforces boundaries via automated static analysis (linters and architectural validation tools).
+The monorepo enforces boundaries via automated static analysis. The active W0 gate is `npm run quality:source`, backed by `scripts/quality/verify-source-quality.mjs`, plus ESLint import restrictions. The gate blocks **new** package/file cycles and covered JSX accessibility regressions; known pre-W0 debt is explicitly baselined and must be removed when its owning remediation wave closes.
 
 - Tags are applied to projects (e.g., `scope:scholarship`, `scope:identity`, `type:domain`, `type:ui`).
 - Boundary rules are configured so that `scope:scholarship` cannot directly import `scope:identity` bypassing the API or Event fabric.
@@ -182,11 +182,11 @@ Configuration files are hierarchical to ensure DRY (Don't Repeat Yourself) princ
 
 ---
 
-### 17. Build Strategy (Conceptual)
+### 17. Build Strategy (W0 reconciled)
 
-- **Task Orchestration**: The monorepo utilizes an intelligent build orchestrator capable of topological sorting.
-- **Affected Builds**: Builds, tests, and linting must only run on projects affected by the current Git delta.
-- **Caching**: Build outputs and test results are heavily cached (locally and remotely) based on input hashes to guarantee rapid CI/CD cycles.
+- **Authoritative correctness gates**: CI and release validation run deterministic **full-repository** `typecheck`, `lint`, `build`, `test`, and the source-quality verifier. Correctness must never depend on an affected-file heuristic.
+- **Optional cached acceleration**: Turborepo is retained as a developer/CI acceleration path (`build:cached`, `test:cached`) for topological/cached execution where useful. Cached/affected execution is an optimization, not the source of truth for closure.
+- **Regression rule**: A shared-contract change requires rerunning all known direct-consumer tests even when an affected-task engine reports a smaller graph.
 
 ---
 

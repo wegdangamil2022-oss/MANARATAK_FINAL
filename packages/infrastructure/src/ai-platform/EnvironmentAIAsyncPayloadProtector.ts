@@ -5,7 +5,7 @@ import { IAIAsyncPayloadProtector } from '@manaratak/domain';
 export class EnvironmentAIAsyncPayloadProtector implements IAIAsyncPayloadProtector {
   constructor(
     private readonly secretReference = 'AI_ASYNC_PAYLOAD_KEY',
-    private readonly environment: NodeJS.ProcessEnv = process.env,
+    private readonly environment: Readonly<Record<string, string | undefined>> = {},
   ) {}
 
   status(): 'READY' | 'NOT_CONFIGURED' {

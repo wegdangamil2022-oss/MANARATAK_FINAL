@@ -314,7 +314,7 @@ This matrix maps core system design elements to their designated testing verific
 
 1. **Flawless Decoupling and Isolation**: The specification successfully remains at a high conceptual level, establishing quality verification methodologies without leaking physical framework toolings (no Vitest, Playwright, or Cypress scripts).
 2. **Native Bilingual Verification Symmetry**: Mandating parallel Arabic and English validation across all student interfaces prevents localization drift and guarantees high-quality delivery.
-3. **Advanced Consumer-Driven Contract Model**: Utilizing Consumer-Driven Contract testing across microservices shields distributed boundaries from unexpected breaking changes.
+3. **Advanced Consumer-Driven Contract Model**: Utilizing Consumer-Driven Contract testing across explicit module contracts — and, when physically extracted, across service boundaries — shields consumers from unexpected breaking changes.
 4. **Comprehensive Security and Performance Testing**: Integrating SAST/DAST checks, dependency scans, and latency performance budgets directly into the build cycle ensures high platform resilience.
 5. **Strict Automated Quality Gates**: Establishing clear, non-negotiable coverage and security boundaries guarantees that only completely validated code reaches staging and production.
 

@@ -2,6 +2,7 @@ import { EnterpriseEvent, IEnterpriseEventRepository } from '@manaratak/domain';
 import { ISpecification } from '@manaratak/core';
 
 export class InMemoryEnterpriseEventRepository implements IEnterpriseEventRepository {
+  public readonly persistenceClassification = 'DEVELOPMENT_ONLY' as const;
   private readonly events = new Map<string, EnterpriseEvent>();
 
   public async save(event: EnterpriseEvent): Promise<void> {

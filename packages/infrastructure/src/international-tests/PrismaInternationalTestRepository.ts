@@ -32,6 +32,16 @@ import {
   UpsertInternationalTestReferenceRelationshipDto
 } from '@manaratak/domain';
 
+export const INTERNATIONAL_TEST_OPTIONAL_FIELDS_RESERVED_KEYS = new Set([
+  'id', 'publicId', 'slug', 'canonicalName', 'canonicalDedupKey', 'displayName',
+  'status', 'completenessStatus', 'testCategory', 'providerName', 'familyId', 'providerId',
+  'currentPublishedVersionId', 'sourceImportRecordId', 'localizedNameAr', 'localizedNameEn',
+  'abbreviation', 'isPubliclyVisible', 'isSourceVerified', 'registrationRequirements',
+  'identificationRequirements', 'retakePolicy', 'cancellationReschedulingNotes', 'accessibilityNotes',
+  'countryRelationships', 'languageRelationships', 'academicTaxonomyRelationships', 'degreeRelationships',
+  'scoreScale', 'officialLinks', 'family', 'provider', 'versions', 'createdAt', 'updatedAt'
+]);
+
 const defaultInclude = {
   variants: true,
   sections: { orderBy: { order: 'asc' as const } },
@@ -112,17 +122,17 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
     });
     if (!record) return null;
 
-    if (!record.variants && this.prisma.internationalTestVariant) {
+    if (!record.variants && typeof this.prisma.internationalTestVariant?.findMany === 'function') {
       record.variants = await this.prisma.internationalTestVariant.findMany({ where: { testId: id } });
-      record.sections = await this.prisma.internationalTestSection.findMany({ where: { testId: id } });
-      const scoreScales = await this.prisma.internationalTestScoreScale.findMany({ where: { testId: id } });
+      record.sections = typeof this.prisma.internationalTestSection?.findMany === 'function' ? await this.prisma.internationalTestSection.findMany({ where: { testId: id } }) : [];
+      const scoreScales = typeof this.prisma.internationalTestScoreScale?.findMany === 'function' ? await this.prisma.internationalTestScoreScale.findMany({ where: { testId: id } }) : [];
       record.scoreScale = scoreScales[0] || null;
-      record.fees = await this.prisma.internationalTestFeeMetadata.findMany({ where: { testId: id } });
-      record.officialLinks = await this.prisma.internationalTestOfficialLink.findMany({ where: { testId: id } });
-      const availabilities = await this.prisma.internationalTestAvailability.findMany({ where: { testId: id } });
+      record.fees = typeof this.prisma.internationalTestFeeMetadata?.findMany === 'function' ? await this.prisma.internationalTestFeeMetadata.findMany({ where: { testId: id } }) : [];
+      record.officialLinks = typeof this.prisma.internationalTestOfficialLink?.findMany === 'function' ? await this.prisma.internationalTestOfficialLink.findMany({ where: { testId: id } }) : [];
+      const availabilities = typeof this.prisma.internationalTestAvailability?.findMany === 'function' ? await this.prisma.internationalTestAvailability.findMany({ where: { testId: id } }) : [];
       record.availability = availabilities[0] || null;
-      record.preparationMaterials = await this.prisma.internationalTestPreparationMaterial.findMany({ where: { testId: id } });
-      record.evidence = await this.prisma.internationalTestEvidence.findUnique({ where: { testId: id } });
+      record.preparationMaterials = typeof this.prisma.internationalTestPreparationMaterial?.findMany === 'function' ? await this.prisma.internationalTestPreparationMaterial.findMany({ where: { testId: id } }) : [];
+      record.evidence = typeof this.prisma.internationalTestEvidence?.findUnique === 'function' ? await this.prisma.internationalTestEvidence.findUnique({ where: { testId: id } }) : null;
     }
 
     return this.mapToDto(record);
@@ -151,6 +161,18 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
     return this.mapToDto(record);
   }
 
+  async findPublishedBySlug(slug: string): Promise<InternationalTestDto | null> {
+    const record = await this.prisma.internationalTest.findFirst({
+      where: {
+        slug,
+        status: InternationalTestStatus.PUBLISHED,
+        isPubliclyVisible: true,
+      },
+      include: defaultInclude,
+    });
+    return record ? this.mapToDto(record) : null;
+  }
+
   async findByDedupKey(key: string): Promise<InternationalTestDto | null> {
     const record = await this.prisma.internationalTest.findUnique({ 
       where: { canonicalDedupKey: key },
@@ -161,32 +183,50 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
 
   async create(data: any): Promise<InternationalTestDto> {
     const {
-      publicId, slug, canonicalName, canonicalDedupKey, displayName, status, 
+      publicId, slug, canonicalName, canonicalDedupKey, displayName, status,
       completenessStatus, testCategory, providerName, familyId, providerId,
       currentPublishedVersionId, sourceImportRecordId, optionalFields,
       localizedNameAr, localizedNameEn, abbreviation, isPubliclyVisible, isSourceVerified,
       registrationRequirements, identificationRequirements, retakePolicy,
       cancellationReschedulingNotes, accessibilityNotes,
+      countryRelationships, languageRelationships, academicTaxonomyRelationships, degreeRelationships,
+      scoreScale, officialLinks,
       ...rest
     } = data;
-    
-    const safeOptionalFields = {
-      ...(optionalFields || {}),
-      ...rest
-    };
+
+    const safeOptionalFields = this.sanitizeOptionalFields({
+      ...this.sanitizeOptionalFields(optionalFields),
+      ...rest,
+    });
 
     const record = await this.prisma.internationalTest.create({
       data: {
-        publicId, slug, canonicalName, canonicalDedupKey, displayName, status, 
+        publicId, slug, canonicalName, canonicalDedupKey, displayName, status,
         completenessStatus, testCategory, providerName, familyId, providerId,
         currentPublishedVersionId, sourceImportRecordId,
-        localizedNameAr, localizedNameEn, abbreviation, 
-        isPubliclyVisible: isPubliclyVisible ?? false, 
+        localizedNameAr, localizedNameEn, abbreviation,
+        isPubliclyVisible: isPubliclyVisible ?? false,
         isSourceVerified: isSourceVerified ?? false,
         registrationRequirements, identificationRequirements, retakePolicy,
         cancellationReschedulingNotes, accessibilityNotes,
-        optionalFields: safeOptionalFields
-      },
+        optionalFields: safeOptionalFields as Prisma.InputJsonObject,
+        ...(scoreScale ? { scoreScale: { create: this.scoreScalePersistencePayload(scoreScale) } } : {}),
+        ...(Array.isArray(officialLinks) ? {
+          officialLinks: { create: officialLinks.map((link: any) => this.officialLinkPersistencePayload(link)) },
+        } : {}),
+        ...(Array.isArray(countryRelationships) ? {
+          countryRelationships: { create: countryRelationships.map((relationship: any) => this.countryRelationshipPersistencePayload(relationship)) },
+        } : {}),
+        ...(Array.isArray(languageRelationships) ? {
+          languageRelationships: { create: languageRelationships.map((relationship: any) => this.languageRelationshipPersistencePayload(relationship)) },
+        } : {}),
+        ...(Array.isArray(academicTaxonomyRelationships) ? {
+          academicTaxonomyRelationships: { create: academicTaxonomyRelationships.map((relationship: any) => this.taxonomyRelationshipPersistencePayload(relationship)) },
+        } : {}),
+        ...(Array.isArray(degreeRelationships) ? {
+          degreeRelationships: { create: degreeRelationships.map((relationship: any) => this.degreeRelationshipPersistencePayload(relationship)) },
+        } : {}),
+      } as any,
       include: defaultInclude
     });
     return this.mapToDto(record);
@@ -200,17 +240,18 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
       localizedNameAr, localizedNameEn, abbreviation, isPubliclyVisible, isSourceVerified,
       registrationRequirements, identificationRequirements, retakePolicy,
       cancellationReschedulingNotes, accessibilityNotes,
+      countryRelationships, languageRelationships, academicTaxonomyRelationships, degreeRelationships,
+      scoreScale, officialLinks,
       ...rest
     } = updates;
-    
-    const existing = await this.prisma.internationalTest.findUnique({ where: { id }});
-    const existingOptional = (existing?.optionalFields as any) || {};
 
-    const safeOptionalFields = {
+    const existing = await this.prisma.internationalTest.findUnique({ where: { id }});
+    const existingOptional = this.sanitizeOptionalFields(existing?.optionalFields);
+    const safeOptionalFields = this.sanitizeOptionalFields({
       ...existingOptional,
-      ...(optionalFields || {}),
-      ...rest
-    };
+      ...this.sanitizeOptionalFields(optionalFields),
+      ...rest,
+    });
 
     const record = await this.prisma.internationalTest.update({
       where: { id },
@@ -219,10 +260,10 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
         status: status !== undefined ? status : undefined,
         completenessStatus: completenessStatus !== undefined ? completenessStatus : undefined,
         testCategory: testCategory !== undefined ? testCategory : undefined,
-          providerName: providerName !== undefined ? providerName : undefined,
-          familyId: familyId !== undefined ? familyId : undefined,
-          providerId: providerId !== undefined ? providerId : undefined,
-          currentPublishedVersionId: currentPublishedVersionId !== undefined ? currentPublishedVersionId : undefined,
+        providerName: providerName !== undefined ? providerName : undefined,
+        familyId: familyId !== undefined ? familyId : undefined,
+        providerId: providerId !== undefined ? providerId : undefined,
+        currentPublishedVersionId: currentPublishedVersionId !== undefined ? currentPublishedVersionId : undefined,
         sourceImportRecordId: sourceImportRecordId !== undefined ? sourceImportRecordId : undefined,
         localizedNameAr: localizedNameAr !== undefined ? localizedNameAr : undefined,
         localizedNameEn: localizedNameEn !== undefined ? localizedNameEn : undefined,
@@ -234,8 +275,46 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
         retakePolicy: retakePolicy !== undefined ? retakePolicy : undefined,
         cancellationReschedulingNotes: cancellationReschedulingNotes !== undefined ? cancellationReschedulingNotes : undefined,
         accessibilityNotes: accessibilityNotes !== undefined ? accessibilityNotes : undefined,
-        optionalFields: safeOptionalFields
-      },
+        optionalFields: safeOptionalFields as Prisma.InputJsonObject,
+        ...(scoreScale !== undefined ? {
+          scoreScale: {
+            upsert: {
+              create: this.scoreScalePersistencePayload(scoreScale),
+              update: this.scoreScalePersistencePayload(scoreScale),
+            },
+          },
+        } : {}),
+        ...(officialLinks !== undefined ? {
+          officialLinks: {
+            deleteMany: {},
+            create: (officialLinks || []).map((link: any) => this.officialLinkPersistencePayload(link)),
+          },
+        } : {}),
+        ...(countryRelationships !== undefined ? {
+          countryRelationships: {
+            deleteMany: {},
+            create: (countryRelationships || []).map((relationship: any) => this.countryRelationshipPersistencePayload(relationship)),
+          },
+        } : {}),
+        ...(languageRelationships !== undefined ? {
+          languageRelationships: {
+            deleteMany: {},
+            create: (languageRelationships || []).map((relationship: any) => this.languageRelationshipPersistencePayload(relationship)),
+          },
+        } : {}),
+        ...(academicTaxonomyRelationships !== undefined ? {
+          academicTaxonomyRelationships: {
+            deleteMany: {},
+            create: (academicTaxonomyRelationships || []).map((relationship: any) => this.taxonomyRelationshipPersistencePayload(relationship)),
+          },
+        } : {}),
+        ...(degreeRelationships !== undefined ? {
+          degreeRelationships: {
+            deleteMany: {},
+            create: (degreeRelationships || []).map((relationship: any) => this.degreeRelationshipPersistencePayload(relationship)),
+          },
+        } : {}),
+      } as any,
       include: defaultInclude
     });
     return this.mapToDto(record);
@@ -251,8 +330,12 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
   }
 
   async list(filters: InternationalTestFilters): Promise<PaginatedInternationalTestResult<InternationalTestDto>> {
-    const page = Number(filters?.page) || 1;
-    const pageSize = Number(filters?.pageSize || filters?.limit) || 20;
+    const requestedPage = Number(filters?.page);
+    const requestedPageSize = Number(filters?.pageSize ?? filters?.limit);
+    const page = Number.isFinite(requestedPage) ? Math.max(1, Math.floor(requestedPage)) : 1;
+    const pageSize = Number.isFinite(requestedPageSize)
+      ? Math.min(100, Math.max(1, Math.floor(requestedPageSize)))
+      : 20;
     
     const where: any = {};
     if (filters?.status) {
@@ -325,7 +408,11 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
   }
 
   async listPublished(filters?: Omit<InternationalTestFilters, 'status'>): Promise<PaginatedInternationalTestResult<InternationalTestDto>> {
-    return this.list({ ...filters, status: [InternationalTestStatus.PUBLISHED] });
+    return this.list({
+      ...filters,
+      status: [InternationalTestStatus.PUBLISHED],
+      isPubliclyVisible: true,
+    });
   }
 
   // --- Normalized Profile & Discovery Methods ---
@@ -619,8 +706,25 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
     testId: string,
     data: InternationalTestImportDraftRequestDto
   ): Promise<InternationalTestImportDraftResultDto> {
-    const existingTest = await this.prisma.internationalTest.findUnique({ where: { id: testId } });
-    if (!existingTest) {
+    const transactionFactory = (this.prisma as any).$transaction;
+    if (typeof transactionFactory === 'function') {
+      return transactionFactory.call(
+        this.prisma,
+        async (tx: Prisma.TransactionClient) =>
+          new PrismaInternationalTestRepository(tx as unknown as PrismaClient).createImportDraftVersion(testId, data),
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    }
+
+    const queryRaw = (this.prisma as any).$queryRaw;
+    if (typeof queryRaw !== 'function') {
+      throw new Error('INTERNATIONAL_TEST_VERSION_TRANSACTION_BOUNDARY_REQUIRED');
+    }
+    const lockedRows = await queryRaw.call(
+      this.prisma,
+      Prisma.sql`SELECT "id" FROM "InternationalTest" WHERE "id" = ${testId} FOR UPDATE`,
+    );
+    if (!Array.isArray(lockedRows) || lockedRows.length === 0) {
       throw new Error(`International test with id ${testId} not found`);
     }
 
@@ -744,23 +848,33 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
   }
 
   async upsertCountryRelationship(testId: string, data: UpsertInternationalTestReferenceRelationshipDto): Promise<void> {
-    const countryIso2Code = data.referenceCode || data.canonicalReferenceId;
-    await this.prisma.internationalTestCountryRelationship.upsert({
+    if (!data.canonicalReferenceId?.trim()) throw new Error('COUNTRY_CANONICAL_REFERENCE_ID_REQUIRED');
+    const country = await this.prisma.referenceCountry.findUnique({
+      where: { id: data.canonicalReferenceId },
+      select: { id: true, iso2Code: true, isActive: true },
+    });
+    if (!country?.isActive) throw new Error(`Active canonical COUNTRY not found: ${data.canonicalReferenceId}`);
+    if (data.referenceCode && data.referenceCode.toUpperCase() !== country.iso2Code.toUpperCase()) {
+      throw new Error('COUNTRY_REFERENCE_ID_CODE_MISMATCH');
+    }
+    await (this.prisma.internationalTestCountryRelationship as any).upsert({
       where: {
-        testId_countryIso2Code_relationshipType: {
+        testId_canonicalReferenceId_relationshipType: {
           testId,
-          countryIso2Code,
+          canonicalReferenceId: country.id,
           relationshipType: data.relationshipType,
         },
       },
       create: {
         testId,
-        countryIso2Code,
+        canonicalReferenceId: country.id,
+        countryIso2Code: country.iso2Code,
         relationshipType: data.relationshipType,
         notes: data.notes,
         metadata: data.metadata as Prisma.InputJsonObject | undefined,
       },
       update: {
+        countryIso2Code: country.iso2Code,
         notes: data.notes,
         metadata: data.metadata as Prisma.InputJsonObject | undefined,
       },
@@ -768,23 +882,33 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
   }
 
   async upsertLanguageRelationship(testId: string, data: UpsertInternationalTestReferenceRelationshipDto): Promise<void> {
-    const languageIsoCode = data.referenceCode || data.canonicalReferenceId;
-    await this.prisma.internationalTestLanguageRelationship.upsert({
+    if (!data.canonicalReferenceId?.trim()) throw new Error('LANGUAGE_CANONICAL_REFERENCE_ID_REQUIRED');
+    const language = await this.prisma.referenceLanguage.findUnique({
+      where: { id: data.canonicalReferenceId },
+      select: { id: true, isoCode: true, isActive: true },
+    });
+    if (!language?.isActive) throw new Error(`Active canonical LANGUAGE not found: ${data.canonicalReferenceId}`);
+    if (data.referenceCode && data.referenceCode.toUpperCase() !== language.isoCode.toUpperCase()) {
+      throw new Error('LANGUAGE_REFERENCE_ID_CODE_MISMATCH');
+    }
+    await (this.prisma.internationalTestLanguageRelationship as any).upsert({
       where: {
-        testId_languageIsoCode_relationshipType: {
+        testId_canonicalReferenceId_relationshipType: {
           testId,
-          languageIsoCode,
+          canonicalReferenceId: language.id,
           relationshipType: data.relationshipType,
         },
       },
       create: {
         testId,
-        languageIsoCode,
+        canonicalReferenceId: language.id,
+        languageIsoCode: language.isoCode,
         relationshipType: data.relationshipType,
         notes: data.notes,
         metadata: data.metadata as Prisma.InputJsonObject | undefined,
       },
       update: {
+        languageIsoCode: language.isoCode,
         notes: data.notes,
         metadata: data.metadata as Prisma.InputJsonObject | undefined,
       },
@@ -907,6 +1031,96 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
     });
   }
 
+  private sanitizeOptionalFields(value: unknown): Record<string, unknown> {
+    const record = this.asRecord(value) ?? {};
+    return Object.fromEntries(
+      Object.entries(record).filter(
+        ([key, item]) => !INTERNATIONAL_TEST_OPTIONAL_FIELDS_RESERVED_KEYS.has(key) && item !== undefined,
+      ),
+    );
+  }
+
+  private scoreScalePersistencePayload(data: any): Record<string, unknown> {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error('INTERNATIONAL_TEST_SCORE_SCALE_OBJECT_REQUIRED');
+    }
+    if (!Number.isFinite(data.overallMinimum) || !Number.isFinite(data.overallMaximum)) {
+      throw new Error('INTERNATIONAL_TEST_SCORE_SCALE_BOUNDS_REQUIRED');
+    }
+    if (data.overallMinimum > data.overallMaximum) {
+      throw new Error('INTERNATIONAL_TEST_SCORE_SCALE_INVALID_RANGE');
+    }
+    return {
+      overallMinimum: data.overallMinimum,
+      overallMaximum: data.overallMaximum,
+      scoreIncrement: data.scoreIncrement,
+      bandsOrLevels: data.bandsOrLevels as Prisma.InputJsonValue | undefined,
+      passFailRules: data.passFailRules,
+      cefrEquivalency: data.cefrEquivalency,
+      crossTestEquivalency: data.crossTestEquivalency,
+      resultValidityDurationMonths: data.resultValidityDurationMonths,
+      resultDeliveryTimeDays: data.resultDeliveryTimeDays,
+      scoreReportingUrl: data.scoreReportingUrl,
+    };
+  }
+
+  private officialLinkPersistencePayload(data: any): Record<string, unknown> {
+    if (!data?.linkType || !data?.url) throw new Error('INTERNATIONAL_TEST_OFFICIAL_LINK_TYPE_URL_REQUIRED');
+    return { linkType: data.linkType, url: data.url, description: data.description };
+  }
+
+  private countryRelationshipPersistencePayload(data: any): Record<string, unknown> {
+    if (!data?.canonicalReferenceId) throw new Error('COUNTRY_CANONICAL_REFERENCE_ID_REQUIRED');
+    if (!data?.referenceCode) throw new Error('COUNTRY_REFERENCE_CODE_REQUIRED_FOR_COMPATIBILITY_PROJECTION');
+    if (!data?.relationshipType) throw new Error('COUNTRY_RELATIONSHIP_TYPE_REQUIRED');
+    return {
+      canonicalReferenceId: data.canonicalReferenceId,
+      countryIso2Code: String(data.referenceCode).toUpperCase(),
+      relationshipType: data.relationshipType,
+      notes: data.notes,
+      metadata: data.metadata as Prisma.InputJsonValue | undefined,
+    };
+  }
+
+  private languageRelationshipPersistencePayload(data: any): Record<string, unknown> {
+    if (!data?.canonicalReferenceId) throw new Error('LANGUAGE_CANONICAL_REFERENCE_ID_REQUIRED');
+    if (!data?.referenceCode) throw new Error('LANGUAGE_REFERENCE_CODE_REQUIRED_FOR_COMPATIBILITY_PROJECTION');
+    if (!data?.relationshipType) throw new Error('LANGUAGE_RELATIONSHIP_TYPE_REQUIRED');
+    return {
+      canonicalReferenceId: data.canonicalReferenceId,
+      languageIsoCode: String(data.referenceCode).trim(),
+      relationshipType: data.relationshipType,
+      notes: data.notes,
+      metadata: data.metadata as Prisma.InputJsonValue | undefined,
+    };
+  }
+
+  private taxonomyRelationshipPersistencePayload(data: any): Record<string, unknown> {
+    if (!data?.taxonomyNodeId || !data?.relationshipType) {
+      throw new Error('ACADEMIC_TAXONOMY_RELATIONSHIP_CANONICAL_ID_REQUIRED');
+    }
+    return {
+      taxonomyNodeId: data.taxonomyNodeId,
+      relationshipType: data.relationshipType,
+      confidence: data.confidence,
+      notes: data.notes,
+      metadata: data.metadata as Prisma.InputJsonValue | undefined,
+    };
+  }
+
+  private degreeRelationshipPersistencePayload(data: any): Record<string, unknown> {
+    if (!data?.degreeLevelId || !data?.canonicalCode || !data?.relationshipType) {
+      throw new Error('DEGREE_RELATIONSHIP_CANONICAL_ID_CODE_REQUIRED');
+    }
+    return {
+      degreeLevelId: data.degreeLevelId,
+      degreeLevelCode: data.canonicalCode,
+      relationshipType: data.relationshipType,
+      notes: data.notes,
+      metadata: data.metadata as Prisma.InputJsonValue | undefined,
+    };
+  }
+
   private mapVersionToDto(record: InternationalTestVersionRecord, fallbackTestId: string): InternationalTestVersionDto {
     return {
       id: record.id,
@@ -933,49 +1147,84 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
 
   private mapToDto(record: any): InternationalTestDto {
     if (!record) return null as any;
-    const { 
-      optionalFields, 
-      variants, 
-      sections, 
-      scoreScale, 
-      fees, 
-      officialLinks, 
-      availability, 
-      preparationMaterials, 
+    const {
+      optionalFields,
+      variants,
+      sections,
+      scoreScale,
+      fees,
+      officialLinks,
+      availability,
+      preparationMaterials,
       evidence,
-      ...rest 
+      countryRelationships,
+      languageRelationships,
+      academicTaxonomyRelationships,
+      degreeRelationships,
+      ...rest
     } = record;
 
+    const safeOptionalFields = this.sanitizeOptionalFields(optionalFields);
     const base: InternationalTestDto = {
+      ...safeOptionalFields,
       ...rest,
       isPubliclyVisible: rest.isPubliclyVisible ?? false,
       isSourceVerified: rest.isSourceVerified ?? false,
-      ...(typeof optionalFields === 'object' && optionalFields ? optionalFields : {})
+      optionalFields: safeOptionalFields,
     };
 
-    if (variants && Array.isArray(variants)) {
-      base.variants = variants.map(v => this.mapVariantToDto(v));
-    }
-    if (sections && Array.isArray(sections)) {
-      base.sections = sections.map(s => this.mapSectionToDto(s));
-    }
-    if (scoreScale) {
-      base.scoreScale = this.mapScoreScaleToDto(scoreScale);
-    }
-    if (fees && Array.isArray(fees)) {
-      base.fees = fees.map(f => this.mapFeeMetadataToDto(f));
-    }
-    if (officialLinks && Array.isArray(officialLinks)) {
-      base.officialLinks = officialLinks.map(l => this.mapOfficialLinkToDto(l));
-    }
-    if (availability) {
-      base.availability = this.mapAvailabilityToDto(availability);
-    }
+    if (variants && Array.isArray(variants)) base.variants = variants.map(v => this.mapVariantToDto(v));
+    if (sections && Array.isArray(sections)) base.sections = sections.map(s => this.mapSectionToDto(s));
+    if (scoreScale) base.scoreScale = this.mapScoreScaleToDto(scoreScale);
+    if (fees && Array.isArray(fees)) base.fees = fees.map(f => this.mapFeeMetadataToDto(f));
+    if (officialLinks && Array.isArray(officialLinks)) base.officialLinks = officialLinks.map(l => this.mapOfficialLinkToDto(l));
+    if (availability) base.availability = this.mapAvailabilityToDto(availability);
     if (preparationMaterials && Array.isArray(preparationMaterials)) {
       base.preparationMaterials = preparationMaterials.map(m => this.mapPreparationMaterialToDto(m));
     }
-    if (evidence) {
-      base.importEvidence = this.mapEvidenceToDto(evidence);
+    if (evidence) base.importEvidence = this.mapEvidenceToDto(evidence);
+
+    if (Array.isArray(countryRelationships)) {
+      base.countryRelationships = countryRelationships.map((relationship: any) => ({
+        id: relationship.id,
+        testId: relationship.testId,
+        canonicalReferenceId: relationship.canonicalReferenceId ?? undefined,
+        referenceCode: relationship.countryIso2Code ?? undefined,
+        relationshipType: relationship.relationshipType,
+        notes: relationship.notes ?? undefined,
+        metadata: this.asRecord(relationship.metadata),
+      }));
+    }
+    if (Array.isArray(languageRelationships)) {
+      base.languageRelationships = languageRelationships.map((relationship: any) => ({
+        id: relationship.id,
+        testId: relationship.testId,
+        canonicalReferenceId: relationship.canonicalReferenceId ?? undefined,
+        referenceCode: relationship.languageIsoCode ?? undefined,
+        relationshipType: relationship.relationshipType,
+        notes: relationship.notes ?? undefined,
+        metadata: this.asRecord(relationship.metadata),
+      }));
+    }
+    if (Array.isArray(academicTaxonomyRelationships)) {
+      base.academicTaxonomyRelationships = academicTaxonomyRelationships.map((relationship: any) => ({
+        id: relationship.id,
+        testId: relationship.testId,
+        taxonomyNodeId: relationship.taxonomyNodeId,
+        relationshipType: relationship.relationshipType,
+        confidence: relationship.confidence ?? undefined,
+        notes: relationship.notes ?? undefined,
+        metadata: this.asRecord(relationship.metadata),
+      }));
+    }
+    if (Array.isArray(degreeRelationships)) {
+      base.degreeRelationships = degreeRelationships.map((relationship: any) => ({
+        degreeLevelId: relationship.degreeLevelId ?? undefined,
+        canonicalCode: relationship.degreeLevelCode ?? undefined,
+        relationshipType: relationship.relationshipType,
+        notes: relationship.notes ?? undefined,
+        metadata: this.asRecord(relationship.metadata),
+      }));
     }
 
     return base;

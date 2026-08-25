@@ -1,8 +1,12 @@
 # Phase4.12 Report
 
+> **W0 current-state reconciliation (2026-08-25): `SUPERSEDED_BY_EAP_CURRENT_CAPABILITY`.** The historical `LocalStorageProvider` / `StorageService` implementation paths below no longer exist and are not the active storage baseline. Current asset persistence is owned by the Enterprise Asset Platform (EAP): `packages/domain/src/asset-platform/gateways/IAssetStorageGateway.ts`, `packages/infrastructure/src/asset-platform/LocalAssetStorageGateway.ts`, and the Phase 05 EAP composition. The legacy `packages/core/src/application/storage/*` abstractions may remain only as compatibility surface until later cleanup; they are not proof of an active production storage adapter.
+> **W2 compatibility cleanup (2026-08-25):** misleading no-op storage exports (`LocalStorageProvider`, `StorageService`, `MemoryFileRepository`, `S3FileRepository`, `PostgresFileRepository`, `LocalDiskFileRepository`) have been removed from `@manaratak/infrastructure`. `LocalImportRawSnapshotStore` is explicitly `DEVELOPMENT_ONLY`; production/staging composition now fails closed until a durable raw-artifact provider is injected during runtime closure.
+
+
 ## Implementation Summary
 
-The File Storage Foundation has been established as a purely infrastructure-focused capability. The design enforces complete provider neutrality by defining `IStorageProvider`, `IStorageService`, and `FileMetadata` in the Application layer, fully isolating domain mechanics from the file system. In the Infrastructure layer, `LocalStorageProvider` implements these abstractions with built-in path traversal safeguards to ensure secure resolution. The `StorageService` acts as an unopinionated pipeline for uploads, downloads, and deletions, without executing any business-specific logic or document workflows.
+This report records the **historical** generic storage design. The active source has superseded that concrete adapter with the Enterprise Asset Platform. Provider neutrality remains a valid architectural requirement, but current implementation evidence must be taken from the EAP gateway/adapter paths identified in the W0 notice above.
 
 ## Files Created / Modified
 
@@ -16,8 +20,8 @@ The File Storage Foundation has been established as a purely infrastructure-focu
 
 **@manaratak/infrastructure**
 
-- `packages/infrastructure/src/storage/LocalStorageProvider.ts` (Created)
-- `packages/infrastructure/src/storage/StorageService.ts` (Created)
+- `packages/infrastructure/src/storage/LocalStorageProvider.ts` (**HISTORICAL / REMOVED**)
+- `packages/infrastructure/src/storage/StorageService.ts` (**HISTORICAL / REMOVED**)
 - `packages/infrastructure/src/index.ts` (Modified)
 
 **@manaratak/api**
@@ -27,14 +31,14 @@ The File Storage Foundation has been established as a purely infrastructure-focu
 ## Storage Validation
 
 - **Provider Neutrality:** Implemented. Core abstractions don't depend on specific file system semantics or Node.js fs modules.
-- **Path Traversal Protection:** Implemented in `LocalStorageProvider.resolveSecurePath` to guarantee paths remain constrained within the base storage directory.
-- **Upload/Download Pipelines:** Implemented. `StorageService` delegates buffer reading and writing uniformly.
+- **Path Traversal Protection:** Historical claim for the removed adapter. Current source evidence is `LocalAssetStorageGateway` and its tests.
+- **Upload/Download Pipelines:** Historical generic-service claim; active file/asset movement belongs to EAP use cases and `IAssetStorageGateway`.
 - **File Metadata Abstraction:** Implemented. `FileMetadata` encapsulates only technical properties (MIME type, size, extension).
 - **Business Leakage Check:** Passed. Zero business terms (student, scholarship, avatar) exist within the storage foundation.
 
 ## Compilation Status
 
-`npm run build` executed successfully across the entire monorepo with 0 TypeScript violations.
+Historical build evidence only; W0 does not treat this statement as proof of the current repository. Current build evidence is recorded by the remediation wave report.
 
 ## Architecture Validation
 
@@ -66,14 +70,14 @@ The File Storage Foundation has been established as a purely infrastructure-focu
 - Secure Path Resolution: ✓
 - Framework Independence: ✓
 - Zero Business Leakage: ✓
-- Production Readiness: ✓
+- Production Readiness: SOURCE IMPLEMENTED / RUNTIME PROOF REQUIRED
 
 ## Approval Status
 
 Phase 4.12
-IMPLEMENTED
-Revision: 4.12.0
-READY FOR ARCHITECTURE REVIEW
+SUPERSEDED_BY_EAP_CURRENT_CAPABILITY
+Revision: 4.12.1-W0
+CURRENT SOURCE PATHS RECORDED
 
 ---
 

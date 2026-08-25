@@ -4,6 +4,7 @@ import { SecurityValidator } from '../../../src/presentation/security/SecurityVa
 import { SecurityMiddlewareFactory } from '../../../src/presentation/security/SecurityMiddlewareFactory';
 import { DefaultRateLimiter, SecurityService } from '@manaratak/infrastructure';
 import { ISecurityService, IRateLimiter, IRateLimitResult } from '@manaratak/core';
+import { createRateLimiterForRuntime } from '../../../src/infrastructure/di/RuntimeDependencyPolicy';
 
 describe('Production Security Guardrails & Boot Validation', () => {
   class StubRateLimiter implements IRateLimiter {
@@ -120,9 +121,18 @@ describe('Production Security Guardrails & Boot Validation', () => {
       SECURE_COOKIE: 'true',
     };
 
-    it('fails production mode when only the process-local default limiter is available', async () => {
-      await expect(createApiApp({ resetCache: true, env: validProdEnv }))
-        .rejects.toThrow(/Rate limiting is missing or using a demo\/stub implementation/);
+    it('normal production composition selects a production-capable distributed limiter', () => {
+      const fakeClient = {
+        eval: async () => [1, 60_000],
+        buildKey: (feature: string, key: string) => `mnr:${feature}:${key}`,
+      };
+      const limiter = createRateLimiterForRuntime(
+        validProdEnv,
+        undefined,
+        (() => fakeClient as any) as any,
+      );
+      expect(limiter.isProductionReady).toBe(true);
+      expect(limiter.kind).toBe('real');
     });
 
     it('fails production app creation when demo CSRF service is supplied', async () => {

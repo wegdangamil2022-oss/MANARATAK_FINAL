@@ -12,7 +12,7 @@ describe('InternationalTestPublicUseCases', () => {
   beforeEach(() => {
     mockRepository = {
       listPublished: vi.fn(),
-      findBySlug: vi.fn()
+      findPublishedBySlug: vi.fn()
     };
 
     useCases = new InternationalTestPublicUseCases(mockRepository as IInternationalTestRepository);
@@ -39,19 +39,16 @@ describe('InternationalTestPublicUseCases', () => {
 
   describe('getPublishedBySlug', () => {
     it('should throw if test is not found', async () => {
-      mockRepository.findBySlug.mockResolvedValue(null);
+      mockRepository.findPublishedBySlug.mockResolvedValue(null);
 
       await expect(useCases.getPublishedBySlug('sat-digital')).rejects.toThrow('International test not found');
     });
 
-    it('should throw if test status is not PUBLISHED', async () => {
-      mockRepository.findBySlug.mockResolvedValue({
-        id: 'test-1',
-        slug: 'sat-digital',
-        status: InternationalTestStatus.READY_TO_PUBLISH
-      });
+    it('should rely on repository publication predicate instead of post-filtering a non-published row', async () => {
+      mockRepository.findPublishedBySlug.mockResolvedValue(null);
 
       await expect(useCases.getPublishedBySlug('sat-digital')).rejects.toThrow('International test not found');
+      expect(mockRepository.findPublishedBySlug).toHaveBeenCalledWith('sat-digital');
     });
 
     it('should return test if status is PUBLISHED', async () => {
@@ -62,7 +59,7 @@ describe('InternationalTestPublicUseCases', () => {
         canonicalName: 'SAT Digital'
       };
 
-      mockRepository.findBySlug.mockResolvedValue(publishedTest);
+      mockRepository.findPublishedBySlug.mockResolvedValue(publishedTest);
 
       const result = await useCases.getPublishedBySlug('sat-digital');
 

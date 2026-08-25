@@ -50,7 +50,7 @@ abstract class SecretReferencedProviderAdapter implements AIProviderAdapter {
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.transport = options.transport ?? new FetchAIHttpTransport();
-    this.readSecret = options.readSecret ?? ((reference) => process.env[reference]);
+    this.readSecret = options.readSecret ?? (() => undefined);
   }
 
   status(): AIProviderOperationalStatus {

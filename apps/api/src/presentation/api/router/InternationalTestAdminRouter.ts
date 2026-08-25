@@ -1,7 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { InternationalTestAdminUseCases } from '@manaratak/application';
-import { InternationalTestCategory, InternationalTestCompletenessStatus, InternationalTestStatus } from '@manaratak/domain';
+import {
+  InternationalTestCategory,
+  InternationalTestCompletenessStatus,
+  InternationalTestStatus,
+  UpsertInternationalTestDto,
+} from '@manaratak/domain';
 
 export class InternationalTestAdminRouter {
   public static create(cradle: { internationalTestAdminUseCases: InternationalTestAdminUseCases }): Router {
@@ -28,6 +33,64 @@ export class InternationalTestAdminRouter {
       page: z.string().optional().transform((value) => value ? parseInt(value, 10) : 1),
       pageSize: z.string().optional().transform((value) => value ? Math.min(Math.max(parseInt(value, 10), 1), 100) : 20)
     });
+
+    const referenceRelationshipSchema = z.object({
+      canonicalReferenceId: z.string().min(1),
+      referenceCode: z.string().min(1).optional(),
+      relationshipType: z.string().min(1),
+      notes: z.string().optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
+    }).strict();
+    const academicTaxonomyRelationshipSchema = z.object({
+      taxonomyNodeId: z.string().min(1),
+      relationshipType: z.string().min(1),
+      confidence: z.number().min(0).max(1).optional(),
+      notes: z.string().optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
+    }).strict();
+    const degreeRelationshipSchema = z.object({
+      degreeLevelId: z.string().min(1),
+      canonicalCode: z.string().min(1).optional(),
+      relationshipType: z.string().min(1),
+      notes: z.string().optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
+    }).strict();
+    const scoreScaleSchema = z.object({
+      overallMinimum: z.number(),
+      overallMaximum: z.number(),
+      scoreIncrement: z.number().optional(),
+      bandsOrLevels: z.array(z.string()).optional(),
+      passFailRules: z.string().optional(),
+      cefrEquivalency: z.string().optional(),
+      crossTestEquivalency: z.string().optional(),
+      resultValidityDurationMonths: z.number().int().nonnegative().optional(),
+      resultDeliveryTimeDays: z.number().int().nonnegative().optional(),
+      scoreReportingUrl: z.string().url().optional(),
+    }).strict();
+    const officialLinkSchema = z.object({
+      linkType: z.enum(['REGISTRATION', 'INFORMATION', 'PREPARATION', 'SCORE_REPORTING', 'OTHER']),
+      url: z.string().url(),
+      description: z.string().optional(),
+    }).strict();
+    const rootCreateSchema = z.object({
+      canonicalName: z.string().min(1),
+      testCategory: z.nativeEnum(InternationalTestCategory),
+      providerName: z.string().min(1),
+      localizedNameAr: z.string().optional(),
+      localizedNameEn: z.string().optional(),
+      abbreviation: z.string().optional(),
+      familyId: z.string().optional(),
+      providerId: z.string().optional(),
+      status: z.nativeEnum(InternationalTestStatus).optional(),
+      countryRelationships: z.array(referenceRelationshipSchema).optional(),
+      languageRelationships: z.array(referenceRelationshipSchema).optional(),
+      academicTaxonomyRelationships: z.array(academicTaxonomyRelationshipSchema).optional(),
+      degreeRelationships: z.array(degreeRelationshipSchema).optional(),
+      scoreScale: scoreScaleSchema.optional(),
+      officialLinks: z.array(officialLinkSchema).optional(),
+      optionalFields: z.record(z.string(), z.unknown()).optional(),
+    }).passthrough();
+    const rootUpdateSchema = rootCreateSchema.partial();
 
     const importDraftSchema = z.object({
       sourceImportRecordId: z.string().optional(),
@@ -61,11 +124,13 @@ export class InternationalTestAdminRouter {
     }));
 
     router.post('/', asyncHandler(async (req: Request, res: Response) => {
-      res.status(201).json(await internationalTestAdminUseCases.createTest(req.body, mutationContext(req)));
+      const parsed = rootCreateSchema.parse(req.body);
+      res.status(201).json(await internationalTestAdminUseCases.createTest(parsed as unknown as UpsertInternationalTestDto, mutationContext(req)));
     }));
 
     router.post('/upsert', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertTest(req.body, mutationContext(req)));
+      const parsed = rootCreateSchema.parse(req.body);
+      res.json(await internationalTestAdminUseCases.upsertTest(parsed as unknown as UpsertInternationalTestDto, mutationContext(req)));
     }));
 
     router.post('/:id/import-draft', asyncHandler(async (req: Request, res: Response) => {
@@ -82,11 +147,13 @@ export class InternationalTestAdminRouter {
     }));
 
     router.patch('/:id', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.updateTest(req.params.id, req.body, mutationContext(req)));
+      const parsed = rootUpdateSchema.parse(req.body);
+      res.json(await internationalTestAdminUseCases.updateTest(req.params.id, parsed as unknown as Partial<UpsertInternationalTestDto>, mutationContext(req)));
     }));
 
     router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.updateTest(req.params.id, req.body, mutationContext(req)));
+      const parsed = rootUpdateSchema.parse(req.body);
+      res.json(await internationalTestAdminUseCases.updateTest(req.params.id, parsed as unknown as Partial<UpsertInternationalTestDto>, mutationContext(req)));
     }));
 
     router.post('/:id/mark-publishable', asyncHandler(async (req: Request, res: Response) => {

@@ -85,7 +85,7 @@ function Input({ label, value, onChange, required = false }: any) {
 
 function CountriesTab() {
   const { data, loading, error, refetch } = useFetchData('/countries');
-  const [form, setForm] = useState({ iso2Code: '', iso3Code: '', name: '', region: '' });
+  const [form, setForm] = useState({ iso2Code: '', iso3Code: '', name: '', nameAr: '', region: '' });
   const [saveStatus, setSaveStatus] = useState<{loading: boolean, error?: string, success?: string}>({ loading: false });
   const [preview, setPreview] = useState<any>(null);
   const [previewStatus, setPreviewStatus] = useState<{ loading: boolean; error?: string }>({ loading: false });
@@ -122,11 +122,11 @@ function CountriesTab() {
       const res = await CsrfClientManager.getInstance().fetchWithCsrf(`${ADMIN_API_BASE}/countries/${form.iso2Code}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, region: form.region || null })
+        body: JSON.stringify({ ...form, nameAr: form.nameAr || null, region: form.region || null })
       });
       if (!res.ok) throw new Error(await res.text());
       setSaveStatus({ loading: false, success: 'Saved successfully' });
-      setForm({ iso2Code: '', iso3Code: '', name: '', region: '' });
+      setForm({ iso2Code: '', iso3Code: '', name: '', nameAr: '', region: '' });
       refetch();
     } catch (err: any) {
       setSaveStatus({ loading: false, error: err.message });
@@ -169,6 +169,7 @@ function CountriesTab() {
           <Input label="ISO2 Code" required value={form.iso2Code} onChange={(v: string) => setForm({...form, iso2Code: v})} />
           <Input label="ISO3 Code" required value={form.iso3Code} onChange={(v: string) => setForm({...form, iso3Code: v})} />
           <Input label="Name" required value={form.name} onChange={(v: string) => setForm({...form, name: v})} />
+          <Input label="Arabic Name (optional)" value={form.nameAr} onChange={(v: string) => setForm({...form, nameAr: v})} />
           <Input label="Region (optional)" value={form.region} onChange={(v: string) => setForm({...form, region: v})} />
         </div>
         <div className="flex items-center gap-4">
@@ -274,7 +275,7 @@ function DerivedReferencePreview({ kind }: { kind: 'currencies' | 'languages' })
 
 function CurrenciesTab() {
   const { data, loading, error, refetch } = useFetchData('/currencies');
-  const [form, setForm] = useState({ isoCode: '', name: '', symbol: '', numericCode: '' });
+  const [form, setForm] = useState({ isoCode: '', name: '', nameAr: '', symbol: '', numericCode: '' });
   const [saveStatus, setSaveStatus] = useState<{loading: boolean, error?: string, success?: string}>({ loading: false });
 
   const handleSave = async (e: React.FormEvent) => {
@@ -284,11 +285,11 @@ function CurrenciesTab() {
       const res = await CsrfClientManager.getInstance().fetchWithCsrf(`${ADMIN_API_BASE}/currencies/${form.isoCode}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, symbol: form.symbol || null, numericCode: form.numericCode || null })
+        body: JSON.stringify({ ...form, nameAr: form.nameAr || null, symbol: form.symbol || null, numericCode: form.numericCode || null })
       });
       if (!res.ok) throw new Error(await res.text());
       setSaveStatus({ loading: false, success: 'Saved successfully' });
-      setForm({ isoCode: '', name: '', symbol: '', numericCode: '' });
+      setForm({ isoCode: '', name: '', nameAr: '', symbol: '', numericCode: '' });
       refetch();
     } catch (err: any) {
       setSaveStatus({ loading: false, error: err.message });
@@ -303,6 +304,7 @@ function CurrenciesTab() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="ISO Code" required value={form.isoCode} onChange={(v: string) => setForm({...form, isoCode: v})} />
           <Input label="Name" required value={form.name} onChange={(v: string) => setForm({...form, name: v})} />
+          <Input label="Arabic Name (optional)" value={form.nameAr} onChange={(v: string) => setForm({...form, nameAr: v})} />
           <Input label="Symbol (optional)" value={form.symbol} onChange={(v: string) => setForm({...form, symbol: v})} />
           <Input label="Numeric Code (optional)" value={form.numericCode} onChange={(v: string) => setForm({...form, numericCode: v})} />
         </div>
@@ -346,7 +348,7 @@ function CurrenciesTab() {
 
 function LanguagesTab() {
   const { data, loading, error, refetch } = useFetchData('/languages');
-  const [form, setForm] = useState({ isoCode: '', name: '', nativeName: '', direction: 'LTR' });
+  const [form, setForm] = useState({ isoCode: '', name: '', nameAr: '', nativeName: '', direction: 'LTR' });
   const [saveStatus, setSaveStatus] = useState<{loading: boolean, error?: string, success?: string}>({ loading: false });
 
   const handleSave = async (e: React.FormEvent) => {
@@ -356,11 +358,11 @@ function LanguagesTab() {
       const res = await CsrfClientManager.getInstance().fetchWithCsrf(`${ADMIN_API_BASE}/languages/${form.isoCode}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, nativeName: form.nativeName || null })
+        body: JSON.stringify({ ...form, nameAr: form.nameAr || null, nativeName: form.nativeName || null })
       });
       if (!res.ok) throw new Error(await res.text());
       setSaveStatus({ loading: false, success: 'Saved successfully' });
-      setForm({ isoCode: '', name: '', nativeName: '', direction: 'LTR' });
+      setForm({ isoCode: '', name: '', nameAr: '', nativeName: '', direction: 'LTR' });
       refetch();
     } catch (err: any) {
       setSaveStatus({ loading: false, error: err.message });
@@ -375,6 +377,7 @@ function LanguagesTab() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="ISO Code" required value={form.isoCode} onChange={(v: string) => setForm({...form, isoCode: v})} />
           <Input label="Name" required value={form.name} onChange={(v: string) => setForm({...form, name: v})} />
+          <Input label="Arabic Name (optional)" value={form.nameAr} onChange={(v: string) => setForm({...form, nameAr: v})} />
           <Input label="Native Name (optional)" value={form.nativeName} onChange={(v: string) => setForm({...form, nativeName: v})} />
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-700">Direction *</label>
@@ -428,7 +431,7 @@ function LanguagesTab() {
 
 function CitiesTab() {
   const { data, loading, error, refetch } = useFetchData('/cities');
-  const [form, setForm] = useState({ countryIso2Code: '', name: '', region: '', timezone: '' });
+  const [form, setForm] = useState({ countryIso2Code: '', name: '', nameAr: '', region: '', timezone: '' });
   const [saveStatus, setSaveStatus] = useState<{loading: boolean, error?: string, success?: string}>({ loading: false });
 
   const handleSave = async (e: React.FormEvent) => {
@@ -438,11 +441,11 @@ function CitiesTab() {
       const res = await CsrfClientManager.getInstance().fetchWithCsrf(`${ADMIN_API_BASE}/cities`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, region: form.region || null, timezone: form.timezone || null })
+        body: JSON.stringify({ ...form, nameAr: form.nameAr || null, region: form.region || null, timezone: form.timezone || null })
       });
       if (!res.ok) throw new Error(await res.text());
       setSaveStatus({ loading: false, success: 'Saved successfully' });
-      setForm({ countryIso2Code: '', name: '', region: '', timezone: '' });
+      setForm({ countryIso2Code: '', name: '', nameAr: '', region: '', timezone: '' });
       refetch();
     } catch (err: any) {
       setSaveStatus({ loading: false, error: err.message });
@@ -456,6 +459,7 @@ function CitiesTab() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Country ISO2 Code" required value={form.countryIso2Code} onChange={(v: string) => setForm({...form, countryIso2Code: v})} />
           <Input label="Name" required value={form.name} onChange={(v: string) => setForm({...form, name: v})} />
+          <Input label="Arabic Name (optional)" value={form.nameAr} onChange={(v: string) => setForm({...form, nameAr: v})} />
           <Input label="Region (optional)" value={form.region} onChange={(v: string) => setForm({...form, region: v})} />
           <Input label="Timezone (optional)" value={form.timezone} onChange={(v: string) => setForm({...form, timezone: v})} />
         </div>

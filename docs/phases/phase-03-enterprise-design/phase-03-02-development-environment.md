@@ -73,9 +73,9 @@ The application runtime is separated into clear execution layers:
 
 To guarantee consistency across all local machines and cloud runtimes, Node.js versions are governed by the following rules:
 
-- **Version Locking**: The project standardizes on the current **Active LTS (Long Term Support)** branch of Node.js (v22.x LTS or higher).
-- **Engine Enforcement**: Package manifests must define strict `engines` requirements, blocking local package operations if the developer's Node.js version is mismatched.
-- **Version Resolution**: Developers are encouraged to utilize a local node version manager (e.g., `.nvmrc` or `.node-version`) to resolve exact version requirements automatically.
+- **Version Locking**: The repository baseline pins **Node.js 22.16.0** in `.nvmrc`; CI uses the same runtime. The root engine range is `>=22.16.0 <23` so patch/minor security upgrades within Node 22 remain possible through an explicit baseline update.
+- **Engine Enforcement**: `.npmrc` sets `engine-strict=true`; root `engines` requires Node `>=22.16.0 <23` and npm `>=10.9.0 <11`, so unsupported local package operations fail instead of warning.
+- **Version Resolution**: Developers should use `.nvmrc` (or an equivalent version manager) before dependency installation. Runtime-version changes require a reviewed root-baseline change and matching CI update.
 
 ---
 
@@ -83,18 +83,18 @@ To guarantee consistency across all local machines and cloud runtimes, Node.js v
 
 To manage dependencies inside the MANARATAK 2.0 monorepo, a single, modern package manager is enforced:
 
-- **Unified Workspace Engine**: The workspace utilizes a single, locked package manager (pnpm or Bun Workspaces) to handle resolution.
-- **Disk and Performance Efficiency**: The manager must leverage hard-linking and content-addressable storage to prevent duplicating physical packages inside node modules.
-- **Hoisting Prevention**: Hoisting is disabled. A package can only import libraries that are explicitly listed in its own dependency manifest, preventing hidden, undeclared dependency leaks.
-- **Lockfile Integrity**: The workspace lockfile acts as the absolute, single source of truth for all dependency checksums. Developers must never manually edit lockfiles.
+- **Unified Workspace Engine**: The active package manager is **npm 10.x with npm Workspaces**, matching `package-lock.json` and the root scripts. Alternative package managers are not authoritative for this baseline.
+- **Deterministic Installation**: CI and clean-room validation use `npm ci`; `package-lock.json` is the dependency checksum/source-of-truth artifact.
+- **Dependency Declaration Rule**: Workspace packages must explicitly declare external/runtime dependencies they consume; hidden dependency leakage is prohibited even when npm hoisting makes a package physically reachable.
+- **Lockfile Integrity**: Dependency changes must update `package.json` and `package-lock.json` together through npm tooling.
 
 ---
 
 ### 10. Workspace Tooling Strategy
 
-- **Task Orchestrator**: The monorepo utilizes an intelligent monorepo build orchestrator (such as Turborepo or Nx) to manage tasks.
-- **Topological Task Scheduling**: Tasks are scheduled in topological order. If Package B depends on Package A, the orchestrator compiles Package A first before building Package B.
-- **Local Caching**: Build compiles, lints, and test results are cached locally. If source files have not changed, subsequent runs must return cached results in milliseconds, maximizing productivity.
+- **Correctness Orchestrator**: Root `npm` scripts remain the authoritative full-repository correctness gates.
+- **Cached Acceleration**: Turborepo is configured through `turbo.json` for optional topological/cached task execution (`build:cached`, `test:cached`).
+- **No cache-only closure**: A remediation wave cannot be closed solely from cached/affected results; the mandatory full-repository regression gate still runs before closure.
 
 ---
 
@@ -161,7 +161,7 @@ The workspace standardizes common lifecycle commands across all applications and
 We enforce a strict, standardized code formatter across all workspace directories:
 
 - **Single Style Guide**: Enforces standard rules (e.g., single quotes, semi-colons, trailing commas, 2-space indentation).
-- **Automated Format Locking**: Code editors must be configured to format on save, and Git commit hooks must block any commit containing unformatted codes.
+- **Automated Format Discipline**: Editors should format on save. Blocking enforcement belongs to maintained CI/source gates; local Git hooks are optional and must not be documented as mandatory unless they are actually installed.
 
 ---
 
@@ -170,8 +170,8 @@ We enforce a strict, standardized code formatter across all workspace directorie
 Code syntax, structure, and architectural boundaries are validated via custom linter configurations:
 
 - **Import Restricting Rules**: Linters are configured to enforce clean architecture constraints (e.g., blocking any package inside `/packages/student/src/domain/` from importing files from `src/infrastructure/`).
-- **Acyclic Import Checks**: Linters must parse package structures and block circular dependencies immediately.
-- **Accessibility Auditing**: Frontend linters must parse JSX markup to ensure semantic elements incorporate proper accessibility parameters (e.g., alt tags, ARIA attributes).
+- **Acyclic Import Checks**: `npm run quality:source` scans workspace-package and relative-file dependency graphs and rejects every **new** circular dependency. Known pre-W0 cycles are explicitly fingerprinted in `scripts/quality/source-quality-baseline.json` and must be removed by their owning remediation wave.
+- **Accessibility Auditing**: The same source-quality gate scans TSX for baseline accessibility invariants (including image alternative text, iframe titles, and keyboard semantics for clickable non-interactive elements) and rejects new regressions. Broader browser-level accessibility remains part of later E2E/runtime validation.
 
 ---
 
@@ -194,7 +194,7 @@ A newly onboarded developer configures their workstation through a simple, stand
 [ Step 1: Bootstrap ] ---------> (Verify Node.js version vs lock limits)
          |
          v
-[ Step 2: Install ] -----------> (Run fast pnpm/bun workspace dependency lock)
+[ Step 2: Install ] -----------> (Run deterministic npm ci from package-lock.json)
          |
          v
 [ Step 3: Configure ] ---------> (Copy .env.example files to local .env)
@@ -244,7 +244,7 @@ graph TD
     %% Dev Workstation
     subgraph Workstation_Boundary [Local Workstation Environment]
         IDE[Developer IDE - VS Code / Cursor] -->|Read/Write| Files[Workspace Folder - POSIX/WSL2]
-        Files -->|Engine Lock| NodeRuntime[Node.js Active LTS Runtime]
+        Files -->|Engine Lock| NodeRuntime[Node.js 22.16.0 Baseline]
         Files -->|Command Execution| PM[Unified Package Manager]
     end
 
@@ -287,7 +287,7 @@ graph TD
 
 - **Acceptance Criterion 1 (Strict Implementation-Independence)**: This specification must not contain physical code listings, shell scripts, package installer scripts, or raw configuration file contents.
 - **Acceptance Criterion 2 (Zero Business Coupling)**: The document must focus strictly on technical environments and developer experience, containing no references to business modules or workflows.
-- **Acceptance Criterion 3 (Active LTS Compliance)**: The specification must explicitly mandate the current Node.js Active LTS as the authoritative project execution standard.
+- **Acceptance Criterion 3 (Pinned Runtime Compliance)**: The specification and active tooling must agree on the reviewed Node.js baseline (`22.16.0`) and strict engine range.
 - **Acceptance Criterion 4 (No Global Dependency Anti-Pattern)**: The blueprint must require all code analysis, building, and validation tools to reside locally inside the workspace boundary.
 
 ---

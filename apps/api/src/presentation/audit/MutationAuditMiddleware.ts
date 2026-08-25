@@ -8,7 +8,7 @@ export type MutationAuditClassification =
   | 'BEST_EFFORT_ALLOWED'
   | 'NO_AUDIT_REQUIRED';
 
-export type MutationAuditScope = 'AUTH' | 'ADMIN' | 'IDENTITY';
+export type MutationAuditScope = 'AUTH' | 'ADMIN' | 'IDENTITY' | 'CONTROL_PLANE';
 
 export class MutationAuditPolicy {
   private static readonly MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -18,6 +18,7 @@ export class MutationAuditPolicy {
     const path = req.originalUrl.split('?')[0].toLowerCase();
     if (scope === 'AUTH') return path.includes('/auth/') ? 'CRITICAL_AUDIT_REQUIRED' : 'NO_AUDIT_REQUIRED';
     if (scope === 'IDENTITY') return path.includes('/identities') ? 'CRITICAL_AUDIT_REQUIRED' : 'NO_AUDIT_REQUIRED';
+    if (scope === 'CONTROL_PLANE') return 'CRITICAL_AUDIT_REQUIRED';
     if (!path.includes('/admin/')) return 'NO_AUDIT_REQUIRED';
 
     if (path.endsWith('/preview') || path.includes('/bulk/preview') || path.endsWith('/nodes/validate') || path.endsWith('/transfer')) {

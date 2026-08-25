@@ -31,20 +31,31 @@ import {
   PublicationReadinessEngine,
   PublicationReadinessResult,
   IReferenceResolver,
-  IDegreeLevelRepository
+  IDegreeLevelRepository,
+  IAcademicTaxonomyRepository
 } from '@manaratak/domain';
 import { AtomicDomainMutationCoordinator, AtomicMutationRequestContext } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
+import { InternationalTestCanonicalRelationshipService } from './InternationalTestCanonicalRelationshipService';
 
 export class InternationalTestAdminUseCases {
+  private readonly canonicalRelationshipService: InternationalTestCanonicalRelationshipService;
+
   constructor(
     private readonly repository: IInternationalTestRepository,
     private readonly validationService: IInternationalTestValidationService = new InternationalTestValidationService(),
     private readonly publicationReadiness = new PublicationReadinessEngine(),
     private readonly publicationPolicy = new InternationalTestPublicationReadinessPolicy(validationService),
     private readonly referenceResolver?: IReferenceResolver,
-    private readonly degreeLevelRepository?: IDegreeLevelRepository,
+    degreeLevelRepository?: IDegreeLevelRepository,
     private readonly atomicMutations?: AtomicDomainMutationCoordinator,
-  ) {}
+    academicTaxonomyRepository?: IAcademicTaxonomyRepository,
+  ) {
+    this.canonicalRelationshipService = new InternationalTestCanonicalRelationshipService(
+      referenceResolver,
+      degreeLevelRepository,
+      academicTaxonomyRepository,
+    );
+  }
 
   public async list(filters: InternationalTestFilters): Promise<PaginatedInternationalTestResult<InternationalTestDto>> {
     return this.repository.list(filters);
@@ -57,8 +68,8 @@ export class InternationalTestAdminUseCases {
   }
 
   public async createTest(data: UpsertInternationalTestDto, context?: AtomicMutationRequestContext): Promise<InternationalTestDto> {
-    await this.validateCanonicalRelationships(data);
-    const report = this.validationService.validate(data);
+    const canonicalData = { ...data, ...(await this.canonicalRelationshipService.canonicalize(data)) };
+    const report = this.validationService.validate(canonicalData);
     const hasErrors = report.issues.some(i => i.severity === InternationalTestValidationSeverity.ERROR);
     if (hasErrors) {
       const errorMsg = report.issues.map(i => `${i.field}: ${i.message}`).join('; ');
@@ -66,25 +77,25 @@ export class InternationalTestAdminUseCases {
     }
     const identityData = data as UpsertInternationalTestDto & { id?: string; publicId?: unknown };
     const identity = identityData.id || (typeof identityData.publicId === 'string' ? identityData.publicId : undefined) || (typeof data.slug === 'string' ? data.slug : data.canonicalName);
-    return this.mutate('INTERNATIONAL_TEST_CREATED', identity, context, repository => repository.create(data));
+    return this.mutate('INTERNATIONAL_TEST_CREATED', identity, context, repository => repository.create(canonicalData));
   }
 
   public async updateTest(id: string, data: Partial<UpsertInternationalTestDto>, context?: AtomicMutationRequestContext): Promise<InternationalTestDto> {
-    await this.validateCanonicalRelationships(data);
+    const canonicalData = { ...data, ...(await this.canonicalRelationshipService.canonicalize(data)) };
     const existing = await this.get(id);
-    const merged = { ...existing, ...data };
+    const merged = { ...existing, ...canonicalData };
     const report = this.validationService.validate(merged);
     const hasErrors = report.issues.some(i => i.severity === InternationalTestValidationSeverity.ERROR);
     if (hasErrors) {
       const errorMsg = report.issues.map(i => `${i.field}: ${i.message}`).join('; ');
       throw new Error(`Validation failed for international test update: ${errorMsg}`);
     }
-    return this.mutate('INTERNATIONAL_TEST_UPDATED', id, context, repository => repository.update(id, data));
+    return this.mutate('INTERNATIONAL_TEST_UPDATED', id, context, repository => repository.update(id, canonicalData));
   }
 
   public async upsertTest(data: UpsertInternationalTestDto, context?: AtomicMutationRequestContext): Promise<InternationalTestDto> {
-    await this.validateCanonicalRelationships(data);
-    const report = this.validationService.validate(data);
+    const canonicalData = { ...data, ...(await this.canonicalRelationshipService.canonicalize(data)) };
+    const report = this.validationService.validate(canonicalData);
     const hasErrors = report.issues.some(i => i.severity === InternationalTestValidationSeverity.ERROR);
     if (hasErrors) {
       const errorMsg = report.issues.map(i => `${i.field}: ${i.message}`).join('; ');
@@ -94,9 +105,9 @@ export class InternationalTestAdminUseCases {
     const publicId = typeof data.publicId === 'string' ? data.publicId : undefined;
     const identity = dataWithId.id || publicId || (typeof data.slug === 'string' ? data.slug : data.canonicalName);
     return this.mutate('INTERNATIONAL_TEST_UPSERTED', identity, context, repository => {
-      if (repository.upsertTest) return repository.upsertTest(data);
-      if (dataWithId.id) return repository.update(dataWithId.id, data);
-      return repository.create(data);
+      if (repository.upsertTest) return repository.upsertTest(canonicalData);
+      if (dataWithId.id) return repository.update(dataWithId.id, canonicalData);
+      return repository.create(canonicalData);
     });
   }
 
@@ -274,31 +285,6 @@ export class InternationalTestAdminUseCases {
     return this.repository.listImportVersions(testId);
   }
 
-  private async validateCanonicalRelationships(data: Partial<UpsertInternationalTestDto>): Promise<void> {
-    const referenceLinks = [
-      ...(data.countryRelationships || []).map((link) => ({ type: 'COUNTRY' as const, link })),
-      ...(data.languageRelationships || []).map((link) => ({ type: 'LANGUAGE' as const, link }))
-    ];
-    if (referenceLinks.length > 0 && !this.referenceResolver) {
-      throw new Error('Canonical Reference resolver is not configured');
-    }
-    for (const { type, link } of referenceLinks) {
-      const resolved = type === 'COUNTRY'
-        ? await this.referenceResolver!.resolveCountry({ id: link.canonicalReferenceId })
-        : await this.referenceResolver!.resolveLanguage({ id: link.canonicalReferenceId });
-      if (!resolved?.active) throw new Error(`Active canonical ${type} not found: ${link.canonicalReferenceId}`);
-    }
-    if ((data.degreeRelationships || []).length > 0 && !this.degreeLevelRepository) {
-      throw new Error('Canonical DegreeLevel repository is not configured');
-    }
-    for (const relationship of data.degreeRelationships || []) {
-      const degree = await this.degreeLevelRepository!.getDegreeLevelById(relationship.degreeLevelId);
-      if (!degree || degree.status !== 'ACTIVE') {
-        throw new Error(`Active canonical DegreeLevel not found: ${relationship.degreeLevelId}`);
-      }
-    }
-  }
-
   private mutate<T>(action: string, id: string, context: AtomicMutationRequestContext | undefined, mutation: (repository: IInternationalTestRepository) => Promise<T>): Promise<T> {
     if (!this.atomicMutations) return mutation(this.repository);
     const repository = this.repository as Partial<ITransactionalInternationalTestRepository>;
@@ -313,16 +299,18 @@ export class InternationalTestPublicUseCases {
 
   public async listPublished(filters: Omit<InternationalTestFilters, 'status'> = {}): Promise<PaginatedInternationalTestResult<InternationalTestDto>> {
     const safeFilters = filters || {};
+    const requestedPage = typeof safeFilters.page === 'number' ? safeFilters.page : 1;
     const requestedPageSize = typeof safeFilters.pageSize === 'number' ? safeFilters.pageSize : 20;
     return this.repository.listPublished({
       ...safeFilters,
-      pageSize: Math.min(requestedPageSize, 50)
+      page: Math.max(1, Math.floor(requestedPage)),
+      pageSize: Math.min(50, Math.max(1, Math.floor(requestedPageSize)))
     });
   }
 
   public async getPublishedBySlug(slug: string): Promise<InternationalTestDto> {
-    const test = await this.repository.findBySlug(slug);
-    if (!test || test.status !== InternationalTestStatus.PUBLISHED) {
+    const test = await this.repository.findPublishedBySlug(slug);
+    if (!test) {
       throw new Error('International test not found');
     }
     return test;

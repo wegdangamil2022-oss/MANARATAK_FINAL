@@ -9,12 +9,14 @@ export interface ReferenceLookup {
   normalizedAlias?: string;
 }
 
+export type ReferenceResolutionMethod = 'EXACT_ID' | 'EXACT_STANDARD_CODE' | 'PROVIDER_MAPPING' | 'NORMALIZED_ALIAS';
+
 export interface CanonicalReference {
   id: string;
   type: CanonicalReferenceType;
   standardCode?: string;
   active: boolean | null;
-  resolutionMethod?: 'EXACT_ID' | 'EXACT_STANDARD_CODE' | 'PROVIDER_MAPPING' | 'NORMALIZED_ALIAS';
+  resolutionMethod?: ReferenceResolutionMethod;
 }
 
 export interface IReferenceResolver {

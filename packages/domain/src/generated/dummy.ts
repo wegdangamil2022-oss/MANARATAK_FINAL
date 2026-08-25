@@ -75,7 +75,6 @@ export class TimeSpan { constructor(..._args: any[]) {} [key: string]: any; stat
 export class Organization { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class OrganizationTypeDefinition { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export enum OrganizationStatus { DUMMY = 'DUMMY', Active = 'Active' }
-export class HierarchyValidationService { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class IOrganizationTypeProvider { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class IMembershipSpecification { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class IOrganizationSpecification { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
