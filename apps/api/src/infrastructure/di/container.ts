@@ -126,6 +126,7 @@ import {
   PublicUniversityUseCases,
   AdminMajorUseCases,
   MajorImportPromotionUseCase,
+  CanonicalMajorReferenceService,
   MajorImportStagingUseCase,
   FellowshipImportPromotionUseCase,
   PublicMajorUseCases,
@@ -8210,6 +8211,8 @@ export function registerDependencies(
     importRepository: asFunction(({ prisma }) => new PrismaImportRepository(prisma)).singleton(),
     academicTaxonomyRepository: asFunction(({ prisma }) => new PrismaAcademicTaxonomyRepository(prisma)).singleton(),
     degreeLevelRepository: asFunction(({ prisma }) => new DegreeLevelRepository(prisma)).singleton(),
+    canonicalMajorReferenceService: asFunction(({ academicTaxonomyRepository, degreeLevelRepository }) =>
+      new CanonicalMajorReferenceService(academicTaxonomyRepository, degreeLevelRepository)).scoped(),
     degreeLevelUseCases: asFunction(({ degreeLevelRepository }) => new DegreeLevelUseCases(degreeLevelRepository)).scoped(),
     importHandoffDispatcher: asFunction(({ scholarshipImportHandoffConsumer }) => new ImportHandoffDispatcher({
       SCHOLARSHIPS: scholarshipImportHandoffConsumer,
@@ -8344,10 +8347,10 @@ export function registerDependencies(
     adminUniversityUseCases: asFunction(({ universityRepository, atomicDomainMutationCoordinator }) =>
       new AdminUniversityUseCases(universityRepository, atomicDomainMutationCoordinator)).scoped(),
     publicUniversityUseCases: asFunction(({ universityRepository }) => new PublicUniversityUseCases(universityRepository)).scoped(),
-    adminMajorUseCases: asFunction(({ majorRepository, phase10CatalogRepository, atomicDomainMutationCoordinator }) =>
-      new AdminMajorUseCases(majorRepository, phase10CatalogRepository, undefined, undefined, atomicDomainMutationCoordinator)).scoped(),
-    majorImportPromotionUseCase: asFunction(({ majorRepository, atomicDomainMutationCoordinator }) =>
-      new MajorImportPromotionUseCase(majorRepository, undefined, atomicDomainMutationCoordinator)).scoped(),
+    adminMajorUseCases: asFunction(({ majorRepository, phase10CatalogRepository, atomicDomainMutationCoordinator, canonicalMajorReferenceService }) =>
+      new AdminMajorUseCases(majorRepository, phase10CatalogRepository, undefined, undefined, atomicDomainMutationCoordinator, canonicalMajorReferenceService)).scoped(),
+    majorImportPromotionUseCase: asFunction(({ majorRepository, atomicDomainMutationCoordinator, canonicalMajorReferenceService }) =>
+      new MajorImportPromotionUseCase(majorRepository, undefined, atomicDomainMutationCoordinator, canonicalMajorReferenceService)).scoped(),
     fellowshipImportPromotionUseCase: asFunction(({ fellowshipDefinitionRepository }) => new FellowshipImportPromotionUseCase(fellowshipDefinitionRepository)).scoped(),
     publicMajorUseCases: asFunction(({ majorRepository }) => new PublicMajorUseCases(majorRepository)).scoped(),
     adminCourseUseCases: asFunction(({ courseRepository }) => new AdminCourseUseCases(courseRepository)).scoped(),

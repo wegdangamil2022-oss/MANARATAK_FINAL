@@ -502,4 +502,37 @@ describe('MajorImportPromotionUseCase', () => {
       }),
     ]);
   });
+
+  it('allocates from the highest version even when repository results are unsorted', async () => {
+    const repo = createMockRepo();
+    repo.findByDedupKey = vi.fn().mockResolvedValue({ id: 'major-1' });
+    repo.acquireVersionAllocationLock = vi.fn().mockResolvedValue(undefined);
+    repo.listVersions = vi.fn().mockResolvedValue([
+      { id: 'version-8', versionNumber: 8, status: 'NEEDS_REVIEW' },
+      { id: 'version-2', versionNumber: 2, status: 'NEEDS_REVIEW' },
+      { id: 'version-5', versionNumber: 5, status: 'NEEDS_REVIEW' },
+    ]);
+    const result = await new MajorImportPromotionUseCase(repo).promote(createRecord(ImportRecordStatus.NEEDS_REVIEW, {
+      canonicalMajorName: 'Computer Science',
+      degreeLevel: 'Bachelor',
+      classificationCode: 'MJR-0100',
+    }));
+    expect(result).toEqual({ type: 'VERSION_CREATED', existingId: 'major-1', versionNumber: 9 });
+    expect(repo.acquireVersionAllocationLock).toHaveBeenCalledWith('major-1');
+    expect(repo.createVersion).toHaveBeenCalledWith(expect.objectContaining({ versionNumber: 9 }));
+  });
+
+  it('treats the persisted import record as source identity for completeness', async () => {
+    const repo = createMockRepo();
+    await new MajorImportPromotionUseCase(repo).promote(createRecord(ImportRecordStatus.VALID, {
+      canonicalMajorName: 'Computer Science',
+      degreeLevel: 'Bachelor',
+      degreeLevelId: 'degree-bachelor',
+      academicFieldId: 'taxonomy-computing',
+    }));
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({
+      sourceImportRecordId: 'rec-1',
+      completenessStatus: MajorImportCompletenessState.COMPLETE,
+    }));
+  });
 });

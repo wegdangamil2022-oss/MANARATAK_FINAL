@@ -12,6 +12,7 @@ import {
   MajorImportCompletenessState,
   MajorLevel,
   MajorLevelProfileDto,
+  MajorVersionDto,
   MajorImportPayload,
   MajorImportPayloadSchema,
   MajorNamingService,
@@ -24,6 +25,7 @@ import {
   TaxonomyResolutionOutcome,
 } from '../services/AcademicTaxonomyResolver';
 import { AtomicDomainMutationCoordinator } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
+import { CanonicalMajorReferenceService } from '../services/CanonicalMajorReferenceService';
 
 export type MajorPromotionResult =
   | { type: 'CREATED'; majorId: string }
@@ -37,6 +39,7 @@ export class MajorImportPromotionUseCase {
     private readonly repository: IMajorRepository,
     private readonly taxonomyResolver: AcademicTaxonomyResolver = new AcademicTaxonomyResolver(),
     private readonly atomicMutations?: AtomicDomainMutationCoordinator,
+    private readonly canonicalReferences?: CanonicalMajorReferenceService,
   ) {}
 
   public async promote(record: ImportRecordDto): Promise<MajorPromotionResult> {
@@ -59,6 +62,8 @@ export class MajorImportPromotionUseCase {
             const result = await new MajorImportPromotionUseCase(
               transactional.withTransaction!(transaction),
               this.taxonomyResolver,
+              undefined,
+              this.canonicalReferences,
             ).promote(record);
             if (result.type === 'FAILED') throw new Error(result.error);
             if (result.type === 'REJECTED' || result.type === 'DUPLICATE') {
@@ -95,13 +100,13 @@ export class MajorImportPromotionUseCase {
       }
 
       const payload = validationResult.data;
-      let classification = MajorCompletenessClassifier.classify(payload);
+      let classification = MajorCompletenessClassifier.classify({ ...payload, sourceImportRecordId: record.id });
       if (classification.state === MajorImportCompletenessState.INCOMPLETE) {
         return { type: 'REJECTED', reason: 'Record classified as INCOMPLETE' };
       }
 
       // Resolve taxonomy
-      const taxonomyRes = this.taxonomyResolver.resolve(payload);
+      const taxonomyRes = await this.resolveTaxonomy(payload);
       if (taxonomyRes.outcome === TaxonomyResolutionOutcome.EXACT_MATCH) {
         if (!payload.academicFieldId && taxonomyRes.academicFieldId) {
           payload.academicFieldId = taxonomyRes.academicFieldId;
@@ -110,7 +115,7 @@ export class MajorImportPromotionUseCase {
           payload.disciplineId = taxonomyRes.disciplineId;
         }
       }
-      classification = MajorCompletenessClassifier.classify(payload);
+      classification = MajorCompletenessClassifier.classify({ ...payload, sourceImportRecordId: record.id });
 
       const canonicalName = MajorNamingService.normalize(payload.canonicalMajorName);
       const dedupKey = MajorDeduplicationService.generateKey(payload);
@@ -164,7 +169,7 @@ export class MajorImportPromotionUseCase {
         },
       });
 
-      const profile = await this.ensureLevelProfile(created.id, payload);
+      const profile = await this.ensureLevelProfile(created.id, payload, record.id);
       let sourceId: string | undefined;
 
       if (this.repository.createSource) {
@@ -237,14 +242,16 @@ export class MajorImportPromotionUseCase {
     rawPayload: unknown,
     payload: MajorImportPayload,
   ): Promise<number> {
-    const profile = await this.ensureLevelProfile(majorId, payload);
+    const profile = await this.ensureLevelProfile(majorId, payload, record.id);
+    await this.repository.acquireVersionAllocationLock?.(majorId);
     const existingVersions = this.repository.listVersions
       ? await this.repository.listVersions(majorId)
       : [];
-    const previousVersion = existingVersions[existingVersions.length - 1];
-    const versionNumber = previousVersion
-      ? (previousVersion.versionNumber || 0) + 1
-      : existingVersions.length + 1;
+    const previousVersion = existingVersions.reduce<MajorVersionDto | undefined>(
+      (latest, candidate) => !latest || candidate.versionNumber > latest.versionNumber ? candidate : latest,
+      undefined,
+    );
+    const versionNumber = (previousVersion?.versionNumber ?? 0) + 1;
     const previousRawPayload = previousVersion?.rawContentBlocks;
     const promotionResult = existingVersions.length === 0 ? 'CREATED' : 'VERSION_CREATED';
 
@@ -356,6 +363,7 @@ export class MajorImportPromotionUseCase {
   private async ensureLevelProfile(
     majorId: string,
     payload: MajorImportPayload,
+    sourceImportRecordId?: string,
   ): Promise<MajorLevelProfileDto | undefined> {
     const level = this.normalizeLevel(payload.degreeLevel);
     if (!level || !this.repository.createLevelProfile) {
@@ -370,8 +378,8 @@ export class MajorImportPromotionUseCase {
       }
     }
 
-    const classification = MajorCompletenessClassifier.classify(payload);
-    const taxonomyRes = this.taxonomyResolver.resolve(payload);
+    const classification = MajorCompletenessClassifier.classify({ ...payload, sourceImportRecordId });
+    const taxonomyRes = await this.resolveTaxonomy(payload);
 
     return this.repository.createLevelProfile({
       majorId,
@@ -458,7 +466,7 @@ export class MajorImportPromotionUseCase {
       return;
     }
 
-    const taxonomyRes = this.taxonomyResolver.resolve(payload);
+    const taxonomyRes = await this.resolveTaxonomy(payload);
     const mappings: Array<Omit<MajorClassificationMappingDto, 'id'>> = [];
 
     if (taxonomyRes.outcome === TaxonomyResolutionOutcome.EXACT_MATCH) {
@@ -510,6 +518,12 @@ export class MajorImportPromotionUseCase {
     if (mappings.length > 0) {
       await this.repository.createClassificationMappings(mappings);
     }
+  }
+
+  private resolveTaxonomy(payload: MajorImportPayload) {
+    return this.canonicalReferences
+      ? this.canonicalReferences.resolve(payload)
+      : Promise.resolve(this.taxonomyResolver.resolve(payload));
   }
 
   private async attachContentSections(

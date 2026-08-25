@@ -576,7 +576,7 @@ Translates the import boundaries and deduplication rules from Part A into operat
 
 2. **Canonical Normalization & Identity:**
    - The handler normalizes `canonicalMajorName` by stripping generic platform suffixes, extra spaces, punctuation clutter, and emojis, preserving meaningful academic words.
-   - It constructs the deduplication composite key (`canonicalMajorName + academicFieldOrDiscipline + degreeLevel + sourceClassificationSystem`).
+   - It constructs the root-Major concept key from normalized `canonicalMajorName + academicFieldOrDiscipline + cross-listing context`. Degree level, classification code and source system are profile/provenance identity, not root-Major identity. Do not rewrite persisted keys without the Google Studio read-only reconciliation gate.
    - It maps degree levels and academic classifications by referencing read-models from Phase 08.
 
 3. **Deduplication & Enrichment Merge:**

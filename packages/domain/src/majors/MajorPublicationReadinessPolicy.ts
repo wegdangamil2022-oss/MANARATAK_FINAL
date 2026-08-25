@@ -4,6 +4,7 @@ import {
 } from '../publication-readiness/PublicationReadiness';
 import { MajorDto } from './majors';
 import { MajorImportCompletenessState, MajorStatus } from './enums';
+import { hasMajorSourceIdentity } from './majors';
 
 export class MajorPublicationReadinessPolicy implements PublicationReadinessPolicy<MajorDto> {
   public readonly domain = 'MAJORS';
@@ -30,11 +31,7 @@ export class MajorPublicationReadinessPolicy implements PublicationReadinessPoli
       );
       return profileTaxonomy || rootMappingForProfile;
     }));
-    const hasSourceIdentity = Boolean(
-      entity.sourceImportRecordId ||
-      entity.officialSourceUrl ||
-      entity.sources?.some(source => source.sourceName)
-    );
+    const hasSourceIdentity = hasMajorSourceIdentity(entity);
 
     if (entity.status !== MajorStatus.READY_TO_PUBLISH) {
       blockingIssues.push({ code: 'MAJOR_INVALID_PUBLICATION_STATUS', message: 'Major must be READY_TO_PUBLISH', field: 'status' });

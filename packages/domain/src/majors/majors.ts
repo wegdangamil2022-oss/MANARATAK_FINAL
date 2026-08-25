@@ -207,6 +207,23 @@ export interface MajorDto {
   updatedAt?: Date;
 }
 
+export interface MajorSourceIdentityInput {
+  sourceImportRecordId?: string | null;
+  sourceUrl?: string | null;
+  officialSourceUrl?: string | null;
+  sources?: Array<Pick<MajorSourceDto, 'sourceName' | 'sourceUri'>>;
+}
+
+/** The single source-identity predicate used by import completeness and publication. */
+export function hasMajorSourceIdentity(input: MajorSourceIdentityInput): boolean {
+  return Boolean(
+    input.sourceImportRecordId?.trim() ||
+    input.officialSourceUrl?.trim() ||
+    input.sourceUrl?.trim() ||
+    input.sources?.some(source => source.sourceName?.trim() || source.sourceUri?.trim())
+  );
+}
+
 export type MajorSourceIdentityPrefix = 'MJR' | 'MAS' | 'DOC' | 'FEL';
 
 export function resolveMajorSourceIdentity(
@@ -440,6 +457,8 @@ export interface IMajorRepository {
   list(filters: MajorFilters): Promise<PaginatedMajorResult<MajorDto>>;
   listPublished(filters: PublicMajorFilters): Promise<PaginatedMajorResult<MajorDto>>;
   createVersion?(data: Omit<MajorVersionDto, 'id' | 'createdAt' | 'updatedAt'>): Promise<MajorVersionDto>;
+  /** Serializes version-number allocation for one Major inside the active transaction. */
+  acquireVersionAllocationLock?(majorId: string): Promise<void>;
   listVersions?(majorId: string): Promise<MajorVersionDto[]>;
   createLevelProfile?(data: Omit<MajorLevelProfileDto, 'id' | 'createdAt' | 'updatedAt'>): Promise<MajorLevelProfileDto>;
   findLevelProfile?(majorId: string, level: MajorLevel, code?: string): Promise<MajorLevelProfileDto | null>;
@@ -477,6 +496,7 @@ export const MajorImportPayloadSchema = z.object({
   classificationCode: z.string().optional(),
   sourceUrl: z.union([z.string().url(), z.literal('')]).optional(),
   officialSourceUrl: z.union([z.string().url(), z.literal('')]).optional(),
+  sourceImportRecordId: z.string().min(1).optional(),
   facultyName: z.string().optional(),
   description: z.string().optional(),
   localizedNames: z.record(z.string(), z.string()).optional(),
@@ -508,7 +528,7 @@ export class MajorCompletenessClassifier {
     const reviewFields: string[] = [];
     if (!payload.degreeLevelId) reviewFields.push('degreeLevelId');
     if (!payload.academicFieldId && !payload.disciplineId) reviewFields.push('GAP_TAXONOMY_TRUE');
-    if (!payload.officialSourceUrl && !payload.sourceUrl) reviewFields.push('sourceIdentity');
+    if (!hasMajorSourceIdentity(payload)) reviewFields.push('sourceIdentity');
     if (payload.criticalUnresolvedMappings?.length) reviewFields.push('criticalUnresolvedMappings');
 
     if (reviewFields.length > 0) {

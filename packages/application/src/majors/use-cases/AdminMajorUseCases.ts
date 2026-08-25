@@ -17,10 +17,12 @@ import {
   PaginatedMajorResult,
   PublicationReadinessEngine,
   PublicationReadinessResult,
+  PublicationReadinessError,
   TaxonomyMappedMajorDto,
   UpdateMajorDto
 } from '@manaratak/domain';
 import { AtomicDomainMutationCoordinator, AtomicMutationRequestContext } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
+import { CanonicalMajorReferenceService } from '../services/CanonicalMajorReferenceService';
 
 export class AdminMajorUseCases {
   constructor(
@@ -29,6 +31,7 @@ export class AdminMajorUseCases {
     private readonly publicationReadiness = new PublicationReadinessEngine(),
     private readonly publicationPolicy = new MajorPublicationReadinessPolicy(),
     private readonly atomicMutations?: AtomicDomainMutationCoordinator,
+    private readonly canonicalReferences?: CanonicalMajorReferenceService,
   ) {}
 
   public async listMajors(filters: MajorFilters & { catalog?: string }): Promise<PaginatedMajorResult<any>> {
@@ -121,6 +124,8 @@ export class AdminMajorUseCases {
       collegeOrFaculty: updates.collegeOrFaculty !== undefined ? updates.collegeOrFaculty || undefined : existing.collegeOrFaculty,
       sourceUrl: updates.sourceUrl !== undefined ? updates.sourceUrl || undefined : existing.sourceUrl || undefined,
       officialSourceUrl: updates.officialSourceUrl !== undefined ? updates.officialSourceUrl || undefined : existing.officialSourceUrl || undefined,
+      sourceImportRecordId: existing.sourceImportRecordId,
+      sources: existing.sources,
       academicFieldId: updates.academicFieldId !== undefined ? updates.academicFieldId || undefined : existing.academicFieldId || undefined,
       disciplineId: updates.disciplineId !== undefined ? updates.disciplineId || undefined : existing.disciplineId || undefined,
     };
@@ -145,22 +150,18 @@ export class AdminMajorUseCases {
 
   public async markReadyToPublish(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getMajor(id);
-    this.publicationReadiness.assertReady(
-      id,
-      { ...existing, status: MajorStatus.READY_TO_PUBLISH },
-      this.publicationPolicy
-    );
+    await this.assertPublicationReady(id, { ...existing, status: MajorStatus.READY_TO_PUBLISH });
     await this.mutate('MAJOR_MARKED_READY_TO_PUBLISH', id, context, repository => repository.updateStatus(id, MajorStatus.READY_TO_PUBLISH));
   }
 
   public async checkPublicationReadiness(id: string): Promise<PublicationReadinessResult> {
     const existing = await this.getMajor(id);
-    return this.publicationReadiness.evaluate(id, existing, this.publicationPolicy);
+    return this.evaluatePublicationReadiness(id, existing);
   }
 
   public async publish(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getMajor(id);
-    this.publicationReadiness.assertReady(id, existing, this.publicationPolicy);
+    await this.assertPublicationReady(id, existing);
     await this.mutate('MAJOR_PUBLISHED', id, context, repository => repository.updateStatus(id, MajorStatus.PUBLISHED));
   }
 
@@ -190,5 +191,21 @@ export class AdminMajorUseCases {
     if (!repository.withTransaction) throw new Error('MAJOR_TRANSACTIONAL_PERSISTENCE_REQUIRED');
     return this.atomicMutations.execute({ domain: 'MAJORS', aggregateType: 'MAJOR', aggregateId: id, action, context },
       transaction => mutation(repository.withTransaction!(transaction)));
+  }
+
+  private async evaluatePublicationReadiness(id: string, major: MajorDto): Promise<PublicationReadinessResult> {
+    const result = this.publicationReadiness.evaluate(id, major, this.publicationPolicy);
+    if (!this.canonicalReferences) return result;
+    const canonicalIssues = await this.canonicalReferences.publicationIssues(major);
+    return {
+      ...result,
+      ready: result.ready && canonicalIssues.length === 0,
+      blockingIssues: [...result.blockingIssues, ...canonicalIssues],
+    };
+  }
+
+  private async assertPublicationReady(id: string, major: MajorDto): Promise<void> {
+    const result = await this.evaluatePublicationReadiness(id, major);
+    if (!result.ready) throw new PublicationReadinessError(result);
   }
 }

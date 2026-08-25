@@ -289,6 +289,10 @@ export class PrismaMajorRepository implements ITransactionalMajorRepository {
     return this.mapVersionToDto(record);
   }
 
+  async acquireVersionAllocationLock(majorId: string): Promise<void> {
+    await this.prisma.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${majorId}, 0))`;
+  }
+
   async listVersions(idOrProfileId: string): Promise<MajorVersionDto[]> {
     const majorId = await this.resolveMajorId(idOrProfileId);
     const records = await this.prisma.majorVersion.findMany({

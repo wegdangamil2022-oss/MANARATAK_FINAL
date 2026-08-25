@@ -228,7 +228,7 @@ Support optional enrichment fields including:
 **Canonical Identity and Deduplication**
 - Normalize major names by removing marketing noise, duplicate spacing, punctuation clutter, emojis, source platform suffixes, and non-academic decorations.
 - Do not remove meaningful academic words from the major name.
-- Detect duplicates using a deterministic composite key: `canonicalMajorName + academicFieldOrDiscipline + degreeLevel + sourceClassificationSystem`.
+- Detect root-Major duplicates using the stable concept key: normalized `canonicalMajorName + academicFieldOrDiscipline + cross-listing context`. Degree level and source classification system belong to `MajorLevelProfile`/source provenance and must not split the canonical root identity. Existing keys require read-only collision analysis before any identity migration.
 - If the same major is imported from another source, do not create a duplicate record.
 - Merge only missing optional fields into the existing record.
 - Prefer official classification and university source data over aggregator data.
