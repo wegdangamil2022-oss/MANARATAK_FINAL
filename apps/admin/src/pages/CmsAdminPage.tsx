@@ -290,7 +290,6 @@ export function CmsAdminPage() {
           seoMetadata: {
             title: currentEditor.seoTitle.trim(),
             description: currentEditor.seoDescription.trim(),
-            canonicalUrl: currentEditor.canonicalUrl.trim() || null,
             keywords: splitValues(currentEditor.keywords),
             noIndex: currentEditor.noIndex,
             noFollow: currentEditor.noFollow,
@@ -684,12 +683,9 @@ export function CmsAdminPage() {
                         rows={3}
                         required
                       />
-                      <Field
-                        label="Canonical URL (اختياري)"
-                        dir="ltr"
-                        value={currentEditor.canonicalUrl}
-                        onChange={(v) => updateEditor({ canonicalUrl: v })}
-                      />
+                      <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+                        Canonical URL يُولَّد تلقائيًا من نوع المحتوى واللغة والـslug ولا يمكن للناشر استبداله يدويًا.
+                      </p>
                       <Field
                         label="الكلمات المفتاحية"
                         value={currentEditor.keywords}

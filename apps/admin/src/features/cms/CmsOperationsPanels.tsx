@@ -58,12 +58,12 @@ export function CmsOperationsPanels({ contents }: { contents: ContentSummary[] }
 
   const saveNavigation = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); const form = new FormData(event.currentTarget);
-    void submit(() => adminApiClient.request('/admin/cms/navigation', { method: 'PUT', body: JSON.stringify({ siteIdentifier: 'manaratak', locale: 'ar', locationKey: form.get('locationKey'), status: 'DRAFT', nodes: [{ displayText: form.get('displayText'), targetType: 'CMS_CONTENT', targetValue: form.get('targetValue'), sortOrder: 0, openInNewWindow: false }] }) }), 'تم حفظ قائمة التنقل كمسودة.');
+    void submit(() => adminApiClient.request('/admin/cms/navigation', { method: 'PUT', body: JSON.stringify({ siteIdentifier: 'manaratak', locale: 'ar', locationKey: form.get('locationKey'), nodes: [{ displayText: form.get('displayText'), targetType: 'CMS_CONTENT', targetValue: form.get('targetValue'), sortOrder: 0, openInNewWindow: false }] }) }), 'تم حفظ قائمة التنقل كمسودة.');
   };
 
   const createSchema = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); const form = new FormData(event.currentTarget);
-    void submit(() => adminApiClient.request('/admin/cms/block-schemas', { method: 'POST', body: JSON.stringify({ key: form.get('key'), version: 1, nameAr: form.get('nameAr'), nameEn: form.get('nameEn'), fieldSchema: { title: { type: 'string', required: true } }, localizedFields: ['title'], assetFields: [], status: 'ACTIVE' }) }), 'تم إنشاء مخطط الكتلة.');
+    void submit(() => adminApiClient.request('/admin/cms/block-schemas', { method: 'POST', body: JSON.stringify({ key: form.get('key'), version: 1, nameAr: form.get('nameAr'), nameEn: form.get('nameEn'), fieldSchema: { type: 'object', required: ['title'], properties: { title: { type: 'string', minLength: 1 } }, additionalProperties: false }, localizedFields: ['title'], assetFields: [], status: 'ACTIVE' }) }), 'تم إنشاء مخطط الكتلة.');
   };
 
   const createBlock = (event: FormEvent<HTMLFormElement>) => {
@@ -73,7 +73,7 @@ export function CmsOperationsPanels({ contents }: { contents: ContentSummary[] }
 
   const createAnnouncement = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); const form = new FormData(event.currentTarget);
-    void submit(() => adminApiClient.request('/admin/cms/announcements', { method: 'PUT', body: JSON.stringify({ siteIdentifier: 'manaratak', locale: 'ar', title: form.get('title'), body: form.get('body'), urgency: form.get('urgency'), startsAt: new Date().toISOString(), status: 'DRAFT' }) }), 'تم حفظ الإعلان كمسودة؛ لا يوجد نشر تلقائي.');
+    void submit(() => adminApiClient.request('/admin/cms/announcements', { method: 'PUT', body: JSON.stringify({ siteIdentifier: 'manaratak', locale: 'ar', title: form.get('title'), body: form.get('body'), urgency: form.get('urgency'), startsAt: new Date().toISOString() }) }), 'تم حفظ الإعلان كمسودة؛ لا يوجد نشر تلقائي.');
   };
 
   const reviewQueue = contents.filter((item) => item.status === 'IN_REVIEW' || item.status === 'READY_TO_PUBLISH');

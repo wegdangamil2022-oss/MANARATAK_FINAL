@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Prisma CMS delegates are generated after the source-only migration is accepted by runtime. */
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
 import {
   CmsCategoryDto,
@@ -273,14 +273,8 @@ export class PrismaCmsRepository implements ICmsRepository {
           });
         }
       }
-      await tx.cmsContentNode.update({
-        where: { id: content.id },
-        data: {
-          ...(data.locale === content.primaryLocale
-            ? { title: data.title, summary: data.summary, status: CmsContentStatus.DRAFT }
-            : {}),
-          version: { increment: 1 },
-        },
+      await this.syncRootLifecycle(tx, content.id, {
+        ...(data.locale === content.primaryLocale ? { title: data.title, summary: data.summary } : {}),
       });
       await this.appendMutation(tx, content, row.id, 'LOCALIZATION_SAVED', data.actorId, {
         locale: data.locale,
@@ -338,10 +332,7 @@ export class PrismaCmsRepository implements ICmsRepository {
         where: { id: localized.id },
         data: { state: CmsContentStatus.READY_TO_PUBLISH, version: { increment: 1 } },
       });
-      await tx.cmsContentNode.update({
-        where: { id: content.id },
-        data: { status: CmsContentStatus.READY_TO_PUBLISH, version: { increment: 1 } },
-      });
+      await this.syncRootLifecycle(tx, content.id);
       await this.appendMutation(tx, content, localized.id, 'REVIEW_APPROVED', command.actorId, {
         locale: command.locale,
         reviewId: review.id,
@@ -373,10 +364,7 @@ export class PrismaCmsRepository implements ICmsRepository {
         where: { id: localized.id },
         data: { state: CmsContentStatus.DRAFT, version: { increment: 1 } },
       });
-      await tx.cmsContentNode.update({
-        where: { id: content.id },
-        data: { status: CmsContentStatus.DRAFT, version: { increment: 1 } },
-      });
+      await this.syncRootLifecycle(tx, content.id);
       await this.appendMutation(tx, content, localized.id, 'REVIEW_REJECTED', command.actorId, {
         locale: command.locale,
         reason: command.comments,
@@ -398,7 +386,7 @@ export class PrismaCmsRepository implements ICmsRepository {
       CmsPublishingPolicy.assertTransition(localized.state, CmsContentStatus.DRAFT);
       await tx.cmsScheduledJob.updateMany({ where: { localizedContentId: localized.id, status: 'PENDING' }, data: { status: 'CANCELLED', completedAt: new Date() } });
       const row = await tx.cmsLocalizedContent.update({ where: { id: localized.id }, data: { state: CmsContentStatus.DRAFT, scheduledAt: null, version: { increment: 1 } } });
-      await tx.cmsContentNode.update({ where: { id: content.id }, data: { status: CmsContentStatus.DRAFT, scheduledAt: null, version: { increment: 1 } } });
+      await this.syncRootLifecycle(tx, content.id);
       await this.appendMutation(tx, content, localized.id, 'SCHEDULE_CANCELLED', command.actorId, { locale: command.locale });
       return this.localized(row);
     });
@@ -432,6 +420,7 @@ export class PrismaCmsRepository implements ICmsRepository {
         full.title,
         full.summary,
         full.locale,
+        content.contentType,
         full.localizedSlug,
       );
       const now = new Date();
@@ -493,16 +482,7 @@ export class PrismaCmsRepository implements ICmsRepository {
           version: { increment: 1 },
         },
       });
-      await tx.cmsContentNode.update({
-        where: { id: content.id },
-        data: {
-          status: CmsContentStatus.PUBLISHED,
-          publishedAt: now,
-          scheduledAt: null,
-          archivedAt: null,
-          version: { increment: 1 },
-        },
-      });
+      await this.syncRootLifecycle(tx, content.id);
       await this.appendMutation(tx, content, full.id, 'CONTENT_PUBLISHED', command.actorId, {
         locale: command.locale,
         versionNumber: full.version,
@@ -525,10 +505,7 @@ export class PrismaCmsRepository implements ICmsRepository {
         where: { id: localized.id },
         data: { state: CmsContentStatus.ARCHIVED, version: { increment: 1 } },
       });
-      await tx.cmsContentNode.update({
-        where: { id: content.id },
-        data: { status: CmsContentStatus.ARCHIVED, archivedAt: now, version: { increment: 1 } },
-      });
+      await this.syncRootLifecycle(tx, content.id);
       await this.appendMutation(tx, content, localized.id, 'CONTENT_ARCHIVED', command.actorId, {
         locale: command.locale,
       });
@@ -579,6 +556,7 @@ export class PrismaCmsRepository implements ICmsRepository {
         },
       });
       const content = await this.requireContent(tx, data.contentId);
+      await this.syncRootLifecycle(tx, content.id);
       await this.appendMutation(tx, content, localized.id, 'REVISION_RESTORED', data.actorId, {
         locale: data.locale,
         revisionId: revision.id,
@@ -650,6 +628,7 @@ export class PrismaCmsRepository implements ICmsRepository {
       ...(filters.contentType ? { contentType: filters.contentType } : {}),
       ...(filters.categorySlug ? { categorySlug: filters.categorySlug } : {}),
       ...(filters.siteIdentifier ? { siteIdentifier: filters.siteIdentifier } : {}),
+      ...(tag ? { tags: { array_contains: [{ normalizedValue: tag }] } } : {}),
       ...(q
         ? {
             OR: [
@@ -669,20 +648,13 @@ export class PrismaCmsRepository implements ICmsRepository {
       }),
       this.db.cmsPublishedContent.count({ where }),
     ]);
-    const filtered = tag
-      ? rows.filter((row: any) =>
-          (Array.isArray(row.tags) ? row.tags : []).some(
-            (entry: any) => entry.normalizedValue === tag,
-          ),
-        )
-      : rows;
-    const locales = await this.availableLocales(filtered.map((row: any) => row.contentId));
+    const locales = await this.availableLocales(rows.map((row: any) => row.contentId));
     return {
-      data: filtered.map((row: any) => this.publicContent(row, locales.get(row.contentId) ?? [])),
-      total: tag ? filtered.length : total,
+      data: rows.map((row: any) => this.publicContent(row, locales.get(row.contentId) ?? [])),
+      total,
       page,
       pageSize,
-      totalPages: Math.ceil((tag ? filtered.length : total) / pageSize),
+      totalPages: Math.ceil(total / pageSize),
     };
   }
 
@@ -720,13 +692,13 @@ export class PrismaCmsRepository implements ICmsRepository {
       if (!localized) throw new Error('CMS_LOCALIZATION_NOT_FOUND');
       this.assertVersion(localized.version, data.expectedVersion);
       if (localized.localizedSlug === data.newSlug) return this.localized(localized);
-      const sourcePath = `/${data.locale}/articles/${localized.localizedSlug}`;
-      const destinationPath = `/${data.locale}/articles/${data.newSlug}`;
+      const sourcePath = CmsPublishingPolicy.canonicalPath(data.locale, content.contentType, localized.localizedSlug);
+      const destinationPath = CmsPublishingPolicy.canonicalPath(data.locale, content.contentType, data.newSlug);
       CmsPublishingPolicy.assertRedirect(sourcePath, destinationPath);
-      const reverse = await tx.cmsRedirect.findFirst({ where: { siteIdentifier: content.siteIdentifier, locale: data.locale, sourcePath: destinationPath, destinationPath: sourcePath, active: true } });
-      if (reverse) throw new Error('CMS_REDIRECT_LOOP');
+      await this.assertRedirectGraphSafe(tx, content.siteIdentifier, data.locale, sourcePath, destinationPath);
       await this.captureRevision(tx, localized, data.actorId, 'BEFORE_SLUG_CHANGE');
       const row = await tx.cmsLocalizedContent.update({ where: { id: localized.id }, data: { localizedSlug: data.newSlug, state: CmsContentStatus.DRAFT, lastModifiedBy: data.actorId, version: { increment: 1 } } });
+      await this.syncRootLifecycle(tx, content.id);
       await tx.cmsRedirect.upsert({
         where: { siteIdentifier_locale_sourcePath: { siteIdentifier: content.siteIdentifier, locale: data.locale, sourcePath } },
         create: { id: randomUUID(), siteIdentifier: content.siteIdentifier, locale: data.locale, sourcePath, destinationPath, statusCode: 301, reason: data.reason, contentId: content.id, createdBy: data.actorId },
@@ -744,8 +716,7 @@ export class PrismaCmsRepository implements ICmsRepository {
   public async createRedirect(data: Omit<CmsRedirectDto, 'id' | 'createdAt' | 'updatedAt'>): Promise<CmsRedirectDto> {
     return this.db.$transaction(async (tx: any) => {
       CmsPublishingPolicy.assertRedirect(data.sourcePath, data.destinationPath);
-      const reverse = await tx.cmsRedirect.findFirst({ where: { siteIdentifier: data.siteIdentifier, locale: data.locale, sourcePath: data.destinationPath, destinationPath: data.sourcePath, active: true } });
-      if (reverse) throw new Error('CMS_REDIRECT_LOOP');
+      await this.assertRedirectGraphSafe(tx, data.siteIdentifier, data.locale, data.sourcePath, data.destinationPath);
       const row = await tx.cmsRedirect.create({ data: { id: randomUUID(), ...data } });
       await this.appendStandaloneMutation(tx, row.id, 'CmsRedirect', 'REDIRECT_CREATED', data.createdBy, { siteIdentifier: data.siteIdentifier, locale: data.locale, sourcePath: data.sourcePath, destinationPath: data.destinationPath });
       return row;
@@ -757,18 +728,101 @@ export class PrismaCmsRepository implements ICmsRepository {
     return rows.map((row: any) => this.navigation(row));
   }
 
-  public async saveNavigation(data: Omit<CmsNavigationMenuDto, 'id' | 'version' | 'createdAt' | 'updatedAt'> & { id?: string; expectedVersion?: number }): Promise<CmsNavigationMenuDto> {
+  public async saveNavigation(
+    data: Omit<CmsNavigationMenuDto, 'id' | 'version' | 'status' | 'publishedContentHash' | 'publishedBy' | 'publishedAt' | 'createdAt' | 'updatedAt'> & { id?: string; expectedVersion?: number },
+  ): Promise<CmsNavigationMenuDto> {
     return this.db.$transaction(async (tx: any) => {
-      const existing = data.id ? await tx.cmsNavigationMenu.findUnique({ where: { id: data.id } }) : await tx.cmsNavigationMenu.findUnique({ where: { siteIdentifier_locale_locationKey: { siteIdentifier: data.siteIdentifier, locale: data.locale, locationKey: data.locationKey } } });
+      const existing = data.id
+        ? await tx.cmsNavigationMenu.findUnique({ where: { id: data.id } })
+        : await tx.cmsNavigationMenu.findUnique({
+            where: {
+              siteIdentifier_locale_locationKey: {
+                siteIdentifier: data.siteIdentifier,
+                locale: data.locale,
+                locationKey: data.locationKey,
+              },
+            },
+          });
       if (existing) this.assertVersion(existing.version, data.expectedVersion);
-      if (existing && data.status === CmsContentStatus.PUBLISHED) CmsPublishingPolicy.assertMakerChecker(existing.updatedBy, data.updatedBy);
+      CmsPublishingPolicy.assertAcyclicNavigation(data.nodes);
       const menu = existing
-        ? await tx.cmsNavigationMenu.update({ where: { id: existing.id }, data: { status: data.status, updatedBy: data.updatedBy, version: { increment: 1 } } })
-        : await tx.cmsNavigationMenu.create({ data: { id: randomUUID(), siteIdentifier: data.siteIdentifier, locale: data.locale, locationKey: data.locationKey, status: CmsContentStatus.DRAFT, updatedBy: data.updatedBy } });
+        ? await tx.cmsNavigationMenu.update({
+            where: { id: existing.id },
+            data: {
+              status: CmsContentStatus.DRAFT,
+              updatedBy: data.updatedBy,
+              publishedContentHash: null,
+              publishedBy: null,
+              publishedAt: null,
+              version: { increment: 1 },
+            },
+          })
+        : await tx.cmsNavigationMenu.create({
+            data: {
+              id: randomUUID(),
+              siteIdentifier: data.siteIdentifier,
+              locale: data.locale,
+              locationKey: data.locationKey,
+              status: CmsContentStatus.DRAFT,
+              updatedBy: data.updatedBy,
+            },
+          });
       await tx.cmsNavigationNode.deleteMany({ where: { menuId: menu.id } });
-      if (data.nodes.length) await tx.cmsNavigationNode.createMany({ data: data.nodes.map((node, index) => ({ id: node.id ?? randomUUID(), menuId: menu.id, parentNodeId: node.parentNodeId, displayText: node.displayText, targetType: node.targetType, targetValue: node.targetValue, sortOrder: node.sortOrder ?? index, openInNewWindow: node.openInNewWindow, metadata: json(node.metadata) })) });
-      await this.appendStandaloneMutation(tx, menu.id, 'CmsNavigationMenu', data.status === CmsContentStatus.PUBLISHED ? 'NAVIGATION_PUBLISHED' : 'NAVIGATION_UPDATED', data.updatedBy, { siteIdentifier: data.siteIdentifier, locale: data.locale, locationKey: data.locationKey });
+      if (data.nodes.length) {
+        await tx.cmsNavigationNode.createMany({
+          data: data.nodes.map((node, index) => ({
+            id: node.id ?? randomUUID(),
+            menuId: menu.id,
+            parentNodeId: node.parentNodeId,
+            displayText: node.displayText,
+            targetType: node.targetType,
+            targetValue: node.targetValue,
+            sortOrder: node.sortOrder ?? index,
+            openInNewWindow: node.openInNewWindow,
+            metadata: json(node.metadata),
+          })),
+        });
+      }
+      await this.appendStandaloneMutation(tx, menu.id, 'CmsNavigationMenu', 'NAVIGATION_UPDATED', data.updatedBy, {
+        siteIdentifier: data.siteIdentifier,
+        locale: data.locale,
+        locationKey: data.locationKey,
+        version: menu.version,
+      });
       const row = await tx.cmsNavigationMenu.findUnique({ where: { id: menu.id }, include: { nodes: { orderBy: { sortOrder: 'asc' } } } });
+      return this.navigation(row);
+    });
+  }
+
+  public async publishNavigation(id: string, expectedVersion: number, actorId: string): Promise<CmsNavigationMenuDto> {
+    return this.db.$transaction(async (tx: any) => {
+      const existing = await tx.cmsNavigationMenu.findUnique({ where: { id }, include: { nodes: { orderBy: { sortOrder: 'asc' } } } });
+      if (!existing) throw new Error('CMS_NAVIGATION_NOT_FOUND');
+      this.assertVersion(existing.version, expectedVersion);
+      if (existing.status !== CmsContentStatus.DRAFT) throw new Error('CMS_NAVIGATION_DRAFT_REQUIRED');
+      CmsPublishingPolicy.assertMakerChecker(existing.updatedBy, actorId);
+      CmsPublishingPolicy.assertAcyclicNavigation(existing.nodes);
+      for (const node of existing.nodes) CmsPublishingPolicy.assertSafeNavigationTarget(node.targetType, node.targetValue);
+      const contentHash = this.navigationContentHash(existing);
+      const now = new Date();
+      const row = await tx.cmsNavigationMenu.update({
+        where: { id },
+        data: {
+          status: CmsContentStatus.PUBLISHED,
+          publishedContentHash: contentHash,
+          publishedBy: actorId,
+          publishedAt: now,
+          version: { increment: 1 },
+        },
+        include: { nodes: { orderBy: { sortOrder: 'asc' } } },
+      });
+      await this.appendStandaloneMutation(tx, row.id, 'CmsNavigationMenu', 'NAVIGATION_PUBLISHED', actorId, {
+        siteIdentifier: row.siteIdentifier,
+        locale: row.locale,
+        locationKey: row.locationKey,
+        reviewedVersion: existing.version,
+        contentHash,
+      });
       return this.navigation(row);
     });
   }
@@ -793,7 +847,7 @@ export class PrismaCmsRepository implements ICmsRepository {
     return this.db.$transaction(async (tx: any) => {
       const schema = await tx.cmsBlockSchema.findUnique({ where: { id: data.schemaId } });
       if (!schema || schema.status !== 'ACTIVE') throw new Error('CMS_BLOCK_SCHEMA_NOT_ACTIVE');
-      this.validateBlockPayload(data.payload, schema.fieldSchema, schema.assetFields);
+      CmsPublishingPolicy.assertBlockPayload(data.payload, schema.fieldSchema, schema.assetFields);
       const existing = data.id ? await tx.cmsContentBlock.findUnique({ where: { id: data.id } }) : null;
       if (existing) this.assertVersion(existing.version, data.expectedVersion);
       const row = existing
@@ -809,45 +863,199 @@ export class PrismaCmsRepository implements ICmsRepository {
     return this.db.cmsAnnouncement.findMany({ where: { siteIdentifier, locale, ...(publicOnly ? { status: CmsContentStatus.PUBLISHED, startsAt: { lte: now }, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] } : {}) }, orderBy: [{ urgency: 'desc' }, { startsAt: 'desc' }] });
   }
 
-  public async saveAnnouncement(data: Omit<CmsAnnouncementDto, 'id' | 'publicId' | 'version' | 'createdAt' | 'updatedAt'> & { id?: string; expectedVersion?: number }): Promise<CmsAnnouncementDto> {
+  public async saveAnnouncement(
+    data: Omit<CmsAnnouncementDto, 'id' | 'publicId' | 'version' | 'status' | 'approvedBy' | 'publishedContentHash' | 'publishedAt' | 'archivedAt' | 'createdAt' | 'updatedAt'> & { id?: string; expectedVersion?: number },
+  ): Promise<CmsAnnouncementDto> {
     return this.db.$transaction(async (tx: any) => {
       const existing = data.id ? await tx.cmsAnnouncement.findUnique({ where: { id: data.id } }) : null;
       if (existing) this.assertVersion(existing.version, data.expectedVersion);
       if (data.expiresAt && data.expiresAt <= data.startsAt) throw new Error('CMS_ANNOUNCEMENT_WINDOW_INVALID');
-      if (data.status === CmsContentStatus.PUBLISHED) {
-        if (!existing) throw new Error('CMS_ANNOUNCEMENT_REVIEW_REQUIRED');
-        CmsPublishingPolicy.assertMakerChecker(existing.createdBy, data.createdBy);
-      }
-      const values = { siteIdentifier: data.siteIdentifier, locale: data.locale, title: data.title, body: data.body, urgency: data.urgency, audience: data.audience, startsAt: data.startsAt, expiresAt: data.expiresAt };
+      const values = {
+        siteIdentifier: data.siteIdentifier,
+        locale: data.locale,
+        title: data.title,
+        body: data.body,
+        urgency: data.urgency,
+        audience: data.audience,
+        startsAt: data.startsAt,
+        expiresAt: data.expiresAt,
+      };
       const row = existing
-        ? await tx.cmsAnnouncement.update({ where: { id: existing.id }, data: { ...values, status: data.status, approvedBy: data.status === CmsContentStatus.PUBLISHED ? data.createdBy : existing.approvedBy, publishedAt: data.status === CmsContentStatus.PUBLISHED ? new Date() : existing.publishedAt, version: { increment: 1 } } })
-        : await tx.cmsAnnouncement.create({ data: { id: randomUUID(), publicId: `cms-ann-${randomUUID()}`, ...values, status: CmsContentStatus.DRAFT, createdBy: data.createdBy } });
-      await this.appendStandaloneMutation(tx, row.id, 'CmsAnnouncement', row.status === CmsContentStatus.PUBLISHED ? 'ANNOUNCEMENT_PUBLISHED' : 'ANNOUNCEMENT_SAVED', data.createdBy, { siteIdentifier: data.siteIdentifier, locale: data.locale, version: row.version });
+        ? await tx.cmsAnnouncement.update({
+            where: { id: existing.id },
+            data: {
+              ...values,
+              status: CmsContentStatus.DRAFT,
+              updatedBy: data.updatedBy ?? data.createdBy,
+              approvedBy: null,
+              publishedContentHash: null,
+              publishedAt: null,
+              archivedAt: null,
+              version: { increment: 1 },
+            },
+          })
+        : await tx.cmsAnnouncement.create({
+            data: {
+              id: randomUUID(),
+              publicId: `cms-ann-${randomUUID()}`,
+              ...values,
+              status: CmsContentStatus.DRAFT,
+              createdBy: data.createdBy,
+              updatedBy: data.updatedBy ?? data.createdBy,
+            },
+          });
+      await this.appendStandaloneMutation(tx, row.id, 'CmsAnnouncement', 'ANNOUNCEMENT_SAVED', data.updatedBy ?? data.createdBy, {
+        siteIdentifier: data.siteIdentifier,
+        locale: data.locale,
+        version: row.version,
+      });
+      return row;
+    });
+  }
+
+  public async publishAnnouncement(id: string, expectedVersion: number, actorId: string): Promise<CmsAnnouncementDto> {
+    return this.db.$transaction(async (tx: any) => {
+      const existing = await tx.cmsAnnouncement.findUnique({ where: { id } });
+      if (!existing) throw new Error('CMS_ANNOUNCEMENT_NOT_FOUND');
+      this.assertVersion(existing.version, expectedVersion);
+      if (existing.status !== CmsContentStatus.DRAFT) throw new Error('CMS_ANNOUNCEMENT_DRAFT_REQUIRED');
+      CmsPublishingPolicy.assertMakerChecker(existing.updatedBy ?? existing.createdBy, actorId);
+      if (existing.expiresAt && existing.expiresAt <= existing.startsAt) throw new Error('CMS_ANNOUNCEMENT_WINDOW_INVALID');
+      const contentHash = this.announcementContentHash(existing);
+      const row = await tx.cmsAnnouncement.update({
+        where: { id },
+        data: {
+          status: CmsContentStatus.PUBLISHED,
+          approvedBy: actorId,
+          publishedContentHash: contentHash,
+          publishedAt: new Date(),
+          archivedAt: null,
+          version: { increment: 1 },
+        },
+      });
+      await this.appendStandaloneMutation(tx, row.id, 'CmsAnnouncement', 'ANNOUNCEMENT_PUBLISHED', actorId, {
+        reviewedVersion: existing.version,
+        contentHash,
+        siteIdentifier: row.siteIdentifier,
+        locale: row.locale,
+      });
+      return row;
+    });
+  }
+
+  public async archiveAnnouncement(id: string, expectedVersion: number, actorId: string): Promise<CmsAnnouncementDto> {
+    return this.db.$transaction(async (tx: any) => {
+      const existing = await tx.cmsAnnouncement.findUnique({ where: { id } });
+      if (!existing) throw new Error('CMS_ANNOUNCEMENT_NOT_FOUND');
+      this.assertVersion(existing.version, expectedVersion);
+      if (existing.status !== CmsContentStatus.PUBLISHED) throw new Error('CMS_ANNOUNCEMENT_PUBLISHED_REQUIRED');
+      const row = await tx.cmsAnnouncement.update({
+        where: { id },
+        data: { status: CmsContentStatus.ARCHIVED, archivedAt: new Date(), version: { increment: 1 } },
+      });
+      await this.appendStandaloneMutation(tx, row.id, 'CmsAnnouncement', 'ANNOUNCEMENT_ARCHIVED', actorId, {
+        siteIdentifier: row.siteIdentifier,
+        locale: row.locale,
+      });
       return row;
     });
   }
 
   public async processDueSchedules(actorId: string, now: Date, limit = 50): Promise<CmsScheduleResultDto> {
-    const jobs = await this.db.cmsScheduledJob.findMany({ where: { status: 'PENDING', scheduledAt: { lte: now } }, orderBy: { scheduledAt: 'asc' }, take: Math.min(100, limit) });
+    const boundedLimit = Math.min(100, Math.max(1, limit));
+    const leaseOwner = `cms-scheduler:${randomUUID()}`;
+    const leaseExpiresAt = new Date(now.getTime() + 60_000);
+    const jobs = await this.db.$transaction(async (tx: any) => {
+      await tx.cmsScheduledJob.updateMany({
+        where: { status: 'PROCESSING', leaseExpiresAt: { lte: now }, completedAt: null },
+        data: { status: 'PENDING', claimedBy: null, claimedAt: null, leaseExpiresAt: null },
+      });
+      const candidates = await tx.$queryRaw(Prisma.sql`
+        SELECT "id"
+        FROM "CmsScheduledJob"
+        WHERE "status" = 'PENDING' AND "scheduledAt" <= ${now}
+        ORDER BY "scheduledAt" ASC
+        FOR UPDATE SKIP LOCKED
+        LIMIT ${boundedLimit}
+      `) as Array<{ id: string }>;
+      const ids = candidates.map((entry) => entry.id);
+      if (!ids.length) return [];
+      await tx.cmsScheduledJob.updateMany({
+        where: { id: { in: ids }, status: 'PENDING' },
+        data: {
+          status: 'PROCESSING',
+          claimedBy: leaseOwner,
+          claimedAt: now,
+          leaseExpiresAt,
+          failureCode: null,
+          attemptCount: { increment: 1 },
+        },
+      });
+      return tx.cmsScheduledJob.findMany({
+        where: { id: { in: ids }, status: 'PROCESSING', claimedBy: leaseOwner },
+        orderBy: { scheduledAt: 'asc' },
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
     const result: CmsScheduleResultDto = { processed: 0, published: 0, archived: 0, failed: 0, affectedSites: [] };
     const affectedSites = new Set<string>();
     for (const job of jobs) {
       result.processed += 1;
+      const targetState = job.jobType === 'PUBLISH' ? CmsContentStatus.PUBLISHED : CmsContentStatus.ARCHIVED;
       try {
         const localized = await this.db.cmsLocalizedContent.findUnique({ where: { id: job.localizedContentId } });
         if (!localized) throw new Error('CMS_LOCALIZATION_NOT_FOUND');
         const content = await this.db.cmsContentNode.findUnique({ where: { id: localized.contentId }, select: { siteIdentifier: true } });
         if (content) affectedSites.add(content.siteIdentifier);
-        if (job.jobType === 'PUBLISH') { await this.publish({ contentId: localized.contentId, locale: localized.locale, actorId, expectedVersion: localized.version }); result.published += 1; }
-        else { await this.archive({ contentId: localized.contentId, locale: localized.locale, actorId, expectedVersion: localized.version }); result.archived += 1; }
-        await this.db.cmsScheduledJob.update({ where: { id: job.id }, data: { status: 'COMPLETED', completedAt: new Date(), attemptCount: { increment: 1 } } });
+        if (localized.state !== targetState) {
+          if (job.jobType === 'PUBLISH') {
+            await this.publish({ contentId: localized.contentId, locale: localized.locale, actorId, expectedVersion: localized.version });
+          } else {
+            await this.archive({ contentId: localized.contentId, locale: localized.locale, actorId, expectedVersion: localized.version });
+          }
+        }
+        const completed = await this.completeScheduledJob(job.id, leaseOwner);
+        if (!completed) throw new Error('CMS_SCHEDULE_LEASE_LOST');
+        if (job.jobType === 'PUBLISH') result.published += 1;
+        else result.archived += 1;
       } catch (error) {
+        const current = await this.db.cmsLocalizedContent.findUnique({ where: { id: job.localizedContentId } });
+        if (current?.state === targetState) {
+          await this.completeScheduledJob(job.id, leaseOwner);
+          if (job.jobType === 'PUBLISH') result.published += 1;
+          else result.archived += 1;
+          continue;
+        }
         result.failed += 1;
-        await this.db.cmsScheduledJob.update({ where: { id: job.id }, data: { status: 'FAILED', failureCode: error instanceof Error ? error.message.slice(0, 120) : 'CMS_SCHEDULE_FAILED', attemptCount: { increment: 1 } } });
+        await this.db.cmsScheduledJob.updateMany({
+          where: { id: job.id, status: 'PROCESSING', claimedBy: leaseOwner },
+          data: {
+            status: 'FAILED',
+            failureCode: error instanceof Error ? error.message.slice(0, 120) : 'CMS_SCHEDULE_FAILED',
+            claimedBy: null,
+            claimedAt: null,
+            leaseExpiresAt: null,
+          },
+        });
       }
     }
     result.affectedSites = [...affectedSites];
     return result;
+  }
+
+  private async completeScheduledJob(jobId: string, leaseOwner: string): Promise<boolean> {
+    const completed = await this.db.cmsScheduledJob.updateMany({
+      where: { id: jobId, status: 'PROCESSING', claimedBy: leaseOwner },
+      data: {
+        status: 'COMPLETED',
+        completedAt: new Date(),
+        claimedBy: null,
+        claimedAt: null,
+        leaseExpiresAt: null,
+        failureCode: null,
+      },
+    });
+    return completed.count === 1;
   }
 
   private async transition(
@@ -882,17 +1090,22 @@ export class PrismaCmsRepository implements ICmsRepository {
             id: randomUUID(), localizedContentId: localized.id, jobType: 'PUBLISH',
             scheduledAt: command.scheduledAt, idempotencyKey: `publish:${localized.id}:${localized.version + 1}`,
           },
-          update: { scheduledAt: command.scheduledAt, status: 'PENDING', failureCode: null },
+          update: {
+            scheduledAt: command.scheduledAt,
+            status: 'PENDING',
+            failureCode: null,
+            completedAt: null,
+            claimedBy: null,
+            claimedAt: null,
+            leaseExpiresAt: null,
+          },
         });
       }
       const row = await tx.cmsLocalizedContent.update({
         where: { id: localized.id },
         data: { state: next, ...extra, version: { increment: 1 } },
       });
-      await tx.cmsContentNode.update({
-        where: { id: content.id },
-        data: { status: next, ...extra, version: { increment: 1 } },
-      });
+      await this.syncRootLifecycle(tx, content.id);
       await this.appendMutation(tx, content, localized.id, action, command.actorId, {
         locale: command.locale,
         ...extra,
@@ -987,18 +1200,118 @@ export class PrismaCmsRepository implements ICmsRepository {
     });
   }
 
+  private async syncRootLifecycle(
+    tx: any,
+    contentId: string,
+    extra: Record<string, unknown> = {},
+  ): Promise<void> {
+    const localized = await tx.cmsLocalizedContent.findMany({
+      where: { contentId },
+      select: { state: true, publishedAt: true, scheduledAt: true },
+    });
+    const states: CmsContentStatus[] = localized.map((entry: any) => entry.state as CmsContentStatus);
+    const anyPublished = states.includes(CmsContentStatus.PUBLISHED);
+    const allArchived = states.length > 0 && states.every((state) => state === CmsContentStatus.ARCHIVED);
+    const aggregateStatus = CmsPublishingPolicy.aggregateRootStatus(states);
+    const publishedAtValues: Date[] = localized
+      .map((entry: any) => entry.publishedAt as Date | null)
+      .filter((value: Date | null): value is Date => value instanceof Date);
+    const scheduledAtValues: Date[] = localized
+      .filter((entry: any) => entry.state === CmsContentStatus.SCHEDULED && entry.scheduledAt instanceof Date)
+      .map((entry: any) => entry.scheduledAt as Date);
+    await tx.cmsContentNode.update({
+      where: { id: contentId },
+      data: {
+        ...extra,
+        status: aggregateStatus,
+        publishedAt: anyPublished && publishedAtValues.length
+          ? new Date(Math.max(...publishedAtValues.map((value) => value.getTime())))
+          : null,
+        scheduledAt: scheduledAtValues.length
+          ? new Date(Math.min(...scheduledAtValues.map((value) => value.getTime())))
+          : null,
+        archivedAt: allArchived ? new Date() : null,
+        version: { increment: 1 },
+      },
+    });
+  }
+
+  private async assertRedirectGraphSafe(
+    tx: any,
+    siteIdentifier: string,
+    locale: string,
+    sourcePath: string,
+    destinationPath: string,
+  ): Promise<void> {
+    const visited = new Set<string>([sourcePath]);
+    let cursor = destinationPath;
+    for (let depth = 0; depth < 256; depth += 1) {
+      if (visited.has(cursor)) throw new Error('CMS_REDIRECT_LOOP');
+      visited.add(cursor);
+      const next = await tx.cmsRedirect.findUnique({
+        where: { siteIdentifier_locale_sourcePath: { siteIdentifier, locale, sourcePath: cursor } },
+      });
+      if (!next || !next.active || next.sourcePath === sourcePath) return;
+      cursor = next.destinationPath;
+    }
+    throw new Error('CMS_REDIRECT_GRAPH_TOO_DEEP');
+  }
+
+  private navigationContentHash(menu: any): string {
+    return this.contentHash({
+      siteIdentifier: menu.siteIdentifier,
+      locale: menu.locale,
+      locationKey: menu.locationKey,
+      nodes: (menu.nodes ?? []).map((node: any) => ({
+        id: node.id,
+        parentNodeId: node.parentNodeId ?? null,
+        displayText: node.displayText,
+        targetType: node.targetType,
+        targetValue: node.targetValue,
+        sortOrder: node.sortOrder,
+        openInNewWindow: node.openInNewWindow,
+        metadata: node.metadata ?? null,
+      })),
+    });
+  }
+
+  private announcementContentHash(announcement: any): string {
+    return this.contentHash({
+      siteIdentifier: announcement.siteIdentifier,
+      locale: announcement.locale,
+      title: announcement.title,
+      body: announcement.body,
+      urgency: announcement.urgency,
+      audience: announcement.audience ?? null,
+      startsAt: announcement.startsAt instanceof Date ? announcement.startsAt.toISOString() : announcement.startsAt,
+      expiresAt: announcement.expiresAt instanceof Date ? announcement.expiresAt.toISOString() : announcement.expiresAt ?? null,
+    });
+  }
+
+  private contentHash(value: unknown): string {
+    return createHash('sha256').update(this.stableStringify(value)).digest('hex');
+  }
+
+  private stableStringify(value: unknown): string {
+    if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
+    if (Array.isArray(value)) return `[${value.map((entry) => this.stableStringify(entry)).join(',')}]`;
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${this.stableStringify(record[key])}`).join(',')}}`;
+  }
+
   private seo(
     value: unknown,
     title: string,
     summary: string | null,
     locale: string,
+    contentType: string,
     slug: string,
   ): CmsSeoMetadata & { canonicalUrl: string } {
     const input = (value ?? {}) as Partial<CmsSeoMetadata>;
     return {
       title: input.title ?? title,
       description: input.description ?? summary ?? title,
-      canonicalUrl: input.canonicalUrl ?? `/${locale}/articles/${slug}`,
+      canonicalUrl: CmsPublishingPolicy.canonicalPath(locale, contentType, slug),
       keywords: input.keywords ?? [],
       noIndex: input.noIndex ?? false,
       noFollow: input.noFollow ?? false,
@@ -1163,20 +1476,6 @@ export class PrismaCmsRepository implements ICmsRepository {
 
   private block(row: any): CmsContentBlockDto {
     return { ...row, status: row.status as CmsContentStatus, payload: row.payload as Record<string, unknown> };
-  }
-
-  private validateBlockPayload(payload: Record<string, unknown>, fieldSchema: unknown, assetFields: unknown): void {
-    const schema = (fieldSchema ?? {}) as { required?: string[]; properties?: Record<string, { type?: string }> };
-    for (const key of schema.required ?? []) if (payload[key] === undefined || payload[key] === null || payload[key] === '') throw new Error(`CMS_BLOCK_FIELD_REQUIRED:${key}`);
-    for (const [key, definition] of Object.entries(schema.properties ?? {})) {
-      const value = payload[key]; if (value === undefined || !definition.type) continue;
-      if (definition.type === 'array' ? !Array.isArray(value) : definition.type === 'object' ? typeof value !== 'object' || Array.isArray(value) || value === null : typeof value !== definition.type) throw new Error(`CMS_BLOCK_FIELD_TYPE_INVALID:${key}`);
-    }
-    for (const key of Array.isArray(assetFields) ? assetFields : []) {
-      const value = payload[String(key)];
-      if (Array.isArray(value)) for (const item of value) CmsPublishingPolicy.assertAssetHandle(typeof item === 'string' ? item : null);
-      else CmsPublishingPolicy.assertAssetHandle(typeof value === 'string' ? value : null);
-    }
   }
 
   private publicContent(

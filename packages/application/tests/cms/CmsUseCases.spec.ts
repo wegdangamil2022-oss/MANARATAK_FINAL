@@ -45,6 +45,21 @@ describe('Phase 16 CMS use cases', () => {
         .fn()
         .mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }),
       getPublishedBySlug: vi.fn(),
+      changeLocalizedSlug: vi.fn(),
+      listRedirects: vi.fn(),
+      createRedirect: vi.fn(),
+      listNavigation: vi.fn(),
+      saveNavigation: vi.fn(),
+      publishNavigation: vi.fn(),
+      listBlockSchemas: vi.fn(),
+      createBlockSchema: vi.fn(),
+      listBlocks: vi.fn(),
+      saveBlock: vi.fn(),
+      listAnnouncements: vi.fn(),
+      saveAnnouncement: vi.fn(),
+      publishAnnouncement: vi.fn(),
+      archiveAnnouncement: vi.fn(),
+      processDueSchedules: vi.fn(),
     };
     admin = new AdminCmsUseCases(repository);
     publicCms = new PublicCmsUseCases(repository);
@@ -128,6 +143,38 @@ describe('Phase 16 CMS use cases', () => {
     await admin.cancelSchedule('content-1', 'ar', 'editor-1', 4);
     expect(repository.cancelSchedule).toHaveBeenCalledWith({ contentId: 'content-1', locale: 'ar', actorId: 'editor-1', expectedVersion: 4 });
     expect(repository.publish).not.toHaveBeenCalled();
+  });
+
+
+  it('strips editor-supplied canonical URLs before persistence', async () => {
+    await admin.createContent(
+      {
+        slug: 'seo-governed',
+        siteIdentifier: 'manaratak',
+        primaryLocale: 'ar',
+        contentType: CmsContentType.NEWS,
+        title: 'خبر',
+        seoMetadata: {
+          title: 'خبر',
+          description: 'وصف',
+          canonicalUrl: 'https://attacker.invalid/impersonate',
+          keywords: [],
+          noIndex: false,
+          noFollow: false,
+        },
+      },
+      'editor-1',
+    );
+    expect(repository.createContent).toHaveBeenCalledWith(
+      expect.objectContaining({ seoMetadata: expect.not.objectContaining({ canonicalUrl: expect.anything() }) }),
+    );
+  });
+
+  it('publishes navigation and announcements through payload-free checker commands', async () => {
+    await admin.publishNavigation('menu-1', 4, 'checker-2');
+    expect(repository.publishNavigation).toHaveBeenCalledWith('menu-1', 4, 'checker-2');
+    await admin.publishAnnouncement('ann-1', 7, 'checker-2');
+    expect(repository.publishAnnouncement).toHaveBeenCalledWith('ann-1', 7, 'checker-2');
   });
 
   it('keeps the public query on the published projection only', async () => {

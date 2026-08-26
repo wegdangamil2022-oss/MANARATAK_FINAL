@@ -67,12 +67,15 @@ export interface ICmsRepository {
   listRedirects(siteIdentifier?: string, locale?: string): Promise<CmsRedirectDto[]>;
   createRedirect(data: Omit<CmsRedirectDto, 'id' | 'createdAt' | 'updatedAt'>): Promise<CmsRedirectDto>;
   listNavigation(siteIdentifier: string, locale: string): Promise<CmsNavigationMenuDto[]>;
-  saveNavigation(data: Omit<CmsNavigationMenuDto, 'id' | 'version' | 'createdAt' | 'updatedAt'> & { id?: string; expectedVersion?: number }): Promise<CmsNavigationMenuDto>;
+  saveNavigation(data: Omit<CmsNavigationMenuDto, 'id' | 'version' | 'status' | 'publishedContentHash' | 'publishedBy' | 'publishedAt' | 'createdAt' | 'updatedAt'> & { id?: string; expectedVersion?: number }): Promise<CmsNavigationMenuDto>;
+  publishNavigation(id: string, expectedVersion: number, actorId: string): Promise<CmsNavigationMenuDto>;
   listBlockSchemas(): Promise<CmsBlockSchemaDto[]>;
   createBlockSchema(data: Omit<CmsBlockSchemaDto, 'id' | 'createdAt'>): Promise<CmsBlockSchemaDto>;
   listBlocks(siteIdentifier: string, locale: string): Promise<CmsContentBlockDto[]>;
   saveBlock(data: Omit<CmsContentBlockDto, 'id' | 'publicId' | 'version' | 'createdAt' | 'updatedAt'> & { id?: string; expectedVersion?: number }): Promise<CmsContentBlockDto>;
   listAnnouncements(siteIdentifier: string, locale: string, publicOnly?: boolean): Promise<CmsAnnouncementDto[]>;
-  saveAnnouncement(data: Omit<CmsAnnouncementDto, 'id' | 'publicId' | 'version' | 'createdAt' | 'updatedAt'> & { id?: string; expectedVersion?: number }): Promise<CmsAnnouncementDto>;
+  saveAnnouncement(data: Omit<CmsAnnouncementDto, 'id' | 'publicId' | 'version' | 'status' | 'approvedBy' | 'publishedContentHash' | 'publishedAt' | 'archivedAt' | 'createdAt' | 'updatedAt'> & { id?: string; expectedVersion?: number }): Promise<CmsAnnouncementDto>;
+  publishAnnouncement(id: string, expectedVersion: number, actorId: string): Promise<CmsAnnouncementDto>;
+  archiveAnnouncement(id: string, expectedVersion: number, actorId: string): Promise<CmsAnnouncementDto>;
   processDueSchedules(actorId: string, now: Date, limit?: number): Promise<CmsScheduleResultDto>;
 }

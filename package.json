@@ -73,7 +73,8 @@
     "w10:verify": "node scripts/verify-w10-source.mjs",
     "w11:verify": "node scripts/verify-w11-source.mjs",
     "w12:verify": "node scripts/verify-w12-source.mjs",
-    "w13:verify": "node scripts/verify-w13-source.mjs"
+    "w13:verify": "node scripts/verify-w13-source.mjs",
+    "w14:verify": "node scripts/verify-w14-source.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

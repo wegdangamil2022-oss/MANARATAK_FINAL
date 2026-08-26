@@ -8,7 +8,6 @@ const nullableAsset = z.string().trim().min(1).nullable().optional();
 const seoSchema = z.object({
   title: z.string().trim().min(1),
   description: z.string().trim().min(1),
-  canonicalUrl: z.string().url().nullable().optional(),
   keywords: z.array(z.string().trim().min(1)).default([]),
   noIndex: z.boolean().default(false),
   noFollow: z.boolean().default(false),
@@ -278,8 +277,12 @@ export class CmsAdminRouter {
       res.json({ data: await adminCmsUseCases.listNavigation(query.siteIdentifier, query.locale) });
     }));
     router.put('/navigation', asyncHandler(async (req, res) => {
-      const body = z.object({ id: z.string().optional(), expectedVersion: z.number().int().positive().optional(), siteIdentifier: z.string().default('manaratak'), locale: z.enum(['ar', 'en']), locationKey: z.enum(['HEADER', 'FOOTER', 'SIDEBAR', 'OTHER']), status: z.nativeEnum(CmsContentStatus), nodes: z.array(z.object({ id: z.string().optional(), parentNodeId: z.string().nullable().optional(), displayText: z.string().trim().min(1), targetType: z.enum(['CMS_CONTENT', 'EXTERNAL_URL', 'DOMAIN_REFERENCE']), targetValue: z.string().trim().min(1), sortOrder: z.number().int().nonnegative(), openInNewWindow: z.boolean(), metadata: z.record(z.string(), z.unknown()).nullable().optional() })).max(200) }).parse(req.body);
+      const body = z.object({ id: z.string().optional(), expectedVersion: z.number().int().positive().optional(), siteIdentifier: z.string().default('manaratak'), locale: z.enum(['ar', 'en']), locationKey: z.enum(['HEADER', 'FOOTER', 'SIDEBAR', 'OTHER']), nodes: z.array(z.object({ id: z.string().optional(), parentNodeId: z.string().nullable().optional(), displayText: z.string().trim().min(1), targetType: z.enum(['CMS_CONTENT', 'EXTERNAL_URL', 'DOMAIN_REFERENCE']), targetValue: z.string().trim().min(1), sortOrder: z.number().int().nonnegative(), openInNewWindow: z.boolean(), metadata: z.record(z.string(), z.unknown()).nullable().optional() })).max(200) }).parse(req.body);
       res.json(await adminCmsUseCases.saveNavigation(body, actor(req)));
+    }));
+    router.post('/navigation/:id/publish', asyncHandler(async (req, res) => {
+      const body = z.object({ expectedVersion: z.number().int().positive() }).parse(req.body);
+      res.json(await adminCmsUseCases.publishNavigation(req.params.id, body.expectedVersion, actor(req)));
     }));
     router.get('/block-schemas', asyncHandler(async (_req, res) => { res.json({ data: await adminCmsUseCases.listBlockSchemas() }); }));
     router.post('/block-schemas', asyncHandler(async (req, res) => {
@@ -299,8 +302,16 @@ export class CmsAdminRouter {
       res.json({ data: await adminCmsUseCases.listAnnouncements(query.siteIdentifier, query.locale) });
     }));
     router.put('/announcements', asyncHandler(async (req, res) => {
-      const body = z.object({ id: z.string().optional(), expectedVersion: z.number().int().positive().optional(), siteIdentifier: z.string().default('manaratak'), locale: z.enum(['ar', 'en']), title: z.string().trim().min(1), body: z.string().trim().min(1), urgency: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']), audience: z.string().nullable().optional(), startsAt: z.coerce.date(), expiresAt: z.coerce.date().nullable().optional(), status: z.nativeEnum(CmsContentStatus), approvedBy: z.string().nullable().optional(), publishedAt: z.coerce.date().nullable().optional(), archivedAt: z.coerce.date().nullable().optional() }).parse(req.body);
+      const body = z.object({ id: z.string().optional(), expectedVersion: z.number().int().positive().optional(), siteIdentifier: z.string().default('manaratak'), locale: z.enum(['ar', 'en']), title: z.string().trim().min(1), body: z.string().trim().min(1), urgency: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']), audience: z.string().nullable().optional(), startsAt: z.coerce.date(), expiresAt: z.coerce.date().nullable().optional() }).parse(req.body);
       res.json(await adminCmsUseCases.saveAnnouncement(body, actor(req)));
+    }));
+    router.post('/announcements/:id/publish', asyncHandler(async (req, res) => {
+      const body = z.object({ expectedVersion: z.number().int().positive() }).parse(req.body);
+      res.json(await adminCmsUseCases.publishAnnouncement(req.params.id, body.expectedVersion, actor(req)));
+    }));
+    router.post('/announcements/:id/archive', asyncHandler(async (req, res) => {
+      const body = z.object({ expectedVersion: z.number().int().positive() }).parse(req.body);
+      res.json(await adminCmsUseCases.archiveAnnouncement(req.params.id, body.expectedVersion, actor(req)));
     }));
     router.post('/operations/process-due-schedules', asyncHandler(async (req, res) => {
       const body = z.object({ now: z.coerce.date().optional(), limit: z.number().int().min(1).max(100).optional() }).parse(req.body);

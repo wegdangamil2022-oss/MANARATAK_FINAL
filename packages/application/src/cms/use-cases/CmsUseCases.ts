@@ -42,6 +42,7 @@ export class AdminCmsUseCases {
     this.ensureAssetHandles([data.featuredAssetId, data.seoMetadata?.openGraphAssetId]);
     return this.repository.createContent({
       ...data,
+      seoMetadata: this.authoringSeo(data.seoMetadata),
       publicId: `cms-${randomUUID()}`,
       status: CmsContentStatus.DRAFT,
       authorId: actorId,
@@ -57,7 +58,7 @@ export class AdminCmsUseCases {
     this.ensureActor(actorId);
     if (data.slug) CmsPublishingPolicy.assertSlug(data.slug);
     this.ensureAssetHandles([data.featuredAssetId, data.seoMetadata?.openGraphAssetId]);
-    return this.repository.updateContent(id, data, actorId);
+    return this.repository.updateContent(id, { ...data, seoMetadata: this.authoringSeo(data.seoMetadata) }, actorId);
   }
 
   public async listContent(filters: CmsContentFilters): Promise<PaginatedCmsResult<CmsContentDto>> {
@@ -83,7 +84,7 @@ export class AdminCmsUseCases {
       data.seoMetadata?.openGraphAssetId,
       ...(data.attachmentAssetIds ?? []),
     ]);
-    return this.repository.upsertLocalizedContent({ ...data, actorId });
+    return this.repository.upsertLocalizedContent({ ...data, seoMetadata: this.authoringSeo(data.seoMetadata), actorId });
   }
 
   public async getReadiness(contentId: string, locale: string): Promise<CmsPublishingReadinessDto> {
@@ -252,10 +253,18 @@ export class AdminCmsUseCases {
     return this.repository.listNavigation(siteIdentifier, locale);
   }
 
-  public async saveNavigation(data: Omit<CmsNavigationMenuDto, 'id' | 'version' | 'createdAt' | 'updatedAt' | 'updatedBy'> & { id?: string; expectedVersion?: number }, actorId: string): Promise<CmsNavigationMenuDto> {
+  public async saveNavigation(
+    data: Omit<CmsNavigationMenuDto, 'id' | 'version' | 'status' | 'updatedBy' | 'publishedContentHash' | 'publishedBy' | 'publishedAt' | 'createdAt' | 'updatedAt'> & { id?: string; expectedVersion?: number },
+    actorId: string,
+  ): Promise<CmsNavigationMenuDto> {
     CmsPublishingPolicy.assertAcyclicNavigation(data.nodes);
     for (const node of data.nodes) CmsPublishingPolicy.assertSafeNavigationTarget(node.targetType, node.targetValue);
     return this.repository.saveNavigation({ ...data, updatedBy: actorId });
+  }
+
+  public async publishNavigation(id: string, expectedVersion: number, actorId: string): Promise<CmsNavigationMenuDto> {
+    this.ensureActor(actorId);
+    return this.repository.publishNavigation(id, expectedVersion, actorId);
   }
 
   public async listBlockSchemas(): Promise<CmsBlockSchemaDto[]> { return this.repository.listBlockSchemas(); }
@@ -267,15 +276,34 @@ export class AdminCmsUseCases {
     return this.repository.saveBlock({ ...data, updatedBy: actorId });
   }
   public async listAnnouncements(siteIdentifier: string, locale: string): Promise<CmsAnnouncementDto[]> { return this.repository.listAnnouncements(siteIdentifier, locale); }
-  public async saveAnnouncement(data: Omit<CmsAnnouncementDto, 'id' | 'publicId' | 'version' | 'createdAt' | 'updatedAt' | 'createdBy'> & { id?: string; expectedVersion?: number }, actorId: string): Promise<CmsAnnouncementDto> {
+  public async saveAnnouncement(
+    data: Omit<CmsAnnouncementDto, 'id' | 'publicId' | 'version' | 'status' | 'createdBy' | 'updatedBy' | 'approvedBy' | 'publishedContentHash' | 'publishedAt' | 'archivedAt' | 'createdAt' | 'updatedAt'> & { id?: string; expectedVersion?: number },
+    actorId: string,
+  ): Promise<CmsAnnouncementDto> {
     CmsPublishingPolicy.assertSafeRichText(data.body);
-    return this.repository.saveAnnouncement({ ...data, createdBy: actorId });
+    return this.repository.saveAnnouncement({ ...data, createdBy: actorId, updatedBy: actorId });
+  }
+
+  public async publishAnnouncement(id: string, expectedVersion: number, actorId: string): Promise<CmsAnnouncementDto> {
+    this.ensureActor(actorId);
+    return this.repository.publishAnnouncement(id, expectedVersion, actorId);
+  }
+
+  public async archiveAnnouncement(id: string, expectedVersion: number, actorId: string): Promise<CmsAnnouncementDto> {
+    this.ensureActor(actorId);
+    return this.repository.archiveAnnouncement(id, expectedVersion, actorId);
   }
   public async processDueSchedules(actorId: string, now = new Date(), limit = 50): Promise<CmsScheduleResultDto> {
     this.ensureActor(actorId);
     const result = await this.repository.processDueSchedules(actorId, now, limit);
     for (const siteIdentifier of result.affectedSites) await this.deliveryCache?.invalidateSite(siteIdentifier, 'scheduled-job-completed');
     return result;
+  }
+
+  private authoringSeo<T extends { canonicalUrl?: string | null } | null | undefined>(seo: T): T {
+    if (!seo) return seo;
+    const { canonicalUrl: _ignoredCanonicalUrl, ...governed } = seo;
+    return governed as T;
   }
 
   private ensureAssetHandles(assetIds: Array<string | null | undefined>): void {

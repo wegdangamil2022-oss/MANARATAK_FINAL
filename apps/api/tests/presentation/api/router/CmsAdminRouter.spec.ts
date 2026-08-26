@@ -24,6 +24,22 @@ describe('Phase 16 CMS admin router', () => {
     createCategory: vi.fn(),
     listTags: vi.fn(),
     createTag: vi.fn(),
+    cancelSchedule: vi.fn(),
+    changeLocalizedSlug: vi.fn(),
+    listRedirects: vi.fn(),
+    createRedirect: vi.fn(),
+    listNavigation: vi.fn(),
+    saveNavigation: vi.fn(),
+    publishNavigation: vi.fn(),
+    listBlockSchemas: vi.fn(),
+    createBlockSchema: vi.fn(),
+    listBlocks: vi.fn(),
+    saveBlock: vi.fn(),
+    listAnnouncements: vi.fn(),
+    saveAnnouncement: vi.fn(),
+    publishAnnouncement: vi.fn(),
+    archiveAnnouncement: vi.fn(),
+    processDueSchedules: vi.fn(),
   });
   const app = (cms: ReturnType<typeof useCases>, actorId?: string) => {
     const server = express();
@@ -60,6 +76,33 @@ describe('Phase 16 CMS admin router', () => {
       .send({ slug: 'arabic-guide', title: 'دليل عربي', contentType: 'ARTICLE' });
     expect(response.status).toBe(403);
     expect(cms.createContent).not.toHaveBeenCalled();
+  });
+
+
+  it('publishes reviewed navigation without accepting replacement nodes in the checker request', async () => {
+    const cms = useCases();
+    cms.publishNavigation.mockResolvedValue({ id: 'menu-1', status: 'PUBLISHED' });
+    const response = await request(app(cms, 'checker-2'))
+      .post('/cms/navigation/menu-1/publish')
+      .send({ expectedVersion: 4, nodes: [{ displayText: 'spoof' }] });
+    expect(response.status).toBe(200);
+    expect(cms.publishNavigation).toHaveBeenCalledWith('menu-1', 4, 'checker-2');
+  });
+
+  it('does not pass an editor supplied canonical URL through localized authoring', async () => {
+    const cms = useCases();
+    cms.upsertLocalizedContent.mockResolvedValue({ id: 'loc-1' });
+    const response = await request(app(cms, 'editor-1'))
+      .put('/cms/content/content-1/localized')
+      .send({
+        locale: 'ar', localizedSlug: 'news-item', title: 'خبر', body: 'محتوى',
+        seoMetadata: { title: 'خبر', description: 'وصف', canonicalUrl: 'https://evil.invalid/x' },
+      });
+    expect(response.status).toBe(200);
+    expect(cms.upsertLocalizedContent).toHaveBeenCalledWith(
+      expect.objectContaining({ seoMetadata: expect.not.objectContaining({ canonicalUrl: expect.anything() }) }),
+      'editor-1',
+    );
   });
 
   it('does not accept spoofed actor identity from a review body', async () => {

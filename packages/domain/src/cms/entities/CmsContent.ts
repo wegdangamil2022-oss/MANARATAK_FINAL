@@ -248,6 +248,9 @@ export interface CmsNavigationMenuDto {
   version: number;
   nodes: CmsNavigationNodeDto[];
   updatedBy: string;
+  publishedContentHash?: string | null;
+  publishedBy?: string | null;
+  publishedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -295,7 +298,9 @@ export interface CmsAnnouncementDto {
   status: CmsContentStatus;
   version: number;
   createdBy: string;
+  updatedBy: string;
   approvedBy?: string | null;
+  publishedContentHash?: string | null;
   publishedAt?: Date | null;
   archivedAt?: Date | null;
   createdAt: Date;
