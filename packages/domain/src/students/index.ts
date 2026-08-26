@@ -317,7 +317,6 @@ export interface IStudentWorkspaceRepository {
     studentReferenceId: string;
     name: string;
     description?: string | null;
-    type?: StudentCollectionType;
     color?: string | null;
     icon?: string | null;
   }): Promise<StudentSavedCollectionDto>;

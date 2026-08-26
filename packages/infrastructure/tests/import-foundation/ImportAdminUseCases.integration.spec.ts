@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ImportAdminUseCases } from '../../src/import-foundation/use-cases/ImportAdminUseCases';
-import { MajorImportStagingUseCase } from '../../src/majors/use-cases/MajorImportStagingUseCase';
+import { ImportAdminUseCases, MajorImportStagingUseCase } from '@manaratak/application';
 import { InMemoryImportQueueGateway } from '@manaratak/infrastructure';
 import { ImportTargetDomain } from '@manaratak/domain';
 

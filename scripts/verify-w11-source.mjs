@@ -11,6 +11,8 @@ const phase15Verifier = read('scripts/verify-phase15-source.mjs');
 const phase1516Verifier = read('scripts/verify-phase15-phase16-closure.mjs');
 const courseCompletion = read('packages/domain/src/courses/events/CourseCompletedEvent.ts');
 const certificateRepository = read('packages/infrastructure/src/certificates/PrismaCertificateRepository.ts');
+const webClient = read('apps/web/src/api/client.ts');
+const studentWeb = read('apps/web/src/features/students/StudentWorkspacePage.tsx');
 
 const section = (source, start, end) => {
   const begin = source.indexOf(start);
@@ -57,7 +59,11 @@ const checks = [
     migration.includes('source-only migration') && migration.includes('DO NOT APPLY outside the Google Studio') &&
     migration.includes('No StudentPrivacyConsentDecision rows are fabricated')],
   ['W11-PRIVACY-GENERIC-WRITE-GUARD',
-    useCases.includes('STUDENT_PRIVACY_CONSENT_COMMAND_REQUIRED') && repository.includes('STUDENT_PRIVACY_CONSENT_COMMAND_REQUIRED')],
+    useCases.includes('STUDENT_PRIVACY_CONSENT_COMMAND_REQUIRED') && repository.includes('STUDENT_PRIVACY_CONSENT_COMMAND_REQUIRED') &&
+    router.includes('privacyPreferences is intentionally rejected; use PUT /student/privacy-consent') && router.includes('}).strict();')],
+  ['W11-WEB-TO-CONSENT-CONTRACT',
+    webClient.includes('/student/privacy-consent') && studentWeb.includes('updateMyStudentPrivacyConsent') &&
+    studentWeb.indexOf('updateMyStudentWorkspace') < studentWeb.indexOf('updateMyStudentPrivacyConsent')],
   ['W11-IG-G-CONTRACT-GUARD',
     courseCompletion.includes("COURSE_COMPLETED_EVENT_TYPE = 'CourseCompleted'") &&
     certificateRepository.includes("schemaVersion: '2.0'") && certificateRepository.includes('studentReferenceId: certificate.studentReferenceId') &&

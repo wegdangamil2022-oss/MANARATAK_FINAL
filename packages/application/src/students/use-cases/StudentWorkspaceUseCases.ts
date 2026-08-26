@@ -2,7 +2,6 @@ import {
   IStudentWorkspaceDeliveryCache,
   IStudentWorkspaceRepository,
   SaveStudentItemDto,
-  StudentCollectionType,
   StudentDashboardSummaryDto,
   StudentRecentActivityDto,
   StudentRecentlyViewedDto,
@@ -88,7 +87,6 @@ export class StudentWorkspaceUseCases {
     studentReferenceId: string;
     name: string;
     description?: string | null;
-    type?: StudentCollectionType;
     color?: string | null;
     icon?: string | null;
   }): Promise<StudentSavedCollectionDto> {

@@ -150,4 +150,35 @@ describe('PrismaScholarshipRepository', () => {
       }),
     );
   });
+
+  it('applies combined admin filters before page-two pagination and preserves database totals', async () => {
+    mockPrisma.scholarship.findMany.mockResolvedValue([]);
+    mockPrisma.scholarship.count.mockResolvedValue(41);
+    const result = await repository.list({
+      page: 2, pageSize: 20, country: 'SA', degreeLevel: 'Bachelor', fundingCoverage: 'FULL',
+      sponsorName: 'Ministry', verificationStatus: 'VERIFIED' as any, query: 'engineering',
+    });
+    expect(mockPrisma.scholarship.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      skip: 20, take: 20,
+      where: expect.objectContaining({ verificationStatus: 'VERIFIED', AND: expect.any(Array) }),
+    }));
+    const where = mockPrisma.scholarship.findMany.mock.calls[0][0].where;
+    expect(JSON.stringify(where)).toContain('primaryCountry');
+    expect(JSON.stringify(where)).not.toContain('countrySourceLabel');
+    expect(JSON.stringify(where)).toContain('degreeTargets');
+    expect(JSON.stringify(where)).toContain('benefits');
+    expect(result).toMatchObject({ total: 41, page: 2, totalPages: 3 });
+  });
+
+  it('derives dashboard counters from unbounded database count queries', async () => {
+    mockPrisma.scholarship.count
+      .mockResolvedValueOnce(503).mockResolvedValueOnce(220).mockResolvedValueOnce(31).mockResolvedValueOnce(44)
+      .mockResolvedValueOnce(27).mockResolvedValueOnce(19).mockResolvedValueOnce(155).mockResolvedValueOnce(7);
+    await expect(repository.getAdminSummary()).resolves.toEqual({
+      all: 503, imported: 220, missingFields: 31, needsVerification: 44,
+      needsTranslation: 27, readyToPublish: 19, published: 155, archived: 7,
+    });
+    expect(mockPrisma.scholarship.count).toHaveBeenCalledTimes(8);
+    expect(mockPrisma.scholarship.findMany).not.toHaveBeenCalled();
+  });
 });

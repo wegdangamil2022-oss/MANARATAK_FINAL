@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { ITokenProvider } from '@manaratak/core';
 import { FinanceStudentUseCases, StudentWorkspaceUseCases } from '@manaratak/application';
-import { StudentCollectionType, StudentSavedItemType } from '@manaratak/domain';
+import { StudentSavedItemType } from '@manaratak/domain';
 import { AuthMiddleware } from '../../middleware/AuthMiddleware';
 
 export class StudentWorkspaceRouter {
@@ -47,7 +47,7 @@ export class StudentWorkspaceRouter {
         .nullable()
         .optional(),
       metadata: z.record(z.string(), z.unknown()).nullable().optional(),
-    });
+    }).strict(); // privacyPreferences is intentionally rejected; use PUT /student/privacy-consent.
 
     const privacyConsentSchema = z.object({
       expectedVersion: z.number().int().positive(),
@@ -73,14 +73,13 @@ export class StudentWorkspaceRouter {
     const collectionSchema = z.object({
       name: z.string().trim().min(1).max(80),
       description: z.string().trim().max(240).nullable().optional(),
-      type: z.nativeEnum(StudentCollectionType).optional(),
       color: z
         .string()
         .regex(/^#[0-9A-Fa-f]{6}$/)
         .nullable()
         .optional(),
       icon: z.string().trim().max(40).nullable().optional(),
-    });
+    }).strict();
 
     router.use(new AuthMiddleware(tokenProvider).generate());
     const ownStudent = (req: Request): string => {
@@ -151,7 +150,7 @@ export class StudentWorkspaceRouter {
           await studentWorkspaceUseCases.updateCollection(
             ownStudent(req),
             req.params.collectionId,
-            collectionSchema.partial().omit({ type: true }).parse(req.body),
+            collectionSchema.partial().parse(req.body),
           ),
         );
       }),

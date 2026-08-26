@@ -158,6 +158,35 @@ describe('PrismaStudentWorkspaceRepository', () => {
     await expect(repository.ingestIntegrationEvent(event)).resolves.toBe(false);
     expect(tx.studentWorkspace.create).toHaveBeenCalledOnce();
     expect(tx.studentSavedCollection.create).toHaveBeenCalledOnce();
+    expect(tx.studentSavedCollection.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ type: 'FAVORITES' }) }));
     expect(tx.transactionalOutboxRecord.create).toHaveBeenCalledTimes(2);
+  });
+
+  it('persists ordinary collections as PERSONAL independently of caller input ordering', async () => {
+    const tx = {
+      studentWorkspace: { findUnique: vi.fn().mockResolvedValue(workspace) },
+      studentSavedCollection: { create: vi.fn().mockImplementation(({ data }) => ({ ...data, _count: { items: 0 }, createdAt: new Date(), updatedAt: new Date() })) },
+      auditRecord: { create: vi.fn() }, transactionalOutboxRecord: { create: vi.fn() },
+    };
+    const repository = new PrismaStudentWorkspaceRepository({ $transaction: (callback: (client: typeof tx) => unknown) => callback(tx) } as any);
+    await repository.createCollection({ studentReferenceId: 'student-1', name: 'قائمتي' });
+    expect(tx.studentSavedCollection.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ type: 'PERSONAL' }) }));
+  });
+
+  it('persists every privacy toggle, advances version, and records the authoritative decision', async () => {
+    const updated = { ...workspace, version: 2, privacyPreferences: { retainSearchHistory: false, allowPersonalization: true, allowProductAnalytics: true, publicProfileEnabled: false } };
+    const tx = {
+      studentWorkspace: { findUnique: vi.fn().mockResolvedValue({ ...workspace, privacyPreferences: { retainSearchHistory: true, allowPersonalization: false, allowProductAnalytics: false, publicProfileEnabled: false } }), update: vi.fn().mockResolvedValue(updated) },
+      studentPrivacyConsentDecision: { create: vi.fn() }, auditRecord: { create: vi.fn() }, transactionalOutboxRecord: { create: vi.fn() },
+    };
+    const repository = new PrismaStudentWorkspaceRepository({ $transaction: (callback: (client: typeof tx) => unknown) => callback(tx) } as any);
+    const decision = await repository.updatePrivacyConsent({
+      studentReferenceId: 'student-1', expectedVersion: 1, actorId: 'student-1', purpose: 'settings',
+      privacyPreferences: updated.privacyPreferences,
+    });
+    expect(tx.studentWorkspace.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ privacyPreferences: updated.privacyPreferences, version: { increment: 1 } }) }));
+    expect(tx.studentPrivacyConsentDecision.create).toHaveBeenCalledOnce();
+    expect(decision).toMatchObject({ workspaceVersion: 2, afterPreferences: updated.privacyPreferences });
+    expect(decision.changedFields).toEqual(expect.arrayContaining(['retainSearchHistory', 'allowPersonalization', 'allowProductAnalytics']));
   });
 });

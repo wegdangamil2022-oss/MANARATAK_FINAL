@@ -93,4 +93,11 @@ describe('StudentWorkspaceUseCases', () => {
       }),
     ).rejects.toThrow('STUDENT_WORKSPACE_ARCHIVED');
   });
+
+  it('forces student-created collections through the PERSONAL-only repository contract', async () => {
+    repository.createCollection = vi.fn().mockResolvedValue({ id: 'collection-1', studentReferenceId: 'student-1', name: 'قائمتي', type: 'PERSONAL', itemCount: 0, createdAt: new Date(), updatedAt: new Date() });
+    await expect(useCases.createCollection({ studentReferenceId: 'student-1', name: '  قائمتي  ' })).resolves.toMatchObject({ type: 'PERSONAL' });
+    expect(repository.createCollection).toHaveBeenCalledWith(expect.objectContaining({ name: 'قائمتي' }));
+    expect(repository.createCollection).toHaveBeenCalledWith(expect.not.objectContaining({ type: expect.anything() }));
+  });
 });

@@ -13,6 +13,7 @@ describe('StudentWorkspaceRouter', () => {
     listSavedItems: vi.fn(),
     saveItem: vi.fn(),
     removeSavedItem: vi.fn(),
+    createCollection: vi.fn(),
   });
 
   const createApp = (useCases: ReturnType<typeof createUseCases>) => {
@@ -106,5 +107,31 @@ describe('StudentWorkspaceRouter', () => {
     const res = await request(app).get('/student/student-1/dashboard');
 
     expect(res.status).toBe(401);
+  });
+
+  it('routes privacy toggles through the consent command with authenticated actor evidence', async () => {
+    const useCases = createUseCases();
+    useCases.updatePrivacyConsent.mockResolvedValue({ id: 'decision-1', workspaceVersion: 3 });
+    const preferences = { retainSearchHistory: false, allowPersonalization: true, allowProductAnalytics: true, publicProfileEnabled: false };
+    const res = await request(createApp(useCases)).put('/student/privacy-consent').set('Authorization', 'Bearer valid-student-token')
+      .send({ expectedVersion: 2, purpose: 'student settings', privacyPreferences: preferences });
+    expect(res.status).toBe(200);
+    expect(useCases.updatePrivacyConsent).toHaveBeenCalledWith(expect.objectContaining({ studentReferenceId: 'student-1', actorId: 'student-1', expectedVersion: 2, privacyPreferences: preferences }));
+  });
+
+  it('rejects privacy fields on generic workspace updates instead of stripping them', async () => {
+    const useCases = createUseCases();
+    const res = await request(createApp(useCases)).put('/student/workspace').set('Authorization', 'Bearer valid-student-token')
+      .send({ expectedVersion: 1, privacyPreferences: { retainSearchHistory: false } });
+    expect(res.status).toBe(400);
+    expect(useCases.upsertWorkspace).not.toHaveBeenCalled();
+  });
+
+  it.each(['FAVORITES', 'SMART'])('rejects public collection type spoofing: %s', async (type) => {
+    const useCases = createUseCases();
+    const res = await request(createApp(useCases)).post('/student/collections').set('Authorization', 'Bearer valid-student-token')
+      .send({ name: 'قائمتي', type });
+    expect(res.status).toBe(400);
+    expect(useCases.createCollection).not.toHaveBeenCalled();
   });
 });

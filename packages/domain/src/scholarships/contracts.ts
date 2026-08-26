@@ -265,8 +265,28 @@ export interface ScholarshipFilters {
   status?: ScholarshipStatus;
   completenessStatus?: ScholarshipCompletenessState;
   country?: string;
+  degreeLevel?: string;
+  fundingCoverage?: string;
+  sponsorName?: string;
+  verificationStatus?: ScholarshipVerificationStatus;
+  translationState?: 'NEEDS_TRANSLATION' | 'TRANSLATED';
+  deadlineFrom?: Date;
+  deadlineTo?: Date;
+  sourceType?: string;
+  query?: string;
   page?: number;
   pageSize?: number;
+}
+
+export interface ScholarshipAdminSummary {
+  all: number;
+  imported: number;
+  missingFields: number;
+  needsVerification: number;
+  needsTranslation: number;
+  readyToPublish: number;
+  published: number;
+  archived: number;
 }
 
 export interface PublicScholarshipFilters {

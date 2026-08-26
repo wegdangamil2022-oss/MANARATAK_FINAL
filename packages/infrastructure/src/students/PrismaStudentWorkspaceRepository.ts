@@ -328,14 +328,13 @@ export class PrismaStudentWorkspaceRepository implements IStudentWorkspaceReposi
     studentReferenceId: string;
     name: string;
     description?: string | null;
-    type?: StudentCollectionType;
     color?: string | null;
     icon?: string | null;
   }): Promise<StudentSavedCollectionDto> {
     return this.db.$transaction(async (tx: any) => {
       const workspace = await this.requireWritable(tx, data.studentReferenceId);
       const row = await tx.studentSavedCollection.create({
-        data: { id: randomUUID(), type: StudentCollectionType.PERSONAL, ...data },
+        data: { id: randomUUID(), ...data, type: StudentCollectionType.PERSONAL },
         include: { _count: { select: { items: true } } },
       });
       await this.appendOutbox(tx, workspace.id, 'StudentSavedCollectionCreated', {

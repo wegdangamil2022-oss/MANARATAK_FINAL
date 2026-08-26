@@ -13,8 +13,9 @@ describe('RISK-06 through RISK-09 source closure', () => {
 
   it('does not hide Major catalog DB enrichment failures in runtime environments', () => {
     const catalog = source('packages/infrastructure/src/majors/Phase10CatalogRepository.ts');
-    expect(catalog).toContain('MANARATAK_PHASE10_CATALOG_PATH');
-    expect(catalog).toContain("process.env.NODE_ENV === 'production'");
+    expect(catalog).toContain('this.options.catalogPath');
+    expect(catalog).toContain('this.options.productionLike === true');
+    expect(catalog).not.toContain('process.env');
   });
 
   it('persists the canonical currency reference for international test fees', () => {

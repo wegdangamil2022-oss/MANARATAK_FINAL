@@ -15,11 +15,25 @@ import {
 } from '@manaratak/domain';
 import { AtomicDomainMutationCoordinator, AtomicMutationRequestContext } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
 
-export class AdminScholarshipUseCases {
-  constructor(private readonly repository: IScholarshipRepository, private readonly atomicMutations?: AtomicDomainMutationCoordinator) {}
+type AdminScholarshipRepository = IScholarshipRepository & {
+  getAdminSummary?: () => Promise<Record<string, number>>;
+};
+type AdminScholarshipFilters = ScholarshipFilters & {
+  degreeLevel?: string; fundingCoverage?: string; sponsorName?: string; verificationStatus?: string;
+  translationState?: 'NEEDS_TRANSLATION' | 'TRANSLATED'; deadlineFrom?: Date; deadlineTo?: Date;
+  sourceType?: string; query?: string;
+};
 
-  public async listScholarships(filters: ScholarshipFilters): Promise<PaginatedResult<ScholarshipDto>> {
+export class AdminScholarshipUseCases {
+  constructor(private readonly repository: AdminScholarshipRepository, private readonly atomicMutations?: AtomicDomainMutationCoordinator) {}
+
+  public async listScholarships(filters: AdminScholarshipFilters): Promise<PaginatedResult<ScholarshipDto>> {
     return this.repository.list(filters);
+  }
+
+  public async getScholarshipSummary() {
+    if (!this.repository.getAdminSummary) throw new Error('SCHOLARSHIP_ADMIN_SUMMARY_NOT_CONFIGURED');
+    return this.repository.getAdminSummary();
   }
 
   public async getScholarship(id: string): Promise<ScholarshipDto> {

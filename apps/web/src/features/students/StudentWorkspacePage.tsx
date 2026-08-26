@@ -93,6 +93,7 @@ export function StudentWorkspacePage() {
     const form = new FormData(event.currentTarget);
     setSaving(true);
     setNotice(null);
+    setError(null);
     try {
       const workspace = await ApiClient.updateMyStudentWorkspace({
         expectedVersion: dashboard.workspace.version,
@@ -109,22 +110,33 @@ export function StudentWorkspacePage() {
           scholarships: form.get('notifyScholarships') === 'on',
           payments: form.get('notifyPayments') === 'on',
         },
-        privacyPreferences: {
-          retainSearchHistory: form.get('retainSearchHistory') === 'on',
-          allowPersonalization: form.get('allowPersonalization') === 'on',
-          allowProductAnalytics: form.get('allowProductAnalytics') === 'on',
-          publicProfileEnabled: false,
-        },
         accessibilityPreferences: {
           textScale: String(form.get('textScale') || 'DEFAULT'),
           reduceMotion: form.get('reduceMotion') === 'on',
           highContrast: form.get('highContrast') === 'on',
         },
       });
-      setDashboard((current) => (current ? { ...current, workspace } : current));
+      await ApiClient.updateMyStudentPrivacyConsent({
+        expectedVersion: workspace.version,
+        purpose: 'تحديث تفضيلات الخصوصية من مساحة الطالب',
+        privacyPreferences: {
+          retainSearchHistory: form.get('retainSearchHistory') === 'on',
+          allowPersonalization: form.get('allowPersonalization') === 'on',
+          allowProductAnalytics: form.get('allowProductAnalytics') === 'on',
+          publicProfileEnabled: false,
+        },
+      });
+      setDashboard(await ApiClient.getMyStudentDashboard());
       setNotice('حُفظت تفضيلاتك بأمان على جميع أجهزتك.');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'تعذر حفظ الإعدادات');
+      const message = cause instanceof Error ? cause.message : 'تعذر حفظ الإعدادات';
+      setNotice(null);
+      setError(message.includes('VERSION_CONFLICT')
+        ? 'تغيّرت الإعدادات في جلسة أخرى. تم تحديث البيانات؛ راجع اختياراتك ثم احفظ مجددًا.'
+        : message);
+      if (message.includes('VERSION_CONFLICT')) {
+        try { setDashboard(await ApiClient.getMyStudentDashboard()); } catch { setRetryKey((value) => value + 1); }
+      }
     } finally {
       setSaving(false);
     }

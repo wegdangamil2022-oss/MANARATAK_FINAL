@@ -74,7 +74,11 @@
     "w11:verify": "node scripts/verify-w11-source.mjs",
     "w12:verify": "node scripts/verify-w12-source.mjs",
     "w13:verify": "node scripts/verify-w13-source.mjs",
-    "w14:verify": "node scripts/verify-w14-source.mjs"
+    "w14:verify": "node scripts/verify-w14-source.mjs",
+    "w15:verify": "node scripts/verify-w15-source.mjs",
+    "w16:verify": "node scripts/verify-w16-final-closure.mjs",
+    "remediation:verify": "node scripts/run-remediation-verifiers.mjs",
+    "postw16:verify": "node scripts/verify-post-w16-hardening.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

@@ -78,11 +78,16 @@ export enum OrganizationStatus { DUMMY = 'DUMMY', Active = 'Active' }
 export class IOrganizationTypeProvider { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class IMembershipSpecification { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class IOrganizationSpecification { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
-export interface IScholarshipRepository { [key: string]: any }
+export interface IScholarshipRepository { getAdminSummary?: () => Promise<Record<string, number>>; [key: string]: any }
 export interface ScholarshipDto { [key: string]: any }
 export interface UpdateScholarshipDto { [key: string]: any }
 export enum ScholarshipStatus { DUMMY = 'DUMMY', IMPORTED = 'IMPORTED', ARCHIVED = 'ARCHIVED', REJECTED = 'REJECTED', PUBLISHED = 'PUBLISHED', READY_TO_PUBLISH = 'READY_TO_PUBLISH', READY_TO_REVIEW = 'READY_TO_REVIEW' }
-export interface ScholarshipFilters { [key: string]: any }
+export interface ScholarshipFilters {
+  status?: any; completenessStatus?: any; country?: string; degreeLevel?: string; fundingCoverage?: string;
+  sponsorName?: string; verificationStatus?: any; translationState?: 'NEEDS_TRANSLATION' | 'TRANSLATED';
+  deadlineFrom?: Date; deadlineTo?: Date; sourceType?: string; query?: string; page?: number; pageSize?: number;
+  [key: string]: any;
+}
 export interface PublicScholarshipDto { [key: string]: any }
 export class SearchRequest { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export interface SearchResult { [key: string]: any }

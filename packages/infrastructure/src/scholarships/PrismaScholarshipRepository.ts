@@ -6,6 +6,7 @@ import {
   ITransactionalScholarshipRepository,
   PublicScholarshipFilters,
   ScholarshipDto,
+  ScholarshipCompletenessState,
   ScholarshipFilters,
   ScholarshipPage,
   ScholarshipStatus,
@@ -17,6 +18,12 @@ import {
 interface ScholarshipTransactionContext extends AtomicPersistenceContext {
   readonly transactionClient: Prisma.TransactionClient;
 }
+
+type AdminScholarshipFilters = ScholarshipFilters & {
+  degreeLevel?: string; fundingCoverage?: string; sponsorName?: string; verificationStatus?: ScholarshipVerificationStatus;
+  translationState?: 'NEEDS_TRANSLATION' | 'TRANSLATED'; deadlineFrom?: Date; deadlineTo?: Date;
+  sourceType?: string; query?: string;
+};
 
 const LEGACY_COMPATIBILITY_KEYS = [
   'fundingCoverage',
@@ -302,18 +309,44 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
     }
   }
 
-  async list(filters: ScholarshipFilters): Promise<ScholarshipPage<ScholarshipDto>> {
+  async list(filters: AdminScholarshipFilters): Promise<ScholarshipPage<ScholarshipDto>> {
     const page = filters.page || 1;
     const pageSize = filters.pageSize || 20;
 
     const where: Prisma.ScholarshipWhereInput = {};
     if (filters.status) where.status = filters.status;
-    if (filters.country) {
-      where.OR = [
-        { countryReferenceId: filters.country },
-        { countrySourceLabel: { equals: filters.country, mode: 'insensitive' } },
-      ];
-    }
+    const constraints: Prisma.ScholarshipWhereInput[] = [];
+    if (filters.country) constraints.push({ OR: [
+      { countryReferenceId: filters.country },
+      { primaryCountry: { is: { OR: [
+        { iso2Code: { equals: filters.country, mode: 'insensitive' } },
+        { name: { equals: filters.country, mode: 'insensitive' } },
+        { nameAr: { equals: filters.country, mode: 'insensitive' } },
+      ] } } },
+    ] });
+    if (filters.degreeLevel) constraints.push({ degreeTargets: { some: { OR: [
+      { degreeLevelId: filters.degreeLevel }, { sourceLabel: { equals: filters.degreeLevel, mode: 'insensitive' } },
+    ] } } });
+    if (filters.fundingCoverage) constraints.push({ OR: [
+      { fundingTypeCode: { equals: filters.fundingCoverage, mode: 'insensitive' } },
+      { benefits: { some: { coverageTypeCode: { equals: filters.fundingCoverage, mode: 'insensitive' } } } },
+    ] });
+    if (filters.sponsorName) constraints.push({ providerName: { contains: filters.sponsorName, mode: 'insensitive' } });
+    if (filters.verificationStatus) where.verificationStatus = filters.verificationStatus;
+    if (filters.translationState === 'NEEDS_TRANSLATION') constraints.push({ OR: [{ sourceLocale: null }, { sourceLocale: { notIn: ['ar', 'ar-SA'] } }] });
+    if (filters.translationState === 'TRANSLATED') where.sourceLocale = { in: ['ar', 'ar-SA'] };
+    if (filters.deadlineFrom || filters.deadlineTo) where.applicationDeadline = { gte: filters.deadlineFrom, lte: filters.deadlineTo };
+    if (filters.sourceType) constraints.push({ sourceEvidence: { some: { sourceTypeCode: { equals: filters.sourceType, mode: 'insensitive' } } } });
+    if (filters.query) constraints.push({ OR: [
+      { displayName: { contains: filters.query, mode: 'insensitive' } },
+      { canonicalName: { contains: filters.query, mode: 'insensitive' } },
+      { providerName: { contains: filters.query, mode: 'insensitive' } },
+      { primaryCountry: { is: { OR: [
+        { name: { contains: filters.query, mode: 'insensitive' } },
+        { nameAr: { contains: filters.query, mode: 'insensitive' } },
+      ] } } },
+    ] });
+    if (constraints.length) where.AND = constraints;
 
     const [data, total] = await Promise.all([
       this.prisma.scholarship.findMany({
@@ -333,6 +366,20 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
       pageSize,
       totalPages: Math.ceil(total / pageSize),
     };
+  }
+
+  async getAdminSummary() {
+    const [all, imported, missingFields, needsVerification, needsTranslation, readyToPublish, published, archived] = await Promise.all([
+      this.prisma.scholarship.count(),
+      this.prisma.scholarship.count({ where: { status: { in: [ScholarshipStatus.IMPORTED, ScholarshipStatus.READY_TO_REVIEW] } } }),
+      this.prisma.scholarship.count({ where: { OR: [{ completenessStatus: { not: ScholarshipCompletenessState.COMPLETE } }, { applicationDeadline: null }] } }),
+      this.prisma.scholarship.count({ where: { OR: [{ verificationStatus: { not: ScholarshipVerificationStatus.VERIFIED } }, { officialSourceUrl: null }] } }),
+      this.prisma.scholarship.count({ where: { OR: [{ sourceLocale: null }, { sourceLocale: { notIn: ['ar', 'ar-SA'] } }] } }),
+      this.prisma.scholarship.count({ where: { status: ScholarshipStatus.READY_TO_PUBLISH } }),
+      this.prisma.scholarship.count({ where: { status: ScholarshipStatus.PUBLISHED } }),
+      this.prisma.scholarship.count({ where: { status: ScholarshipStatus.ARCHIVED } }),
+    ]);
+    return { all, imported, missingFields, needsVerification, needsTranslation, readyToPublish, published, archived };
   }
 
   async listPublished(filters: PublicScholarshipFilters): Promise<ScholarshipPage<ScholarshipDto>> {

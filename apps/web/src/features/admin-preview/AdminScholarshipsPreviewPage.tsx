@@ -105,9 +105,18 @@ export function AdminScholarshipsPreviewPage() {
     setLoading(true);
     setError(null);
     try {
-      const filters: any = { page, pageSize: 20 };
+      const filters: Parameters<typeof ApiClient.getAdminScholarships>[0] = { page, pageSize: 20 };
       if (statusFilter) filters.status = statusFilter;
-      if (completenessFilter) filters.completenessStatus = completenessFilter;
+      if (completenessFilter) filters.completenessStatus = completenessFilter.toUpperCase();
+      if (countryFilter) filters.country = countryFilter;
+      if (degreeFilter) filters.degreeLevel = degreeFilter;
+      if (fundingFilter) filters.fundingCoverage = fundingFilter;
+      if (sourceFilter) filters.sponsorName = sourceFilter;
+      if (verificationFilter) filters.verificationStatus = verificationFilter;
+      if (translationFilter) filters.translationState = translationFilter as 'NEEDS_TRANSLATION' | 'TRANSLATED';
+      if (deadlineFilter) filters.deadlineTo = new Date(`${deadlineFilter}T23:59:59.999Z`).toISOString();
+      if (originFilter) filters.sourceType = originFilter;
+      if (searchQuery.trim()) filters.query = searchQuery.trim();
 
       const res = await ApiClient.getAdminScholarships(filters);
       let items: ScholarshipItem[] = res.data || [];
@@ -115,32 +124,8 @@ export function AdminScholarshipsPreviewPage() {
         items = [previewScholarshipFixture, ...items];
       }
 
-      // Apply client-side filters for all 10 filter parameters
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        items = items.filter(item => 
-          (item.displayName && item.displayName.toLowerCase().includes(q)) ||
-          (item.sponsorName && item.sponsorName.toLowerCase().includes(q)) ||
-          (item.studyCountry && item.studyCountry.toLowerCase().includes(q)) ||
-          (item.degreeLevel && item.degreeLevel.toLowerCase().includes(q))
-        );
-      }
-
-      if (countryFilter) {
-        items = items.filter(i => i.studyCountry?.toLowerCase() === countryFilter.toLowerCase());
-      }
-      if (degreeFilter) {
-        items = items.filter(i => i.degreeLevel?.toLowerCase() === degreeFilter.toLowerCase());
-      }
-      if (fundingFilter) {
-        items = items.filter(i => i.fundingCoverage?.toLowerCase() === fundingFilter.toLowerCase());
-      }
-      if (sourceFilter) {
-        items = items.filter(i => i.sponsorName?.toLowerCase().includes(sourceFilter.toLowerCase()));
-      }
-
       setScholarships(items);
-      setTotal(items.length);
+      setTotal(res.total);
       setTotalPages(res.totalPages || 1);
 
       fetchCounts();
@@ -162,21 +147,7 @@ export function AdminScholarshipsPreviewPage() {
 
   const fetchCounts = async () => {
     try {
-      const allRes = await ApiClient.getAdminScholarships({ page: 1, pageSize: 200 });
-      let allData: ScholarshipItem[] = allRes.data || [];
-      if (localScholarshipPreviewEnabled() && !allData.some(item => item.id === previewScholarshipFixture.id)) {
-        allData = [previewScholarshipFixture, ...allData];
-      }
-      setCounts({
-        all: allData.length,
-        imported: allData.filter(i => i.status === 'IMPORTED' || i.status === 'READY_TO_REVIEW').length,
-        missingFields: allData.filter(i => i.completenessStatus === 'incomplete' || !i.applicationDeadline).length,
-        needsVerification: allData.filter(i => i.verificationStatus === 'needs_verification' || !i.officialSourceUrl).length,
-        needsTranslation: allData.filter(i => i.translationStatus === 'needs_translation').length,
-        readyToPublish: allData.filter(i => i.status === 'READY_TO_PUBLISH').length,
-        published: allData.filter(i => i.status === 'PUBLISHED').length,
-        archived: allData.filter(i => i.status === 'ARCHIVED').length,
-      });
+      setCounts(await ApiClient.getAdminScholarshipSummary());
     } catch (e) {
       if (localScholarshipPreviewEnabled()) {
         setCounts({ all: 1, imported: 1, missingFields: 0, needsVerification: 0, needsTranslation: 0, readyToPublish: 0, published: 0, archived: 0 });
@@ -188,7 +159,7 @@ export function AdminScholarshipsPreviewPage() {
     if (!adminSessionPresent) return;
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, statusFilter, completenessFilter, countryFilter, degreeFilter, fundingFilter, adminSessionPresent]);
+  }, [page, statusFilter, completenessFilter, countryFilter, degreeFilter, fundingFilter, sourceFilter, verificationFilter, translationFilter, deadlineFilter, originFilter, searchQuery, adminSessionPresent]);
 
   if (!adminSessionPresent) {
     return <Navigate to="/login" replace />;
@@ -305,14 +276,15 @@ export function AdminScholarshipsPreviewPage() {
           { label: ui('published', 'منشورة', 'Published'), count: counts.published, filter: 'PUBLISHED', color: 'border-emerald-200 bg-emerald-50/30 text-emerald-900 shadow-sm' },
           { label: ui('archived', 'مؤرشفة', 'Archived'), count: counts.archived, filter: 'ARCHIVED', color: 'border-slate-200 bg-slate-50 text-slate-700 shadow-sm' },
         ].map((stat, idx) => (
-          <div 
+          <button
+            type="button"
             key={idx} 
             onClick={() => setStatusFilter(stat.filter)}
             className={`flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-xl border p-3 text-center transition-all hover:shadow-sm ${stat.color} ${statusFilter === stat.filter ? 'ring-2 ring-[#0F4B3A] ring-offset-1' : ''}`}
           >
             <span className="block text-xs font-bold leading-5 opacity-80">{stat.label}</span>
             <span className="mt-1 block text-2xl font-black">{stat.count}</span>
-          </div>
+          </button>
         ))}
       </section>
 

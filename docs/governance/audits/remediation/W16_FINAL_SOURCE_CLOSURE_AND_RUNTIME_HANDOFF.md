@@ -25,6 +25,11 @@ The real repository must pass, on one clean source state:
 
 Only after all of these gates pass may the source-remediation program be recorded as `SOURCE_REMEDIATION_CLOSED`.
 
+Post-W16 hardening continuously enforces the same contract in CI through
+`npm run remediation:verify`, which executes W0→W15 and the W16 final-closure
+verifier in order on the checked-out SHA and fails on the first regression.
+This enforcement is a closure regression repair, not W17 and not finding 154.
+
 ## Closure invariants
 
 1. W16 creates no finding 154 and does not modify the frozen W0→W15 finding arithmetic.

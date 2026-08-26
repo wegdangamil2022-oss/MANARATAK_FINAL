@@ -7,6 +7,7 @@ import { ScholarshipStatus } from '@manaratak/domain';
 describe('ScholarshipAdminRouter', () => {
   const createMockUseCases = () => ({
     listScholarships: vi.fn(),
+    getScholarshipSummary: vi.fn(),
     getScholarship: vi.fn(),
     updateScholarship: vi.fn(),
     markReadyToReview: vi.fn(),
@@ -15,6 +16,27 @@ describe('ScholarshipAdminRouter', () => {
     unpublish: vi.fn(),
     reject: vi.fn(),
     archive: vi.fn(),
+  });
+
+  it('forwards the complete canonical admin filter contract', async () => {
+    const useCases = createMockUseCases();
+    useCases.listScholarships.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
+    const res = await request(createApp(useCases)).get('/admin/scholarships?country=SA&degreeLevel=Bachelor&fundingCoverage=FULL&sponsorName=Ministry&verificationStatus=VERIFIED&translationState=NEEDS_TRANSLATION&sourceType=OFFICIAL&query=engineering&deadlineTo=2027-01-01T00:00:00.000Z');
+    expect(res.status).toBe(200);
+    expect(useCases.listScholarships).toHaveBeenCalledWith(expect.objectContaining({
+      country: 'SA', degreeLevel: 'Bachelor', fundingCoverage: 'FULL', sponsorName: 'Ministry',
+      verificationStatus: 'VERIFIED', translationState: 'NEEDS_TRANSLATION', sourceType: 'OFFICIAL', query: 'engineering',
+      deadlineTo: new Date('2027-01-01T00:00:00.000Z'),
+    }));
+  });
+
+  it('returns server-derived summary counters without a bounded catalog fetch', async () => {
+    const useCases = createMockUseCases();
+    useCases.getScholarshipSummary.mockResolvedValue({ all: 503, published: 155 });
+    const res = await request(createApp(useCases)).get('/admin/scholarships/summary');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ all: 503, published: 155 });
+    expect(useCases.listScholarships).not.toHaveBeenCalled();
   });
 
   const createApp = (useCases: any) => {

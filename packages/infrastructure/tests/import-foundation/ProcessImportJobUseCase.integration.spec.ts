@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ProcessImportJobUseCase } from '../../src/import-foundation/use-cases/ProcessImportJobUseCase';
-import { ImportAdminUseCases } from '../../src/import-foundation/use-cases/ImportAdminUseCases';
+import { ProcessImportJobUseCase, ImportAdminUseCases } from '@manaratak/application';
 import { InMemoryImportQueueGateway } from '@manaratak/infrastructure';
 import { ImportTargetDomain } from '@manaratak/domain';
 

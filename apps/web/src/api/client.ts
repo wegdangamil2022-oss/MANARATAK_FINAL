@@ -108,6 +108,28 @@ export interface ScholarshipFilters {
   pageSize?: number;
 }
 
+export interface AdminScholarshipFilters {
+  status?: string;
+  completenessStatus?: string;
+  country?: string;
+  degreeLevel?: string;
+  fundingCoverage?: string;
+  sponsorName?: string;
+  verificationStatus?: string;
+  translationState?: 'NEEDS_TRANSLATION' | 'TRANSLATED';
+  deadlineFrom?: string;
+  deadlineTo?: string;
+  sourceType?: string;
+  query?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface AdminScholarshipSummary {
+  all: number; imported: number; missingFields: number; needsVerification: number;
+  needsTranslation: number; readyToPublish: number; published: number; archived: number;
+}
+
 export interface UniversityFilters {
   country?: string;
   institutionType?: string;
@@ -567,6 +589,15 @@ export interface StudentWorkspaceDto {
   lastActiveAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface StudentPrivacyConsentDecisionDto {
+  id: string;
+  studentReferenceId: string;
+  workspaceVersion: number;
+  changedFields: string[];
+  afterPreferences: Record<string, boolean>;
+  decidedAt: string;
 }
 
 export interface StudentSavedItemDto {
@@ -1754,6 +1785,23 @@ export class ApiClient {
     return res.json();
   }
 
+  static async updateMyStudentPrivacyConsent(input: {
+    expectedVersion: number;
+    purpose: string;
+    privacyPreferences: {
+      retainSearchHistory: boolean;
+      allowPersonalization: boolean;
+      allowProductAnalytics: boolean;
+      publicProfileEnabled: boolean;
+    };
+  }): Promise<StudentPrivacyConsentDecisionDto> {
+    const res = await apiFetch(`${API_BASE_URL}/student/privacy-consent`, {
+      method: 'PUT', headers: getStudentHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(input),
+    });
+    if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || 'تعذر حفظ موافقة الخصوصية'); }
+    return res.json();
+  }
+
   static async createStudentCollection(
     studentReferenceId: string,
     collection: { name: string; description?: string; color?: string },
@@ -2593,7 +2641,7 @@ export class ApiClient {
   }
 
   static async getAdminScholarships(
-    filters: ScholarshipFilters & { status?: string; completenessStatus?: string },
+    filters: AdminScholarshipFilters,
   ): Promise<PaginatedResult<any>> {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
@@ -2610,6 +2658,12 @@ export class ApiClient {
           'Failed to fetch admin scholarships',
       );
     }
+    return res.json();
+  }
+
+  static async getAdminScholarshipSummary(): Promise<AdminScholarshipSummary> {
+    const res = await apiFetch(`${API_BASE_URL}/admin/scholarships/summary`);
+    if (!res.ok) throw new Error(await parseErrorMessage(res, 'Failed to fetch scholarship summary'));
     return res.json();
   }
 

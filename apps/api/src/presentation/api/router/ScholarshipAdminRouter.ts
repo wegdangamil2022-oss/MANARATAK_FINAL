@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   ScholarshipStatus,
   ScholarshipCompletenessState,
+  ScholarshipVerificationStatus,
   UpdateScholarshipDto,
   type IScholarshipRepository,
 } from '@manaratak/domain';
@@ -99,6 +100,15 @@ export class ScholarshipAdminRouter {
       status: z.nativeEnum(ScholarshipStatus).optional(),
       completenessStatus: z.nativeEnum(ScholarshipCompletenessState).optional(),
       country: z.string().min(1).optional(),
+      degreeLevel: z.string().min(1).optional(),
+      fundingCoverage: z.string().min(1).optional(),
+      sponsorName: z.string().min(1).optional(),
+      verificationStatus: z.nativeEnum(ScholarshipVerificationStatus).optional(),
+      translationState: z.enum(['NEEDS_TRANSLATION', 'TRANSLATED']).optional(),
+      deadlineFrom: z.string().datetime().transform((value) => new Date(value)).optional(),
+      deadlineTo: z.string().datetime().transform((value) => new Date(value)).optional(),
+      sourceType: z.string().min(1).optional(),
+      query: z.string().trim().min(1).max(200).optional(),
       page: z
         .string()
         .optional()
@@ -299,6 +309,12 @@ export class ScholarshipAdminRouter {
         const filters = listQuerySchema.parse(req.query);
         const result = await adminScholarshipUseCases.listScholarships(filters);
         res.json(result);
+      }),
+    );
+    router.get(
+      '/summary',
+      asyncHandler(async (_req: Request, res: Response) => {
+        res.json(await adminScholarshipUseCases.getScholarshipSummary());
       }),
     );
 

@@ -46,6 +46,8 @@ jobs:
           fi
       - name: Source architecture and accessibility gate
         run: npm run quality:source
+      - name: W0-W16 remediation source contract
+        run: npm run remediation:verify
       - name: Typecheck
         run: npm run typecheck
       - name: Lint
