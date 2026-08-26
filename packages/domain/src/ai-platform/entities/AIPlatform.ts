@@ -163,6 +163,7 @@ export interface AIAsyncJobRecord {
   nextAttemptAt?: Date | string | null;
   lockedAt?: Date | string | null;
   lockedBy?: string | null;
+  leaseExpiresAt?: Date | string | null;
   executionPublicId?: string | null;
   errorCode?: string | null;
   createdAt: Date | string;
@@ -223,6 +224,31 @@ export interface AIWorkflowDefinition {
   definition: { steps: Array<{ key: string; capabilityKey: string; promptKey: string; dependsOn?: string[]; retryLimit?: number }> };
 }
 
+export interface AIWorkflowVersion {
+  id: string;
+  workflowKey: string;
+  version: number;
+  checksum: string;
+  definition: AIWorkflowDefinition['definition'];
+  createdBy: string;
+  createdAt: Date | string;
+}
+
+export interface AIWorkflowStepRun {
+  id: string;
+  runPublicId: string;
+  stepKey: string;
+  executionId?: string | null;
+  status: 'RUNNING' | 'COMPLETED' | 'FAILED';
+  attempt: number;
+  inputReferenceHash?: string | null;
+  outputReferenceHash?: string | null;
+  outputSnapshot?: unknown;
+  errorMessage?: string | null;
+  startedAt: Date | string;
+  completedAt?: Date | string | null;
+}
+
 export interface AIWorkflowRun {
   id: string;
   publicId: string;
@@ -257,6 +283,11 @@ export interface AIEvaluationRun {
   status: AIEvaluationRunStatus;
   promptVersion?: number | null;
   modelKey?: string | null;
+  targetType: 'PROMPT' | 'MODEL' | 'ROUTING' | 'WORKFLOW';
+  targetKey: string;
+  targetVersion?: number | null;
+  targetChecksum?: string | null;
+  targetEvidence?: Record<string, unknown> | null;
   passed: number;
   failed: number;
   safetyFailures: number;
@@ -327,5 +358,6 @@ export interface AIPlatformOverview {
   blockedToday: number;
   costMonthToDate: number;
   currency: string;
+  costMonthToDateByCurrency: Record<string, number>;
   openIncidents: number;
 }

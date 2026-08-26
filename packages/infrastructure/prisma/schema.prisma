@@ -3676,6 +3676,7 @@ model AIPromptVersionRecord {
   approvedBy    String?
   createdAt     DateTime @default(now())
   deployments   AIPromptDeploymentRecord[]
+  capabilityBindings AICapabilityPromptBindingRecord[]
 
   @@unique([promptKey, version])
   @@index([promptKey, status])
@@ -3693,6 +3694,46 @@ model AIPromptDeploymentRecord {
   promptVersion AIPromptVersionRecord @relation(fields: [promptKey, version], references: [promptKey, version], onDelete: Restrict)
 
   @@index([promptKey, environment, status])
+}
+
+model AICapabilityPromptBindingRecord {
+  id            String   @id @default(uuid())
+  capabilityKey String   @unique
+  promptKey     String
+  promptVersion Int
+  boundBy       String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  promptVersionRecord AIPromptVersionRecord @relation(fields: [promptKey, promptVersion], references: [promptKey, version], onDelete: Restrict)
+
+  @@index([promptKey, promptVersion])
+}
+
+model AIQuotaReservationRecord {
+  id                String   @id @default(uuid())
+  reservationKey    String   @unique
+  executionPublicId String   @unique
+  consumerKey       String
+  status            String   @default("RESERVED")
+  reservedTokens    Int
+  reservedCost      Decimal  @db.Decimal(18, 8)
+  actualTokens      Int?
+  actualCost        Decimal? @db.Decimal(18, 8)
+  currency          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([consumerKey, createdAt])
+  @@index([consumerKey, status, createdAt])
+}
+
+model AIProviderCircuitRecord {
+  key          String   @id
+  failures     Int      @default(0)
+  state        String   @default("CLOSED")
+  openedAt     DateTime?
+  probeLeaseAt DateTime?
+  updatedAt    DateTime @updatedAt
 }
 
 model AIExecutionRecord {
@@ -3751,6 +3792,7 @@ model AIAsyncJobRecord {
   nextAttemptAt         DateTime?
   lockedAt              DateTime?
   lockedBy              String?
+  leaseExpiresAt        DateTime?
   executionPublicId     String?
   errorCode             String?
   createdAt             DateTime @default(now())
@@ -3801,6 +3843,18 @@ model AIUsageRecord {
   @@index([providerKey, modelKey, createdAt])
 }
 
+model AIWorkflowVersionRecord {
+  id          String   @id @default(uuid())
+  workflowKey String
+  version     Int
+  checksum    String
+  definition  Json
+  createdBy   String
+  createdAt   DateTime @default(now())
+  @@unique([workflowKey, version])
+  @@index([workflowKey, createdAt])
+}
+
 model AIWorkflowRunRecord {
   id               String   @id @default(uuid())
   publicId         String   @unique
@@ -3829,6 +3883,7 @@ model AIWorkflowStepRunRecord {
   attempt        Int      @default(1)
   inputReferenceHash  String?
   outputReferenceHash String?
+  outputSnapshot  Json?
   errorMessage   String?
   startedAt      DateTime @default(now())
   completedAt    DateTime?
@@ -3845,6 +3900,11 @@ model AIEvaluationRunRecord {
   status           String
   promptVersion    Int?
   modelKey         String?
+  targetType       String?
+  targetKey        String?
+  targetVersion    Int?
+  targetChecksum   String?
+  targetEvidence   Json?
   passed           Int      @default(0)
   failed           Int      @default(0)
   safetyFailures   Int      @default(0)
@@ -3856,6 +3916,7 @@ model AIEvaluationRunRecord {
   completedAt      DateTime?
 
   @@index([evaluationKey, status, createdAt])
+  @@index([targetType, targetKey, targetVersion, completedAt])
 }
 
 model AIKnowledgeSourceRecord {

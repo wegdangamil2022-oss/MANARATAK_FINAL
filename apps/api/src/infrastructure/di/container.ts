@@ -8437,7 +8437,7 @@ export function registerDependencies(
     aiExecutionUseCases: asFunction(({ aiPlatformRepository, aiProviderRegistry, aiAsyncPayloadProtector }) => new AIExecutionOrchestrator(aiPlatformRepository, aiProviderRegistry, aiAsyncPayloadProtector)).scoped(),
     aiPlatformAdminUseCases: asFunction(({ aiPlatformRepository, aiProviderRegistry }) => new AIPlatformAdminUseCases(aiPlatformRepository, aiProviderRegistry)).scoped(),
     aiWorkflowUseCases: asFunction(({ aiPlatformRepository, aiExecutionUseCases }) => new AIWorkflowUseCases(aiPlatformRepository, aiExecutionUseCases)).scoped(),
-    aiEvaluationUseCases: asFunction(({ aiPlatformRepository, aiExecutionUseCases }) => new AIEvaluationUseCases(aiPlatformRepository, aiExecutionUseCases)).scoped(),
+    aiEvaluationUseCases: asFunction(({ aiPlatformRepository, aiExecutionUseCases, aiWorkflowUseCases }) => new AIEvaluationUseCases(aiPlatformRepository, aiExecutionUseCases, aiWorkflowUseCases)).scoped(),
     aiKnowledgeUseCases: asFunction(({ aiPlatformRepository, aiProviderRegistry }) => new AIKnowledgeUseCases(aiPlatformRepository, aiProviderRegistry)).scoped(),
     importAdminUseCases: asFunction(({ importRepository, importQueueGateway, importHandoffDispatcher, importWorkerProtocol }) => new ImportAdminUseCases(importRepository, importQueueGateway, importHandoffDispatcher, importWorkerProtocol)).scoped(),
     majorImportStagingUseCase: asFunction(({ importAdminUseCases }) => new MajorImportStagingUseCase(importAdminUseCases)).scoped(),

@@ -71,7 +71,8 @@
     "w8:verify": "node scripts/verify-w8-source.mjs",
     "w9:verify": "node scripts/verify-w9-source.mjs",
     "w10:verify": "node scripts/verify-w10-source.mjs",
-    "w11:verify": "node scripts/verify-w11-source.mjs"
+    "w11:verify": "node scripts/verify-w11-source.mjs",
+    "w12:verify": "node scripts/verify-w12-source.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
