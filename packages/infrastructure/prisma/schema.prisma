@@ -177,6 +177,7 @@ model Course {
   directCourseUrl      String
   status               String
   completenessStatus   String
+  version              Int      @default(1)
 
   externalProviderId               String?
   originalSourceTitle              String?
@@ -228,6 +229,9 @@ model Course {
   lessonProgress             CourseLessonProgress[]
   quizAttempts               CourseQuizAttempt[]
   completions                CourseCompletion[]
+  versions                   CourseVersion[]
+  enrollmentPolicy           CourseEnrollmentPolicy?
+  learningPathCourses        LearningPathCourse[]
 
   @@index([status])
   @@index([completenessStatus])
@@ -352,6 +356,7 @@ model CourseQuestionBank {
 model CourseQuestion {
   id             String   @id @default(uuid())
   courseId       String
+  version        Int      @default(1)
   quizId         String?
   questionBankId String?
   questionType   String
@@ -368,6 +373,7 @@ model CourseQuestion {
   course       Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
   quiz         CourseQuiz?         @relation(fields: [quizId], references: [id], onDelete: Cascade)
   questionBank CourseQuestionBank? @relation(fields: [questionBankId], references: [id], onDelete: SetNull)
+  versions     CourseQuestionVersion[]
 
   @@index([courseId, status])
   @@index([quizId, position])
@@ -444,6 +450,7 @@ model CourseCompletion {
   status                 String
   completionSource       String
   eligibleForCertificate Boolean  @default(false)
+  courseVersion          Int
   completedAt            DateTime @default(now())
   metadata               Json?
   createdAt              DateTime @default(now())
@@ -452,6 +459,119 @@ model CourseCompletion {
   course Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
 
   @@unique([courseId, studentReferenceId])
+  @@index([studentReferenceId, status])
+}
+
+model CourseVersion {
+  id            String   @id @default(uuid())
+  courseId      String
+  versionNumber Int
+  reason        String
+  snapshot      Json
+  createdBy     String?
+  createdAt     DateTime @default(now())
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, versionNumber])
+  @@index([courseId, createdAt])
+}
+
+model CourseQuestionVersion {
+  id            String   @id @default(uuid())
+  questionId    String
+  versionNumber Int
+  reason        String
+  snapshot      Json
+  createdBy     String?
+  createdAt     DateTime @default(now())
+
+  question CourseQuestion @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  @@unique([questionId, versionNumber])
+  @@index([questionId, createdAt])
+}
+
+model CourseEnrollmentPolicy {
+  courseId                   String   @id
+  isCapacityLimited          Boolean  @default(false)
+  maximumSeats               Int?
+  requiresApproval           Boolean  @default(false)
+  waitlistEnabled            Boolean  @default(false)
+  prerequisiteCourseIds      Json
+  eligibilityRules           Json?
+  requiresFinancialClearance Boolean  @default(false)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+model LearningPath {
+  id                String   @id @default(uuid())
+  publicId          String   @unique
+  slug              String   @unique
+  title             String
+  description       String?
+  status            String   @default("DRAFT")
+  version           Int      @default(1)
+  isStrictlyOrdered Boolean  @default(false)
+  completionLogic   String   @default("ALL_REQUIRED")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  versions    LearningPathVersion[]
+  enrollments LearningPathEnrollment[]
+
+  @@index([status])
+}
+
+model LearningPathVersion {
+  id             String   @id @default(uuid())
+  learningPathId String
+  versionNumber  Int
+  status         String
+  snapshot       Json
+  createdAt      DateTime @default(now())
+
+  learningPath LearningPath         @relation(fields: [learningPathId], references: [id], onDelete: Cascade)
+  courses      LearningPathCourse[]
+
+  @@unique([learningPathId, versionNumber])
+  @@index([learningPathId, status])
+}
+
+model LearningPathCourse {
+  id                     String   @id @default(uuid())
+  learningPathVersionId  String
+  courseId               String
+  position               Int
+  required               Boolean  @default(true)
+  prerequisiteCourseIds  Json
+  createdAt              DateTime @default(now())
+
+  learningPathVersion LearningPathVersion @relation(fields: [learningPathVersionId], references: [id], onDelete: Cascade)
+  course              Course              @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  @@unique([learningPathVersionId, position])
+  @@unique([learningPathVersionId, courseId])
+  @@index([courseId])
+}
+
+model LearningPathEnrollment {
+  id                  String   @id @default(uuid())
+  learningPathId      String
+  learningPathVersion Int
+  studentReferenceId  String
+  status              String   @default("ACTIVE")
+  progressPercentage  Int      @default(0)
+  completedAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  learningPath LearningPath @relation(fields: [learningPathId], references: [id], onDelete: Restrict)
+
+  @@unique([learningPathId, studentReferenceId])
   @@index([studentReferenceId, status])
 }
 
@@ -667,6 +787,7 @@ model ExternalCourseProvider {
   headquartersCountryReferenceId String?
   sourceTrustLevel               String
   importStrategy                 String
+  directCoursePathPatterns       Json?
   connectorKey                   String?
   connectorVersion               String?
   lastVerifiedAt                 DateTime?

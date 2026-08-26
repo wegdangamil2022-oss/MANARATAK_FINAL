@@ -144,7 +144,7 @@ class FakeCourseRepository {
   withTransaction() { return this; }
   async create(data: CreateCourseDto): Promise<CourseDto> {
     const id = `course-${this.nextId++}`;
-    const dto: CourseDto = { id, ...data, createdAt: new Date(), updatedAt: new Date() };
+    const dto: CourseDto = { id, version: 1, ...data, createdAt: new Date(), updatedAt: new Date() };
     this.courses.set(id, dto);
     return dto;
   }
@@ -183,6 +183,7 @@ function existingCourse(status = CourseStatus.IMPORTED): CourseDto {
     directCourseUrl: 'https://learn.saylor.org/course/view.php?id=1',
     status,
     completenessStatus: CourseImportCompletenessState.COMPLETE,
+    version: 1,
     externalProviderId: 'provider-1',
     originalSourceTitle: 'Business Strategy',
     isStudyFree: true,

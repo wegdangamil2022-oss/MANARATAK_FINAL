@@ -53,9 +53,17 @@ export interface CreateQuizAttemptDto {
 
 export interface SubmitQuizAttemptDto {
   attemptId: string;
+  courseId: string;
+  studentReferenceId: string;
+  answers: Record<string, unknown> | readonly unknown[];
+}
+
+/** Internal repository command. Score/pass are server-derived and never accepted from HTTP callers. */
+export interface GradeQuizAttemptDto {
+  attemptId: string;
   score: number;
   passed: boolean;
-  answers?: Record<string, unknown> | readonly unknown[];
+  answers: Record<string, unknown> | readonly unknown[];
 }
 
 export interface CourseQuizAttemptDto extends Required<Omit<CreateQuizAttemptDto, 'answers' | 'metadata'>> {
@@ -72,15 +80,17 @@ export interface CourseQuizAttemptDto extends Required<Omit<CreateQuizAttemptDto
 }
 
 export interface CreateCourseCompletionDto {
+  id?: string;
   courseId: string;
   studentReferenceId: string;
   status: CourseCompletionStatus;
   completionSource: string;
   eligibleForCertificate: boolean;
+  courseVersion: number;
   metadata?: Record<string, unknown>;
 }
 
-export interface CourseCompletionDto extends Required<Omit<CreateCourseCompletionDto, 'metadata'>> {
+export interface CourseCompletionDto extends Required<Omit<CreateCourseCompletionDto, 'metadata' | 'id'>> {
   id: string;
   completedAt: Date;
   metadata?: Record<string, unknown> | null;

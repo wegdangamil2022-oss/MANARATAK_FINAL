@@ -1,4 +1,7 @@
 import {
+  CourseAccessType,
+  CourseImportCompletenessState,
+  CourseOriginType,
   CourseStatus,
   ICourseRepository,
   PaginatedCourseResult,
@@ -21,7 +24,7 @@ export class PublicCourseUseCases {
   public async getCourse(slug: string): Promise<PublicCourseDto> {
     const course = await this.repository.findBySlug(slug);
 
-    if (!course || course.status !== CourseStatus.PUBLISHED) {
+    if (!course || course.status !== CourseStatus.PUBLISHED || course.completenessStatus !== CourseImportCompletenessState.COMPLETE || !this.publicEligible(course)) {
       throw new Error('Course not found');
     }
 
@@ -41,8 +44,13 @@ export class PublicCourseUseCases {
     } = course;
 
     return {
-      ...publicData,
       ...(optionalFields || {}),
+      ...publicData,
     };
+  }
+
+  private publicEligible(course: any): boolean {
+    if (course.originType !== CourseOriginType.EXTERNAL_LINKED_COURSE) return true;
+    return course.accessType !== CourseAccessType.PAID && (course.isStudyFree === true || course.isFreeCertificate === true);
   }
 }

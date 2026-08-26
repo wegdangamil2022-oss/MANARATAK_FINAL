@@ -1,154 +1,246 @@
+import { randomUUID } from 'node:crypto';
 import {
+  COURSE_COMPLETED_EVENT_TYPE,
   CourseCompletionStatus,
+  CourseContentStatus,
   CourseDto,
+  CourseEnrollmentStatus,
   CourseOriginType,
   CourseProgressStatus,
+  CourseQuestionType,
   CourseQuizAttemptDto,
+  CourseQuizAttemptStatus,
+  CourseStatus,
   CreateQuizAttemptDto,
   ICourseCurriculumRepository,
+  ICourseEnrollmentPolicyRepository,
+  ICourseFinancialClearanceGateway,
   ICourseProgressRepository,
   ICourseRepository,
+  ITransactionalCourseProgressRepository,
   StudentCourseProgressSnapshotDto,
   SubmitQuizAttemptDto,
-  UpsertLessonProgressDto
+  UpsertLessonProgressDto,
 } from '@manaratak/domain';
-import { ICourseCompletionEventPublisher } from '../gateways/ICourseCompletionEventPublisher';
+import { AtomicDomainMutationCoordinator, AtomicMutationRequestContext } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
 
 export class CourseProgressUseCases {
   constructor(
     private readonly courseRepository: ICourseRepository,
     private readonly curriculumRepository: ICourseCurriculumRepository,
     private readonly progressRepository: ICourseProgressRepository,
-    private readonly completionEventPublisher?: ICourseCompletionEventPublisher
+    private readonly enrollmentPolicies?: ICourseEnrollmentPolicyRepository,
+    private readonly financialClearance?: ICourseFinancialClearanceGateway,
+    private readonly atomicMutations?: AtomicDomainMutationCoordinator,
   ) {}
 
   private async ensureTrackableCourse(courseId: string): Promise<CourseDto> {
     const course = await this.courseRepository.findById(courseId);
-    if (!course) {
-      throw new Error(`Course with id ${courseId} not found`);
-    }
+    if (!course) throw new Error(`Course with id ${courseId} not found`);
     if (course.originType === CourseOriginType.EXTERNAL_LINKED_COURSE) {
       throw new Error('External linked courses do not support MANARATAK enrollment or local progress tracking');
     }
     return course;
   }
 
+  private async requireActiveEnrollment(courseId: string, studentReferenceId: string) {
+    const enrollment = await this.progressRepository.findEnrollment(courseId, studentReferenceId);
+    if (!enrollment) throw new Error('COURSE_ENROLLMENT_REQUIRED');
+    if (enrollment.status !== CourseEnrollmentStatus.ACTIVE) throw new Error(`COURSE_ENROLLMENT_NOT_ACTIVE:${enrollment.status}`);
+    return enrollment;
+  }
+
   private async recalculateEnrollmentProgress(courseId: string, studentReferenceId: string): Promise<number> {
     const snapshot = await this.curriculumRepository.getCurriculumSnapshot(courseId);
-    const trackableLessons = snapshot.lessons.filter((lesson) => lesson.lessonType !== 'QUIZ');
-    if (trackableLessons.length === 0) {
-      return 0;
-    }
-
+    const trackableIds = new Set(snapshot.lessons
+      .filter(lesson => lesson.lessonType !== 'QUIZ' && lesson.status !== CourseContentStatus.ARCHIVED)
+      .map(lesson => lesson.id));
+    if (trackableIds.size === 0) return 0;
     const progress = await this.progressRepository.listLessonProgress(courseId, studentReferenceId);
-    const completedLessonIds = new Set(
-      progress
-        .filter((record) => record.status === CourseProgressStatus.COMPLETED)
-        .map((record) => record.lessonId)
-    );
-    const percentage = Math.floor((completedLessonIds.size / trackableLessons.length) * 100);
+    const completed = new Set(progress
+      .filter(record => trackableIds.has(record.lessonId) && record.status === CourseProgressStatus.COMPLETED)
+      .map(record => record.lessonId));
+    const percentage = Math.floor((completed.size / trackableIds.size) * 100);
     await this.progressRepository.updateEnrollmentProgress(courseId, studentReferenceId, percentage);
     return percentage;
   }
 
   public async enroll(courseId: string, studentReferenceId: string): Promise<StudentCourseProgressSnapshotDto> {
-    await this.ensureTrackableCourse(courseId);
-    await this.progressRepository.enroll({ courseId, studentReferenceId });
-    const snapshot = await this.progressRepository.getStudentProgressSnapshot(courseId, studentReferenceId);
-    if (!snapshot) {
-      throw new Error('Enrollment snapshot could not be created');
+    const course = await this.ensureTrackableCourse(courseId);
+    if (course.status !== CourseStatus.PUBLISHED) throw new Error('COURSE_ENROLLMENT_REQUIRES_PUBLISHED_COURSE');
+
+    const policy = await this.enrollmentPolicies?.getPolicy(courseId);
+    if (policy?.requiresApproval) throw new Error('COURSE_ENROLLMENT_APPROVAL_REQUIRED');
+    if (policy?.eligibilityRules && Object.keys(policy.eligibilityRules).length > 0) {
+      throw new Error('COURSE_ENROLLMENT_ELIGIBILITY_EVALUATOR_REQUIRED');
     }
+    for (const prerequisiteCourseId of policy?.prerequisiteCourseIds ?? []) {
+      if (!await this.progressRepository.findCompletion(prerequisiteCourseId, studentReferenceId)) {
+        throw new Error(`COURSE_PREREQUISITE_NOT_COMPLETED:${prerequisiteCourseId}`);
+      }
+    }
+
+    const needsFinance = Boolean(policy?.requiresFinancialClearance || course.originType === CourseOriginType.PAID_COURSE || course.accessType === 'PAID');
+    if (needsFinance) {
+      if (!this.financialClearance) throw new Error('COURSE_FINANCIAL_CLEARANCE_NOT_CONFIGURED');
+      if (!await this.financialClearance.hasCourseFinancialClearance(courseId, studentReferenceId)) {
+        throw new Error('COURSE_FINANCIAL_CLEARANCE_REQUIRED');
+      }
+    }
+
+    await this.progressRepository.enrollWithCapacity(
+      { courseId, studentReferenceId },
+      policy?.isCapacityLimited ? policy.maximumSeats ?? null : null,
+      Boolean(policy?.waitlistEnabled),
+    );
+    const snapshot = await this.progressRepository.getStudentProgressSnapshot(courseId, studentReferenceId);
+    if (!snapshot) throw new Error('Enrollment snapshot could not be created');
     return snapshot;
   }
 
   public async markLessonProgress(data: UpsertLessonProgressDto): Promise<StudentCourseProgressSnapshotDto> {
     await this.ensureTrackableCourse(data.courseId);
-    const enrollment = await this.progressRepository.findEnrollment(data.courseId, data.studentReferenceId);
-    if (!enrollment) {
-      throw new Error('Student must be enrolled before lesson progress can be tracked');
+    await this.requireActiveEnrollment(data.courseId, data.studentReferenceId);
+    const curriculum = await this.curriculumRepository.getCurriculumSnapshot(data.courseId);
+    if (!curriculum.lessons.some(lesson => lesson.id === data.lessonId && lesson.status !== CourseContentStatus.ARCHIVED)) {
+      throw new Error('COURSE_LESSON_SCOPE_MISMATCH');
     }
 
     const normalizedPercentage = Math.max(0, Math.min(100, data.progressPercentage));
-    const normalizedStatus = normalizedPercentage >= 100 ? CourseProgressStatus.COMPLETED : data.status;
-
     await this.progressRepository.upsertLessonProgress({
       ...data,
-      status: normalizedStatus,
-      progressPercentage: normalizedPercentage
+      status: normalizedPercentage >= 100 ? CourseProgressStatus.COMPLETED : data.status,
+      progressPercentage: normalizedPercentage,
     });
     await this.recalculateEnrollmentProgress(data.courseId, data.studentReferenceId);
-
     const snapshot = await this.progressRepository.getStudentProgressSnapshot(data.courseId, data.studentReferenceId);
-    if (!snapshot) {
-      throw new Error('Progress snapshot could not be loaded');
-    }
+    if (!snapshot) throw new Error('Progress snapshot could not be loaded');
     return snapshot;
   }
 
-  public async startQuizAttempt(data: CreateQuizAttemptDto): Promise<CourseQuizAttemptDto> {
+  public async startQuizAttempt(
+    data: Omit<CreateQuizAttemptDto, 'attemptNumber'>,
+  ): Promise<CourseQuizAttemptDto> {
     await this.ensureTrackableCourse(data.courseId);
-    const enrollment = await this.progressRepository.findEnrollment(data.courseId, data.studentReferenceId);
-    if (!enrollment) {
-      throw new Error('Student must be enrolled before starting quiz attempts');
-    }
-    return this.progressRepository.createQuizAttempt(data);
+    await this.requireActiveEnrollment(data.courseId, data.studentReferenceId);
+    const curriculum = await this.curriculumRepository.getCurriculumSnapshot(data.courseId);
+    const quiz = curriculum.quizzes.find(item => item.id === data.quizId && item.status !== CourseContentStatus.ARCHIVED);
+    if (!quiz) throw new Error('COURSE_QUIZ_SCOPE_MISMATCH');
+    const attempts = await this.progressRepository.countQuizAttempts(quiz.id, data.studentReferenceId);
+    if (quiz.maxAttempts != null && attempts >= quiz.maxAttempts) throw new Error('COURSE_QUIZ_MAX_ATTEMPTS_REACHED');
+    return this.progressRepository.createQuizAttempt({ ...data, attemptNumber: attempts + 1 });
   }
 
   public async submitQuizAttempt(data: SubmitQuizAttemptDto): Promise<CourseQuizAttemptDto> {
-    return this.progressRepository.submitQuizAttempt(data);
+    await this.ensureTrackableCourse(data.courseId);
+    await this.requireActiveEnrollment(data.courseId, data.studentReferenceId);
+    const attempt = await this.progressRepository.findQuizAttempt(data.attemptId);
+    if (!attempt || attempt.courseId !== data.courseId || attempt.studentReferenceId !== data.studentReferenceId) {
+      throw new Error('COURSE_QUIZ_ATTEMPT_SCOPE_MISMATCH');
+    }
+    if (attempt.status !== CourseQuizAttemptStatus.IN_PROGRESS || attempt.submittedAt) throw new Error('COURSE_QUIZ_ATTEMPT_ALREADY_SUBMITTED');
+
+    const curriculum = await this.curriculumRepository.getCurriculumSnapshot(data.courseId);
+    const quiz = curriculum.quizzes.find(item => item.id === attempt.quizId && item.status !== CourseContentStatus.ARCHIVED);
+    if (!quiz) throw new Error('COURSE_QUIZ_SCOPE_MISMATCH');
+    if (quiz.passingScore == null) throw new Error('COURSE_QUIZ_PASSING_SCORE_REQUIRED');
+    const questions = curriculum.questions.filter(q => q.quizId === quiz.id && q.status !== CourseContentStatus.ARCHIVED);
+    if (questions.length === 0) throw new Error('COURSE_QUIZ_QUESTIONS_REQUIRED');
+    if (questions.some(q => q.questionType === CourseQuestionType.ESSAY || q.questionType === CourseQuestionType.SHORT_ANSWER)) {
+      throw new Error('COURSE_ASSESSMENT_MANUAL_GRADING_REQUIRED');
+    }
+    if (!data.answers || Array.isArray(data.answers)) throw new Error('COURSE_ASSESSMENT_ANSWER_MAP_REQUIRED');
+
+    let earned = 0;
+    let total = 0;
+    for (const question of questions) {
+      const points = Math.max(1, question.points);
+      total += points;
+      if (this.sameAnswer((data.answers as Record<string, unknown>)[question.id], question.correctAnswer)) earned += points;
+    }
+    const score = total > 0 ? Math.round((earned / total) * 10000) / 100 : 0;
+    return this.progressRepository.submitQuizAttempt({
+      attemptId: data.attemptId,
+      score,
+      passed: score >= quiz.passingScore,
+      answers: data.answers,
+    });
   }
 
-  public async completeCourse(courseId: string, studentReferenceId: string): Promise<StudentCourseProgressSnapshotDto> {
+  public async completeCourse(
+    courseId: string,
+    studentReferenceId: string,
+    context?: AtomicMutationRequestContext,
+  ): Promise<StudentCourseProgressSnapshotDto> {
     const course = await this.ensureTrackableCourse(courseId);
-    const enrollment = await this.progressRepository.findEnrollment(courseId, studentReferenceId);
-    if (!enrollment) {
-      throw new Error('Student must be enrolled before course completion');
-    }
-    if (enrollment.progressPercentage < 100) {
-      throw new Error('Course cannot be completed before progress reaches 100%');
+    const enrollment = await this.requireActiveEnrollment(courseId, studentReferenceId);
+    if (enrollment.progressPercentage < 100) throw new Error('Course progress must reach 100% before completion');
+    const existing = await this.progressRepository.findCompletion(courseId, studentReferenceId);
+    if (existing) return (await this.progressRepository.getStudentProgressSnapshot(courseId, studentReferenceId))!;
+
+    const curriculum = await this.curriculumRepository.getCurriculumSnapshot(courseId);
+    const requiredQuizzes = curriculum.quizzes.filter(quiz => quiz.status !== CourseContentStatus.ARCHIVED);
+    const attempts = await this.progressRepository.listQuizAttempts(courseId, studentReferenceId);
+    for (const quiz of requiredQuizzes) {
+      if (quiz.passingScore == null) throw new Error(`COURSE_QUIZ_PASSING_SCORE_REQUIRED:${quiz.id}`);
+      if (!attempts.some(attempt => attempt.quizId === quiz.id && attempt.passed === true)) {
+        throw new Error(`COURSE_ASSESSMENT_NOT_PASSED:${quiz.id}`);
+      }
     }
 
-    const existingCompletion = await this.progressRepository.findCompletion(courseId, studentReferenceId);
-    if (existingCompletion) {
-      const snapshot = await this.progressRepository.getStudentProgressSnapshot(courseId, studentReferenceId);
-      if (!snapshot) {
-        throw new Error('Completion snapshot could not be loaded');
-      }
-      return snapshot;
+    const transactional = this.progressRepository as Partial<ITransactionalCourseProgressRepository>;
+    if (!this.atomicMutations || typeof transactional.withTransaction !== 'function') {
+      throw new Error('COURSE_COMPLETION_ATOMIC_PERSISTENCE_REQUIRED');
     }
-
-    const completion = await this.progressRepository.completeCourse({
-      courseId,
-      studentReferenceId,
-      status: course.certificateAvailable ? CourseCompletionStatus.CERTIFICATE_SIGNAL_READY : CourseCompletionStatus.COMPLETED,
-      completionSource: 'PHASE_13_LEARNING_PROGRESS',
-      eligibleForCertificate: Boolean(course.certificateAvailable),
-      metadata: {
-        phase14OwnsCertificateIssuance: true
+    const completionId = randomUUID();
+    const completedAt = new Date();
+    await this.atomicMutations.execute({
+      domain: 'COURSES', aggregateType: 'COURSE_COMPLETION', aggregateId: `${courseId}:${studentReferenceId}`,
+      action: 'COURSE_COMPLETED', context,
+      outbox: {
+        id: `course-completed:${courseId}:${studentReferenceId}:v${course.version}`,
+        eventType: COURSE_COMPLETED_EVENT_TYPE,
+        payload: {
+          courseId, studentReferenceId, completionId, courseVersion: course.version,
+          completedAt: completedAt.toISOString(), eligibleForCertificate: Boolean(course.certificateAvailable),
+          certificateOwnerPhase: 'Phase 14 - Enterprise Certificates Platform', sourcePhase: 'Phase 13 - Learning Platform',
+        },
+        metadata: { eventVersion: '1.0.0', category: 'LearningPlatform' },
+      },
+    }, async persistence => {
+      const tx = (this.progressRepository as ITransactionalCourseProgressRepository).withTransaction(persistence);
+      if (await tx.findCompletion(courseId, studentReferenceId)) return;
+      const currentEnrollment = await tx.findEnrollment(courseId, studentReferenceId);
+      if (!currentEnrollment || currentEnrollment.status !== CourseEnrollmentStatus.ACTIVE || currentEnrollment.progressPercentage < 100) {
+        throw new Error('COURSE_COMPLETION_STATE_CHANGED');
       }
+      await tx.completeCourse({
+        id: completionId, courseId, studentReferenceId, courseVersion: course.version,
+        status: course.certificateAvailable ? CourseCompletionStatus.CERTIFICATE_SIGNAL_READY : CourseCompletionStatus.COMPLETED,
+        completionSource: 'PHASE_13_LEARNING_PROGRESS', eligibleForCertificate: Boolean(course.certificateAvailable),
+        metadata: { phase14OwnsCertificateIssuance: true },
+      });
+      await tx.markEnrollmentCompleted(courseId, studentReferenceId);
     });
 
-    if (this.completionEventPublisher) {
-      await this.completionEventPublisher.publishCourseCompleted({
-        courseId,
-        studentReferenceId,
-        completionId: completion.id,
-        completedAt: completion.completedAt,
-        eligibleForCertificate: completion.eligibleForCertificate,
-        certificateOwnerPhase: 'Phase 14 - Enterprise Certificates Platform',
-        sourcePhase: 'Phase 13 - Learning Platform'
-      });
-    }
-
     const snapshot = await this.progressRepository.getStudentProgressSnapshot(courseId, studentReferenceId);
-    if (!snapshot) {
-      throw new Error('Completion snapshot could not be loaded');
-    }
+    if (!snapshot) throw new Error('Completion snapshot could not be loaded');
     return snapshot;
   }
 
   public async getProgress(courseId: string, studentReferenceId: string): Promise<StudentCourseProgressSnapshotDto | null> {
     await this.ensureTrackableCourse(courseId);
     return this.progressRepository.getStudentProgressSnapshot(courseId, studentReferenceId);
+  }
+
+  private sameAnswer(left: unknown, right: unknown): boolean {
+    return this.stable(left) === this.stable(right);
+  }
+
+  private stable(value: unknown): string {
+    if (value === null || typeof value !== 'object') return JSON.stringify(value ?? null);
+    if (Array.isArray(value)) return `[${value.map(item => this.stable(item)).join(',')}]`;
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map(key => `${JSON.stringify(key)}:${this.stable(record[key])}`).join(',')}}`;
   }
 }

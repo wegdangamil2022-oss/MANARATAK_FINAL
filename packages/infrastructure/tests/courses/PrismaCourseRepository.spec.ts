@@ -51,6 +51,13 @@ describe('PrismaCourseRepository', () => {
         findMany: vi.fn(),
         count: vi.fn(),
       },
+      courseModule: { findMany: vi.fn().mockResolvedValue([]) },
+      courseLesson: { findMany: vi.fn().mockResolvedValue([]) },
+      courseLessonAsset: { findMany: vi.fn().mockResolvedValue([]) },
+      courseQuiz: { findMany: vi.fn().mockResolvedValue([]) },
+      courseQuestionBank: { findMany: vi.fn().mockResolvedValue([]) },
+      courseQuestion: { findMany: vi.fn().mockResolvedValue([]) },
+      courseVersion: { create: vi.fn().mockResolvedValue({}) },
     };
     repository = new PrismaCourseRepository(prisma);
   });
@@ -200,11 +207,11 @@ describe('PrismaCourseRepository', () => {
 
     expect(prisma.course.update).toHaveBeenNthCalledWith(1, {
       where: { id: 'course-db-1' },
-      data: { status: CourseStatus.READY_TO_REVIEW },
+      data: { status: CourseStatus.READY_TO_REVIEW, version: { increment: 1 } },
     });
     expect(prisma.course.update).toHaveBeenNthCalledWith(2, {
       where: { id: 'course-db-1' },
-      data: { sourceImportRecordId: 'import-record-2' },
+      data: { sourceImportRecordId: 'import-record-2', version: { increment: 1 } },
     });
   });
 
@@ -266,11 +273,20 @@ describe('PrismaCourseRepository', () => {
     expect(prisma.course.findMany).toHaveBeenCalledWith({
       where: {
         status: CourseStatus.PUBLISHED,
+        completenessStatus: CourseImportCompletenessState.COMPLETE,
         accessType: CourseAccessType.FREE_STUDY,
         originType: CourseOriginType.EXTERNAL_LINKED_COURSE,
         platformName: 'Example Platform',
         category: 'Technology',
         learningLanguage: 'English',
+        AND: [{ OR: [
+          { originType: { not: CourseOriginType.EXTERNAL_LINKED_COURSE } },
+          {
+            originType: CourseOriginType.EXTERNAL_LINKED_COURSE,
+            accessType: { not: CourseAccessType.PAID },
+            OR: [{ isStudyFree: true }, { isFreeCertificate: true }],
+          },
+        ] }],
       },
       skip: 0,
       take: 10,

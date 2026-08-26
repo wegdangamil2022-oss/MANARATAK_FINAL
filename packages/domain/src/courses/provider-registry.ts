@@ -82,6 +82,7 @@ export interface ExternalCourseProviderDto {
   headquartersCountryReferenceId?: string;
   sourceTrustLevel: string;
   importStrategy: ExternalCourseProviderImportStrategy;
+  directCoursePathPatterns: string[];
   connectorKey?: string;
   connectorVersion?: string;
   lastVerifiedAt?: Date;
@@ -109,6 +110,7 @@ export interface UpsertExternalCourseProviderSeedInput {
   headquartersCountryReferenceId?: string | null;
   sourceTrustLevel: string;
   importStrategy: ExternalCourseProviderImportStrategy;
+  directCoursePathPatterns?: string[];
   connectorKey?: string | null;
   connectorVersion?: string | null;
   lastVerifiedAt?: Date | null;

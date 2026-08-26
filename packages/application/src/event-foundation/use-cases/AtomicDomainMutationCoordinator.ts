@@ -15,6 +15,12 @@ export interface AtomicDomainMutationDefinition {
   aggregateId: string;
   action: string;
   context?: AtomicMutationRequestContext;
+  outbox?: {
+    id?: string;
+    eventType?: string;
+    payload?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
+  };
 }
 
 export class AtomicDomainMutationCoordinator {
@@ -23,7 +29,7 @@ export class AtomicDomainMutationCoordinator {
   public execute<T>(definition: AtomicDomainMutationDefinition, mutation: (context: AtomicPersistenceContext) => Promise<T>): Promise<T> {
     const now = new Date();
     const auditId = randomUUID();
-    const outboxId = randomUUID();
+    const outboxId = definition.outbox?.id ?? randomUUID();
     const actorId = definition.context?.actorId || 'SYSTEM';
     const source = definition.context?.source || 'admin-api';
     const correlationId = definition.context?.correlationId;
@@ -44,11 +50,11 @@ export class AtomicDomainMutationCoordinator {
       correlationReference: correlationId,
     }, {
       id: outboxId,
-      eventType: definition.action,
+      eventType: definition.outbox?.eventType ?? definition.action,
       domain: definition.domain,
       aggregate: { domain: definition.domain, aggregateType: definition.aggregateType, aggregateId: definition.aggregateId },
-      payload: { entityType: definition.aggregateType, entityId: definition.aggregateId, operation: definition.action },
-      metadata: { actorId, atomicity: 'BUSINESS_AUDIT_OUTBOX' },
+      payload: definition.outbox?.payload ?? { entityType: definition.aggregateType, entityId: definition.aggregateId, operation: definition.action },
+      metadata: { actorId, atomicity: 'BUSINESS_AUDIT_OUTBOX', ...(definition.outbox?.metadata ?? {}) },
       correlationId,
       createdAt: now,
       availableAt: now,

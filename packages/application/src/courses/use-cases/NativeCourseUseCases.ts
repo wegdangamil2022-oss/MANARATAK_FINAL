@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { AtomicMutationRequestContext } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
+import { CoursePublicationService } from '../services/CoursePublicationService';
 import {
   AssetId,
   AssetLifecycleState,
@@ -23,6 +25,7 @@ export class NativeCourseUseCases {
     private readonly courseRepository: ICourseRepository,
     private readonly curriculumRepository: ICourseCurriculumRepository,
     private readonly assetRepository?: IAssetRecordRepository,
+    private readonly publicationService?: CoursePublicationService,
   ) {}
 
   public async create(input: CreateNativeCourseDto): Promise<CourseDto> {
@@ -111,8 +114,10 @@ export class NativeCourseUseCases {
     const invalidQuizzes = curriculum.quizzes.filter((quiz) => {
       const questions = curriculum.questions.filter((question) => question.quizId === quiz.id);
       return (
-        quiz.passingScore != null &&
-        (quiz.passingScore < 0 || quiz.passingScore > 100 || questions.length === 0)
+        quiz.passingScore == null ||
+        quiz.passingScore < 0 ||
+        quiz.passingScore > 100 ||
+        questions.length === 0
       );
     });
 
@@ -217,13 +222,14 @@ export class NativeCourseUseCases {
     await this.courseRepository.updateStatus(courseId, CourseStatus.READY_TO_PUBLISH);
   }
 
-  public async publish(courseId: string): Promise<void> {
+  public async publish(courseId: string, context?: AtomicMutationRequestContext): Promise<void> {
     const course = await this.requireNative(courseId);
     if (course.status !== CourseStatus.READY_TO_PUBLISH)
       throw new Error('NATIVE_COURSE_NOT_READY_TO_PUBLISH');
     const readiness = await this.getReadiness(courseId);
     if (!readiness.ready) throw new Error('NATIVE_COURSE_NOT_READY');
-    await this.courseRepository.updateStatus(courseId, CourseStatus.PUBLISHED);
+    if (!this.publicationService) throw new Error('COURSE_PUBLICATION_POLICY_NOT_CONFIGURED');
+    await this.publicationService.publish(course, context);
   }
 
   private async requireNative(courseId: string): Promise<CourseDto> {

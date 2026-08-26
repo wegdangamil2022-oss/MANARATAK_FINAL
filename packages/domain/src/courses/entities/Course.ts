@@ -42,6 +42,7 @@ export interface CreateCourseDto {
 
 export interface CourseDto extends CreateCourseDto {
   id: string;
+  version: number;
   createdAt: Date;
   updatedAt: Date;
 }

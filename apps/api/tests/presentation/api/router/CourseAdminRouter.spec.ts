@@ -139,7 +139,9 @@ describe('CourseAdminRouter', () => {
     const res = await request(app).post('/admin/courses/course-1/publish');
 
     expect(res.status).toBe(200);
-    expect(useCases.publish).toHaveBeenCalledWith('course-1');
+    expect(useCases.publish).toHaveBeenCalledWith('course-1', expect.objectContaining({
+      actorId: 'SYSTEM', actorType: 'IDENTITY', source: 'admin-course-api',
+    }));
   });
 
   it('POST /admin/courses creates a persisted Native DRAFT', async () => {

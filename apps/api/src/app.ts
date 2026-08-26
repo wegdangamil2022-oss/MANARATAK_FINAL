@@ -382,6 +382,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     v1Router.use('/admin/courses/imported', requireAdminPermission('admin:courses:manage'), lazyRouter('importedCourseAdminRouter'));
     v1Router.use('/admin/courses', requireAdminPermission('admin:courses:manage'), lazyRouter('courseAdminRouter'));
     v1Router.use('/public/courses', lazyRouter('coursePublicRouter'));
+    v1Router.use('/student/courses', lazyRouter('courseLearnerRouter'));
     v1Router.use('/admin/certificates', requireAdminPermission('admin:certificates:manage'), lazyRouter('certificateAdminRouter'));
     v1Router.use('/public/certificates', lazyRouter('certificatePublicRouter'));
     v1Router.use('/student', lazyRouter('studentWorkspaceRouter'));

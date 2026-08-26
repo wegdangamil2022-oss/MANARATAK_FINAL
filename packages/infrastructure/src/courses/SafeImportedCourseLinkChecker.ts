@@ -41,7 +41,7 @@ interface HeaderResult {
 }
 
 export class SafeImportedCourseLinkChecker implements IImportedCourseLinkChecker {
-  public async check(input: { url: string; allowedDomains: string[] }): Promise<ImportedCourseLinkCheckResult> {
+  public async check(input: { url: string; allowedDomains: string[]; directCoursePathPatterns?: string[] }): Promise<ImportedCourseLinkCheckResult> {
     const checkedAt = new Date();
     let current = this.parseHttps(input.url);
     let redirected = false;
@@ -97,6 +97,15 @@ export class SafeImportedCourseLinkChecker implements IImportedCourseLinkChecker
       }
 
       if (status >= 200 && status < 300) {
+        if (!this.isDirectCoursePage(current, input.directCoursePathPatterns ?? [])) {
+          return {
+            state: 'NOT_DIRECT_COURSE_PAGE',
+            responseCode: status,
+            redirectTarget: redirected ? current.toString() : null,
+            checkedAt,
+            detail: 'COURSE_LINK_NOT_DIRECT_COURSE_PAGE',
+          };
+        }
         return {
           state: redirected ? 'REDIRECTED_VALID' : 'VERIFIED_DIRECT',
           responseCode: status,
@@ -125,6 +134,37 @@ export class SafeImportedCourseLinkChecker implements IImportedCourseLinkChecker
     }
 
     return { state: 'NEEDS_REVIEW', checkedAt, detail: 'COURSE_LINK_CHECK_INDETERMINATE' };
+  }
+
+  private isDirectCoursePage(url: URL, configuredPatterns: string[]): boolean {
+    const path = url.pathname.replace(/\/{2,}/g, '/').replace(/\/$/u, '') || '/';
+    const normalized = path.toLocaleLowerCase('en-US');
+    const generic = new Set([
+      '/', '/course', '/courses', '/catalog', '/search', '/learn', '/training', '/academy',
+      '/all-courses', '/browse', '/programs', '/collections',
+    ]);
+    if (generic.has(normalized)) return false;
+
+    const configured = configuredPatterns.filter((pattern) => pattern.trim().length > 0);
+    if (configured.length > 0) {
+      return configured.some((pattern) => {
+        try {
+          return new RegExp(pattern, 'iu').test(`${url.pathname}${url.search}`);
+        } catch {
+          return false;
+        }
+      });
+    }
+
+    // Conservative provider-neutral fallback: require a non-generic slug/identifier.
+    // Provider-specific seeds can override this with explicit path patterns.
+    const segments = normalized.split('/').filter(Boolean);
+    if (segments.length >= 2) return segments.some((segment) => segment.length >= 3 && !generic.has(`/${segment}`));
+    if (segments.length === 1) {
+      const segment = segments[0];
+      return segment.length >= 5 && !/^(?:course|courses|catalog|learn|training|academy|browse|search)$/u.test(segment);
+    }
+    return false;
   }
 
   private parseHttps(value: string): URL {

@@ -68,7 +68,8 @@
     "w5:verify": "node scripts/verify-w5-source.mjs",
     "w6:verify": "node scripts/verify-w6-source.mjs",
     "w7:verify": "node scripts/verify-w7-source.mjs",
-    "w8:verify": "node scripts/verify-w8-source.mjs"
+    "w8:verify": "node scripts/verify-w8-source.mjs",
+    "w9:verify": "node scripts/verify-w9-source.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

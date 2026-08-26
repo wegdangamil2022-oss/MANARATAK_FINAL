@@ -151,6 +151,7 @@ export interface CreateCourseQuestionDto {
 
 export interface CourseQuestionDto extends Required<Omit<CreateCourseQuestionDto, 'quizId' | 'questionBankId' | 'choices' | 'correctAnswer' | 'explanation' | 'points' | 'status'>> {
   id: string;
+  version: number;
   quizId?: string | null;
   questionBankId?: string | null;
   choices?: unknown;

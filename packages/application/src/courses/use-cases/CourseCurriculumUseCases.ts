@@ -77,9 +77,53 @@ export class CourseCurriculumUseCases {
       throw new Error('COURSE_CURRICULUM_SCOPE_MISMATCH');
   }
 
+
+  private async checkpointCourseVersion(courseId: string): Promise<void> {
+    // PrismaCourseRepository turns even a no-field update into an immutable
+    // version checkpoint containing the complete current curriculum snapshot.
+    await this.courseRepository.update(courseId, {});
+  }
+
+  private assertExactIds(expected: readonly string[], actual: readonly string[], code: string): void {
+    const left = [...new Set(expected)].sort();
+    const right = [...new Set(actual)].sort();
+    if (left.length !== right.length || left.some((value, index) => value !== right[index])) {
+      throw new Error(code);
+    }
+  }
+
+  private async assertQuizReferences(
+    courseId: string,
+    moduleId?: string | null,
+    lessonId?: string | null,
+  ): Promise<void> {
+    const snapshot = await this.curriculumRepository.getCurriculumSnapshot(courseId);
+    if (moduleId && !snapshot.modules.some((item) => item.id === moduleId))
+      throw new Error('COURSE_CURRICULUM_SCOPE_MISMATCH');
+    if (lessonId) {
+      const lesson = snapshot.lessons.find((item) => item.id === lessonId);
+      if (!lesson) throw new Error('COURSE_CURRICULUM_SCOPE_MISMATCH');
+      if (moduleId && lesson.moduleId !== moduleId) throw new Error('COURSE_QUIZ_MODULE_LESSON_MISMATCH');
+    }
+  }
+
+  private async assertQuestionReferences(
+    courseId: string,
+    quizId?: string | null,
+    questionBankId?: string | null,
+  ): Promise<void> {
+    const snapshot = await this.curriculumRepository.getCurriculumSnapshot(courseId);
+    if (quizId && !snapshot.quizzes.some((item) => item.id === quizId))
+      throw new Error('COURSE_CURRICULUM_SCOPE_MISMATCH');
+    if (questionBankId && !snapshot.questionBanks.some((item) => item.id === questionBankId))
+      throw new Error('COURSE_CURRICULUM_SCOPE_MISMATCH');
+  }
+
   public async createModule(data: CreateCourseModuleDto): Promise<CourseModuleDto> {
     await this.ensureMutableCourse(data.courseId);
-    return this.curriculumRepository.createModule(data);
+    const created = await this.curriculumRepository.createModule(data);
+    await this.checkpointCourseVersion(data.courseId);
+    return created;
   }
 
   public async updateModule(
@@ -89,13 +133,16 @@ export class CourseCurriculumUseCases {
   ): Promise<CourseModuleDto> {
     await this.ensureMutableCourse(courseId);
     await this.ensureCurriculumMember(courseId, 'modules', moduleId);
-    return this.curriculumRepository.updateModule(moduleId, data);
+    const updated = await this.curriculumRepository.updateModule(moduleId, data);
+    await this.checkpointCourseVersion(courseId);
+    return updated;
   }
 
   public async deleteModule(courseId: string, moduleId: string): Promise<void> {
     await this.ensureMutableCourse(courseId);
     await this.ensureCurriculumMember(courseId, 'modules', moduleId);
     await this.curriculumRepository.deleteModule(moduleId);
+    await this.checkpointCourseVersion(courseId);
   }
 
   public async reorderModules(
@@ -104,9 +151,9 @@ export class CourseCurriculumUseCases {
   ): Promise<void> {
     await this.ensureMutableCourse(courseId);
     const snapshot = await this.curriculumRepository.getCurriculumSnapshot(courseId);
-    if (positions.length !== snapshot.modules.length)
-      throw new Error('COURSE_MODULE_REORDER_MUST_INCLUDE_ALL_MODULES');
+    this.assertExactIds(snapshot.modules.map((item) => item.id), positions.map((item) => item.id), 'COURSE_MODULE_REORDER_MUST_INCLUDE_ALL_MODULES');
     await this.curriculumRepository.reorderModules(courseId, positions);
+    await this.checkpointCourseVersion(courseId);
   }
 
   public async listModules(courseId: string): Promise<CourseModuleDto[]> {
@@ -116,7 +163,10 @@ export class CourseCurriculumUseCases {
 
   public async createLesson(data: CreateCourseLessonDto): Promise<CourseLessonDto> {
     await this.ensureMutableCourse(data.courseId);
-    return this.curriculumRepository.createLesson(data);
+    await this.ensureCurriculumMember(data.courseId, 'modules', data.moduleId);
+    const created = await this.curriculumRepository.createLesson(data);
+    await this.checkpointCourseVersion(data.courseId);
+    return created;
   }
 
   public async updateLesson(
@@ -126,13 +176,16 @@ export class CourseCurriculumUseCases {
   ): Promise<CourseLessonDto> {
     await this.ensureMutableCourse(courseId);
     await this.ensureCurriculumMember(courseId, 'lessons', lessonId);
-    return this.curriculumRepository.updateLesson(lessonId, data);
+    const updated = await this.curriculumRepository.updateLesson(lessonId, data);
+    await this.checkpointCourseVersion(courseId);
+    return updated;
   }
 
   public async deleteLesson(courseId: string, lessonId: string): Promise<void> {
     await this.ensureMutableCourse(courseId);
     await this.ensureCurriculumMember(courseId, 'lessons', lessonId);
     await this.curriculumRepository.deleteLesson(lessonId);
+    await this.checkpointCourseVersion(courseId);
   }
 
   public async reorderLessons(
@@ -142,14 +195,16 @@ export class CourseCurriculumUseCases {
   ): Promise<void> {
     await this.ensureMutableCourse(courseId);
     const snapshot = await this.curriculumRepository.getCurriculumSnapshot(courseId);
+    if (!snapshot.modules.some((item) => item.id === moduleId)) throw new Error('COURSE_CURRICULUM_SCOPE_MISMATCH');
     const moduleLessons = snapshot.lessons.filter((item) => item.moduleId === moduleId);
-    if (positions.length !== moduleLessons.length)
-      throw new Error('COURSE_LESSON_REORDER_MUST_INCLUDE_ALL_LESSONS');
+    this.assertExactIds(moduleLessons.map((item) => item.id), positions.map((item) => item.id), 'COURSE_LESSON_REORDER_MUST_INCLUDE_ALL_LESSONS');
     await this.curriculumRepository.reorderLessons(moduleId, positions);
+    await this.checkpointCourseVersion(courseId);
   }
 
   public async listLessons(courseId: string, moduleId: string): Promise<CourseLessonDto[]> {
     await this.ensureAuthorableCourse(courseId);
+    await this.ensureCurriculumMember(courseId, 'modules', moduleId);
     return this.curriculumRepository.listLessonsByModuleId(moduleId);
   }
 
@@ -166,22 +221,30 @@ export class CourseCurriculumUseCases {
     }
     await this.ensureMutableCourse(courseId);
     await this.ensureCurriculumMember(courseId, 'lessons', data.lessonId);
-    return this.curriculumRepository.attachAssetToLesson(data);
+    const created = await this.curriculumRepository.attachAssetToLesson(data);
+    await this.checkpointCourseVersion(courseId);
+    return created;
   }
 
   public async detachAssetFromLesson(courseId: string, assetId: string): Promise<void> {
     await this.ensureMutableCourse(courseId);
     await this.ensureCurriculumMember(courseId, 'assets', assetId);
     await this.curriculumRepository.detachAssetFromLesson(assetId);
+    await this.checkpointCourseVersion(courseId);
   }
 
-  public async listLessonAssets(lessonId: string): Promise<LessonAssetReferenceDto[]> {
+  public async listLessonAssets(courseId: string, lessonId: string): Promise<LessonAssetReferenceDto[]> {
+    await this.ensureAuthorableCourse(courseId);
+    await this.ensureCurriculumMember(courseId, 'lessons', lessonId);
     return this.curriculumRepository.listAssetsByLessonId(lessonId);
   }
 
   public async createQuiz(data: CreateCourseQuizDto): Promise<CourseQuizDto> {
     await this.ensureMutableCourse(data.courseId);
-    return this.curriculumRepository.createQuiz(data);
+    await this.assertQuizReferences(data.courseId, data.moduleId, data.lessonId);
+    const created = await this.curriculumRepository.createQuiz(data);
+    await this.checkpointCourseVersion(data.courseId);
+    return created;
   }
 
   public async updateQuiz(
@@ -191,13 +254,17 @@ export class CourseCurriculumUseCases {
   ): Promise<CourseQuizDto> {
     await this.ensureMutableCourse(courseId);
     await this.ensureCurriculumMember(courseId, 'quizzes', quizId);
-    return this.curriculumRepository.updateQuiz(quizId, data);
+    await this.assertQuizReferences(courseId, data.moduleId, data.lessonId);
+    const updated = await this.curriculumRepository.updateQuiz(quizId, data);
+    await this.checkpointCourseVersion(courseId);
+    return updated;
   }
 
   public async deleteQuiz(courseId: string, quizId: string): Promise<void> {
     await this.ensureMutableCourse(courseId);
     await this.ensureCurriculumMember(courseId, 'quizzes', quizId);
     await this.curriculumRepository.deleteQuiz(quizId);
+    await this.checkpointCourseVersion(courseId);
   }
 
   public async listQuizzes(courseId: string): Promise<CourseQuizDto[]> {
@@ -209,7 +276,9 @@ export class CourseCurriculumUseCases {
     data: CreateCourseQuestionBankDto,
   ): Promise<CourseQuestionBankDto> {
     await this.ensureMutableCourse(data.courseId);
-    return this.curriculumRepository.createQuestionBank(data);
+    const created = await this.curriculumRepository.createQuestionBank(data);
+    await this.checkpointCourseVersion(data.courseId);
+    return created;
   }
 
   public async updateQuestionBank(
@@ -219,18 +288,24 @@ export class CourseCurriculumUseCases {
   ): Promise<CourseQuestionBankDto> {
     await this.ensureMutableCourse(courseId);
     await this.ensureCurriculumMember(courseId, 'questionBanks', bankId);
-    return this.curriculumRepository.updateQuestionBank(bankId, data);
+    const updated = await this.curriculumRepository.updateQuestionBank(bankId, data);
+    await this.checkpointCourseVersion(courseId);
+    return updated;
   }
 
   public async deleteQuestionBank(courseId: string, bankId: string): Promise<void> {
     await this.ensureMutableCourse(courseId);
     await this.ensureCurriculumMember(courseId, 'questionBanks', bankId);
     await this.curriculumRepository.deleteQuestionBank(bankId);
+    await this.checkpointCourseVersion(courseId);
   }
 
   public async createQuestion(data: CreateCourseQuestionDto): Promise<CourseQuestionDto> {
     await this.ensureMutableCourse(data.courseId);
-    return this.curriculumRepository.createQuestion(data);
+    await this.assertQuestionReferences(data.courseId, data.quizId, data.questionBankId);
+    const created = await this.curriculumRepository.createQuestion(data);
+    await this.checkpointCourseVersion(data.courseId);
+    return created;
   }
 
   public async updateQuestion(
@@ -240,17 +315,22 @@ export class CourseCurriculumUseCases {
   ): Promise<CourseQuestionDto> {
     await this.ensureMutableCourse(courseId);
     await this.ensureCurriculumMember(courseId, 'questions', questionId);
-    return this.curriculumRepository.updateQuestion(questionId, data);
+    await this.assertQuestionReferences(courseId, data.quizId, data.questionBankId);
+    const updated = await this.curriculumRepository.updateQuestion(questionId, data);
+    await this.checkpointCourseVersion(courseId);
+    return updated;
   }
 
   public async deleteQuestion(courseId: string, questionId: string): Promise<void> {
     await this.ensureMutableCourse(courseId);
     await this.ensureCurriculumMember(courseId, 'questions', questionId);
     await this.curriculumRepository.deleteQuestion(questionId);
+    await this.checkpointCourseVersion(courseId);
   }
 
   public async listQuizQuestions(courseId: string, quizId: string): Promise<CourseQuestionDto[]> {
     await this.ensureAuthorableCourse(courseId);
+    await this.ensureCurriculumMember(courseId, 'quizzes', quizId);
     return this.curriculumRepository.listQuestionsByQuizId(quizId);
   }
 

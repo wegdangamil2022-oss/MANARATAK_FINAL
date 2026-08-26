@@ -101,6 +101,7 @@ export class ImportedCourseAdminUseCases {
     const result = await this.linkChecker.check({
       url: course.directCourseUrl,
       allowedDomains: provider.allowedDomains,
+      directCoursePathPatterns: provider.directCoursePathPatterns,
     });
     await this.operationsRepository.recordLinkCheck(course.id, result, course.directCourseUrl);
     return result;

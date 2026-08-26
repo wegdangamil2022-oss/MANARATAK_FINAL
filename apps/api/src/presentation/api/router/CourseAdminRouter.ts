@@ -11,16 +11,22 @@ import {
   LessonAssetType,
   UpdateCourseDto
 } from '@manaratak/domain';
-import { AdminCourseUseCases, CourseCurriculumUseCases, NativeCourseUseCases } from '@manaratak/application';
+import { AdminCourseUseCases, CourseCurriculumUseCases, CourseEnrollmentPolicyUseCases, LearningPathUseCases, NativeCourseUseCases } from '@manaratak/application';
 
 export class CourseAdminRouter {
-  public static create(cradle: { adminCourseUseCases: AdminCourseUseCases; courseCurriculumUseCases: CourseCurriculumUseCases; nativeCourseUseCases: NativeCourseUseCases }): Router {
+  public static create(cradle: { adminCourseUseCases: AdminCourseUseCases; courseCurriculumUseCases: CourseCurriculumUseCases; courseEnrollmentPolicyUseCases: CourseEnrollmentPolicyUseCases; learningPathUseCases: LearningPathUseCases; nativeCourseUseCases: NativeCourseUseCases }): Router {
     const router = Router();
-    const { adminCourseUseCases, courseCurriculumUseCases, nativeCourseUseCases } = cradle;
+    const { adminCourseUseCases, courseCurriculumUseCases, courseEnrollmentPolicyUseCases, learningPathUseCases, nativeCourseUseCases } = cradle;
 
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
     };
+    const mutationContext = (req: Request) => ({
+      actorId: req.authUserId || 'SYSTEM',
+      actorType: 'IDENTITY',
+      correlationId: (req.headers['x-correlation-id'] as string | undefined) || (req.headers['x-request-id'] as string | undefined),
+      source: 'admin-course-api',
+    });
 
     const listQuerySchema = z.object({
       status: z.nativeEnum(CourseStatus).optional(),
@@ -131,6 +137,27 @@ export class CourseAdminRouter {
       difficultyLevel: z.string().trim().optional(),
     });
 
+    const enrollmentPolicySchema = z.object({
+      isCapacityLimited: z.boolean().optional(),
+      maximumSeats: z.number().int().positive().nullable().optional(),
+      requiresApproval: z.boolean().optional(),
+      waitlistEnabled: z.boolean().optional(),
+      prerequisiteCourseIds: z.array(z.string().min(1)).optional(),
+      eligibilityRules: z.record(z.string(), z.unknown()).nullable().optional(),
+      requiresFinancialClearance: z.boolean().optional(),
+    });
+    const learningPathSchema = z.object({
+      title: z.string().trim().min(1),
+      description: z.string().nullable().optional(),
+      slug: z.string().trim().min(1).optional(),
+      isStrictlyOrdered: z.boolean().optional(),
+      completionLogic: z.enum(['ALL_REQUIRED', 'ALL']).optional(),
+      courses: z.array(z.object({
+        courseId: z.string().min(1), position: z.number().int().positive(), required: z.boolean(),
+        prerequisiteCourseIds: z.array(z.string().min(1)).default([]),
+      })).default([]),
+    });
+
     const reorderBodySchema = z.object({
       positions: z.array(z.object({ id: z.string().min(1), position: z.number().int().positive() })).min(1)
     });
@@ -146,6 +173,19 @@ export class CourseAdminRouter {
       res.json(result);
     }));
 
+    router.post('/learning-paths', asyncHandler(async (req: Request, res: Response) => {
+      res.status(201).json(await learningPathUseCases.create(learningPathSchema.parse(req.body)));
+    }));
+    router.get('/learning-paths/:pathId', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await learningPathUseCases.get(req.params.pathId));
+    }));
+    router.post('/learning-paths/:pathId/mark-publishable', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await learningPathUseCases.markReadyToPublish(req.params.pathId));
+    }));
+    router.post('/learning-paths/:pathId/publish', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await learningPathUseCases.publish(req.params.pathId));
+    }));
+
     router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
       const course = await adminCourseUseCases.getCourse(req.params.id);
       res.json(course);
@@ -154,6 +194,13 @@ export class CourseAdminRouter {
     router.get('/:id/curriculum', asyncHandler(async (req: Request, res: Response) => {
       const snapshot = await courseCurriculumUseCases.getCurriculumSnapshot(req.params.id);
       res.json(snapshot);
+    }));
+
+    router.get('/:id/enrollment-policy', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await courseEnrollmentPolicyUseCases.get(req.params.id));
+    }));
+    router.put('/:id/enrollment-policy', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await courseEnrollmentPolicyUseCases.configure({ courseId: req.params.id, ...enrollmentPolicySchema.parse(req.body) }));
     }));
 
     router.get('/:id/readiness', asyncHandler(async (req: Request, res: Response) => {
@@ -231,7 +278,7 @@ export class CourseAdminRouter {
     }));
 
     router.get('/:id/lessons/:lessonId/assets', asyncHandler(async (req: Request, res: Response) => {
-      const assets = await courseCurriculumUseCases.listLessonAssets(req.params.lessonId);
+      const assets = await courseCurriculumUseCases.listLessonAssets(req.params.id, req.params.lessonId);
       res.json({ data: assets });
     }));
 
@@ -396,8 +443,8 @@ export class CourseAdminRouter {
 
     router.post('/:id/publish', asyncHandler(async (req: Request, res: Response) => {
       const course = await adminCourseUseCases.getCourse(req.params.id);
-      if (course.originType === CourseOriginType.NATIVE_MANARATAK_COURSE) await nativeCourseUseCases.publish(req.params.id);
-      else await adminCourseUseCases.publish(req.params.id);
+      if (course.originType === CourseOriginType.NATIVE_MANARATAK_COURSE) await nativeCourseUseCases.publish(req.params.id, mutationContext(req));
+      else await adminCourseUseCases.publish(req.params.id, mutationContext(req));
       res.status(200).json({ success: true });
     }));
 

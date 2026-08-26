@@ -145,3 +145,6 @@ export * from './degree-level';
 export * from './universities/PrismaUniversityImportChangeExecutorGateway';
 
 export * from './translation-import';
+export * from './courses/PrismaCourseEnrollmentPolicyRepository';
+export * from './courses/PrismaCourseFinancialClearanceGateway';
+export * from './courses/PrismaLearningPathRepository';

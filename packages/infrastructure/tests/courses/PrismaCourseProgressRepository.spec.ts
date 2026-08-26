@@ -54,6 +54,7 @@ describe('PrismaCourseProgressRepository', () => {
             status: 'CERTIFICATE_SIGNAL_READY',
             completionSource: 'PHASE_13_LEARNING_PROGRESS',
             eligibleForCertificate: true,
+            courseVersion: 2,
             completedAt: now,
             metadata: { phase14OwnsCertificateIssuance: true },
             createdAt: now,
@@ -69,6 +70,7 @@ describe('PrismaCourseProgressRepository', () => {
       status: CourseCompletionStatus.CERTIFICATE_SIGNAL_READY,
       completionSource: 'PHASE_13_LEARNING_PROGRESS',
       eligibleForCertificate: true,
+      courseVersion: 2,
     });
 
     expect(result.eligibleForCertificate).toBe(true);

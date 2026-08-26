@@ -31,6 +31,9 @@ import {
   PrismaCourseRepository,
   PrismaCourseCurriculumRepository,
   PrismaCourseProgressRepository,
+  PrismaCourseEnrollmentPolicyRepository,
+  PrismaCourseFinancialClearanceGateway,
+  PrismaLearningPathRepository,
   PrismaCertificateRepository,
   PrismaExternalCourseProviderRepository,
   PrismaCourseImportAnalysisRepository,
@@ -139,6 +142,9 @@ import {
   PublicCourseUseCases,
   CourseCurriculumUseCases,
   CourseProgressUseCases,
+  CourseEnrollmentPolicyUseCases,
+  LearningPathUseCases,
+  CoursePublicationService,
   NativeCourseUseCases,
   EnterpriseCourseCompletionEventPublisher,
   CertificateUseCases,
@@ -223,6 +229,7 @@ import { UniversityPublicRouter } from '../../presentation/api/router/University
 import { MajorAdminRouter } from '../../presentation/api/router/MajorAdminRouter';
 import { MajorPublicRouter } from '../../presentation/api/router/MajorPublicRouter';
 import { CourseAdminRouter } from '../../presentation/api/router/CourseAdminRouter';
+import { CourseLearnerRouter } from '../../presentation/api/router/CourseLearnerRouter';
 import { ImportedCourseAdminRouter } from '../../presentation/api/router/ImportedCourseAdminRouter';
 import { CoursePublicRouter } from '../../presentation/api/router/CoursePublicRouter';
 import { CertificateAdminRouter } from '../../presentation/api/router/CertificateAdminRouter';
@@ -8136,6 +8143,9 @@ export function registerDependencies(
     importedCourseLinkChecker: asClass(SafeImportedCourseLinkChecker).singleton(),
     courseCurriculumRepository: asFunction(({ prisma }) => new PrismaCourseCurriculumRepository(prisma)).singleton(),
     courseProgressRepository: asFunction(({ prisma }) => new PrismaCourseProgressRepository(prisma)).singleton(),
+    courseEnrollmentPolicyRepository: asFunction(({ prisma }) => new PrismaCourseEnrollmentPolicyRepository(prisma)).singleton(),
+    courseFinancialClearanceGateway: asFunction(({ prisma }) => new PrismaCourseFinancialClearanceGateway(prisma)).singleton(),
+    learningPathRepository: asFunction(({ prisma }) => new PrismaLearningPathRepository(prisma)).singleton(),
     certificateRepository: asFunction(({ prisma }) => new PrismaCertificateRepository(prisma)).singleton(),
     studentWorkspaceRepository: asFunction(({ prisma }) => new PrismaStudentWorkspaceRepository(prisma)).singleton(),
     studentWorkspaceDeliveryCache: asFunction(() => {
@@ -8353,7 +8363,9 @@ export function registerDependencies(
       new MajorImportPromotionUseCase(majorRepository, undefined, atomicDomainMutationCoordinator, canonicalMajorReferenceService)).scoped(),
     fellowshipImportPromotionUseCase: asFunction(({ fellowshipDefinitionRepository }) => new FellowshipImportPromotionUseCase(fellowshipDefinitionRepository)).scoped(),
     publicMajorUseCases: asFunction(({ majorRepository }) => new PublicMajorUseCases(majorRepository)).scoped(),
-    adminCourseUseCases: asFunction(({ courseRepository }) => new AdminCourseUseCases(courseRepository)).scoped(),
+    coursePublicationService: asFunction(({ courseRepository, importedCourseOperationsRepository, atomicDomainMutationCoordinator }) =>
+      new CoursePublicationService(courseRepository, importedCourseOperationsRepository, atomicDomainMutationCoordinator)).scoped(),
+    adminCourseUseCases: asFunction(({ courseRepository, coursePublicationService }) => new AdminCourseUseCases(courseRepository, coursePublicationService)).scoped(),
     courseImportArtifactUseCase: asFunction(({ assetRecordRepository, assetStorageGateway, externalCourseProviderRepository, importAdminUseCases }) =>
       new CourseImportArtifactUseCase(assetRecordRepository, assetStorageGateway, externalCourseProviderRepository, importAdminUseCases)).scoped(),
     courseImportIdentityDiffUseCase: asFunction(({ importRepository, externalCourseProviderRepository, courseImportAnalysisRepository }) =>
@@ -8367,8 +8379,14 @@ export function registerDependencies(
     publicCourseUseCases: asFunction(({ courseRepository }) => new PublicCourseUseCases(courseRepository)).scoped(),
     courseCurriculumUseCases: asFunction(({ courseRepository, courseCurriculumRepository, assetRecordRepository }) => new CourseCurriculumUseCases(courseRepository, courseCurriculumRepository, assetRecordRepository)).scoped(),
     courseCompletionEventPublisher: asFunction(({ manageEnterpriseEventsUseCase }) => new EnterpriseCourseCompletionEventPublisher(manageEnterpriseEventsUseCase)).scoped(),
-    courseProgressUseCases: asFunction(({ courseRepository, courseCurriculumRepository, courseProgressRepository, courseCompletionEventPublisher }) => new CourseProgressUseCases(courseRepository, courseCurriculumRepository, courseProgressRepository, courseCompletionEventPublisher)).scoped(),
-    nativeCourseUseCases: asFunction(({ courseRepository, courseCurriculumRepository, assetRecordRepository }) => new NativeCourseUseCases(courseRepository, courseCurriculumRepository, assetRecordRepository)).scoped(),
+    courseEnrollmentPolicyUseCases: asFunction(({ courseRepository, courseEnrollmentPolicyRepository }) =>
+      new CourseEnrollmentPolicyUseCases(courseRepository, courseEnrollmentPolicyRepository)).scoped(),
+    courseProgressUseCases: asFunction(({ courseRepository, courseCurriculumRepository, courseProgressRepository, courseEnrollmentPolicyRepository, courseFinancialClearanceGateway, atomicDomainMutationCoordinator }) =>
+      new CourseProgressUseCases(courseRepository, courseCurriculumRepository, courseProgressRepository, courseEnrollmentPolicyRepository, courseFinancialClearanceGateway, atomicDomainMutationCoordinator)).scoped(),
+    learningPathUseCases: asFunction(({ learningPathRepository, courseRepository, courseProgressRepository, atomicDomainMutationCoordinator }) =>
+      new LearningPathUseCases(learningPathRepository, courseRepository, courseProgressRepository, atomicDomainMutationCoordinator)).scoped(),
+    nativeCourseUseCases: asFunction(({ courseRepository, courseCurriculumRepository, assetRecordRepository, coursePublicationService }) =>
+      new NativeCourseUseCases(courseRepository, courseCurriculumRepository, assetRecordRepository, coursePublicationService)).scoped(),
     certificateUseCases: asFunction(({ certificateRepository, courseRepository, assetRecordRepository }) => new CertificateUseCases(certificateRepository, courseRepository, assetRecordRepository, { signingKeyReference: readConfig<string>('CERTIFICATE_SIGNING_KEY_REFERENCE'), signingSecret: readConfig<string>('CERTIFICATE_SIGNING_SECRET'), productionLike })).scoped(),
     studentWorkspaceUseCases: asFunction(({ studentWorkspaceRepository, studentWorkspaceDeliveryCache }) => new StudentWorkspaceUseCases(studentWorkspaceRepository, studentWorkspaceDeliveryCache)).scoped(),
     adminCmsUseCases: asFunction(({ cmsRepository, cmsDeliveryCache }) => new AdminCmsUseCases(cmsRepository, cmsDeliveryCache)).scoped(),
@@ -8483,6 +8501,7 @@ export function registerDependencies(
     majorAdminRouter: asFunction((cradle) => MajorAdminRouter.create(cradle)).scoped(),
     majorPublicRouter: asFunction((cradle) => MajorPublicRouter.create(cradle)).singleton(),
     courseAdminRouter: asFunction((cradle) => CourseAdminRouter.create(cradle)).singleton(),
+    courseLearnerRouter: asFunction((cradle) => CourseLearnerRouter.create(cradle)).singleton(),
     importedCourseAdminRouter: asFunction((cradle) => ImportedCourseAdminRouter.create(cradle)).singleton(),
     coursePublicRouter: asFunction((cradle) => CoursePublicRouter.create(cradle)).singleton(),
     certificateAdminRouter: asFunction((cradle) => CertificateAdminRouter.create(cradle)).singleton(),

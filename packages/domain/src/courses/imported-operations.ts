@@ -211,6 +211,7 @@ export interface IImportedCourseLinkChecker {
   check(input: {
     url: string;
     allowedDomains: string[];
+    directCoursePathPatterns?: string[];
   }): Promise<ImportedCourseLinkCheckResult>;
 }
 

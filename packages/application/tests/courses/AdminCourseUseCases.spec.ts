@@ -7,6 +7,7 @@ import {
   ICourseRepository
 } from '@manaratak/domain';
 import { AdminCourseUseCases } from '../../src/courses/use-cases/AdminCourseUseCases';
+import { CoursePublicationService } from '../../src/courses/services/CoursePublicationService';
 
 describe('AdminCourseUseCases', () => {
   let mockRepo: ICourseRepository;
@@ -25,7 +26,7 @@ describe('AdminCourseUseCases', () => {
       listByStatus: vi.fn(),
       list: vi.fn(),
     };
-    useCases = new AdminCourseUseCases(mockRepo);
+    useCases = new AdminCourseUseCases(mockRepo, new CoursePublicationService(mockRepo));
   });
 
   it('listCourses delegates filters to repository', async () => {

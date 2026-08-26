@@ -77,6 +77,8 @@ describe('PublicCourseUseCases', () => {
       originType: CourseOriginType.EXTERNAL_LINKED_COURSE,
       directCourseUrl: 'https://example.org/course',
       status: CourseStatus.PUBLISHED,
+      completenessStatus: CourseImportCompletenessState.COMPLETE,
+      isStudyFree: true,
       optionalFields: { courseContent: 'Foundations of data science.' },
       updatedAt: new Date()
     });

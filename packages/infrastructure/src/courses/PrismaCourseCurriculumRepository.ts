@@ -171,20 +171,31 @@ export class PrismaCourseCurriculumRepository implements ICourseCurriculumReposi
   }
 
   public async createQuestion(data: CreateCourseQuestionDto): Promise<CourseQuestionDto> {
-    const record = await this.prisma.courseQuestion.create({
-      data: {
-        courseId: data.courseId,
-        quizId: data.quizId,
-        questionBankId: data.questionBankId,
-        questionType: data.questionType,
-        prompt: data.prompt,
-        choices: json(data.choices),
-        correctAnswer: json(data.correctAnswer),
-        explanation: data.explanation,
-        points: data.points ?? 1,
-        position: data.position,
-        status: data.status ?? CourseContentStatus.DRAFT,
-      },
+    const record = await this.prisma.$transaction(async tx => {
+      const created = await tx.courseQuestion.create({
+        data: {
+          courseId: data.courseId,
+          quizId: data.quizId,
+          questionBankId: data.questionBankId,
+          questionType: data.questionType,
+          prompt: data.prompt,
+          choices: json(data.choices),
+          correctAnswer: json(data.correctAnswer),
+          explanation: data.explanation,
+          points: data.points ?? 1,
+          position: data.position,
+          status: data.status ?? CourseContentStatus.DRAFT,
+        },
+      });
+      await tx.courseQuestionVersion.create({
+        data: {
+          questionId: created.id,
+          versionNumber: created.version,
+          reason: 'QUESTION_CREATED',
+          snapshot: json(created)!,
+        },
+      });
+      return created;
     });
     return this.question(record);
   }
@@ -193,31 +204,56 @@ export class PrismaCourseCurriculumRepository implements ICourseCurriculumReposi
     id: string,
     data: UpdateCourseQuestionDto,
   ): Promise<CourseQuestionDto> {
-    const record = await this.prisma.courseQuestion.update({
-      where: { id },
-      data: {
-        quizId: data.quizId,
-        questionBankId: data.questionBankId,
-        questionType: data.questionType,
-        prompt: data.prompt,
-        choices: data.choices === null ? Prisma.JsonNull : json(data.choices),
-        correctAnswer: data.correctAnswer === null ? Prisma.JsonNull : json(data.correctAnswer),
-        explanation: data.explanation,
-        points: data.points,
-        position: data.position,
-        status: data.status,
-      },
+    const record = await this.prisma.$transaction(async tx => {
+      const updated = await tx.courseQuestion.update({
+        where: { id },
+        data: {
+          quizId: data.quizId,
+          questionBankId: data.questionBankId,
+          questionType: data.questionType,
+          prompt: data.prompt,
+          choices: data.choices === null ? Prisma.JsonNull : json(data.choices),
+          correctAnswer: data.correctAnswer === null ? Prisma.JsonNull : json(data.correctAnswer),
+          explanation: data.explanation,
+          points: data.points,
+          position: data.position,
+          status: data.status,
+          version: { increment: 1 },
+        },
+      });
+      await tx.courseQuestionVersion.create({
+        data: {
+          questionId: updated.id,
+          versionNumber: updated.version,
+          reason: 'QUESTION_UPDATED',
+          snapshot: json(updated)!,
+        },
+      });
+      return updated;
     });
     return this.question(record);
   }
 
   public async deleteQuestion(id: string): Promise<void> {
-    await this.prisma.courseQuestion.delete({ where: { id } });
+    await this.prisma.$transaction(async tx => {
+      const archived = await tx.courseQuestion.update({
+        where: { id },
+        data: { status: CourseContentStatus.ARCHIVED, version: { increment: 1 } },
+      });
+      await tx.courseQuestionVersion.create({
+        data: {
+          questionId: archived.id,
+          versionNumber: archived.version,
+          reason: 'QUESTION_ARCHIVED',
+          snapshot: json(archived)!,
+        },
+      });
+    });
   }
 
   public async listQuestionsByQuizId(quizId: string): Promise<CourseQuestionDto[]> {
     return (
-      await this.prisma.courseQuestion.findMany({ where: { quizId }, orderBy: { position: 'asc' } })
+      await this.prisma.courseQuestion.findMany({ where: { quizId, status: { not: CourseContentStatus.ARCHIVED } }, orderBy: { position: 'asc' } })
     ).map((item) => this.question(item));
   }
 
@@ -238,7 +274,7 @@ export class PrismaCourseCurriculumRepository implements ICourseCurriculumReposi
         orderBy: { createdAt: 'asc' },
       }),
       this.prisma.courseQuestion.findMany({
-        where: { courseId },
+        where: { courseId, status: { not: CourseContentStatus.ARCHIVED } },
         orderBy: [{ quizId: 'asc' }, { position: 'asc' }],
       }),
     ]);
@@ -393,6 +429,7 @@ export class PrismaCourseCurriculumRepository implements ICourseCurriculumReposi
   private question(record: {
     id: string;
     courseId: string;
+    version: number;
     quizId: string | null;
     questionBankId: string | null;
     questionType: string;

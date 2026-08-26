@@ -31,6 +31,7 @@ interface CourseRecord {
   directCourseUrl: string;
   status: string;
   completenessStatus: string;
+  version: number;
   externalProviderId: string | null;
   originalSourceTitle: string | null;
   isStudyFree: boolean | null;
@@ -120,6 +121,7 @@ const RESERVED_OPTIONAL_FIELD_KEYS = new Set([
   'directCourseUrl',
   'status',
   'completenessStatus',
+  'version',
   'externalProviderId',
   'originalSourceTitle',
   'isStudyFree',
@@ -172,86 +174,93 @@ export class PrismaCourseRepository implements ITransactionalCourseRepository {
   }
 
   public async create(data: CreateCourseDto): Promise<CourseDto> {
-    const record = await this.prisma.course.create({
-      data: {
-        publicId: data.publicId,
-        slug: data.slug,
-        canonicalName: data.canonicalName,
-        canonicalDedupKey: data.canonicalDedupKey,
-        displayName: data.displayName,
-        accessType: data.accessType,
-        originType: data.originType,
-        directCourseUrl: data.directCourseUrl,
-        status: data.status,
-        completenessStatus: data.completenessStatus,
-        externalProviderId: data.externalProviderId,
-        originalSourceTitle: data.originalSourceTitle,
-        isStudyFree: data.isStudyFree,
-        isFreeCertificate: data.isFreeCertificate,
-        certificateType: data.certificateType,
-        learningLanguageRaw: data.learningLanguageRaw,
-        studyLevelRaw: data.studyLevelRaw,
-        studyDurationRaw: data.studyDurationRaw,
-        shortCourseTopicsRaw: data.shortCourseTopicsRaw,
-        platformName: data.platformName,
-        providerName: data.providerName,
-        learningLanguage: data.learningLanguage,
-        studyDuration: data.studyDuration,
-        certificateAvailable: data.certificateAvailable,
-        category: data.category,
-        difficultyLevel: data.difficultyLevel,
-        sourceUrl: data.sourceUrl,
-        officialSourceUrl: data.officialSourceUrl,
-        thumbnailAssetId: data.thumbnailAssetId,
-        sourceImportRecordId: data.sourceImportRecordId,
-        optionalFields: asInputJson(sanitizeOptionalFields(data.optionalFields)),
-      },
+    return this.withVersionTransaction(async db => {
+      const record = await db.course.create({
+        data: {
+          publicId: data.publicId,
+          slug: data.slug,
+          canonicalName: data.canonicalName,
+          canonicalDedupKey: data.canonicalDedupKey,
+          displayName: data.displayName,
+          accessType: data.accessType,
+          originType: data.originType,
+          directCourseUrl: data.directCourseUrl,
+          status: data.status,
+          completenessStatus: data.completenessStatus,
+          externalProviderId: data.externalProviderId,
+          originalSourceTitle: data.originalSourceTitle,
+          isStudyFree: data.isStudyFree,
+          isFreeCertificate: data.isFreeCertificate,
+          certificateType: data.certificateType,
+          learningLanguageRaw: data.learningLanguageRaw,
+          studyLevelRaw: data.studyLevelRaw,
+          studyDurationRaw: data.studyDurationRaw,
+          shortCourseTopicsRaw: data.shortCourseTopicsRaw,
+          platformName: data.platformName,
+          providerName: data.providerName,
+          learningLanguage: data.learningLanguage,
+          studyDuration: data.studyDuration,
+          certificateAvailable: data.certificateAvailable,
+          category: data.category,
+          difficultyLevel: data.difficultyLevel,
+          sourceUrl: data.sourceUrl,
+          officialSourceUrl: data.officialSourceUrl,
+          thumbnailAssetId: data.thumbnailAssetId,
+          sourceImportRecordId: data.sourceImportRecordId,
+          optionalFields: asInputJson(sanitizeOptionalFields(data.optionalFields)),
+        },
+      });
+      await this.captureVersion(db, record, 'COURSE_CREATED');
+      return this.mapToDto(record as CourseRecord);
     });
-    return this.mapToDto(record);
   }
 
   public async update(id: string, updates: UpdateCourseDto): Promise<CourseDto> {
-    const existing = await this.prisma.course.findUnique({ where: { id } });
-    if (!existing) throw new Error(`COURSE_NOT_FOUND:${id}`);
+    return this.withVersionTransaction(async db => {
+      const existing = await db.course.findUnique({ where: { id } });
+      if (!existing) throw new Error(`COURSE_NOT_FOUND:${id}`);
 
-    const optionalFields = updates.optionalFields === undefined
-      ? undefined
-      : {
-          ...(sanitizeOptionalFields(existing.optionalFields) ?? {}),
-          ...(sanitizeOptionalFields(updates.optionalFields) ?? {}),
-        };
+      const optionalFields = updates.optionalFields === undefined
+        ? undefined
+        : {
+            ...(sanitizeOptionalFields(existing.optionalFields) ?? {}),
+            ...(sanitizeOptionalFields(updates.optionalFields) ?? {}),
+          };
 
-    const record = await this.prisma.course.update({
-      where: { id },
-      data: {
-        displayName: updates.displayName,
-        accessType: updates.accessType,
-        originType: updates.originType,
-        directCourseUrl: updates.directCourseUrl,
-        completenessStatus: updates.completenessStatus,
-        externalProviderId: updates.externalProviderId,
-        originalSourceTitle: updates.originalSourceTitle,
-        isStudyFree: updates.isStudyFree,
-        isFreeCertificate: updates.isFreeCertificate,
-        certificateType: updates.certificateType,
-        learningLanguageRaw: updates.learningLanguageRaw,
-        studyLevelRaw: updates.studyLevelRaw,
-        studyDurationRaw: updates.studyDurationRaw,
-        shortCourseTopicsRaw: updates.shortCourseTopicsRaw,
-        platformName: updates.platformName,
-        providerName: updates.providerName,
-        learningLanguage: updates.learningLanguage,
-        studyDuration: updates.studyDuration,
-        certificateAvailable: updates.certificateAvailable,
-        category: updates.category,
-        difficultyLevel: updates.difficultyLevel,
-        sourceUrl: updates.sourceUrl,
-        officialSourceUrl: updates.officialSourceUrl,
-        thumbnailAssetId: updates.thumbnailAssetId,
-        optionalFields: asInputJson(optionalFields),
-      },
+      const record = await db.course.update({
+        where: { id },
+        data: {
+          displayName: updates.displayName,
+          accessType: updates.accessType,
+          originType: updates.originType,
+          directCourseUrl: updates.directCourseUrl,
+          completenessStatus: updates.completenessStatus,
+          externalProviderId: updates.externalProviderId,
+          originalSourceTitle: updates.originalSourceTitle,
+          isStudyFree: updates.isStudyFree,
+          isFreeCertificate: updates.isFreeCertificate,
+          certificateType: updates.certificateType,
+          learningLanguageRaw: updates.learningLanguageRaw,
+          studyLevelRaw: updates.studyLevelRaw,
+          studyDurationRaw: updates.studyDurationRaw,
+          shortCourseTopicsRaw: updates.shortCourseTopicsRaw,
+          platformName: updates.platformName,
+          providerName: updates.providerName,
+          learningLanguage: updates.learningLanguage,
+          studyDuration: updates.studyDuration,
+          certificateAvailable: updates.certificateAvailable,
+          category: updates.category,
+          difficultyLevel: updates.difficultyLevel,
+          sourceUrl: updates.sourceUrl,
+          officialSourceUrl: updates.officialSourceUrl,
+          thumbnailAssetId: updates.thumbnailAssetId,
+          optionalFields: asInputJson(optionalFields),
+          version: { increment: 1 },
+        },
+      });
+      await this.captureVersion(db, record, 'COURSE_UPDATED');
+      return this.mapToDto(record as CourseRecord);
     });
-    return this.mapToDto(record);
   }
 
   public async findByDedupKey(dedupKey: string): Promise<CourseDto | null> {
@@ -275,11 +284,17 @@ export class PrismaCourseRepository implements ITransactionalCourseRepository {
   }
 
   public async updateStatus(id: string, status: CourseStatus): Promise<void> {
-    await this.prisma.course.update({ where: { id }, data: { status } });
+    await this.withVersionTransaction(async db => {
+      const record = await db.course.update({ where: { id }, data: { status, version: { increment: 1 } } });
+      await this.captureVersion(db, record, `COURSE_STATUS_${status}`);
+    });
   }
 
   public async updateImportLink(id: string, sourceImportRecordId: string): Promise<void> {
-    await this.prisma.course.update({ where: { id }, data: { sourceImportRecordId } });
+    await this.withVersionTransaction(async db => {
+      const record = await db.course.update({ where: { id }, data: { sourceImportRecordId, version: { increment: 1 } } });
+      await this.captureVersion(db, record, 'COURSE_IMPORT_LINK_UPDATED');
+    });
   }
 
   public async listByStatus(status: CourseStatus): Promise<CourseDto[]> {
@@ -304,7 +319,20 @@ export class PrismaCourseRepository implements ITransactionalCourseRepository {
   public async listPublished(filters: PublicCourseFilters): Promise<PaginatedCourseResult<CourseDto>> {
     const page = Math.max(1, filters.page ?? 1);
     const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
-    const where: Prisma.CourseWhereInput = { status: CourseStatus.PUBLISHED };
+    const where: Prisma.CourseWhereInput = {
+      status: CourseStatus.PUBLISHED,
+      completenessStatus: CourseImportCompletenessState.COMPLETE,
+      AND: [{
+        OR: [
+          { originType: { not: CourseOriginType.EXTERNAL_LINKED_COURSE } },
+          {
+            originType: CourseOriginType.EXTERNAL_LINKED_COURSE,
+            accessType: { not: CourseAccessType.PAID },
+            OR: [{ isStudyFree: true }, { isFreeCertificate: true }],
+          },
+        ],
+      }],
+    };
 
     if (filters.accessType) where.accessType = filters.accessType;
     if (filters.originType) where.originType = filters.originType;
@@ -339,6 +367,33 @@ export class PrismaCourseRepository implements ITransactionalCourseRepository {
     };
   }
 
+  private async withVersionTransaction<T>(work: (db: any) => Promise<T>): Promise<T> {
+    const candidate = this.prisma as any;
+    if (typeof candidate.$transaction === 'function') {
+      return candidate.$transaction((tx: any) => work(tx), {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+    }
+    // Transaction-bound repositories created by withTransaction already participate
+    // in the outer atomic business/audit/outbox boundary.
+    return work(candidate);
+  }
+
+  private async captureVersion(db: any, course: any, reason: string): Promise<void> {
+    const [modules, lessons, assets, quizzes, questionBanks, questions] = await Promise.all([
+      db.courseModule.findMany({ where: { courseId: course.id }, orderBy: { position: 'asc' } }),
+      db.courseLesson.findMany({ where: { courseId: course.id }, orderBy: [{ moduleId: 'asc' }, { position: 'asc' }] }),
+      db.courseLessonAsset.findMany({ where: { courseId: course.id }, orderBy: [{ lessonId: 'asc' }, { position: 'asc' }] }),
+      db.courseQuiz.findMany({ where: { courseId: course.id }, orderBy: { position: 'asc' } }),
+      db.courseQuestionBank.findMany({ where: { courseId: course.id }, orderBy: { createdAt: 'asc' } }),
+      db.courseQuestion.findMany({ where: { courseId: course.id }, orderBy: [{ quizId: 'asc' }, { position: 'asc' }] }),
+    ]);
+    const snapshot = JSON.parse(JSON.stringify({ course, modules, lessons, assets, quizzes, questionBanks, questions }));
+    await db.courseVersion.create({
+      data: { courseId: course.id, versionNumber: course.version, reason, snapshot },
+    });
+  }
+
   private mapToDto(record: CourseRecord): CourseDto {
     return {
       id: record.id,
@@ -352,6 +407,7 @@ export class PrismaCourseRepository implements ITransactionalCourseRepository {
       directCourseUrl: record.directCourseUrl,
       status: parseStatus(record.status),
       completenessStatus: parseCompleteness(record.completenessStatus),
+      version: record.version,
       externalProviderId: record.externalProviderId ?? undefined,
       originalSourceTitle: record.originalSourceTitle ?? undefined,
       isStudyFree: record.isStudyFree ?? undefined,
