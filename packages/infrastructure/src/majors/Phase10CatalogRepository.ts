@@ -45,6 +45,9 @@ export class Phase10CatalogRepository {
 
   public loadCatalog(): CatalogItemDto[] {
     const possiblePaths = [
+      ...(process.env.MANARATAK_PHASE10_CATALOG_PATH
+        ? [path.resolve(process.env.MANARATAK_PHASE10_CATALOG_PATH)]
+        : []),
       ...(this.options.catalogPath ? [path.resolve(this.options.catalogPath)] : []),
       '/app/applet/workspace/catalog-index/phase10CatalogIndex.json',
     ];
@@ -196,7 +199,7 @@ export class Phase10CatalogRepository {
           },
         });
       } catch (err) {
-        if (this.options.productionLike) throw err;
+        if (this.options.productionLike ?? process.env.NODE_ENV === 'production') throw err;
         console.warn(
           'Major catalog DB enrichment unavailable; returning source-only summaries',
           err,

@@ -138,7 +138,8 @@ describe('W2 Phase 6 durable worker integration', () => {
     // Replaying the same durable record after its envelope was removed does not duplicate handoff.
     queue.setStatusForTesting('batch-durable-1', 'COMPLETED' as any);
     await queue.replayJob({ batchId: 'batch-durable-1', fromCheckpoint: false });
-    await expect(useCase.processNextQueuedBatch('recovery-worker-2')).resolves.toBe('COMPLETED');
+    const replayResult = await useCase.processNextQueuedBatch('recovery-worker-2');
+    expect(replayResult, JSON.stringify(await queue.getJobStatus('batch-durable-1'))).toBe('COMPLETED');
     expect(accept).toHaveBeenCalledTimes(1);
   });
 });

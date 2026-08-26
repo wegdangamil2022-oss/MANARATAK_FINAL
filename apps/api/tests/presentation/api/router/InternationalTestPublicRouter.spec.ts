@@ -9,7 +9,7 @@ const testRecord = {
 };
 
 describe('InternationalTestPublicRouter locale contract', () => {
-  const createRepository = () => ({ listPublished: vi.fn(), findBySlug: vi.fn() });
+  const createRepository = () => ({ listPublished: vi.fn(), findBySlug: vi.fn(), findPublishedBySlug: vi.fn() });
   const createApp = (repository: ReturnType<typeof createRepository>) => {
     const app = express();
     app.use('/public/international-tests', InternationalTestPublicRouter.create({ internationalTestRepository: repository as any }));
@@ -18,7 +18,7 @@ describe('InternationalTestPublicRouter locale contract', () => {
 
   it('projects localized test display name', async () => {
     const repository = createRepository();
-    repository.findBySlug.mockResolvedValue(testRecord);
+    repository.findPublishedBySlug.mockResolvedValue(testRecord);
     const res = await request(createApp(repository)).get('/public/international-tests/ielts-academic?locale=ar');
     expect(res.status).toBe(200);
     expect(res.body.displayName).toBe('آيلتس الأكاديمي');

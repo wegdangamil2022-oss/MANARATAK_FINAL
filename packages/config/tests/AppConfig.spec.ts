@@ -85,7 +85,7 @@ describe('AppConfig', () => {
     expect(() => loadAppConfig(prodEnv)).toThrowError(/insecure default/);
   });
 
-  it('allows optional REDIS_URL in production without defaulting to localhost', () => {
+  it('requires REDIS_URL in production for distributed rate limiting', () => {
     const validProdEnv = {
       NODE_ENV: 'production',
       DATABASE_URL: 'postgresql://user:pass@prod-db:5432/manaratak',
@@ -96,8 +96,7 @@ describe('AppConfig', () => {
       ADMIN_AUTH_MODE: 'strict'
     };
 
-    const config = loadAppConfig(validProdEnv);
-    expect(config.REDIS_URL).toBeUndefined();
+    expect(() => loadAppConfig(validProdEnv)).toThrowError(/REDIS_URL is required/);
   });
 
   it('parses PORT as number', () => {

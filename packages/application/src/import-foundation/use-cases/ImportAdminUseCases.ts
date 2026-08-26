@@ -187,7 +187,7 @@ export class ImportAdminUseCases {
         }
       }
 
-      await this.importRepository.updateBatchStats(batch.id, {
+      const finalizedBatch = await this.importRepository.updateBatchStats(batch.id, {
         totalRecords: input.rows.length,
         processedRecords: durableWorkerPath ? 0 : processedRecords,
         failedRecords: durableWorkerPath ? 0 : failedRecords,
@@ -214,7 +214,7 @@ export class ImportAdminUseCases {
 
       const finalBatch = this.importRepository.getBatchById
         ? await this.importRepository.getBatchById(batch.id)
-        : await this.importRepository.updateBatchStats(batch.id, {});
+        : finalizedBatch;
 
       return {
         batch: finalBatch ?? batch,
@@ -308,7 +308,10 @@ export class ImportAdminUseCases {
         if (record.status === 'CHECKPOINT' || record.status === 'DLQ') continue;
         recordOffset++;
         const rawPayload = this.asRecord(record.rawPayload);
-        const envelope = this.asRecord(rawPayload._phase6HandoffEnvelope) as PersistedHandoffEnvelope | undefined;
+        const envelopeValue = rawPayload._phase6HandoffEnvelope;
+        const envelope = envelopeValue && typeof envelopeValue === 'object' && !Array.isArray(envelopeValue)
+          ? envelopeValue as unknown as PersistedHandoffEnvelope
+          : undefined;
 
         if (envelope) {
           const handoffResult = await this.handoffDispatcher.dispatch(envelope as any);
