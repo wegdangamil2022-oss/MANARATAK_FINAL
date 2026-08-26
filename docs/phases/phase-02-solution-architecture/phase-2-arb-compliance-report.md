@@ -30,7 +30,9 @@ The primary objective is to verify that the system design exhibits absolute cons
 The ARB conducted a rigorous multi-directional audit to detect discrepancies between the High-Level Governing Principles (Phase 1) and the Concrete Technical Deliverables (Phase 2):
 
 - **The Vision vs. Payload Symmetry**: Phase 1 demands strict bilingual compliance. The review confirms that every JSON schema in the _REST API Contracts (v2.13)_ and _Canonical Data Model (v2.7)_ strictly embeds symmetrical parallel structures (e.g., `text_ar` and `text_en`). No single-language properties exist in the public-facing endpoints.
-- **Transactional Outbox Consistency**: Phase 1 mandates decoupled service interactions and Phase 2 defines the required Transactional Outbox design. The current source baseline does not yet contain an outbox table, persistence adapter, dispatcher, or verified same-transaction writes; implementation remains blocked by the external database recovery gate.
+> **W15 source-truth reconciliation — 2026-08-26:** The July 16, 2026 ARB sign-off is retained as a historical architecture milestone. Its pre-implementation Transactional Outbox status is superseded by current repository evidence. Source implementation is now present; live database application, transaction/atomicity behavior, dispatcher recovery, and operational correctness remain `PENDING_GOOGLE_STUDIO`.
+
+- **Transactional Outbox Consistency**: Phase 1 mandates decoupled service interactions and Phase 2 defines the required Transactional Outbox design. The current source baseline now contains `TransactionalOutboxRecord`, migration `20260813000000_add_transactional_outbox`, `PrismaTransactionalOutboxStore`, `PrismaAtomicPersistenceUnitOfWork`, `AtomicAuditedOutboxMutationExecutor`, `TransactionalOutboxDispatcher`, and active API DI wiring. Current classification is `SOURCE_IMPLEMENTED / LIVE_DB_TRANSACTION_AND_RECOVERY_PROOF_PENDING_GOOGLE_STUDIO`; repository source alone does not prove live migration/application, same-transaction behavior against the real database, dispatcher recovery, or production readiness.
 - **Identity and Role Alignment**: The RBAC scopes specified in _Identity Security (v2.15)_ map 1:1 to the security filters and gateway routing layers defined in _API Architecture Design (v2.12)_.
 
 ##### Analysis & Recommendations Matrix:
@@ -38,7 +40,7 @@ The ARB conducted a rigorous multi-directional audit to detect discrepancies bet
 | Checked Aspect            | Current State (الوضع الحالي)                                                        | Compliance Level (مدى الامتثال) | Final ARB Recommendation (التوصية المعمارية النهائية)                        |
 | :------------------------ | :---------------------------------------------------------------------------------- | :-----------------------------: | :--------------------------------------------------------------------------- |
 | **Bilingual Symmetries**  | Symmetrical English/Arabic data properties present on all core models.              |       **100% compliant**        | Approved. Block deployment of any model schema missing bilingual structures. |
-| **Domain Communication**  | Transactional outbox is designed but not yet persisted or wired at runtime.          |       **Implementation pending** | Enforce local transactional logging only after database recovery evidence and migration approval. |
+| **Domain Communication**  | Transactional outbox persistence/migration, store/dispatcher, atomic integration paths, and API wiring exist in source; live DB/runtime proof remains pending. | **SOURCE_IMPLEMENTED / RUNTIME_PROOF_REQUIRED** | Preserve the source implementation and close live DB/atomicity/recovery only after Google Studio evidence. |
 | **Access Control Claims** | RBAC claims (`ROLE_STUDENT`, `ROLE_COORDINATOR`, etc.) verified at the API Gateway. |       **100% compliant**        | Approved. Gateway must validate token signatures before routing traffic.     |
 
 ---

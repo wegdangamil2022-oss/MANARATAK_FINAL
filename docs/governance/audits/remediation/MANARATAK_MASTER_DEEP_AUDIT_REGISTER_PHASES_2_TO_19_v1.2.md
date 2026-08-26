@@ -6328,3 +6328,29 @@ Passed in the ZIP execution environment:
 Dependency-backed regression commands were not runnable because the clean ZIP has no `node_modules` and npm registry artifacts were unavailable in the execution environment (`npm ci` timeout; offline install returned `ENOTCACHED`). This is not classified as a code/test failure.
 
 **W1 transition gate:** run `npm ci && npm run quality:source && npm run typecheck && npm run lint && npm run build && npm run test:unit && npm run w0:verify` in a connected clean environment before declaring W0 fully closed.
+
+# 47. Remediation execution log — W15 / final source-governance reconciliation
+
+**Execution date:** 2026-08-26
+**Scope:** governance truth reconciliation only
+**Database/runtime mutations:** none
+**Runtime boundary:** `PENDING_GOOGLE_STUDIO`
+
+The discovery sections above remain unchanged as historical evidence. This execution log is the authoritative current disposition for W15.
+
+## 47.1 W15 finding status
+
+| Order | Finding | Execution status |
+|---:|---|---|
+| 152 | `P2-GOV-001` | `CLOSED_AFTER_REMEDIATION` |
+| 153 | `P4-GOV-001` | `RESOLVED_BY_UPSTREAM_REMEDIATION` |
+
+`P2-GOV-001` is closed by reconciling the Phase 2 ARB report with the current Transactional Outbox source implementation. `P4-GOV-001` requires no new source edit because W0 already reconciled Phase 4.21; W15 re-proves that upstream closure instead of duplicating it.
+
+## 47.2 Final governance truth
+
+- The current repository source contains the Transactional Outbox model/migration, persistence store, atomic unit-of-work path, audited mutation executor, dispatcher, and API composition wiring.
+- Historical pre-implementation statements remain historical context only and do not override active source truth.
+- Live migration application, real-database atomicity, dispatcher recovery/concurrency, and production-runtime correctness remain `PENDING_GOOGLE_STUDIO` / `RUNTIME_PROOF_REQUIRED`.
+- W15 executes no migration, backfill, live database write, Redis/KMS/provider activation, scheduler mutation, or live AI/provider call.
+- The W0→W15 source-remediation program is considered source-closed only when the real repository passes every W0→W15 verifier plus Source Quality, typecheck, lint, build, and unit-test gates.
