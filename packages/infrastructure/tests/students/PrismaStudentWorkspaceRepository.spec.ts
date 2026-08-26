@@ -57,10 +57,8 @@ describe('PrismaStudentWorkspaceRepository', () => {
         ]),
       },
       studentRecentlyViewed: { findMany: vi.fn().mockResolvedValue([]) },
-      studentNotificationProjection: {
-        findMany: vi.fn().mockResolvedValue([]),
-        count: vi.fn().mockResolvedValue(0),
-      },
+      studentNotificationProjection: { findMany: vi.fn().mockResolvedValue([]), count: vi.fn().mockResolvedValue(0) },
+      studentPersonalStatistics: { findUnique: vi.fn().mockResolvedValue({ savedItems: 0, activeCourses: 1, completedCourses: 0, averageCourseProgress: 65, certificates: 1, unreadNotifications: 0 }) },
     };
     const repository = new PrismaStudentWorkspaceRepository(db as any);
 
@@ -72,28 +70,10 @@ describe('PrismaStudentWorkspaceRepository', () => {
     expect(result?.partialFailures).toEqual([]);
   });
 
-  it('creates the workspace, default favorites and outbox atomically', async () => {
-    const tx = {
-      studentWorkspace: {
-        findUnique: vi.fn().mockResolvedValue(null),
-        create: vi.fn().mockResolvedValue(workspace),
-      },
-      studentSavedCollection: { create: vi.fn().mockResolvedValue({}) },
-      transactionalOutboxRecord: { create: vi.fn().mockResolvedValue({}) },
-      auditRecord: { create: vi.fn().mockResolvedValue({}) },
-    };
-    const repository = new PrismaStudentWorkspaceRepository({
-      $transaction: (callback: (client: typeof tx) => unknown) => callback(tx),
-    } as any);
-
-    await repository.upsertWorkspace({ studentReferenceId: 'student-1' });
-
-    expect(tx.studentSavedCollection.create).toHaveBeenCalledOnce();
-    expect(tx.transactionalOutboxRecord.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ eventType: 'StudentWorkspaceCreated' }),
-      }),
-    );
+  it('does not allow generic upsert to provision a missing workspace', async () => {
+    const tx = { studentWorkspace: { findUnique: vi.fn().mockResolvedValue(null) } };
+    const repository = new PrismaStudentWorkspaceRepository({ $transaction: (callback: (client: typeof tx) => unknown) => callback(tx) } as any);
+    await expect(repository.upsertWorkspace({ studentReferenceId: 'student-1' })).rejects.toThrow('STUDENT_WORKSPACE_PROVISIONING_PENDING');
   });
 
   it('blocks personal mutations while the workspace is suspended', async () => {
@@ -164,8 +144,9 @@ describe('PrismaStudentWorkspaceRepository', () => {
         findUnique: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'inbox-1' }),
         create: vi.fn().mockResolvedValue({}), update: vi.fn().mockResolvedValue({}),
       },
-      studentWorkspace: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn().mockResolvedValue(workspace) },
+      studentWorkspace: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn().mockResolvedValue({ ...workspace, status: StudentWorkspaceStatus.INITIALIZING }), update: vi.fn().mockResolvedValue({ ...workspace, status: StudentWorkspaceStatus.ACTIVE, version: 2 }) },
       studentSavedCollection: { create: vi.fn().mockResolvedValue({}) },
+      studentPersonalStatistics: { create: vi.fn().mockResolvedValue({}) },
       studentTimelineEntry: { create: vi.fn().mockResolvedValue({}) },
       auditRecord: { create: vi.fn().mockResolvedValue({}) },
       transactionalOutboxRecord: { create: vi.fn().mockResolvedValue({}) },
@@ -177,6 +158,6 @@ describe('PrismaStudentWorkspaceRepository', () => {
     await expect(repository.ingestIntegrationEvent(event)).resolves.toBe(false);
     expect(tx.studentWorkspace.create).toHaveBeenCalledOnce();
     expect(tx.studentSavedCollection.create).toHaveBeenCalledOnce();
-    expect(tx.transactionalOutboxRecord.create).toHaveBeenCalledOnce();
+    expect(tx.transactionalOutboxRecord.create).toHaveBeenCalledTimes(2);
   });
 });

@@ -2683,6 +2683,8 @@ model StudentWorkspace {
   integrationInbox StudentWorkspaceEventInbox[]
   learningProjections StudentLearningProjection[]
   certificateProjections StudentCertificateReadProjection[]
+  privacyConsentDecisions StudentPrivacyConsentDecision[]
+  personalStatistics StudentPersonalStatistics?
 
   @@index([status])
   @@index([lastActiveAt])
@@ -2859,6 +2861,40 @@ model StudentNotificationProjection {
   workspace StudentWorkspace @relation(fields: [studentReferenceId], references: [studentReferenceId])
 
   @@index([studentReferenceId, readAt, occurredAt])
+}
+
+model StudentPrivacyConsentDecision {
+  id                 String   @id @default(uuid())
+  studentReferenceId String
+  workspaceVersion   Int
+  actorId            String
+  actorType          String
+  purpose            String
+  source             String
+  beforePreferences  Json
+  afterPreferences   Json
+  changedFields      Json
+  correlationId      String?
+  decidedAt          DateTime @default(now())
+
+  workspace StudentWorkspace @relation(fields: [studentReferenceId], references: [studentReferenceId], onDelete: Restrict)
+
+  @@index([studentReferenceId, decidedAt])
+  @@index([actorId, decidedAt])
+}
+
+model StudentPersonalStatistics {
+  id                    String   @id @default(uuid())
+  studentReferenceId    String   @unique
+  savedItems            Int      @default(0)
+  activeCourses         Int      @default(0)
+  completedCourses      Int      @default(0)
+  averageCourseProgress Int      @default(0)
+  certificates          Int      @default(0)
+  unreadNotifications   Int      @default(0)
+  updatedAt             DateTime @updatedAt
+
+  workspace StudentWorkspace @relation(fields: [studentReferenceId], references: [studentReferenceId], onDelete: Restrict)
 }
 
 model StudentWorkspaceEventInbox {

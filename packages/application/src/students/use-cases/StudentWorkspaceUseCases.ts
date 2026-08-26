@@ -10,6 +10,8 @@ import {
   StudentSavedItemDto,
   StudentSavedItemType,
   StudentTimelineEntryDto,
+  StudentPrivacyConsentDecisionDto,
+  UpdateStudentPrivacyConsentDto,
   StudentWorkspaceDto,
   StudentWorkspaceIntegrationEventDto,
   StudentWorkspaceSnapshotDto,
@@ -25,32 +27,37 @@ export class StudentWorkspaceUseCases {
     if (data.avatarAssetId && /^(?:https?:\/\/|data:|blob:|file:|[a-zA-Z]:\\|\/)/i.test(data.avatarAssetId)) {
       throw new Error('avatarAssetId must be a Phase 05 EAP handle, not a raw URL');
     }
-    const current = await this.repository.findWorkspace(data.studentReferenceId);
-    if (current && data.status && !this.canTransition(current.status, data.status)) {
-      throw new Error('INVALID_STUDENT_WORKSPACE_TRANSITION');
-    }
+    const current = await this.requireReadableWorkspace(data.studentReferenceId);
+    if (current.status === StudentWorkspaceStatus.SUSPENDED) throw new Error('STUDENT_WORKSPACE_SUSPENDED');
+    if (data.status !== undefined && data.status !== current.status) throw new Error('STUDENT_WORKSPACE_LIFECYCLE_EVENT_REQUIRED');
+    if (data.privacyPreferences !== undefined) throw new Error('STUDENT_PRIVACY_CONSENT_COMMAND_REQUIRED');
     return this.mutate(data.studentReferenceId, 'workspace-updated', () => this.repository.upsertWorkspace(data));
   }
 
-  public async getOrCreateWorkspace(studentReferenceId: string): Promise<StudentWorkspaceDto> {
+  public async getWorkspace(studentReferenceId: string): Promise<StudentWorkspaceDto> {
     this.ensureStudentReference(studentReferenceId);
-    const existing = await this.repository.findWorkspace(studentReferenceId);
-    if (existing) {
-      return existing;
-    }
-    return this.mutate(studentReferenceId, 'workspace-created', () => this.repository.upsertWorkspace({ studentReferenceId }));
+    return this.requireReadableWorkspace(studentReferenceId);
   }
 
   public async getDashboard(studentReferenceId: string): Promise<StudentDashboardSummaryDto> {
+    await this.requireReadableWorkspace(studentReferenceId);
     const cached = await this.deliveryCache?.getDashboard(studentReferenceId);
     if (cached) return cached;
-    await this.getOrCreateWorkspace(studentReferenceId);
     const summary = await this.repository.getDashboardSummary(studentReferenceId);
     if (!summary) {
       throw new Error('Student dashboard could not be loaded');
     }
     await this.deliveryCache?.setDashboard(studentReferenceId, summary);
     return summary;
+  }
+
+  public async updatePrivacyConsent(data: UpdateStudentPrivacyConsentDto): Promise<StudentPrivacyConsentDecisionDto> {
+    this.ensureStudentReference(data.studentReferenceId);
+    if (data.actorType && data.actorType !== 'USER') throw new Error('STUDENT_PRIVACY_CONSENT_ACTOR_INVALID');
+    if (data.actorId !== data.studentReferenceId) throw new Error('STUDENT_PRIVACY_CONSENT_ACTOR_MISMATCH');
+    if (!data.purpose.trim()) throw new Error('STUDENT_PRIVACY_CONSENT_PURPOSE_REQUIRED');
+    await this.requireReadableWorkspace(data.studentReferenceId);
+    return this.mutate(data.studentReferenceId, 'privacy-consent-updated', () => this.repository.updatePrivacyConsent({ ...data, actorType: 'USER', source: data.source ?? 'student-workspace-api' }));
   }
 
   public async saveItem(data: SaveStudentItemDto): Promise<StudentSavedItemDto> {
@@ -73,6 +80,7 @@ export class StudentWorkspaceUseCases {
 
   public async listSavedItems(studentReferenceId: string): Promise<StudentSavedItemDto[]> {
     this.ensureStudentReference(studentReferenceId);
+    await this.requireReadableWorkspace(studentReferenceId);
     return this.repository.listSavedItems(studentReferenceId);
   }
 
@@ -91,6 +99,7 @@ export class StudentWorkspaceUseCases {
 
   public async listCollections(studentReferenceId: string): Promise<StudentSavedCollectionDto[]> {
     this.ensureStudentReference(studentReferenceId);
+    await this.requireReadableWorkspace(studentReferenceId);
     return this.repository.listCollections(studentReferenceId);
   }
 
@@ -161,6 +170,7 @@ export class StudentWorkspaceUseCases {
 
   public async listRecentlyViewed(studentReferenceId: string): Promise<StudentRecentlyViewedDto[]> {
     this.ensureStudentReference(studentReferenceId);
+    await this.requireReadableWorkspace(studentReferenceId);
     return this.repository.listRecentlyViewed(studentReferenceId);
   }
 
@@ -179,6 +189,7 @@ export class StudentWorkspaceUseCases {
 
   public async listSnapshots(studentReferenceId: string): Promise<StudentWorkspaceSnapshotDto[]> {
     this.ensureStudentReference(studentReferenceId);
+    await this.requireReadableWorkspace(studentReferenceId);
     return this.repository.listSnapshots(studentReferenceId);
   }
 
@@ -220,20 +231,11 @@ export class StudentWorkspaceUseCases {
     return result;
   }
 
-  private canTransition(current: StudentWorkspaceStatus, next: StudentWorkspaceStatus): boolean {
-    if (current === next) return true;
-    const allowed: Record<StudentWorkspaceStatus, StudentWorkspaceStatus[]> = {
-      [StudentWorkspaceStatus.INITIALIZING]: [StudentWorkspaceStatus.ACTIVE],
-      [StudentWorkspaceStatus.ACTIVE]: [
-        StudentWorkspaceStatus.SUSPENDED,
-        StudentWorkspaceStatus.ARCHIVED,
-      ],
-      [StudentWorkspaceStatus.SUSPENDED]: [
-        StudentWorkspaceStatus.ACTIVE,
-        StudentWorkspaceStatus.ARCHIVED,
-      ],
-      [StudentWorkspaceStatus.ARCHIVED]: [],
-    };
-    return allowed[current].includes(next);
+  private async requireReadableWorkspace(studentReferenceId: string): Promise<StudentWorkspaceDto> {
+    const workspace = await this.repository.findWorkspace(studentReferenceId);
+    if (!workspace) throw new Error('STUDENT_WORKSPACE_PROVISIONING_PENDING');
+    if (workspace.status === StudentWorkspaceStatus.INITIALIZING) throw new Error('STUDENT_WORKSPACE_INITIALIZING');
+    if (workspace.status === StudentWorkspaceStatus.ARCHIVED) throw new Error('STUDENT_WORKSPACE_ARCHIVED');
+    return workspace;
   }
 }

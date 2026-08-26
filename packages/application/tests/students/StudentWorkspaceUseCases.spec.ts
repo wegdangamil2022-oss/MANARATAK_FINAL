@@ -19,7 +19,8 @@ describe('StudentWorkspaceUseCases', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       }),
-      findWorkspace: vi.fn().mockResolvedValue(null),
+      findWorkspace: vi.fn().mockResolvedValue({ id: 'workspace-1', studentReferenceId: 'student-1', status: StudentWorkspaceStatus.ACTIVE, version: 1, createdAt: new Date(), updatedAt: new Date() }),
+      updatePrivacyConsent: vi.fn(),
       saveItem: vi.fn().mockImplementation((data) =>
         Promise.resolve({
           id: 'saved-1',
@@ -47,11 +48,10 @@ describe('StudentWorkspaceUseCases', () => {
     useCases = new StudentWorkspaceUseCases(repository);
   });
 
-  it('creates a workspace when missing', async () => {
-    const workspace = await useCases.getOrCreateWorkspace('student-1');
-
-    expect(workspace.studentReferenceId).toBe('student-1');
-    expect(repository.upsertWorkspace).toHaveBeenCalledWith({ studentReferenceId: 'student-1' });
+  it('never provisions a workspace from a normal read', async () => {
+    vi.mocked(repository.findWorkspace).mockResolvedValueOnce(null);
+    await expect(useCases.getWorkspace('student-1')).rejects.toThrow('STUDENT_WORKSPACE_PROVISIONING_PENDING');
+    expect(repository.upsertWorkspace).not.toHaveBeenCalled();
   });
 
   it('rejects raw avatar URLs to preserve EAP boundary', async () => {
@@ -91,6 +91,6 @@ describe('StudentWorkspaceUseCases', () => {
         status: StudentWorkspaceStatus.ACTIVE,
         expectedVersion: 3,
       }),
-    ).rejects.toThrow('INVALID_STUDENT_WORKSPACE_TRANSITION');
+    ).rejects.toThrow('STUDENT_WORKSPACE_ARCHIVED');
   });
 });

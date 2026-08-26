@@ -38,15 +38,6 @@ export class StudentWorkspaceRouter {
         })
         .nullable()
         .optional(),
-      privacyPreferences: z
-        .object({
-          retainSearchHistory: z.boolean(),
-          allowPersonalization: z.boolean(),
-          allowProductAnalytics: z.boolean(),
-          publicProfileEnabled: z.boolean(),
-        })
-        .nullable()
-        .optional(),
       accessibilityPreferences: z
         .object({
           textScale: z.enum(['SMALL', 'DEFAULT', 'LARGE']),
@@ -56,6 +47,17 @@ export class StudentWorkspaceRouter {
         .nullable()
         .optional(),
       metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+    });
+
+    const privacyConsentSchema = z.object({
+      expectedVersion: z.number().int().positive(),
+      purpose: z.string().trim().min(1).max(200),
+      privacyPreferences: z.object({
+        retainSearchHistory: z.boolean(),
+        allowPersonalization: z.boolean(),
+        allowProductAnalytics: z.boolean(),
+        publicProfileEnabled: z.boolean(),
+      }),
     });
 
     const savedItemSchema = z.object({
@@ -89,7 +91,7 @@ export class StudentWorkspaceRouter {
     router.get(
       '/workspace',
       asyncHandler(async (req: Request, res: Response) => {
-        res.json(await studentWorkspaceUseCases.getOrCreateWorkspace(ownStudent(req)));
+        res.json(await studentWorkspaceUseCases.getWorkspace(ownStudent(req)));
       }),
     );
     router.put(
@@ -101,6 +103,20 @@ export class StudentWorkspaceRouter {
             ...workspaceSchema.parse(req.body),
           }),
         );
+      }),
+    );
+    router.put(
+      '/privacy-consent',
+      asyncHandler(async (req: Request, res: Response) => {
+        const studentReferenceId = ownStudent(req);
+        const body = privacyConsentSchema.parse(req.body);
+        res.json(await studentWorkspaceUseCases.updatePrivacyConsent({
+          studentReferenceId,
+          actorId: studentReferenceId,
+          actorType: 'USER',
+          source: 'student-workspace-api',
+          ...body,
+        }));
       }),
     );
     router.get(
@@ -244,7 +260,7 @@ export class StudentWorkspaceRouter {
       '/:studentReferenceId/workspace',
       asyncHandler(async (req: Request, res: Response) => {
         res.json(
-          await studentWorkspaceUseCases.getOrCreateWorkspace(req.params.studentReferenceId),
+          await studentWorkspaceUseCases.getWorkspace(req.params.studentReferenceId),
         );
       }),
     );

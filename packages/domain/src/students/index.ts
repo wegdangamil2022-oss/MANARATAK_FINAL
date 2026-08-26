@@ -31,6 +31,32 @@ export interface StudentPrivacyPreferences {
   publicProfileEnabled: boolean;
 }
 
+
+export interface StudentPrivacyConsentDecisionDto {
+  id: string;
+  studentReferenceId: string;
+  workspaceVersion: number;
+  actorId: string;
+  actorType: 'USER' | 'SYSTEM';
+  purpose: string;
+  source: string;
+  beforePreferences: StudentPrivacyPreferences;
+  afterPreferences: StudentPrivacyPreferences;
+  changedFields: string[];
+  decidedAt: Date;
+}
+
+export interface UpdateStudentPrivacyConsentDto {
+  studentReferenceId: string;
+  expectedVersion: number;
+  privacyPreferences: StudentPrivacyPreferences;
+  actorId: string;
+  actorType?: 'USER' | 'SYSTEM';
+  purpose: string;
+  source?: string;
+  correlationId?: string | null;
+}
+
 export interface StudentAccessibilityPreferences {
   textScale: 'SMALL' | 'DEFAULT' | 'LARGE';
   reduceMotion: boolean;
@@ -278,6 +304,7 @@ export interface StudentDashboardSummaryDto {
 export interface IStudentWorkspaceRepository {
   findWorkspace(studentReferenceId: string): Promise<StudentWorkspaceDto | null>;
   upsertWorkspace(data: UpsertStudentWorkspaceDto): Promise<StudentWorkspaceDto>;
+  updatePrivacyConsent(data: UpdateStudentPrivacyConsentDto): Promise<StudentPrivacyConsentDecisionDto>;
   getDashboardSummary(studentReferenceId: string): Promise<StudentDashboardSummaryDto | null>;
   saveItem(data: SaveStudentItemDto): Promise<StudentSavedItemDto>;
   removeSavedItem(

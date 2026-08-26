@@ -6,7 +6,8 @@ import { StudentWorkspaceRouter } from '../../../../src/presentation/api/router/
 
 describe('StudentWorkspaceRouter', () => {
   const createUseCases = () => ({
-    getOrCreateWorkspace: vi.fn(),
+    getWorkspace: vi.fn(),
+    updatePrivacyConsent: vi.fn(),
     upsertWorkspace: vi.fn(),
     getDashboard: vi.fn(),
     listSavedItems: vi.fn(),
