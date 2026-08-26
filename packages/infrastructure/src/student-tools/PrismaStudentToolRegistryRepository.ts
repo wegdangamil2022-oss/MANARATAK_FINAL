@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Prisma transaction delegates are generated from the source-only Phase 18 migration. */
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
 import {
   IStudentToolRegistryRepository,
@@ -8,6 +8,9 @@ import {
   StudentToolExecutionStatus,
   StudentToolFilters,
   StudentToolTelemetry,
+  StudentToolPublicAccessPolicy,
+  StudentToolTransientResultWrite,
+  StudentToolVersionSnapshot,
 } from '@manaratak/domain';
 const json = (value: unknown): Prisma.InputJsonValue =>
   JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -47,14 +50,16 @@ export class PrismaStudentToolRegistryRepository implements IStudentToolRegistry
   async listPublic(filters: StudentToolFilters = {}) {
     const rows = await this.db.studentToolDefinitionRecord.findMany({
       where: {
+        implementationStatus: 'IMPLEMENTED',
+        lifecycle: 'ACTIVE',
+        visibility: 'ACTIVE',
         availability: { path: ['publicEnabled'], equals: true },
         ...(filters.category ? { category: filters.category } : {}),
-        ...(filters.visibility ? { visibility: filters.visibility } : {}),
       },
       include: { versions: { orderBy: { releaseDate: 'desc' } }, dependencies: true },
       orderBy: [{ launchOrder: 'asc' }],
     });
-    return rows.map(mapDefinition);
+    return rows.map(mapDefinition).filter(StudentToolPublicAccessPolicy.isDiscoverable);
   }
   async findByKey(toolKey: string) {
     const row = await this.db.studentToolDefinitionRecord.findUnique({
@@ -68,34 +73,50 @@ export class PrismaStudentToolRegistryRepository implements IStudentToolRegistry
     actorReferenceId: string,
   ): Promise<StudentToolDefinition> {
     return this.db.$transaction(async (tx: Db) => {
-      const data = definitionData(definition);
-      const row = await tx.studentToolDefinitionRecord.upsert({
+      const current = await tx.studentToolDefinitionRecord.findUnique({
         where: { toolKey: definition.toolKey },
-        create: {
-          ...data,
-          versions: { create: versionData(definition) },
-          dependencies: { create: definition.dependencies },
-        },
-        update: data,
+        include: { versions: true, dependencies: true },
       });
-      const existingVersion = await tx.studentToolVersionRecord.findUnique({
-        where: {
-          definitionId_semanticVersion: {
-            definitionId: row.id,
-            semanticVersion: definition.currentVersion.semanticVersion,
-          },
-        },
-      });
-      if (!existingVersion)
+      const snapshot = versionSnapshot(definition);
+      const snapshotHash = hashSnapshot(snapshot);
+      const existingVersion = current
+        ? await tx.studentToolVersionRecord.findUnique({
+            where: {
+              definitionId_semanticVersion: {
+                definitionId: current.id,
+                semanticVersion: definition.currentVersion.semanticVersion,
+              },
+            },
+          })
+        : null;
+      if (
+        existingVersion &&
+        stableStringify(comparableSnapshot(existingVersion.definitionSnapshot)) !== stableStringify(snapshot)
+      )
+        throw new Error('IMMUTABLE_TOOL_VERSION');
+
+      const data = definitionData(definition);
+      const row = current
+        ? await tx.studentToolDefinitionRecord.update({ where: { id: current.id }, data })
+        : await tx.studentToolDefinitionRecord.create({ data });
+
+      if (!existingVersion) {
+        if (definition.currentVersion.status === 'ACTIVE')
+          await tx.studentToolVersionRecord.updateMany({
+            where: { definitionId: row.id, status: 'ACTIVE' },
+            data: { status: 'RETIRED' },
+          });
         await tx.studentToolVersionRecord.create({
-          data: { definitionId: row.id, ...versionData(definition) },
+          data: { definitionId: row.id, ...versionData(definition, snapshot, snapshotHash) },
         });
-      else if (
+      } else if (
         existingVersion.inputSchemaVersion !== definition.currentVersion.inputSchemaVersion ||
         existingVersion.outputSchemaVersion !== definition.currentVersion.outputSchemaVersion ||
         existingVersion.changeNote !== definition.currentVersion.changeNote
-      )
+      ) {
         throw new Error('IMMUTABLE_TOOL_VERSION');
+      }
+
       await tx.studentToolDependencyRecord.deleteMany({ where: { definitionId: row.id } });
       if (definition.dependencies.length)
         await tx.studentToolDependencyRecord.createMany({
@@ -106,7 +127,7 @@ export class PrismaStudentToolRegistryRepository implements IStudentToolRegistry
         definition.toolKey,
         actorReferenceId,
         'STUDENT_TOOL_DEFINITION_UPSERTED',
-        { semanticVersion: definition.currentVersion.semanticVersion },
+        { semanticVersion: definition.currentVersion.semanticVersion, snapshotHash },
       );
       const saved = await tx.studentToolDefinitionRecord.findUnique({
         where: { id: row.id },
@@ -124,6 +145,9 @@ export class PrismaStudentToolRegistryRepository implements IStudentToolRegistry
     return this.db.$transaction(async (tx: Db) => {
       const current = await tx.studentToolDefinitionRecord.findUnique({ where: { toolKey } });
       if (!current) throw new Error('TOOL_NOT_FOUND');
+      const versionedFields = ['availability', 'rateLimitPolicy', 'aiCapabilityKey', 'executionType', 'outputType', 'supportedLocales', 'inputSchema', 'outputSchema', 'dependencies'];
+      if (versionedFields.some((field) => patch[field as keyof StudentToolDefinition] !== undefined))
+        throw new Error('TOOL_VERSION_INCREMENT_REQUIRED');
       const allowed: Record<string, unknown> = {};
       for (const key of [
         'nameAr',
@@ -168,21 +192,52 @@ export class PrismaStudentToolRegistryRepository implements IStudentToolRegistry
     });
   }
   async recordExecution(record: StudentToolExecutionRecord) {
+    const result = await this.recordExecutionOrReplay(record);
+    if (!result.created) throw new Error('TOOL_EXECUTION_IDEMPOTENCY_CONFLICT');
+    return result.record;
+  }
+
+  async recordExecutionOrReplay(record: StudentToolExecutionRecord) {
     const definition = await this.db.studentToolDefinitionRecord.findUnique({
       where: { toolKey: record.toolKey },
       select: { id: true },
     });
     if (!definition) throw new Error('TOOL_NOT_FOUND');
-    const row = await this.db.$transaction(async (tx: Db) => {
-      const created = await tx.studentToolExecutionRecord.create({
-        data: { ...executionData(record), definitionId: definition.id } as any,
-      });
-      await appendExecutionEvent(tx, 'STUDENT_TOOL_EXECUTION_STARTED', record.toolKey, record);
-      return created;
+    const version = await this.db.studentToolVersionRecord.findUnique({
+      where: {
+        definitionId_semanticVersion: {
+          definitionId: definition.id,
+          semanticVersion: record.toolVersion,
+        },
+      },
+      select: { id: true },
     });
-    return mapExecution(row, record.toolKey);
+    if (!version) throw new Error('TOOL_VERSION_NOT_FOUND');
+    try {
+      const row = await this.db.$transaction(async (tx: Db) => {
+        const created = await tx.studentToolExecutionRecord.create({
+          data: { ...executionData(record), definitionId: definition.id, versionId: version.id } as any,
+        });
+        await appendExecutionEvent(tx, 'STUDENT_TOOL_EXECUTION_STARTED', record.toolKey, record);
+        return created;
+      });
+      return { record: mapExecution(row, record.toolKey), created: true };
+    } catch (error) {
+      if (!record.idempotencyKeyHash || !isUniqueConflict(error)) throw error;
+      const winner = await this.db.studentToolExecutionRecord.findFirst({
+        where: { definitionId: definition.id, idempotencyKeyHash: record.idempotencyKeyHash },
+        include: { definition: { select: { toolKey: true } } },
+      });
+      if (!winner) throw error;
+      return { record: mapExecution(winner, record.toolKey), created: false };
+    }
   }
-  async completeExecution(executionId: string, patch: Partial<StudentToolExecutionRecord>) {
+
+  async completeExecution(
+    executionId: string,
+    patch: Partial<StudentToolExecutionRecord>,
+    transientResult?: StudentToolTransientResultWrite,
+  ) {
     const row = await this.db.$transaction(async (tx: Db) => {
       const current = await tx.studentToolExecutionRecord.findUnique({
         where: { executionId },
@@ -191,7 +246,19 @@ export class PrismaStudentToolRegistryRepository implements IStudentToolRegistry
       if (!current) throw new Error('TOOL_EXECUTION_NOT_FOUND');
       const updated = await tx.studentToolExecutionRecord.update({
         where: { executionId },
-        data: executionData(patch),
+        data: {
+          ...executionData(patch),
+          ...(transientResult
+            ? {
+                resultDigest: transientResult.resultDigest,
+                resultCiphertext: transientResult.protectedResult.ciphertext,
+                resultIv: transientResult.protectedResult.iv,
+                resultAuthTag: transientResult.protectedResult.authTag,
+                resultKeyVersion: transientResult.protectedResult.keyVersion,
+                resultExpiresAt: transientResult.resultExpiresAt,
+              }
+            : {}),
+        },
       });
       await appendExecutionEvent(
         tx,
@@ -210,6 +277,64 @@ export class PrismaStudentToolRegistryRepository implements IStudentToolRegistry
     if (!definition) throw new Error('TOOL_NOT_FOUND');
     return mapExecution(row, definition.toolKey);
   }
+
+  async loadTransientResult(executionId: string) {
+    const row = await this.db.studentToolExecutionRecord.findUnique({
+      where: { executionId },
+      select: {
+        resultDigest: true,
+        resultCiphertext: true,
+        resultIv: true,
+        resultAuthTag: true,
+        resultKeyVersion: true,
+        resultExpiresAt: true,
+      },
+    });
+    if (!row?.resultDigest || !row.resultCiphertext || !row.resultIv || !row.resultAuthTag || !row.resultKeyVersion || !row.resultExpiresAt)
+      return null;
+    if (new Date(row.resultExpiresAt).getTime() <= Date.now()) {
+      await this.clearTransientResult(executionId);
+      return null;
+    }
+    return {
+      resultDigest: row.resultDigest,
+      resultExpiresAt: row.resultExpiresAt,
+      protectedResult: {
+        ciphertext: row.resultCiphertext,
+        iv: row.resultIv,
+        authTag: row.resultAuthTag,
+        keyVersion: row.resultKeyVersion,
+      },
+    };
+  }
+
+  async pruneExpiredTransientResults(now = new Date()) {
+    const result = await this.db.studentToolExecutionRecord.updateMany({
+      where: { resultExpiresAt: { lte: now }, resultCiphertext: { not: null } },
+      data: {
+        resultCiphertext: null,
+        resultIv: null,
+        resultAuthTag: null,
+        resultKeyVersion: null,
+        resultExpiresAt: null,
+      },
+    });
+    return Number(result.count ?? 0);
+  }
+
+  private async clearTransientResult(executionId: string) {
+    await this.db.studentToolExecutionRecord.update({
+      where: { executionId },
+      data: {
+        resultCiphertext: null,
+        resultIv: null,
+        resultAuthTag: null,
+        resultKeyVersion: null,
+        resultExpiresAt: null,
+      },
+    });
+  }
+
   async findExecution(executionId: string) {
     const row = await this.db.studentToolExecutionRecord.findUnique({
       where: { executionId },
@@ -217,6 +342,7 @@ export class PrismaStudentToolRegistryRepository implements IStudentToolRegistry
     });
     return row ? mapExecution(row, row.definition.toolKey) : null;
   }
+
   async findExecutionByIdempotency(toolKey: string, idempotencyKeyHash: string) {
     const row = await this.db.studentToolExecutionRecord.findFirst({
       where: { idempotencyKeyHash, definition: { toolKey } },
@@ -224,6 +350,7 @@ export class PrismaStudentToolRegistryRepository implements IStudentToolRegistry
     });
     return row ? mapExecution(row, row.definition.toolKey) : null;
   }
+
   async listExecutions(toolKey: string, page = 1, pageSize = 25) {
     const safePage = Math.max(1, page);
     const take = Math.min(100, Math.max(1, pageSize));
@@ -321,7 +448,11 @@ function definitionData(value: StudentToolDefinition) {
     outputSchema: json(value.outputSchema),
   };
 }
-function versionData(value: StudentToolDefinition) {
+function versionData(
+  value: StudentToolDefinition,
+  snapshot = versionSnapshot(value),
+  snapshotHash = hashSnapshot(snapshot),
+) {
   return {
     semanticVersion: value.currentVersion.semanticVersion,
     inputSchemaVersion: value.currentVersion.inputSchemaVersion,
@@ -329,7 +460,41 @@ function versionData(value: StudentToolDefinition) {
     releaseDate: new Date(value.currentVersion.releaseDate),
     changeNote: value.currentVersion.changeNote,
     status: value.currentVersion.status,
+    snapshotHash,
+    definitionSnapshot: json(snapshot),
   };
+}
+function versionSnapshot(value: StudentToolDefinition): StudentToolVersionSnapshot {
+  return {
+    inputSchema: value.inputSchema,
+    outputSchema: value.outputSchema,
+    dependencies: [...value.dependencies].sort((a, b) =>
+      `${a.phase}|${a.type}|${a.capabilityKey ?? ''}|${a.description}`.localeCompare(
+        `${b.phase}|${b.type}|${b.capabilityKey ?? ''}|${b.description}`,
+      ),
+    ),
+    availability: value.availability,
+    rateLimitPolicy: value.rateLimitPolicy,
+    executionType: value.executionType,
+    aiCapabilityKey: value.aiCapabilityKey ?? null,
+    outputType: value.outputType,
+    supportedLocales: [...value.supportedLocales],
+  };
+}
+function hashSnapshot(value: StudentToolVersionSnapshot) {
+  return createHash('sha256').update(stableStringify(value)).digest('hex');
+}
+function comparableSnapshot(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const copy = { ...(value as Record<string, unknown>) };
+  delete copy.snapshotProvenance;
+  return copy;
+}
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'undefined';
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`).join(',')}}`;
 }
 function mapDefinition(row: any): StudentToolDefinition {
   const currentVersion =
@@ -343,7 +508,9 @@ function mapDefinition(row: any): StudentToolDefinition {
     tags: row.tags,
     inputSchema: row.inputSchema,
     outputSchema: row.outputSchema,
-    currentVersion,
+    currentVersion: currentVersion
+      ? { ...currentVersion, snapshotHash: currentVersion.snapshotHash }
+      : currentVersion,
     dependencies: row.dependencies.map(
       ({ id: _id, definitionId: _definitionId, ...item }: any) => item,
     ),
@@ -405,11 +572,32 @@ function executionData(value: Partial<StudentToolExecutionRecord>) {
 }
 function mapExecution(row: any, toolKey: string): StudentToolExecutionRecord {
   return {
-    ...row,
+    id: row.id,
+    executionId: row.executionId,
     toolKey,
+    toolVersion: row.toolVersion,
+    versionRecordId: row.versionId,
+    status: row.status,
+    consumerType: row.consumerType,
+    studentReferenceHash: row.studentReferenceHash,
+    anonymousSessionHash: row.anonymousSessionHash,
+    idempotencyKeyHash: row.idempotencyKeyHash,
+    correlationId: row.correlationId,
+    traceId: row.traceId,
+    aiExecutionReference: row.aiExecutionReference,
     dependencyStatus: row.dependencyStatus,
+    durationMs: row.durationMs,
+    errorCode: row.errorCode,
     safeUsageMetadata: row.safeUsageMetadata,
+    isTest: row.isTest,
+    startedAt: row.startedAt,
+    completedAt: row.completedAt,
+    resultDigest: row.resultDigest ?? null,
+    resultExpiresAt: row.resultExpiresAt ?? null,
   };
+}
+function isUniqueConflict(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 }
 async function appendMutation(
   tx: Db,

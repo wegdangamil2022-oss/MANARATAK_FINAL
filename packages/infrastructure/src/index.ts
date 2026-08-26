@@ -58,6 +58,7 @@ export * from './courses/PrismaCourseProgressRepository';
 export * from './cms/PrismaCmsRepository';
 export * from './student-tools/PrismaStudentToolRegistryRepository';
 export * from './student-tools/StudentToolGateways';
+export * from './student-tools/EnvironmentStudentToolResultProtector';
 export * from './reference-data/PrismaReferenceDataRepository';
 export * from './academic-taxonomy/PrismaAcademicTaxonomyRepository';
 export * from './finance-platform/PrismaFinanceRepository';

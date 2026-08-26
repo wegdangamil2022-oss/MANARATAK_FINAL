@@ -4026,8 +4026,11 @@ model StudentToolVersionRecord {
   releaseDate         DateTime
   changeNote          String
   status              String
+  snapshotHash        String
+  definitionSnapshot  Json
   createdAt           DateTime @default(now())
   definition          StudentToolDefinitionRecord @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  executions          StudentToolExecutionRecord[]
   @@unique([definitionId, semanticVersion])
   @@index([definitionId, status])
 }
@@ -4048,7 +4051,8 @@ model StudentToolExecutionRecord {
   id                    String   @id @default(uuid())
   executionId           String   @unique
   definitionId          String
-  toolVersion            String
+  versionId             String
+  toolVersion           String
   status                 String
   consumerType           String
   studentReferenceHash   String?
@@ -4061,11 +4065,19 @@ model StudentToolExecutionRecord {
   durationMs             Int?
   errorCode              String?
   safeUsageMetadata      Json?
+  resultDigest           String?
+  resultCiphertext       String?  @db.Text
+  resultIv               String?
+  resultAuthTag          String?
+  resultKeyVersion       String?
+  resultExpiresAt        DateTime?
   isTest                 Boolean  @default(false)
   startedAt              DateTime @default(now())
   completedAt            DateTime?
   definition             StudentToolDefinitionRecord @relation(fields: [definitionId], references: [id], onDelete: Restrict)
+  version                StudentToolVersionRecord @relation(fields: [versionId], references: [id], onDelete: Restrict)
   @@index([definitionId, status, startedAt])
+  @@index([resultExpiresAt])
   @@unique([definitionId, idempotencyKeyHash])
   @@index([correlationId])
   @@index([traceId])

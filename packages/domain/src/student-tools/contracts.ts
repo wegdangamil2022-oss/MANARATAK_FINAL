@@ -42,10 +42,14 @@ export interface IStudentToolRegistryRepository {
     action: string,
   ): Promise<StudentToolDefinition>;
   recordExecution(record: StudentToolExecutionRecord): Promise<StudentToolExecutionRecord>;
+  recordExecutionOrReplay(record: StudentToolExecutionRecord): Promise<{ record: StudentToolExecutionRecord; created: boolean }>;
   completeExecution(
     executionId: string,
     patch: Partial<StudentToolExecutionRecord>,
+    transientResult?: StudentToolTransientResultWrite,
   ): Promise<StudentToolExecutionRecord>;
+  loadTransientResult(executionId: string): Promise<StudentToolTransientResultRead | null>;
+  pruneExpiredTransientResults(now?: Date): Promise<number>;
   findExecution(executionId: string): Promise<StudentToolExecutionRecord | null>;
   findExecutionByIdempotency(
     toolKey: string,
@@ -69,6 +73,25 @@ export interface IStudentToolRegistryRepository {
     }>
   >;
 }
+
+export interface StudentToolProtectedResultEnvelope {
+  ciphertext: string;
+  iv: string;
+  authTag: string;
+  keyVersion: string;
+}
+export interface StudentToolTransientResultWrite {
+  resultDigest: string;
+  resultExpiresAt: Date;
+  protectedResult: StudentToolProtectedResultEnvelope;
+}
+export interface StudentToolTransientResultRead extends StudentToolTransientResultWrite {}
+export interface IStudentToolResultProtector {
+  status(): 'READY' | 'NOT_CONFIGURED';
+  protect(value: StudentToolOutput): StudentToolProtectedResultEnvelope;
+  unprotect(value: StudentToolProtectedResultEnvelope): unknown;
+}
+
 export interface IStudentToolHandler<
   TInput extends StudentToolInput = StudentToolInput,
   TOutput extends StudentToolOutput = StudentToolOutput,
@@ -163,6 +186,7 @@ export type ExecuteStudentToolRequest = {
   consumerType: StudentToolExecutionContext['consumerType'];
   authenticatedStudentReference?: string;
   anonymousSessionReference?: string;
+  trustedNetworkReference?: string;
   isTest?: boolean;
 };
 export type ExecuteStudentToolResult = StudentToolExecutionResponse<StudentToolOutput>;

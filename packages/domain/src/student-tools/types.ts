@@ -108,6 +108,17 @@ export interface StudentToolSchema {
     constraints?: Record<string, string | number | boolean>;
   }>;
 }
+export interface StudentToolVersionSnapshot {
+  inputSchema: StudentToolSchema;
+  outputSchema: StudentToolSchema;
+  dependencies: StudentToolDependency[];
+  availability: StudentToolAvailabilityPolicy;
+  rateLimitPolicy: StudentToolRateLimitPolicy;
+  executionType: StudentToolExecutionType;
+  aiCapabilityKey?: string | null;
+  outputType: string;
+  supportedLocales: string[];
+}
 export interface StudentToolVersion {
   semanticVersion: string;
   inputSchemaVersion: string;
@@ -115,6 +126,7 @@ export interface StudentToolVersion {
   releaseDate: Date | string;
   changeNote: string;
   status: 'DRAFT' | 'ACTIVE' | 'RETIRED';
+  snapshotHash?: string;
 }
 
 export interface StudentToolDefinition {
@@ -168,6 +180,7 @@ export interface StudentToolExecutionRecord {
   executionId: string;
   toolKey: string;
   toolVersion: string;
+  versionRecordId?: string;
   status: StudentToolExecutionStatus;
   consumerType: StudentToolExecutionContext['consumerType'];
   studentReferenceHash?: string | null;
@@ -183,11 +196,14 @@ export interface StudentToolExecutionRecord {
   isTest: boolean;
   startedAt: Date | string;
   completedAt?: Date | string | null;
+  resultDigest?: string | null;
+  resultExpiresAt?: Date | string | null;
 }
 export interface StudentToolExecutionResponse<TResult> {
   executionId: string;
   toolKey: string;
   toolVersion: string;
+  versionRecordId?: string;
   status: StudentToolExecutionStatus;
   result?: TResult;
   warnings?: string[];

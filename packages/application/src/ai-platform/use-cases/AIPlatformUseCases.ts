@@ -287,6 +287,56 @@ export class AIExecutionOrchestrator {
     return this.execute({ ...request, promptKey: prompt.key, purpose: prompt.purpose });
   }
 
+  async capabilityReadiness(request: {
+    consumerKey: string;
+    capabilityKey: string;
+    dataClassification?: AIDataClassification | null;
+  }): Promise<{ ready: boolean; reason?: string; candidateCount: number; promptVersion?: number }> {
+    const dataClassification = normalizeDataClassification(request.dataClassification);
+    const prompt = await this.repository.resolvePromptForCapability(request.capabilityKey);
+    if (!prompt || prompt.status !== 'ACTIVE' || !prompt.activeVersion)
+      return { ready: false, reason: 'AI_PROMPT_NOT_DEPLOYED', candidateCount: 0 };
+    const [platformSettings, promptVersion, consumer, capability, routing, models, providerDefinitions] = await Promise.all([
+      this.repository.find<{ key: string; globalEnabled?: boolean }>('platformSettings', 'runtime'),
+      this.repository.findPromptVersion(prompt.key, prompt.activeVersion),
+      this.repository.find<AIConsumerPolicy>('consumers', request.consumerKey),
+      this.repository.find<AICapabilityDefinition>('capabilities', request.capabilityKey),
+      this.findRoutingPolicy(request.capabilityKey, request.consumerKey),
+      this.repository.list<AIModelDefinition>('models', { status: 'ACTIVE' }),
+      this.repository.list<AIProviderDefinition>('providers', { status: 'ACTIVE' }),
+    ]);
+    if (platformSettings?.globalEnabled === false) return { ready: false, reason: 'AI_PLATFORM_EMERGENCY_DISABLED', candidateCount: 0 };
+    if (!promptVersion || promptVersion.status !== 'APPROVED') return { ready: false, reason: 'AI_PROMPT_VERSION_NOT_APPROVED', candidateCount: 0 };
+    if (!consumer || consumer.status !== 'ACTIVE') return { ready: false, reason: 'AI_CONSUMER_NOT_ACTIVE', candidateCount: 0 };
+    if (!consumer.allowedCapabilities.includes(request.capabilityKey)) return { ready: false, reason: 'AI_CAPABILITY_NOT_ALLOWED', candidateCount: 0 };
+    if (!capability || capability.status !== 'ACTIVE') return { ready: false, reason: 'AI_CAPABILITY_DISABLED', candidateCount: 0 };
+    if (consumer.requireHumanReview || capability.requiresHumanReview) return { ready: false, reason: HUMAN_REVIEW_UNSUPPORTED, candidateCount: 0 };
+    if (capability.allowedDataClassifications?.length && !capability.allowedDataClassifications.includes(dataClassification))
+      return { ready: false, reason: 'AI_DATA_CLASSIFICATION_NOT_ALLOWED', candidateCount: 0 };
+    if (consumer.allowedDataClassifications?.length && !consumer.allowedDataClassifications.includes(dataClassification))
+      return { ready: false, reason: 'AI_CONSUMER_DATA_CLASSIFICATION_NOT_ALLOWED', candidateCount: 0 };
+
+    const routed = this.route(
+      routing,
+      models,
+      providerDefinitions,
+      consumer,
+      capability,
+      dataClassification,
+      `readiness:${request.consumerKey}:${request.capabilityKey}`,
+    );
+    let candidateCount = 0;
+    for (const candidate of routed) {
+      const adapter = this.providers.get(candidate.provider.key);
+      if (!adapter || adapter.status() !== 'READY') continue;
+      if (!(await this.repository.providerCircuitCanAttempt(`${candidate.provider.key}:${candidate.model.key}`))) continue;
+      candidateCount += 1;
+    }
+    return candidateCount > 0
+      ? { ready: true, candidateCount, promptVersion: prompt.activeVersion }
+      : { ready: false, reason: 'AI_ROUTE_NOT_EXECUTABLE', candidateCount: 0, promptVersion: prompt.activeVersion };
+  }
+
   async executeCapabilityForEvaluation(
     request: { consumerKey: string; capabilityKey: string; input: string; sourceDomain: string; idempotencyKey: string; dataClassification?: AIDataClassification },
     target: { modelKey?: string; routingPolicyKey?: string },

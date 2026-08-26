@@ -8,6 +8,7 @@ import {
   StudentToolImplementationStatus,
   StudentToolLifecycleStatus,
   StudentToolVisibilityStatus,
+  StudentToolPublicAccessPolicy,
 } from '@manaratak/domain';
 import { OFFICIAL_STUDENT_TOOLS } from '../OfficialStudentToolRegistry';
 export class StudentToolRegistryUseCases {
@@ -27,11 +28,16 @@ export class StudentToolRegistryUseCases {
   listAdminTools(filters: StudentToolFilters = {}) {
     return this.repository.list(filters);
   }
-  listPublicTools(filters: StudentToolFilters = {}) {
-    return this.repository.listPublic(filters);
+  async listPublicTools(filters: StudentToolFilters = {}) {
+    const tools = await this.repository.listPublic(filters);
+    return tools.filter(StudentToolPublicAccessPolicy.isDiscoverable);
   }
   findTool(toolKey: string) {
     return this.repository.findByKey(toolKey);
+  }
+  async findPublicTool(toolKey: string) {
+    const tool = await this.repository.findByKey(toolKey);
+    return tool && StudentToolPublicAccessPolicy.isDiscoverable(tool) ? tool : null;
   }
   telemetry(toolKey?: string) {
     return this.repository.telemetry(toolKey);
@@ -60,6 +66,8 @@ export class StudentToolRegistryUseCases {
       throw new Error('IMMUTABLE_TOOL_IDENTITY');
     const current = await this.repository.findByKey(toolKey);
     if (!current) throw new Error('TOOL_NOT_FOUND');
+    const versionedFields = ['availability', 'rateLimitPolicy', 'aiCapabilityKey', 'executionType', 'outputType', 'supportedLocales', 'inputSchema', 'outputSchema', 'dependencies'];
+    if (versionedFields.some((field) => field in patch)) throw new Error('TOOL_VERSION_INCREMENT_REQUIRED');
     const availability = patch.availability as StudentToolDefinition['availability'] | undefined;
     const featureFlags = patch.featureFlags as StudentToolDefinition['featureFlags'] | undefined;
     if (availability?.adminOnly && availability.publicEnabled)
@@ -76,6 +84,37 @@ export class StudentToolRegistryUseCases {
       'STUDENT_TOOL_UPDATED',
     );
   }
+  async updateVersionedConfiguration(
+    toolKey: string,
+    patch: Partial<StudentToolDefinition>,
+    version: { semanticVersion: string; changeNote: string },
+    actorReferenceId: string,
+  ) {
+    const current = await this.repository.findByKey(toolKey);
+    if (!current) throw new Error('TOOL_NOT_FOUND');
+    if (!/^\d+\.\d+\.\d+$/.test(version.semanticVersion)) throw new Error('INVALID_TOOL_SEMANTIC_VERSION');
+    if (compareSemver(version.semanticVersion, current.currentVersion.semanticVersion) <= 0)
+      throw new Error('TOOL_VERSION_MUST_INCREMENT');
+    if (!version.changeNote.trim()) throw new Error('TOOL_VERSION_CHANGE_NOTE_REQUIRED');
+    const next: StudentToolDefinition = {
+      ...current,
+      ...patch,
+      toolKey: current.toolKey,
+      dependencies: patch.dependencies ?? current.dependencies,
+      inputSchema: patch.inputSchema ?? current.inputSchema,
+      outputSchema: patch.outputSchema ?? current.outputSchema,
+      currentVersion: {
+        semanticVersion: version.semanticVersion,
+        inputSchemaVersion: (patch.inputSchema ?? current.inputSchema).version,
+        outputSchemaVersion: (patch.outputSchema ?? current.outputSchema).version,
+        releaseDate: new Date(),
+        changeNote: version.changeNote.trim(),
+        status: 'ACTIVE',
+      },
+    };
+    return this.repository.upsertDefinition(next, actorReferenceId);
+  }
+
   async transition(
     toolKey: string,
     lifecycle: StudentToolLifecycleStatus,
@@ -105,4 +144,13 @@ export class StudentToolRegistryUseCases {
       `STUDENT_TOOL_${lifecycle}`,
     );
   }
+}
+
+function compareSemver(a: string, b: string): number {
+  const left = a.split('.').map(Number);
+  const right = b.split('.').map(Number);
+  for (let index = 0; index < 3; index += 1) {
+    if (left[index] !== right[index]) return left[index] - right[index];
+  }
+  return 0;
 }

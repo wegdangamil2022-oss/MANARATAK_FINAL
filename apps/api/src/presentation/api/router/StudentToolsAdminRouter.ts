@@ -91,8 +91,10 @@ export class StudentToolsAdminRouter {
     router.patch(
       '/:toolKey/availability',
       safe(async (req, res) => {
-        const availability = z
+        const body = z
           .object({
+            semanticVersion: z.string().regex(/^\d+\.\d+\.\d+$/),
+            changeNote: z.string().min(1).max(1000),
             publicEnabled: z.boolean(),
             anonymousEnabled: z.boolean(),
             authenticatedEnabled: z.boolean(),
@@ -102,10 +104,12 @@ export class StudentToolsAdminRouter {
             maintenanceMode: z.boolean(),
           })
           .parse(req.body);
+        const { semanticVersion, changeNote, ...availability } = body;
         res.json({
-          data: await cradle.studentToolRegistryUseCases.update(
+          data: await cradle.studentToolRegistryUseCases.updateVersionedConfiguration(
             req.params.toolKey,
             { availability },
+            { semanticVersion, changeNote },
             actor(req),
           ),
         });

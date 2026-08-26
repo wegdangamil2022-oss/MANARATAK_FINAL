@@ -1,15 +1,7 @@
 import { AIExecutionOrchestrator } from '@manaratak/application';
 import {
-  AICapabilityDefinition,
-  AIConsumerPolicy,
   AIExecutionStatus,
-  AIModelDefinition,
-  AIProviderDefinition,
-  AIPromptDefinition,
-  AIRoutingPolicy,
   IEnterpriseAIConsumerGateway,
-  IAIPlatformRepository,
-  IAIProviderRegistry,
   IScholarshipRecommendationGateway,
   IStudentToolRateLimitGateway,
   IStudentToolSaveGateway,
@@ -155,14 +147,10 @@ export class CanonicalScholarshipRecommendationGateway implements IScholarshipRe
     studyLanguage?: string;
   }) {
     const pages = filters.countries.length
-      ? await Promise.all(
-          filters.countries.map((country) =>
-            this.repository.listPublished({ studyCountry: country, page: 1, pageSize: 50 }),
-          ),
-        )
-      : [await this.repository.listPublished({ page: 1, pageSize: 100 })];
+      ? await Promise.all(filters.countries.map((country) => this.listAllPublished({ studyCountry: country })))
+      : [await this.listAllPublished({})];
     const unique = new Map<string, ScholarshipCandidate>();
-    for (const item of pages.flatMap((page) => page.data)) {
+    for (const item of pages.flat()) {
       if (
         filters.targetDegree &&
         !(item.degreeTargets ?? []).some((target) =>
@@ -196,6 +184,20 @@ export class CanonicalScholarshipRecommendationGateway implements IScholarshipRe
     }
     return [...unique.values()];
   }
+
+  private async listAllPublished(filters: { studyCountry?: string }) {
+    const data: Awaited<ReturnType<IScholarshipRepository['listPublished']>>['data'] = [];
+    let page = 1;
+    let totalPages = 1;
+    do {
+      if (page > 500) throw new Error('SCHOLARSHIP_RECOMMENDATION_CANDIDATE_SCAN_LIMIT_EXCEEDED');
+      const result = await this.repository.listPublished({ ...filters, page, pageSize: 100 });
+      data.push(...result.data);
+      totalPages = result.totalPages;
+      page += 1;
+    } while (page <= totalPages);
+    return data;
+  }
 }
 
 export class StudentToolRateLimitGateway implements IStudentToolRateLimitGateway {
@@ -210,8 +212,7 @@ export class EnterpriseStudentToolDependencyHealthGateway
   implements IStudentToolDependencyHealthGateway
 {
   constructor(
-    private readonly aiRepository: IAIPlatformRepository,
-    private readonly aiProviders: IAIProviderRegistry,
+    private readonly aiExecution: AIExecutionOrchestrator,
     private readonly universities: IUniversityRepository,
     private readonly scholarships: IScholarshipRepository,
   ) {}
@@ -229,55 +230,15 @@ export class EnterpriseStudentToolDependencyHealthGateway
         return page.total > 0 ? 'READY' : 'NOT_CONFIGURED';
       }
       if (dependency.phase === 'PHASE_17' && dependency.capabilityKey) {
-        const [capability, consumer, prompts, routes, models, providers] = await Promise.all([
-          this.aiRepository.find<AICapabilityDefinition>('capabilities', dependency.capabilityKey),
-          this.aiRepository.find<AIConsumerPolicy>('consumers', 'phase18-student-tools'),
-          this.aiRepository.list<AIPromptDefinition>('prompts', { status: 'ACTIVE' }),
-          this.aiRepository.list<AIRoutingPolicy>('routingPolicies', { status: 'ACTIVE' }),
-          this.aiRepository.list<AIModelDefinition>('models', { status: 'ACTIVE' }),
-          this.aiRepository.list<AIProviderDefinition>('providers', { status: 'ACTIVE' }),
-        ]);
-        const promptReady = prompts.some(
-          (prompt) =>
-            prompt.capabilityKey === dependency.capabilityKey && prompt.activeVersion != null,
-        );
-        const route = routes.find(
-          (item) =>
-            item.capabilityKey === dependency.capabilityKey &&
-            (!item.consumerKey || item.consumerKey === 'phase18-student-tools'),
-        );
-        const eligibleModels = new Map(
-          models
-            .filter((model) => model.productionApproved === true)
-            .map((model) => [model.key, model]),
-        );
-        const configuredProviders = new Set(
-          this.aiProviders
-            .list()
-            .filter((adapter) => adapter.status() === 'READY')
-            .map((adapter) => adapter.key),
-        );
-        const approvedProviders = new Set(
-          providers
-            .filter(
-              (provider) =>
-                provider.productionApproved === true && configuredProviders.has(provider.key),
-            )
-            .map((provider) => provider.key),
-        );
-        const routeReady = route?.targets.some((target) => {
-          const model = eligibleModels.get(target.modelKey);
-          return target.enabled && !!model && approvedProviders.has(model.providerKey);
+        const dataClassification = dependency.capabilityKey.includes('motivation-letter')
+          ? 'STUDENT_PRIVATE'
+          : 'PUBLIC';
+        const readiness = await this.aiExecution.capabilityReadiness({
+          consumerKey: 'phase18-student-tools',
+          capabilityKey: dependency.capabilityKey,
+          dataClassification,
         });
-        if (
-          capability?.status !== 'ACTIVE' ||
-          consumer?.status !== 'ACTIVE' ||
-          !consumer.allowedCapabilities.includes(dependency.capabilityKey) ||
-          !promptReady ||
-          !routeReady
-        )
-          return 'NOT_CONFIGURED';
-        return 'READY';
+        return readiness.ready ? 'READY' : 'NOT_CONFIGURED';
       }
       return 'NOT_CONFIGURED';
     } catch {

@@ -1,10 +1,16 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { StudentToolExecutionUseCases, StudentToolRegistryUseCases } from '@manaratak/application';
+import {
+  StudentToolAnonymousSessionService,
+  StudentToolExecutionUseCases,
+  StudentToolRegistryUseCases,
+} from '@manaratak/application';
+
 export class StudentToolsPublicRouter {
   static create(cradle: {
     studentToolRegistryUseCases: StudentToolRegistryUseCases;
     studentToolExecutionUseCases: StudentToolExecutionUseCases;
+    studentToolAnonymousSessionService: StudentToolAnonymousSessionService;
   }) {
     const router = Router();
     const safe =
@@ -17,6 +23,22 @@ export class StudentToolsPublicRouter {
       implementationStatus: z.string().optional(),
       search: z.string().optional(),
     });
+    const anonymousIdentity = (req: Request, res: Response) => {
+      const networkReference = req.ip || req.socket.remoteAddress || 'unknown';
+      const resolved = cradle.studentToolAnonymousSessionService.resolve(
+        req.header('x-student-tools-session') ?? undefined,
+        networkReference,
+      );
+      if (resolved.newlyIssued) {
+        res.setHeader('x-student-tools-session', resolved.token);
+        res.setHeader('x-student-tools-session-expires-at', resolved.expiresAt.toISOString());
+      }
+      return {
+        anonymousSessionReference: resolved.sessionReference,
+        trustedNetworkReference: networkReference,
+      };
+    };
+
     router.get(
       '/',
       safe(async (req, res) => {
@@ -29,13 +51,13 @@ export class StudentToolsPublicRouter {
       '/executions/:executionId',
       safe(async (req, res) => {
         const authenticated = !!req.authUserId;
-        const session = String(req.header('x-student-tools-session') ?? req.ip ?? 'anonymous');
+        const anonymous = authenticated ? null : anonymousIdentity(req, res);
         const value = await cradle.studentToolExecutionUseCases.findExecutionForRequester(
           req.params.executionId,
           {
             consumerType: authenticated ? 'AUTHENTICATED_STUDENT' : 'ANONYMOUS',
             authenticatedStudentReference: req.authUserId,
-            anonymousSessionReference: authenticated ? undefined : session,
+            anonymousSessionReference: anonymous?.anonymousSessionReference,
           },
         );
         if (!value) return void res.status(404).json({ error: 'TOOL_EXECUTION_NOT_FOUND' });
@@ -46,12 +68,10 @@ export class StudentToolsPublicRouter {
       '/executions/:executionId/save',
       safe(async (req, res) => {
         if (!req.authUserId) return void res.status(401).json({ error: 'TOOL_AUTH_REQUIRED' });
-        const body = z.object({ result: z.unknown() }).parse(req.body);
         res.status(201).json({
           data: await cradle.studentToolExecutionUseCases.saveExecutionForStudent(
             req.params.executionId,
             req.authUserId,
-            body.result,
           ),
         });
       }),
@@ -59,18 +79,16 @@ export class StudentToolsPublicRouter {
     router.get(
       '/:toolKey',
       safe(async (req, res) => {
-        const value = await cradle.studentToolRegistryUseCases.findTool(req.params.toolKey);
-        if (!value || !value.availability.publicEnabled || value.availability.adminOnly)
-          return void res.status(404).json({ error: 'TOOL_NOT_FOUND' });
+        const value = await cradle.studentToolRegistryUseCases.findPublicTool(req.params.toolKey);
+        if (!value) return void res.status(404).json({ error: 'TOOL_NOT_FOUND' });
         res.json({ data: value });
       }),
     );
     router.get(
       '/:toolKey/availability',
       safe(async (req, res) => {
-        const value = await cradle.studentToolRegistryUseCases.findTool(req.params.toolKey);
-        if (!value || !value.availability.publicEnabled)
-          return void res.status(404).json({ error: 'TOOL_NOT_FOUND' });
+        const value = await cradle.studentToolRegistryUseCases.findPublicTool(req.params.toolKey);
+        if (!value) return void res.status(404).json({ error: 'TOOL_NOT_FOUND' });
         res.json({
           data: {
             toolKey: value.toolKey,
@@ -94,7 +112,7 @@ export class StudentToolsPublicRouter {
           })
           .parse(req.body);
         const authenticated = !!req.authUserId;
-        const session = String(req.header('x-student-tools-session') ?? req.ip ?? 'anonymous');
+        const anonymous = authenticated ? null : anonymousIdentity(req, res);
         const result = await cradle.studentToolExecutionUseCases.execute(req.params.toolKey, {
           input: body.input,
           locale: body.locale,
@@ -102,7 +120,8 @@ export class StudentToolsPublicRouter {
           requestId: String(req.header('x-request-id') ?? ''),
           consumerType: authenticated ? 'AUTHENTICATED_STUDENT' : 'ANONYMOUS',
           authenticatedStudentReference: req.authUserId,
-          anonymousSessionReference: authenticated ? undefined : session,
+          anonymousSessionReference: anonymous?.anonymousSessionReference,
+          trustedNetworkReference: anonymous?.trustedNetworkReference,
         });
         res.json({ data: result });
       }),
@@ -117,9 +136,11 @@ export class StudentToolsPublicRouter {
           ? 401
           : code.includes('RATE_LIMITED')
             ? 429
-            : code.includes('NOT_ACTIVE') || code.includes('NOT_IMPLEMENTED')
+            : code.includes('RESULT_EXPIRED')
               ? 409
-              : 400;
+              : code.includes('NOT_ACTIVE') || code.includes('NOT_IMPLEMENTED')
+                ? 409
+                : 400;
       res.status(status).json({ error: code });
     });
     return router;
