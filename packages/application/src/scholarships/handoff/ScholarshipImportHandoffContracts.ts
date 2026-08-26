@@ -57,6 +57,9 @@ export interface ScholarshipDuplicateScreeningMatch {
   displayName?: string | null;
   canonicalDedupKey?: string | null;
   sourceImportRecordId?: string | null;
+  countryReferenceId?: string | null;
+  countrySourceLabel?: string | null;
+  officialSourceUrl?: string | null;
 }
 
 export interface ScholarshipDedupeScreeningResult {

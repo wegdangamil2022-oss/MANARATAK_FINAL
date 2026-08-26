@@ -62,6 +62,8 @@ export class ScholarshipAdminRouter {
             atomicImportGateway as IScholarshipImportAtomicGateway,
             scholarshipRepository,
             atomicDomainMutationCoordinator,
+            scholarshipImportVerificationDecisionPort,
+            scholarshipImportCanonicalResolutionDecisionPort,
           )
         : undefined;
     const scholarshipImportCenterUseCases =

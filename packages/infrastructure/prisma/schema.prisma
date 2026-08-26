@@ -915,6 +915,7 @@ model University {
   localizedTexts        UniversityLocalizedText[]
   importChanges         UniversityImportChange[]
   scholarshipLinks      ScholarshipUniversityLink[]
+  sponsoredScholarshipContexts ScholarshipSponsorContext[]
 
   @@index([countryReferenceId])
   @@index([regionReferenceId])
@@ -1260,6 +1261,9 @@ model Scholarship {
   requiredDocuments ScholarshipRequiredDocument[]
   sourceEvidence    ScholarshipSourceEvidence[]
   universityLinks   ScholarshipUniversityLink[]
+  versions          ScholarshipVersion[]
+  sponsorContext    ScholarshipSponsorContext?
+  applicationCycles ScholarshipApplicationCycle[]
 
   @@index([countryReferenceId])
   @@index([academicYear])
@@ -1448,6 +1452,89 @@ model ScholarshipUniversityLink {
   @@index([universityId])
   @@index([academicProgramId])
   @@index([resolutionStatus])
+}
+
+
+model ScholarshipVersion {
+  id                   String   @id @default(uuid())
+  scholarshipId        String
+  versionNumber        Int
+  status               String   @default("DRAFT")
+  sourceImportRecordId String?
+  snapshot             Json
+  changeSummary        Json?
+  createdAt            DateTime @default(now())
+  publishedAt          DateTime?
+
+  scholarship             Scholarship                    @relation(fields: [scholarshipId], references: [id], onDelete: Cascade)
+  applicationCycles       ScholarshipApplicationCycle[]
+  eligibilityRuleVersions ScholarshipEligibilityRuleVersion[]
+  awardPackageVersions    ScholarshipAwardPackageVersion[]
+
+  @@unique([scholarshipId, versionNumber])
+  @@index([scholarshipId, status])
+}
+
+model ScholarshipSponsorContext {
+  id            String   @id @default(uuid())
+  scholarshipId String   @unique
+  sponsorType   String   @default("CONTEXTUAL")
+  displayName   String
+  universityId  String?
+  source        String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  scholarship Scholarship @relation(fields: [scholarshipId], references: [id], onDelete: Cascade)
+  university  University?  @relation(fields: [universityId], references: [id], onDelete: SetNull)
+}
+
+model ScholarshipApplicationCycle {
+  id            String   @id @default(uuid())
+  scholarshipId String
+  versionId     String?
+  cycleKey      String
+  academicYear  String?
+  opensAt       DateTime?
+  closesAt      DateTime?
+  graceEndsAt   DateTime?
+  status        String   @default("DRAFT")
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  scholarship Scholarship        @relation(fields: [scholarshipId], references: [id], onDelete: Cascade)
+  version     ScholarshipVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+
+  @@unique([scholarshipId, cycleKey])
+  @@index([scholarshipId, status])
+}
+
+model ScholarshipEligibilityRuleVersion {
+  id                   String   @id @default(uuid())
+  scholarshipVersionId String
+  ruleKey              String
+  ruleVersionNumber    Int
+  definition           Json
+  createdAt            DateTime @default(now())
+
+  scholarshipVersion ScholarshipVersion @relation(fields: [scholarshipVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([scholarshipVersionId, ruleKey, ruleVersionNumber])
+}
+
+model ScholarshipAwardPackageVersion {
+  id                   String   @id @default(uuid())
+  scholarshipVersionId String
+  packageKey           String
+  packageVersionNumber Int
+  definition           Json
+  createdAt            DateTime @default(now())
+
+  scholarshipVersion ScholarshipVersion @relation(fields: [scholarshipVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([scholarshipVersionId, packageKey, packageVersionNumber])
 }
 
 // --- Majors ---

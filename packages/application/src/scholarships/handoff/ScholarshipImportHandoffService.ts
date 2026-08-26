@@ -73,6 +73,9 @@ export class ScholarshipImportHandoffService
       providerName: parsed.data.providerName ?? parsed.data.sponsorName,
       providerCanonicalPublicId,
       year: this.stringMetadata(parsed.data.metadata?.academicYear) ?? nameScreening.detectedYear,
+      countryReferenceId: canonicalScreening.find((item) => item.target === 'COUNTRY' && item.state === 'RESOLVED')?.canonicalReferenceId ?? null,
+      countrySourceLabel: parsed.data.studyCountry ?? null,
+      officialSourceUrl: parsed.data.officialSourceUrl ?? parsed.data.sourceUrl ?? parsed.data.officialWebsite ?? parsed.data.applicationLink ?? null,
       incomingSourceImportRecordId:
         handoff.referenceMetadata?.importRecordId ?? handoff.execution.idempotencyKey,
     };
@@ -105,7 +108,32 @@ export class ScholarshipImportHandoffService
     const unchecked = ScholarshipDeduplicationService.assess(input);
     if (!identityReady || !this.duplicateLookup) return unchecked;
     const matches = await this.duplicateLookup.findMatchesByDedupKey(unchecked.duplicateKey);
-    return ScholarshipDeduplicationService.assess(input, matches);
+    if (matches.length > 0) return ScholarshipDeduplicationService.assess(input, matches);
+
+    const legacyKey = ScholarshipDeduplicationService.buildLegacyKey(input);
+    const legacyMatches = await this.duplicateLookup.findMatchesByDedupKey(legacyKey);
+    if (legacyMatches.length === 0) return ScholarshipDeduplicationService.assess(input, []);
+    const compatible = legacyMatches.filter((match) => this.legacyMatchCompatible(match, input));
+    if (compatible.length !== legacyMatches.length || compatible.length !== 1) {
+      const assessment = ScholarshipDeduplicationService.assess(input, legacyMatches);
+      return { ...assessment, state: 'COLLISION_REVIEW', requiresReview: true, reason: 'Legacy v1 dedupe candidate requires country/official-URL reconciliation before transfer.' };
+    }
+    return ScholarshipDeduplicationService.assess(input, compatible);
+  }
+
+  private legacyMatchCompatible(
+    match: { countryReferenceId?: string | null; countrySourceLabel?: string | null; officialSourceUrl?: string | null },
+    input: Parameters<typeof ScholarshipDeduplicationService.assess>[0],
+  ): boolean {
+    const norm = (value?: string | null) => value?.normalize('NFKC').trim().toLocaleLowerCase('und') ?? '';
+    const countryMatches = Boolean(input.countryReferenceId && match.countryReferenceId && input.countryReferenceId === match.countryReferenceId) ||
+      Boolean(input.countrySourceLabel && match.countrySourceLabel && norm(input.countrySourceLabel) === norm(match.countrySourceLabel));
+    const url = (value?: string | null) => {
+      if (!value?.trim()) return '';
+      try { const parsed = new URL(value); return `${parsed.hostname.toLowerCase()}${parsed.pathname.replace(/\/+$/u, '') || '/'}`; }
+      catch { return norm(value); }
+    };
+    return Boolean(countryMatches && url(input.officialSourceUrl) && url(input.officialSourceUrl) === url(match.officialSourceUrl));
   }
 
   private sourceAliases(value: unknown): string[] {

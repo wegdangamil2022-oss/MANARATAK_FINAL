@@ -25,6 +25,7 @@ describe('PublicScholarshipUseCases', () => {
       listPublishable: vi.fn(),
       list: vi.fn(),
       listPublished: vi.fn(),
+      findPublishedBySlug: vi.fn(),
     };
     useCases = new PublicScholarshipUseCases(mockRepo);
   });
@@ -46,11 +47,11 @@ describe('PublicScholarshipUseCases', () => {
     expect(mockRepo.listPublished).toHaveBeenCalledWith(filters);
     expect(result.data[0]).not.toHaveProperty('id');
     expect(result.data[0]).toHaveProperty('displayName', 'Test');
-    expect(result.data[0]).toHaveProperty('customField', 'value');
+    expect(result.data[0]).not.toHaveProperty('customField');
   });
 
   it('getScholarship returns mapped DTO if PUBLISHED', async () => {
-    mockRepo.findBySlug = vi.fn().mockResolvedValue({
+    mockRepo.findPublishedBySlug = vi.fn().mockResolvedValue({
       id: 'schol-1',
       slug: 'test-slug',
       status: ScholarshipStatus.PUBLISHED,
@@ -63,32 +64,22 @@ describe('PublicScholarshipUseCases', () => {
     expect(result).not.toHaveProperty('id');
     expect(result).not.toHaveProperty('status');
     expect(result).toHaveProperty('displayName', 'Test');
-    expect(result).toHaveProperty('extra', 123);
+    expect(result).not.toHaveProperty('extra');
   });
 
   it('getScholarship rejects legacy PUBLISHED when canonical publication is not PUBLISHED', async () => {
-    mockRepo.findBySlug = vi.fn().mockResolvedValue({
-      id: 'schol-1',
-      slug: 'test-slug',
-      status: ScholarshipStatus.READY_TO_PUBLISH,
-      publicationStatus: ScholarshipPublicationStatus.DRAFT,
-      displayName: 'Test'
-    });
-    
+    mockRepo.findPublishedBySlug = vi.fn().mockResolvedValue(null);
     await expect(useCases.getScholarship('test-slug')).rejects.toThrow('Scholarship not found');
   });
 
   it('getScholarship throws if not found', async () => {
-    mockRepo.findBySlug = vi.fn().mockResolvedValue(null);
+    mockRepo.findPublishedBySlug = vi.fn().mockResolvedValue(null);
     
     await expect(useCases.getScholarship('test-slug')).rejects.toThrow('Scholarship not found');
   });
 
   it('never exposes a legacy workflow PUBLISHED scholarship when canonical publication is DRAFT', async () => {
-    mockRepo.findBySlug = vi.fn().mockResolvedValue({
-      id: 'schol-legacy', slug: 'legacy', status: ScholarshipStatus.PUBLISHED,
-      publicationStatus: ScholarshipPublicationStatus.DRAFT, displayName: 'Legacy state only',
-    });
+    mockRepo.findPublishedBySlug = vi.fn().mockResolvedValue(null);
     await expect(useCases.getScholarship('legacy')).rejects.toThrow('Scholarship not found');
   });
 });

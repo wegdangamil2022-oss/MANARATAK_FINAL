@@ -28,6 +28,7 @@ import type {
   IScholarshipImportCanonicalResolutionDecisionPort,
 } from './ScholarshipImportCenterContracts';
 import { readScholarshipImportReviewDecision, readScholarshipImportTransferReceipt } from './ScholarshipImportReviewDecisionCodec';
+import { ScholarshipImportScreeningReader } from './ScholarshipImportScreeningReader';
 import type { ScholarshipSourceRegistryService } from '../source-registry/ScholarshipSourceRegistryService';
 
 const OWNER_DOMAIN = 'SCHOLARSHIPS';
@@ -308,6 +309,19 @@ export class ScholarshipImportCenterUseCases {
     };
   }
 
+  private legacyDedupeCompatible(existing: ScholarshipDto, input: { countryReferenceId?: string | null; countrySourceLabel?: string | null; officialSourceUrl?: string | null }): boolean {
+    const countryMatches = Boolean(input.countryReferenceId && existing.countryReferenceId && input.countryReferenceId === existing.countryReferenceId) ||
+      Boolean(input.countrySourceLabel && existing.countrySourceLabel && this.equal(input.countrySourceLabel, existing.countrySourceLabel));
+    const normalizeUrl = (value?: string | null) => {
+      if (!value?.trim()) return '';
+      try { const url = new URL(value); return `${url.hostname.toLowerCase()}${url.pathname.replace(/\/+$/u, '') || '/'}`; }
+      catch { return value.normalize('NFKC').trim().toLocaleLowerCase('und'); }
+    };
+    const incomingUrl = normalizeUrl(input.officialSourceUrl);
+    const existingUrl = normalizeUrl(existing.officialSourceUrl ?? existing.sourceUrl ?? existing.officialWebsite);
+    return Boolean(countryMatches && incomingUrl && existingUrl && incomingUrl === existingUrl);
+  }
+
   private async analyzeWithBatch(record: ScholarshipImportCenterStoredRecord) {
     const batch = record.batch ?? await this.gateway.getBatchById(record.batchId);
     this.assertScholarshipBatch(batch);
@@ -368,7 +382,13 @@ export class ScholarshipImportCenterUseCases {
       : [];
     const persistedName = this.object(persistedHandoff.nameScreening);
     const name = Object.keys(persistedName).length ? { rawSourceTitle: this.stringValue(persistedName.rawSourceTitle) ?? parsed.data.scholarshipName, cleanedScholarshipName: this.stringValue(persistedName.cleanedScholarshipName) ?? parsed.data.scholarshipName, sourceAliases: Array.isArray(persistedName.sourceAliases) ? persistedName.sourceAliases.filter((value): value is string => typeof value === 'string') : aliases, extracted: this.object(persistedName.extracted), detectedYear: this.stringValue(persistedName.detectedYear) } : ScholarshipNamingService.clean(parsed.data.scholarshipName, aliases);
-    const providerCanonicalPublicId = this.stringValue(metadata.providerCanonicalPublicId);
+    const canonicalDecisions = this.canonicalResolutionDecisionPort
+      ? await this.canonicalResolutionDecisionPort.list(record.id)
+      : [];
+    const effectiveCanonical = ScholarshipImportScreeningReader.resolve(raw, canonicalDecisions).entries;
+    const providerCanonicalPublicId = this.stringValue(metadata.providerCanonicalPublicId)
+      ?? effectiveCanonical.find((item) => item.target === 'PROVIDER_UNIVERSITY' && item.state === 'RESOLVED')?.canonicalPublicId
+      ?? null;
     const sourceTraceable = this.sourceTraceable(parsed.data, batch);
     const calculatedCompleteness = ScholarshipCompletenessClassifier.classify({
       ...parsed.data,
@@ -386,12 +406,23 @@ export class ScholarshipImportCenterUseCases {
       providerName: parsed.data.providerName ?? parsed.data.sponsorName,
       providerCanonicalPublicId,
       year: this.stringValue(metadata.academicYear) ?? name.detectedYear,
+      countryReferenceId: effectiveCanonical.find((item) => item.target === 'COUNTRY' && item.state === 'RESOLVED')?.canonicalReferenceId ?? null,
+      countrySourceLabel: parsed.data.studyCountry ?? null,
+      officialSourceUrl: parsed.data.officialSourceUrl ?? parsed.data.sourceUrl ?? parsed.data.officialWebsite ?? parsed.data.applicationLink ?? null,
       incomingSourceImportRecordId,
     };
     const key = ScholarshipDeduplicationService.buildKey(dedupeInput);
-    const existing = completeness.identityReady
+    let existing = completeness.identityReady
       ? await this.scholarshipRepository.findByDedupKey(key.duplicateKey)
       : null;
+    let legacyReconciliationRequired = false;
+    if (!existing && completeness.identityReady) {
+      const legacyCandidate = await this.scholarshipRepository.findByDedupKey(ScholarshipDeduplicationService.buildLegacyKey(dedupeInput));
+      if (legacyCandidate) {
+        if (this.legacyDedupeCompatible(legacyCandidate, dedupeInput)) existing = legacyCandidate;
+        else legacyReconciliationRequired = true;
+      }
+    }
     const matches = existing ? [{
       id: existing.id,
       publicId: existing.publicId,
@@ -399,17 +430,24 @@ export class ScholarshipImportCenterUseCases {
       canonicalDedupKey: existing.canonicalDedupKey,
       sourceImportRecordId: existing.sourceImportRecordId ?? null,
     }] : [];
-    const calculatedDedupe = completeness.identityReady
+    const calculatedBase = completeness.identityReady
       ? ScholarshipDeduplicationService.assess(dedupeInput, matches)
       : ScholarshipDeduplicationService.assess(dedupeInput);
+    const calculatedDedupe = legacyReconciliationRequired
+      ? { ...calculatedBase, state: 'COLLISION_REVIEW' as const, requiresReview: true, reason: 'Legacy v1 dedupe candidate requires country/official-URL reconciliation.' }
+      : calculatedBase;
     const persistedDedupe = this.object(persistedHandoff.dedupe);
-    const dedupe = Object.keys(persistedDedupe).length ? { ...calculatedDedupe, duplicateKey: this.stringValue(persistedDedupe.duplicateKey) ?? calculatedDedupe.duplicateKey, state: (this.stringValue(persistedDedupe.state) as typeof calculatedDedupe.state) ?? calculatedDedupe.state, matches: Array.isArray(persistedDedupe.matches) ? persistedDedupe.matches as typeof calculatedDedupe.matches : calculatedDedupe.matches, requiresReview: typeof persistedDedupe.requiresReview === 'boolean' ? persistedDedupe.requiresReview : calculatedDedupe.requiresReview } : calculatedDedupe;
+    const persistedDedupeKey = this.stringValue(persistedDedupe.duplicateKey);
+    const persistedDedupeCurrent = persistedDedupeKey === calculatedDedupe.duplicateKey;
+    const dedupe = Object.keys(persistedDedupe).length && persistedDedupeCurrent
+      ? { ...calculatedDedupe, state: (this.stringValue(persistedDedupe.state) as typeof calculatedDedupe.state) ?? calculatedDedupe.state, matches: Array.isArray(persistedDedupe.matches) ? persistedDedupe.matches as typeof calculatedDedupe.matches : calculatedDedupe.matches, requiresReview: typeof persistedDedupe.requiresReview === 'boolean' ? persistedDedupe.requiresReview : calculatedDedupe.requiresReview }
+      : calculatedDedupe;
     const persistedVerification = this.verificationDecisionPort ? await this.verificationDecisionPort.latest(record.id) : null;
     const verification = {
       state: persistedVerification?.state ?? this.verificationState(raw),
       sourceTraceable,
     };
-    const canonical = this.canonicalSummary(raw, this.canonicalResolutionDecisionPort ? await this.canonicalResolutionDecisionPort.list(record.id) : []);
+    const canonical = this.canonicalSummary(raw, canonicalDecisions);
     const decision = readScholarshipImportReviewDecision(record.processingNotes);
     const mergeDecisionMatches = Boolean(
       existing &&
@@ -482,14 +520,8 @@ export class ScholarshipImportCenterUseCases {
   }
 
   private canonicalSummary(rawPayload: Record<string, unknown>, decisions: Array<{ fieldOrRequirementKey: string; resolutionType: string; recordedAt?: string }> = []): ScholarshipImportCenterCanonicalSummary {
-    const metadata = this.object(rawPayload.metadata);
-    const handoff = this.object(rawPayload._domainHandoff);
-    const raw = Array.isArray(handoff.canonicalScreening) ? handoff.canonicalScreening : Array.isArray(metadata.canonicalScreening)
-      ? metadata.canonicalScreening
-      : Array.isArray(rawPayload._canonicalScreening)
-        ? rawPayload._canonicalScreening
-        : null;
-    if (!raw) {
+    const raw = ScholarshipImportScreeningReader.rawEntries(rawPayload);
+    if (raw.length === 0) {
       return { state: 'NOT_EXECUTED', unresolvedCount: 0, ambiguousCount: 0, reviewRequiredCount: 0 };
     }
     // This is an append-only decision ledger: only the newest decision for a

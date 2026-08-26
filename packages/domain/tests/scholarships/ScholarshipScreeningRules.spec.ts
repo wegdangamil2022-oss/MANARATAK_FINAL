@@ -33,9 +33,9 @@ describe('WP12-5 Scholarship cleaner, dedupe and completeness rules', () => {
       providerName: 'Example Foundation',
     });
 
-    expect(withYear.duplicateKey).toBe('INS-QA-001|منحة جامعة قطر 2027|2027');
+    expect(withYear.duplicateKey).toBe('V2|INS-QA-001|منحة جامعة قطر 2027|2027|NO_COUNTRY|NO_OFFICIAL_URL');
     expect(withoutYear.duplicateKey).toBe(
-      'example foundation|global research scholarship|NO_YEAR',
+      'V2|example foundation|global research scholarship|NO_YEAR|NO_COUNTRY|NO_OFFICIAL_URL',
     );
   });
 

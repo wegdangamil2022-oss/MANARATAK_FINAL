@@ -157,7 +157,7 @@ export class CanonicalScholarshipRecommendationGateway implements IScholarshipRe
     const pages = filters.countries.length
       ? await Promise.all(
           filters.countries.map((country) =>
-            this.repository.listPublished({ country, page: 1, pageSize: 50 }),
+            this.repository.listPublished({ studyCountry: country, page: 1, pageSize: 50 }),
           ),
         )
       : [await this.repository.listPublished({ page: 1, pageSize: 100 })];

@@ -26,6 +26,9 @@ export interface ScholarshipImportTransferReceipt {
   correlationId?: string;
   transferredAt: string;
   mode: 'CREATE' | 'MERGE';
+  verificationDecisionId?: string;
+  canonicalDecisionIds?: string[];
+  decisionSnapshotFingerprint?: string;
 }
 
 export function scholarshipImportReviewFingerprint(value: unknown): string {
@@ -92,7 +95,10 @@ export function readScholarshipImportTransferReceipt(
         nonEmpty(parsed.transferredAt) &&
         !Number.isNaN(Date.parse(parsed.transferredAt)) &&
         (parsed.mode === 'CREATE' || parsed.mode === 'MERGE') &&
-        (parsed.correlationId === undefined || nonEmpty(parsed.correlationId))
+        (parsed.correlationId === undefined || nonEmpty(parsed.correlationId)) &&
+        (parsed.verificationDecisionId === undefined || nonEmpty(parsed.verificationDecisionId)) &&
+        (parsed.canonicalDecisionIds === undefined || (Array.isArray(parsed.canonicalDecisionIds) && parsed.canonicalDecisionIds.every(nonEmpty))) &&
+        (parsed.decisionSnapshotFingerprint === undefined || nonEmpty(parsed.decisionSnapshotFingerprint))
       ) return parsed as ScholarshipImportTransferReceipt;
     } catch {
       return null;

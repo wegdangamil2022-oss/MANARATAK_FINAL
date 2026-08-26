@@ -1,4 +1,5 @@
 import type { ScholarshipCanonicalResolutionService } from '../resolution';
+import { ScholarshipImportScreeningReader } from './ScholarshipImportScreeningReader';
 import type {
   IScholarshipImportCanonicalResolutionDecisionPort,
   IScholarshipImportCenterGateway,
@@ -49,9 +50,7 @@ export class ScholarshipImportDecisionUseCases {
   }
 
   private screeningItem(payload: unknown, key: string): Record<string, unknown> | null {
-    const raw = object(payload); const metadata = object(raw.metadata); const handoff = object(raw._domainHandoff);
-    const entries = Array.isArray(handoff.canonicalScreening) ? handoff.canonicalScreening : Array.isArray(metadata.canonicalScreening) ? metadata.canonicalScreening : Array.isArray(raw._canonicalScreening) ? raw._canonicalScreening : [];
-    return entries.map(object).find((entry) => (string(entry.requirementKey) ?? string(entry.fieldOrRequirementKey) ?? string(entry.target)) === key) ?? null;
+    return ScholarshipImportScreeningReader.findRequirement(payload, key);
   }
 }
 

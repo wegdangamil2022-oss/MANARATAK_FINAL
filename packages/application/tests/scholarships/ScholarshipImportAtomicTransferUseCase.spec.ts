@@ -34,7 +34,12 @@ function payload() {
     metadata: {
       verificationState: 'VERIFIED',
       academicYear: '2027',
-      canonicalScreening: [],
+      canonicalScreening: [{
+        target: 'COUNTRY',
+        state: 'RESOLVED',
+        rawValue: 'Qatar',
+        canonicalReferenceId: 'country-qa',
+      }],
     },
   };
 }

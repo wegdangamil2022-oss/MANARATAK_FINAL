@@ -151,8 +151,8 @@ describe('WP12-9 AdminScholarshipUseCases catalog detail', () => {
     const current = scholarship({ providerName: 'Provider A', academicYear: '2027', canonicalDedupKey: 'provider a|sample scholarship|2027' });
     const repo = repository(current);
     const updated = await new AdminScholarshipUseCases(repo).updateScholarship('sch-1', { providerName: 'Provider B', academicYear: '2028' });
-    expect(repo.findByDedupKey).toHaveBeenCalledWith('provider b|sample scholarship|2028');
-    expect(repo.update).toHaveBeenCalledWith('sch-1', expect.objectContaining({ canonicalDedupKey: 'provider b|sample scholarship|2028' }));
+    expect(repo.findByDedupKey).toHaveBeenCalledWith('V2|provider b|sample scholarship|2028|country-1|example.edu/scholarship');
+    expect(repo.update).toHaveBeenCalledWith('sch-1', expect.objectContaining({ canonicalDedupKey: 'V2|provider b|sample scholarship|2028|country-1|example.edu/scholarship' }));
     expect(updated.id).toBe(current.id);
     expect(updated.publicId).toBe(current.publicId);
   });

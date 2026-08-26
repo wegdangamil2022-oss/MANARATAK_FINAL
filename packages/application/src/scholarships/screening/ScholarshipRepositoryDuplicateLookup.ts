@@ -20,6 +20,9 @@ export class ScholarshipRepositoryDuplicateLookup implements IScholarshipHandoff
       displayName: scholarship.displayName,
       canonicalDedupKey: scholarship.canonicalDedupKey,
       sourceImportRecordId: scholarship.sourceImportRecordId ?? null,
+      countryReferenceId: scholarship.countryReferenceId ?? null,
+      countrySourceLabel: scholarship.countrySourceLabel ?? null,
+      officialSourceUrl: scholarship.officialSourceUrl ?? scholarship.sourceUrl ?? scholarship.officialWebsite ?? null,
     }];
   }
 }

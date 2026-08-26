@@ -2276,7 +2276,7 @@ Make provenance ownership explicit and immutable unless an audited remap operati
 
 **Owner:** Phase 12 — Scholarships  
 **Type:** Public API contract / query correctness  
-**Status:** `CONFIRMED_OPEN`  
+**Status:** `CLOSED_AFTER_REMEDIATION`
 **Severity:** **HIGH / P1**
 
 **Problem**
@@ -2310,7 +2310,7 @@ Freeze one public filter contract, map each field to normalized columns/relation
 
 **Owner:** Phase 12 — Scholarships  
 **Type:** Public serialization / data trust  
-**Status:** `CONFIRMED_OPEN`  
+**Status:** `CLOSED_AFTER_REMEDIATION`
 **Severity:** **MEDIUM / P2**
 
 **Problem**
@@ -2344,7 +2344,7 @@ Introduce a reserved-key sanitizer/namespaced compatibility contract and ensure 
 
 **Owner:** Phase 12 — Scholarships  
 **Type:** Publication governance / canonical integrity  
-**Status:** `CONFIRMED_OPEN`  
+**Status:** `CLOSED_AFTER_REMEDIATION`
 **Severity:** **HIGH / P1**
 
 **Problem**
@@ -2375,7 +2375,7 @@ Create a single publication-readiness policy that requires completeness, reviewe
 
 **Owner:** Phase 12 — Scholarships  
 **Type:** Deduplication / canonical identity  
-**Status:** `CONFIRMED_OPEN`  
+**Status:** `CLOSED_AFTER_REMEDIATION`
 **Severity:** **HIGH / P1**
 
 **Problem**
@@ -2408,7 +2408,7 @@ Define a backward-compatible dedupe-v2 strategy and perform a read-only collisio
 
 **Owner:** Phase 12 — Scholarships  
 **Type:** Import workflow / decision persistence  
-**Status:** `CONFIRMED_OPEN`  
+**Status:** `CLOSED_AFTER_REMEDIATION`
 **Severity:** **HIGH / P1**
 
 **Problem**
@@ -2442,7 +2442,7 @@ Make transfer consume one authoritative resolved decision snapshot and record th
 
 **Owner:** Phase 12 — Scholarships  
 **Type:** Import handoff / pipeline integration  
-**Status:** `CONFIRMED_OPEN`  
+**Status:** `CLOSED_AFTER_REMEDIATION`
 **Severity:** **HIGH / P1**
 
 **Problem**
@@ -2477,7 +2477,7 @@ Centralize screening extraction in one typed adapter and migrate/compatibly read
 
 **Owner:** Phase 12 — Scholarships  
 **Type:** Admin query correctness / normalization  
-**Status:** `CONFIRMED_OPEN`  
+**Status:** `CLOSED_AFTER_REMEDIATION`
 **Severity:** **MEDIUM / P2**
 
 **Problem**
@@ -2507,7 +2507,7 @@ Move filtering to canonical country identity, preserving an explicit compatibili
 
 **Owner:** Phase 12 — Scholarships  
 **Type:** Architecture completeness / historical integrity  
-**Status:** `CONFIRMED_OPEN`  
+**Status:** `CLOSED_AFTER_REMEDIATION`
 **Severity:** **HIGH / P1**
 
 **Problem**

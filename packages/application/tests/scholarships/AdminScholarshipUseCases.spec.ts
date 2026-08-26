@@ -8,6 +8,13 @@ import {
 } from '@manaratak/domain';
 
 describe('AdminScholarshipUseCases', () => {
+  const publicationReady = {
+    completenessStatus: ScholarshipCompletenessState.COMPLETE,
+    verificationStatus: 'VERIFIED',
+    versions: [{ id: 'version-1' }],
+    sponsorContext: { sponsorName: 'Test sponsor' },
+    applicationCycles: [{ id: 'cycle-1' }],
+  };
   let mockRepo: IScholarshipRepository;
   let useCases: AdminScholarshipUseCases;
 
@@ -42,7 +49,7 @@ describe('AdminScholarshipUseCases', () => {
       displayName: 'Test',
       fundingCoverage: 'Full',
       status: ScholarshipStatus.IMPORTED,
-      completenessStatus: ScholarshipCompletenessState.COMPLETE
+      ...publicationReady,
     });
     
     await useCases.updateScholarship('schol-1', {
@@ -61,7 +68,7 @@ describe('AdminScholarshipUseCases', () => {
     mockRepo.findById = vi.fn().mockResolvedValue({
       id: 'schol-1',
       status: ScholarshipStatus.READY_TO_REVIEW,
-      completenessStatus: ScholarshipCompletenessState.COMPLETE
+      ...publicationReady,
     });
     
     await useCases.markReadyToPublish('schol-1');
@@ -75,13 +82,14 @@ describe('AdminScholarshipUseCases', () => {
       completenessStatus: ScholarshipCompletenessState.INCOMPLETE
     });
     
-    await expect(useCases.markReadyToPublish('schol-1')).rejects.toThrow('Only COMPLETE');
+    await expect(useCases.markReadyToPublish('schol-1')).rejects.toThrow('SCHOLARSHIP_NOT_COMPLETE');
   });
 
   it('publish transitions only if READY_TO_PUBLISH', async () => {
     mockRepo.findById = vi.fn().mockResolvedValue({
       id: 'schol-1',
       status: ScholarshipStatus.READY_TO_PUBLISH,
+      ...publicationReady,
     });
     
     await useCases.publish('schol-1');
@@ -101,7 +109,7 @@ describe('AdminScholarshipUseCases', () => {
     mockRepo.updateLifecycle = vi.fn();
     mockRepo.findById = vi.fn().mockResolvedValue({
       id: 'schol-1', status: ScholarshipStatus.READY_TO_PUBLISH,
-      completenessStatus: ScholarshipCompletenessState.COMPLETE,
+      ...publicationReady,
     });
     await useCases.publish('schol-1');
     expect(mockRepo.updateLifecycle).toHaveBeenCalledWith('schol-1', {

@@ -98,7 +98,12 @@ export class AdminScholarshipUseCases {
     const publicId = `sch_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
     const slug = displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') || `scholarship-${Date.now()}`;
     const canonicalName = displayName;
-    const canonicalDedupKey = `${displayName}|${input.sponsorName || 'UNKNOWN'}`.toLowerCase();
+    const canonicalDedupKey = ScholarshipDeduplicationService.buildKey({
+      cleanedScholarshipName: ScholarshipNamingService.clean(displayName).cleanedScholarshipName,
+      providerName: input.sponsorName || 'Admin Entry',
+      countrySourceLabel: input.studyCountry ?? null,
+      officialSourceUrl: input.officialSourceUrl ?? input.applicationLink ?? null,
+    }).duplicateKey;
 
     const initialStatus = classification.state === ScholarshipCompletenessState.COMPLETE
       ? ScholarshipStatus.READY_TO_REVIEW
@@ -117,6 +122,7 @@ export class AdminScholarshipUseCases {
       eligibleMajorsOrFields: input.eligibleMajorsOrFields || [],
       degreeLevel: input.degreeLevel,
       studyCountry: input.studyCountry || '',
+      countrySourceLabel: input.studyCountry || null,
       applicationDeadline: input.applicationDeadline || null,
       applicationLink: input.applicationLink || '',
       officialSourceUrl: input.officialSourceUrl || '',
@@ -131,11 +137,23 @@ export class AdminScholarshipUseCases {
       publicationStatus: ScholarshipPublicationStatus.DRAFT,
     };
 
-    return this.mutate('SCHOLARSHIP_CREATED', publicId, context, repository => repository.create(scholarshipData));
+    return this.mutate('SCHOLARSHIP_CREATED', publicId, context, async repository => {
+      const v2 = await repository.findByDedupKey(canonicalDedupKey);
+      const legacyKey = ScholarshipDeduplicationService.buildLegacyKey({
+        cleanedScholarshipName: ScholarshipNamingService.clean(displayName).cleanedScholarshipName,
+        providerName: input.sponsorName || 'Admin Entry',
+      });
+      const legacy = await repository.findByDedupKey(legacyKey);
+      if (v2 || legacy) throw new Error('SCHOLARSHIP_CANONICAL_DEDUPE_COLLISION_OR_RECONCILIATION_REQUIRED');
+      return repository.create(scholarshipData);
+    });
   }
 
   public async updateScholarship(id: string, updates: UpdateScholarshipDto, context?: AtomicMutationRequestContext): Promise<ScholarshipDto> {
     const existing = await this.getScholarship(id);
+    if (existing.publicationStatus === ScholarshipPublicationStatus.PUBLISHED && Object.keys(updates).length > 0) {
+      throw new Error('SCHOLARSHIP_PUBLISHED_STRUCTURE_IMMUTABLE');
+    }
     const canonicalSafeUpdates = this.preserveCanonicalReferences(existing, updates);
     const classification = this.catalogCompleteness(existing, canonicalSafeUpdates);
     const dataToUpdate: ScholarshipRepositoryUpdateDto = {
@@ -144,13 +162,19 @@ export class AdminScholarshipUseCases {
     };
     const identityChanged =
       (updates.providerName !== undefined && !this.semanticEquivalent(existing.providerName, updates.providerName)) ||
-      (updates.academicYear !== undefined && !this.semanticEquivalent(existing.academicYear, updates.academicYear));
+      (updates.academicYear !== undefined && !this.semanticEquivalent(existing.academicYear, updates.academicYear)) ||
+      (updates.countryReferenceId !== undefined && !this.semanticEquivalent(existing.countryReferenceId, updates.countryReferenceId)) ||
+      (updates.countrySourceLabel !== undefined && !this.semanticEquivalent(existing.countrySourceLabel, updates.countrySourceLabel)) ||
+      (updates.officialSourceUrl !== undefined && !this.semanticEquivalent(existing.officialSourceUrl, updates.officialSourceUrl));
     if (identityChanged) {
       const cleanedName = ScholarshipNamingService.clean(existing.canonicalName).cleanedScholarshipName;
       dataToUpdate.canonicalDedupKey = ScholarshipDeduplicationService.buildKey({
         cleanedScholarshipName: cleanedName,
         providerName: canonicalSafeUpdates.providerName !== undefined ? canonicalSafeUpdates.providerName : existing.providerName,
         year: canonicalSafeUpdates.academicYear !== undefined ? canonicalSafeUpdates.academicYear : existing.academicYear,
+        countryReferenceId: canonicalSafeUpdates.countryReferenceId !== undefined ? canonicalSafeUpdates.countryReferenceId : existing.countryReferenceId,
+        countrySourceLabel: canonicalSafeUpdates.countrySourceLabel !== undefined ? canonicalSafeUpdates.countrySourceLabel : existing.countrySourceLabel,
+        officialSourceUrl: canonicalSafeUpdates.officialSourceUrl !== undefined ? canonicalSafeUpdates.officialSourceUrl : existing.officialSourceUrl,
       }).duplicateKey;
     }
     return this.mutate('SCHOLARSHIP_UPDATED', id, context, async repository => {
@@ -174,17 +198,14 @@ export class AdminScholarshipUseCases {
 
   public async markReadyToPublish(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getScholarship(id);
-    if (existing.completenessStatus !== ScholarshipCompletenessState.COMPLETE) {
-      throw new Error('Only COMPLETE scholarships can be marked as READY_TO_PUBLISH');
-    }
+    this.assertPublicationReady(existing);
     await this.lifecycleMutation('SCHOLARSHIP_MARKED_READY_TO_PUBLISH', id, { workflowStatus: ScholarshipStatus.READY_TO_PUBLISH }, context);
   }
 
   public async publish(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getScholarship(id);
-    if (existing.status !== ScholarshipStatus.READY_TO_PUBLISH) {
-      throw new Error('Only READY_TO_PUBLISH scholarships can be PUBLISHED');
-    }
+    if (existing.status !== ScholarshipStatus.READY_TO_PUBLISH) throw new Error('Only READY_TO_PUBLISH scholarships can be PUBLISHED');
+    this.assertPublicationReady(existing);
     await this.lifecycleMutation('SCHOLARSHIP_PUBLISHED', id, {
       workflowStatus: ScholarshipStatus.PUBLISHED,
       publicationStatus: ScholarshipPublicationStatus.PUBLISHED,
@@ -215,6 +236,15 @@ export class AdminScholarshipUseCases {
       workflowStatus: ScholarshipStatus.ARCHIVED,
       publicationStatus: ScholarshipPublicationStatus.ARCHIVED,
     }, context);
+  }
+
+  private assertPublicationReady(existing: ScholarshipDto): void {
+    if (existing.completenessStatus !== ScholarshipCompletenessState.COMPLETE) throw new Error('SCHOLARSHIP_NOT_COMPLETE');
+    if (existing.verificationStatus !== 'VERIFIED') throw new Error('SCHOLARSHIP_SOURCE_NOT_VERIFIED');
+    if (this.unresolvedLinks(existing).length > 0) throw new Error('SCHOLARSHIP_CANONICAL_LINKS_UNRESOLVED');
+    if (!existing.versions?.length) throw new Error('SCHOLARSHIP_VERSION_REQUIRED');
+    if (!existing.sponsorContext) throw new Error('SCHOLARSHIP_SPONSOR_CONTEXT_REQUIRED');
+    if (!existing.applicationCycles?.length) throw new Error('SCHOLARSHIP_APPLICATION_CYCLE_REQUIRED');
   }
 
   private preserveCanonicalReferences(existing: ScholarshipDto, updates: UpdateScholarshipDto): UpdateScholarshipDto {

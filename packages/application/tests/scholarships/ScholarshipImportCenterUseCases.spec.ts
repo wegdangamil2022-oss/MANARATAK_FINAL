@@ -39,7 +39,9 @@ function completePayload(overrides: Record<string, unknown> = {}) {
     officialSourceUrl: 'https://example.edu/scholarship',
     metadata: {
       verificationState: 'VERIFIED',
-      canonicalScreening: [],
+      canonicalScreening: [{
+        target: 'COUNTRY', state: 'RESOLVED', rawValue: 'Qatar', canonicalReferenceId: 'country-qa',
+      }],
     },
     ...overrides,
   };

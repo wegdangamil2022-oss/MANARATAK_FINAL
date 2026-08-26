@@ -6,52 +6,43 @@ export class ScholarshipPublicRouter {
   public static create(cradle: { publicScholarshipUseCases: PublicScholarshipUseCases }): Router {
     const router = Router();
     const { publicScholarshipUseCases } = cradle;
-
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
     };
 
+    const date = z.string().datetime({ offset: true }).transform((value) => new Date(value));
     const listQuerySchema = z.object({
-      studyCountry: z.string().optional(),
-      degreeLevel: z.string().optional(),
-      fundingCoverage: z.string().optional(),
-      sponsorName: z.string().optional(),
-      applicationDeadlineFrom: z.string().optional().transform(val => val ? new Date(val) : undefined),
-      applicationDeadlineTo: z.string().optional().transform(val => val ? new Date(val) : undefined),
-      page: z.string().optional().transform(val => val ? parseInt(val, 10) : 1),
-      pageSize: z.string().optional().transform(val => {
-        const parsed = val ? parseInt(val, 10) : 20;
-        return Math.min(parsed, 50); // Bound max page size
-      }),
+      studyCountry: z.string().min(1).optional(),
+      countryReferenceId: z.string().min(1).optional(),
+      degreeLevel: z.string().min(1).optional(),
+      fundingCoverage: z.string().min(1).optional(),
+      sponsorName: z.string().min(1).optional(),
+      applicationDeadlineFrom: date.optional(),
+      applicationDeadlineTo: date.optional(),
+      page: z.coerce.number().int().min(1).default(1),
+      pageSize: z.coerce.number().int().min(1).transform((value) => Math.min(value, 50)).default(20),
+    }).refine((value) => !value.applicationDeadlineFrom || !value.applicationDeadlineTo || value.applicationDeadlineFrom <= value.applicationDeadlineTo, {
+      message: 'applicationDeadlineFrom must be <= applicationDeadlineTo',
     });
 
-    // GET /public/scholarships
     router.get('/', asyncHandler(async (req: Request, res: Response) => {
       const filters = listQuerySchema.parse(req.query);
-      const result = await publicScholarshipUseCases.listScholarships(filters);
-      res.json(result);
+      res.json(await publicScholarshipUseCases.listScholarships(filters));
     }));
 
-    // GET /public/scholarships/:slug
     router.get('/:slug', asyncHandler(async (req: Request, res: Response) => {
       try {
-        const scholarship = await publicScholarshipUseCases.getScholarship(req.params.slug);
-        res.json(scholarship);
+        res.json(await publicScholarshipUseCases.getScholarship(req.params.slug));
       } catch (err: any) {
-        if (err.message === 'Scholarship not found') {
-          return res.status(404).json({ error: 'Not found' });
-        }
+        if (err.message === 'Scholarship not found') return res.status(404).json({ error: 'Not found' });
         throw err;
       }
     }));
 
     router.use((err: any, req: Request, res: Response, next: NextFunction) => {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ error: 'Validation Error', details: err.issues });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ error: 'Validation Error', details: err.issues });
       res.status(500).json({ error: 'Internal Server Error' });
     });
-
     return router;
   }
 }

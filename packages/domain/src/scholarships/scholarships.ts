@@ -74,6 +74,9 @@ export interface ScholarshipDuplicateMatch {
   displayName?: string | null;
   canonicalDedupKey?: string | null;
   sourceImportRecordId?: string | null;
+  countryReferenceId?: string | null;
+  countrySourceLabel?: string | null;
+  officialSourceUrl?: string | null;
 }
 
 export interface ScholarshipDedupeInput {
@@ -81,6 +84,9 @@ export interface ScholarshipDedupeInput {
   providerName?: string | null;
   providerCanonicalPublicId?: string | null;
   year?: string | null;
+  countryReferenceId?: string | null;
+  countrySourceLabel?: string | null;
+  officialSourceUrl?: string | null;
   incomingSourceImportRecordId?: string | null;
 }
 
@@ -373,14 +379,36 @@ export class ScholarshipDeduplicationService {
     ScholarshipDedupeAssessment,
     'duplicateKey' | 'providerKey' | 'yearOrNoYear'
   > {
+    const DEDUPE_V2 = 'V2';
     const providerKey = this.providerKey(input.providerCanonicalPublicId, input.providerName);
     const cleanedNameKey = this.keyPart(input.cleanedScholarshipName) || 'UNKNOWN_SCHOLARSHIP';
     const yearOrNoYear = this.year(input.year) ?? 'NO_YEAR';
+    const countryKey = this.keyPart(input.countryReferenceId ?? input.countrySourceLabel ?? '') || 'NO_COUNTRY';
+    const officialUrlKey = this.officialUrlKey(input.officialSourceUrl) || 'NO_OFFICIAL_URL';
     return {
       providerKey,
       yearOrNoYear,
-      duplicateKey: `${providerKey}|${cleanedNameKey}|${yearOrNoYear}`,
+      duplicateKey: `${DEDUPE_V2}|${providerKey}|${cleanedNameKey}|${yearOrNoYear}|${countryKey}|${officialUrlKey}`,
     };
+  }
+
+  static buildLegacyKey(input: ScholarshipDedupeInput): string {
+    const providerKey = this.providerKey(input.providerCanonicalPublicId, input.providerName);
+    const cleanedNameKey = this.keyPart(input.cleanedScholarshipName) || 'UNKNOWN_SCHOLARSHIP';
+    const yearOrNoYear = this.year(input.year) ?? 'NO_YEAR';
+    return `${providerKey}|${cleanedNameKey}|${yearOrNoYear}`;
+  }
+
+  private static officialUrlKey(value?: string | null): string {
+    if (!value?.trim()) return '';
+    try {
+      const url = new URL(value.trim());
+      const host = url.hostname.toLowerCase();
+      const path = url.pathname.replace(/\/+$/u, '') || '/';
+      return this.keyPart(`${host}${path}`);
+    } catch {
+      return this.keyPart(value);
+    }
   }
 
   static assess(

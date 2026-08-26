@@ -207,8 +207,46 @@ export interface CreateScholarshipDto {
   optionalFields?: Record<string, unknown>;
 }
 
+export interface ScholarshipVersionDto {
+  id?: string;
+  scholarshipId?: string;
+  versionNumber: number;
+  status: string;
+  sourceImportRecordId?: string | null;
+  snapshot: Record<string, unknown>;
+  changeSummary?: Record<string, unknown> | null;
+  createdAt?: Date;
+  publishedAt?: Date | null;
+}
+
+export interface ScholarshipSponsorContextDto {
+  id?: string;
+  scholarshipId?: string;
+  sponsorType: string;
+  displayName: string;
+  universityId?: string | null;
+  source?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface ScholarshipApplicationCycleDto {
+  id?: string;
+  scholarshipId?: string;
+  versionId?: string | null;
+  cycleKey: string;
+  academicYear?: string | null;
+  opensAt?: Date | null;
+  closesAt?: Date | null;
+  graceEndsAt?: Date | null;
+  status: string;
+  metadata?: Record<string, unknown> | null;
+}
+
 export interface ScholarshipDto extends CreateScholarshipDto {
   id: string;
+  versions?: ScholarshipVersionDto[];
+  sponsorContext?: ScholarshipSponsorContextDto | null;
+  applicationCycles?: ScholarshipApplicationCycleDto[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -232,7 +270,13 @@ export interface ScholarshipFilters {
 }
 
 export interface PublicScholarshipFilters {
-  country?: string;
+  studyCountry?: string;
+  countryReferenceId?: string;
+  degreeLevel?: string;
+  fundingCoverage?: string;
+  sponsorName?: string;
+  applicationDeadlineFrom?: Date;
+  applicationDeadlineTo?: Date;
   page?: number;
   pageSize?: number;
 }
@@ -254,6 +298,11 @@ export type PublicScholarshipDto = Omit<
   | 'completenessStatus'
   | 'createdAt'
   | 'optionalFields'
+  | 'verificationStatus'
+  | 'publicationStatus'
+  | 'versions'
+  | 'sponsorContext'
+  | 'applicationCycles'
 >;
 
 export interface IScholarshipRepository {
@@ -262,6 +311,7 @@ export interface IScholarshipRepository {
   findByDedupKey(key: string): Promise<ScholarshipDto | null>;
   findById(id: string): Promise<ScholarshipDto | null>;
   findBySlug(slug: string): Promise<ScholarshipDto | null>;
+  findPublishedBySlug(slug: string): Promise<ScholarshipDto | null>;
   updateStatus(id: string, status: ScholarshipStatus): Promise<void>;
   updateLifecycle?(id: string, lifecycle: {
     workflowStatus?: ScholarshipStatus;

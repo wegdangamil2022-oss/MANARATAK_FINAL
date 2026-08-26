@@ -15,10 +15,13 @@ import {
   type UpdateScholarshipDto,
 } from '@manaratak/domain';
 import { AtomicDomainMutationCoordinator } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
+import { ScholarshipImportScreeningReader } from './ScholarshipImportScreeningReader';
 import type {
   IScholarshipImportAtomicGateway,
   IScholarshipImportReviewDecisionPort,
   IScholarshipImportTransferPort,
+  IScholarshipImportVerificationDecisionPort,
+  IScholarshipImportCanonicalResolutionDecisionPort,
   ScholarshipImportCenterBatchRecord,
   ScholarshipImportCenterStoredRecord,
   ScholarshipImportReviewDecisionRequest,
@@ -58,6 +61,15 @@ interface CanonicalScreeningRecord {
   canonicalStandardCode: string | null;
 }
 
+interface ResolvedDecisionSnapshot {
+  verificationState: string;
+  verificationDecisionId: string | null;
+  verificationRecordedAt: string | null;
+  canonical: CanonicalScreeningRecord[];
+  canonicalDecisionIds: string[];
+  fingerprint: string;
+}
+
 interface TransferPlan {
   record: ScholarshipImportCenterStoredRecord;
   batch: ScholarshipImportCenterBatchRecord;
@@ -68,6 +80,7 @@ interface TransferPlan {
   existing: ScholarshipDto | null;
   completeness: ReturnType<typeof ScholarshipCompletenessClassifier.classify>;
   reviewFingerprint: string;
+  decisionSnapshot: ResolvedDecisionSnapshot;
 }
 
 /**
@@ -84,6 +97,8 @@ export class ScholarshipImportAtomicTransferUseCase
     private readonly importGateway: IScholarshipImportAtomicGateway,
     private readonly scholarshipRepository: IScholarshipRepository,
     private readonly atomicMutations: AtomicDomainMutationCoordinator,
+    private readonly verificationDecisions?: IScholarshipImportVerificationDecisionPort,
+    private readonly canonicalDecisions?: IScholarshipImportCanonicalResolutionDecisionPort,
   ) {}
 
   async recordDecision(
@@ -227,6 +242,9 @@ export class ScholarshipImportAtomicTransferUseCase
           correlationId: input.correlationId,
           transferredAt,
           mode,
+          verificationDecisionId: plan.decisionSnapshot.verificationDecisionId ?? undefined,
+          canonicalDecisionIds: plan.decisionSnapshot.canonicalDecisionIds,
+          decisionSnapshotFingerprint: plan.decisionSnapshot.fingerprint,
         }),
       });
 
@@ -251,7 +269,8 @@ export class ScholarshipImportAtomicTransferUseCase
     const metadata = this.object(payload.metadata);
     const aliases = this.strings(metadata.sourceAliases);
     const cleanedName = ScholarshipNamingService.clean(payload.scholarshipName, aliases);
-    const canonical = this.canonicalScreening(record.rawPayload);
+    const decisionSnapshot = await this.resolvedDecisionSnapshot(record);
+    const canonical = decisionSnapshot.canonical;
     const providerCanonicalPublicId = this.stringValue(metadata.providerCanonicalPublicId)
       ?? canonical.find((item) =>
         item.target === 'PROVIDER_UNIVERSITY' && item.state === 'RESOLVED'
@@ -271,10 +290,10 @@ export class ScholarshipImportAtomicTransferUseCase
     }
 
     if (requireTransferReadiness) {
-      if (this.verificationState(record.rawPayload) !== 'VERIFIED') {
+      if (decisionSnapshot.verificationState !== 'VERIFIED') {
         throw new Error('SCHOLARSHIP_IMPORT_SOURCE_NOT_VERIFIED');
       }
-      if (!this.hasCanonicalScreening(record.rawPayload)) {
+      if (canonical.length === 0) {
         throw new Error('SCHOLARSHIP_IMPORT_CANONICAL_SCREENING_REQUIRED');
       }
       if (canonical.some((item) => BLOCKING_CANONICAL_STATES.has(item.state))) {
@@ -288,10 +307,23 @@ export class ScholarshipImportAtomicTransferUseCase
       providerName: payload.providerName ?? payload.sponsorName,
       providerCanonicalPublicId,
       year,
+      countryReferenceId: this.firstResolved(canonical, 'COUNTRY')?.canonicalReferenceId ?? null,
+      countrySourceLabel: payload.studyCountry ?? null,
+      officialSourceUrl: payload.officialSourceUrl ?? payload.sourceUrl ?? payload.officialWebsite ?? payload.applicationLink ?? null,
       incomingSourceImportRecordId: record.id,
     };
     const duplicateKey = ScholarshipDeduplicationService.buildKey(dedupeInput).duplicateKey;
-    const existing = await repository.findByDedupKey(duplicateKey);
+    let existing = await repository.findByDedupKey(duplicateKey);
+    if (!existing) {
+      const legacyKey = ScholarshipDeduplicationService.buildLegacyKey(dedupeInput);
+      const legacyCandidate = await repository.findByDedupKey(legacyKey);
+      if (legacyCandidate) {
+        if (!this.legacyDedupeCompatible(legacyCandidate, dedupeInput)) {
+          throw new Error('SCHOLARSHIP_LEGACY_DEDUPE_RECONCILIATION_REQUIRED');
+        }
+        existing = legacyCandidate;
+      }
+    }
     const reviewFingerprint = scholarshipImportReviewFingerprint({
       rawPayload: record.rawPayload,
       duplicateKey,
@@ -308,6 +340,7 @@ export class ScholarshipImportAtomicTransferUseCase
       existing,
       completeness,
       reviewFingerprint,
+      decisionSnapshot,
     };
   }
 
@@ -363,7 +396,7 @@ export class ScholarshipImportAtomicTransferUseCase
       'displayName', 'providerName', 'amountMinorUnits', 'amountCurrencyCode', 'isFullyFunded',
       'applicationDeadline', 'officialWebsite', 'sourceUrl', 'academicYear', 'cycleName',
       'countryReferenceId', 'countrySourceLabel', 'countryScope', 'fundingTypeCode', 'deadlineType',
-      'applicationMethod', 'applicationUrl', 'officialSourceUrl', 'sourceLocale', 'lastVerifiedAt',
+      'applicationMethod', 'applicationUrl', 'officialSourceUrl', 'sourceLocale', 'lastVerifiedAt', 'verificationStatus',
       'fundingCoverage', 'coverageDetails', 'eligibleMajorsOrFields', 'degreeLevel', 'studyCountry',
       'applicationLink', 'sponsorName', 'requiredDocuments', 'eligibilityCriteria', 'studyLanguage',
       'targetUniversities', 'targetAcademicPrograms', 'fundingAmount', 'currency', 'duration',
@@ -402,15 +435,21 @@ export class ScholarshipImportAtomicTransferUseCase
     const applicationDeadline = this.dateValue(payload.applicationDeadline);
     const officialSourceUrl = this.stringValue(payload.officialSourceUrl)
       ?? this.stringValue(payload.sourceUrl)
-      ?? this.stringValue(payload.officialWebsite);
+      ?? this.stringValue(payload.officialWebsite)
+      ?? this.stringValue(payload.applicationLink);
     const sourceLocale = this.stringValue(metadata.sourceLocale)
       ?? this.stringValue(this.object(plan.record.rawPayload)._sourceLocale);
-    const lastVerifiedAt = this.dateValue(metadata.lastVerifiedAt ?? metadata.verifiedAt);
+    const lastVerifiedAt = this.dateValue(
+      metadata.lastVerifiedAt ?? metadata.verifiedAt ?? plan.decisionSnapshot.verificationRecordedAt,
+    );
 
     return {
       displayName: plan.cleanedName.displayName,
       providerName: payload.providerName ?? payload.sponsorName ?? null,
       completenessStatus: plan.completeness.state,
+      verificationStatus: plan.decisionSnapshot.verificationState === 'VERIFIED'
+        ? ScholarshipVerificationStatus.VERIFIED
+        : ScholarshipVerificationStatus.PENDING,
       amountMinorUnits: payload.amountMinorUnits ?? null,
       amountCurrencyCode: payload.amountCurrencyCode ?? payload.currency ?? null,
       isFullyFunded: payload.isFullyFunded,
@@ -649,34 +688,36 @@ export class ScholarshipImportAtomicTransferUseCase
     });
   }
 
-  private canonicalScreening(rawPayload: unknown): CanonicalScreeningRecord[] {
-    const raw = this.object(rawPayload);
-    const metadata = this.object(raw.metadata);
-    const source = Array.isArray(metadata.canonicalScreening)
-      ? metadata.canonicalScreening
-      : Array.isArray(raw._canonicalScreening)
-        ? raw._canonicalScreening
-        : [];
-    return source.flatMap((value) => {
-      const item = this.object(value);
-      const target = this.stringValue(item.target) as CanonicalTarget | null;
-      const state = this.stringValue(item.state)?.toUpperCase();
-      if (!target || !state) return [];
-      return [{
-        target,
-        state,
-        rawValue: this.stringValue(item.rawValue),
-        canonicalReferenceId: this.stringValue(item.canonicalReferenceId),
-        canonicalPublicId: this.stringValue(item.canonicalPublicId),
-        canonicalStandardCode: this.stringValue(item.canonicalStandardCode),
-      }];
-    });
+  private legacyDedupeCompatible(existing: ScholarshipDto, input: { countryReferenceId?: string | null; countrySourceLabel?: string | null; officialSourceUrl?: string | null }): boolean {
+    const countryMatches = Boolean(input.countryReferenceId && existing.countryReferenceId && input.countryReferenceId === existing.countryReferenceId) ||
+      Boolean(input.countrySourceLabel && existing.countrySourceLabel && this.normalize(input.countrySourceLabel) === this.normalize(existing.countrySourceLabel));
+    const incomingUrl = input.officialSourceUrl ? this.normalizeUrl(input.officialSourceUrl) : null;
+    const existingUrl = existing.officialSourceUrl ? this.normalizeUrl(existing.officialSourceUrl) : null;
+    return Boolean(countryMatches && incomingUrl && existingUrl && incomingUrl === existingUrl);
   }
 
-  private hasCanonicalScreening(rawPayload: unknown): boolean {
-    const raw = this.object(rawPayload);
-    const metadata = this.object(raw.metadata);
-    return Array.isArray(metadata.canonicalScreening) || Array.isArray(raw._canonicalScreening);
+  private normalizeUrl(value: string): string {
+    try {
+      const url = new URL(value);
+      return `${url.hostname.toLowerCase()}${url.pathname.replace(/\/+$/u, '') || '/'}`;
+    } catch {
+      return this.normalize(value);
+    }
+  }
+
+  private async resolvedDecisionSnapshot(record: ScholarshipImportCenterStoredRecord): Promise<ResolvedDecisionSnapshot> {
+    const verification = this.verificationDecisions ? await this.verificationDecisions.latest(record.id) : null;
+    const decisions = this.canonicalDecisions ? await this.canonicalDecisions.list(record.id) : [];
+    const resolved = ScholarshipImportScreeningReader.resolve(record.rawPayload, decisions);
+    const canonical = resolved.entries as CanonicalScreeningRecord[];
+    const canonicalDecisionIds = resolved.decisionIds;
+    const verificationState = verification?.state ?? this.verificationState(record.rawPayload);
+    const verificationDecisionId = verification?.decisionId ?? null;
+    const verificationRecordedAt = verification?.recordedAt ?? null;
+    const fingerprint = scholarshipImportReviewFingerprint({
+      verificationState, verificationDecisionId, verificationRecordedAt, canonical, canonicalDecisionIds,
+    });
+    return { verificationState, verificationDecisionId, verificationRecordedAt, canonical, canonicalDecisionIds, fingerprint };
   }
 
   private firstResolved(

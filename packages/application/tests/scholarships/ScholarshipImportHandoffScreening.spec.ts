@@ -76,7 +76,7 @@ describe('WP12-5 screening integration', () => {
       'منحة جامعة قطر لدراسة الدكتوراه ممولة بالكامل 2027',
     );
     expect(result.nameScreening.cleanedScholarshipName).toBe('منحة جامعة قطر 2027');
-    expect(result.dedupe.duplicateKey).toBe('INS-QA-001|منحة جامعة قطر 2027|2027');
+    expect(result.dedupe.duplicateKey).toBe('V2|INS-QA-001|منحة جامعة قطر 2027|2027|qatar|NO_OFFICIAL_URL');
     expect(result.dedupe.state).toBe('UPDATE');
     expect(result.normalizedPayload.scholarshipName).toBe(
       'منحة جامعة قطر لدراسة الدكتوراه ممولة بالكامل 2027',

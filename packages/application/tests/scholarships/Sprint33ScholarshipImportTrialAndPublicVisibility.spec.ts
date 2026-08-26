@@ -18,6 +18,7 @@ class InMemoryScholarshipRepo implements IScholarshipRepository {
   async create(data: any): Promise<ScholarshipDto> {
     const id = data.id || `schol-${this.items.size + 1}`;
     const item: ScholarshipDto = {
+      ...data,
       id,
       publicId: data.publicId || `public-${id}`,
       slug: data.slug || `slug-${id}`,
@@ -225,7 +226,11 @@ Doha Institute Master Fellowship 2027,Fully Funded,Master,https://dohainstitute.
       degreeLevel: 'Master',
       studyCountry: 'Saudi Arabia',
       status: ScholarshipStatus.DRAFT,
-      completenessStatus: ScholarshipCompletenessState.COMPLETE
+      completenessStatus: ScholarshipCompletenessState.COMPLETE,
+      verificationStatus: 'VERIFIED',
+      versions: [{ id: 'version-1' }],
+      sponsorContext: { sponsorName: 'King Fahd University' },
+      applicationCycles: [{ id: 'cycle-1' }]
     });
 
     await adminScholarshipUseCases.markReadyToPublish(created.id);
