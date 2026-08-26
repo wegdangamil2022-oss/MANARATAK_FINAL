@@ -14,16 +14,40 @@ export type CertificateType =
   | 'ACHIEVEMENT'
   | 'HONOR';
 
-export interface CreateCertificateTemplateDto {
+export type CertificateIssuerType =
+  | 'MANARATAK'
+  | 'UNIVERSITY'
+  | 'EDUCATIONAL_INSTITUTION'
+  | 'GOVERNMENT'
+  | 'TRAINING_CENTER'
+  | 'EXTERNAL_PARTNER';
+export type CertificateIssuerStatus = 'ACTIVE' | 'SUSPENDED' | 'DEPRECATED';
+
+export interface CreateCertificateIssuerDto {
   publicId: string;
   code: string;
   name: string;
-  nameAr: string;
-  nameEn: string;
-  templateVersion: string;
-  status: CertificateTemplateStatus;
-  issuerName: string;
-  issuerReferenceId?: string | null;
+  issuerType: CertificateIssuerType;
+  status: CertificateIssuerStatus;
+  organizationId?: string | null;
+  universityId?: string | null;
+  issuerLogoAssetId: string;
+  signingKeyReference: string;
+  accreditationAuthority?: string | null;
+  accreditationReference?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+export type UpdateCertificateIssuerDto = Partial<
+  Omit<CreateCertificateIssuerDto, 'publicId' | 'code'>
+>;
+export interface CertificateIssuerDto extends CreateCertificateIssuerDto {
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CertificateTemplateVersionContent {
+  issuerId: string;
   language: CertificateLanguage;
   layout: CertificateLayout;
   accentColor: string;
@@ -40,48 +64,176 @@ export interface CreateCertificateTemplateDto {
   sealAssetId?: string | null;
   signatureAssetId?: string | null;
   designAssetId?: string | null;
+  validityPolicy: CertificateValidityPolicy;
+  validityDurationDays?: number | null;
+  renewalPeriodDays?: number | null;
+  renewalPolicy?: string | null;
+  requiresRevalidation: boolean;
   metadata?: Record<string, unknown> | null;
 }
+
+export interface CertificateTemplateVersionDto extends CertificateTemplateVersionContent {
+  id: string;
+  publicId: string;
+  templateId: string;
+  versionNumber: string;
+  status: CertificateTemplateStatus;
+  createdBy: string;
+  approvedBy?: string | null;
+  approvedAt?: Date | null;
+  createdAt: Date;
+}
+
+/**
+ * Authoring DTO is intentionally flattened for API compatibility. Persistence
+ * splits stable template identity from an immutable CertificateTemplateVersion.
+ */
+export interface CreateCertificateTemplateDto extends CertificateTemplateVersionContent {
+  publicId: string;
+  code: string;
+  name: string;
+  nameAr: string;
+  nameEn: string;
+  templateVersion: string;
+  status: CertificateTemplateStatus;
+  /** Compatibility projection only; canonical issuerId is authoritative. */
+  issuerName?: string | null;
+  /** Compatibility projection only; canonical issuerId is authoritative. */
+  issuerReferenceId?: string | null;
+}
 export type UpdateCertificateTemplateDto = Partial<
-  Omit<CreateCertificateTemplateDto, 'publicId' | 'code'>
+  Omit<CreateCertificateTemplateDto, 'publicId' | 'code' | 'status'>
 >;
 export interface CertificateTemplateDto extends CreateCertificateTemplateDto {
   id: string;
+  currentVersionId: string;
+  currentVersion: CertificateTemplateVersionDto;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface CertificateMutationContext {
+  actorId: string;
+  correlationId?: string | null;
+  reason?: string | null;
+}
+
+export interface CertificateAuthoritativeEventEnvelope<TPayload> {
+  eventId: string;
+  eventType: 'CourseCompleted' | 'LearningPathCompleted';
+  eventVersion: string;
+  sourceDomain: 'COURSES';
+  occurredAt: Date | string;
+  payload: TPayload;
+}
+
+export interface CertificateSignedEnvelopeV2 {
+  schemaVersion: 'certificate-envelope-v2';
+  certificateType: CertificateType;
+  studentReferenceId: string;
+  recipientDisplayName: string | null;
+  achievement: {
+    type: 'COURSE' | 'LEARNING_PATH';
+    id: string;
+    displayName: string;
+    completionId: string;
+    completedAt: string;
+  };
+  issuedAt: string;
+  validity: {
+    policy: CertificateValidityPolicy;
+    expiresAt: string | null;
+    renewalPolicy: string | null;
+    requiresRevalidation: boolean;
+  };
+  template: {
+    templateId: string;
+    templateVersionId: string;
+    versionNumber: string;
+  };
+  issuer: {
+    issuerId: string;
+    issuerPublicId: string;
+    issuerName: string;
+    issuerType: CertificateIssuerType;
+    signingKeyReference: string;
+  };
+  grade: string | null;
+  score: number | null;
+  skills: string[];
+  competencies: string[];
+  replacesCertificateId: string | null;
+}
+
+export interface CertificateIssuedEventPayload {
+  schemaVersion: '2.0';
+  studentReferenceId: string;
+  certificateId: string;
+  publicId: string;
+  certificateNumber: string;
+  serialNumber: string;
+  verificationCode: string;
+  verificationUrl: string;
+  status: CertificateStatus;
+  certificateType: CertificateType;
+  courseId?: string | null;
+  learningPathId?: string | null;
+  courseDisplayName?: string | null;
+  learningPathDisplayName?: string | null;
+  issuedAt: string;
+  expiresAt?: string | null;
+  certificatePdfAssetId?: string | null;
+  previewImageAssetId?: string | null;
 }
 
 export interface IssueCertificateDto {
   publicId: string;
   serialNumber: string;
   verificationCode: string;
+  verificationUrl: string;
   verificationHash: string;
   status: CertificateStatus;
   certificateType: CertificateType;
   studentReferenceId: string;
   recipientDisplayName?: string | null;
-  courseId: string;
-  courseDisplayName: string;
-  courseCompletionId: string;
-  courseCompletedAt: Date;
+  achievementType: 'COURSE' | 'LEARNING_PATH';
+  achievementId: string;
+  achievementDisplayName: string;
+  sourceCompletionId: string;
+  completedAt: Date;
+  sourceEventId: string;
+  sourceEventType: 'CourseCompleted' | 'LearningPathCompleted';
+  sourceEventVersion: string;
+  sourceEventPayloadHash: string;
+  courseId?: string | null;
+  courseDisplayName?: string | null;
+  courseCompletionId?: string | null;
+  courseCompletedAt?: Date | null;
+  learningPathId?: string | null;
+  learningPathDisplayName?: string | null;
+  learningPathCompletionId?: string | null;
   issuedAt?: Date;
   expiresAt?: Date | null;
-  validityPolicy?: CertificateValidityPolicy;
-  templateId?: string | null;
-  templateVersion?: string | null;
+  validityPolicy: CertificateValidityPolicy;
+  renewalPolicy?: string | null;
+  requiresRevalidation?: boolean;
+  templateId: string;
+  templateVersionId: string;
+  templateVersion: string;
+  issuerId: string;
   certificatePdfAssetId?: string | null;
   previewImageAssetId?: string | null;
   verificationQrAssetId?: string | null;
   signatureAssetId?: string | null;
-  digitalSignature?: string | null;
-  signingKeyReference?: string | null;
-  issuerName?: string | null;
+  digitalSignature: string;
+  signingKeyReference: string;
+  issuerName: string;
   issuerReferenceId?: string | null;
   grade?: string | null;
   score?: number | null;
   skills?: string[];
   competencies?: string[];
-  metadata?: Record<string, unknown> | null;
+  metadata: Record<string, unknown>;
   correlationId?: string | null;
   actorId?: string | null;
 }
@@ -89,7 +241,6 @@ export interface IssueCertificateDto {
 export interface CertificateDto extends IssueCertificateDto {
   id: string;
   issuedAt: Date;
-  validityPolicy: CertificateValidityPolicy;
   skills: string[];
   competencies: string[];
   revokedAt?: Date | null;
@@ -110,15 +261,20 @@ export interface CertificateVerificationDto {
   status: CertificateStatus;
   certificateType: CertificateType;
   recipientDisplayName?: string | null;
-  courseDisplayName: string;
-  courseCompletedAt: Date;
+  achievementType: 'COURSE' | 'LEARNING_PATH';
+  achievementDisplayName: string;
+  courseDisplayName?: string | null;
+  learningPathDisplayName?: string | null;
+  completedAt: Date;
   issuedAt: Date;
   expiresAt?: Date | null;
-  issuerName?: string | null;
+  validityPolicy: CertificateValidityPolicy;
+  issuerId: string;
+  issuerName: string;
   grade?: string | null;
   skills: string[];
   competencies: string[];
-  templateVersion?: string | null;
+  templateVersion: string;
   revokedAt?: Date | null;
   revocationReason?: string | null;
   isValid: boolean;
@@ -137,6 +293,12 @@ export interface ReissueCertificateDto {
   actorId: string;
   recipientDisplayName?: string | null;
   templateId?: string | null;
+  correlationId?: string | null;
+}
+export interface RenewCertificateDto {
+  certificateId: string;
+  actorId: string;
+  reason: string;
   correlationId?: string | null;
 }
 export interface CertificateLedgerEntryDto {

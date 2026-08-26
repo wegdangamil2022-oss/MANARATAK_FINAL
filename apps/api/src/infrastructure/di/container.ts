@@ -148,6 +148,7 @@ import {
   NativeCourseUseCases,
   EnterpriseCourseCompletionEventPublisher,
   CertificateUseCases,
+  CertificateCompletionEventConsumer,
   StudentWorkspaceUseCases,
   AdminCmsUseCases,
   PublicCmsUseCases,
@@ -8387,7 +8388,8 @@ export function registerDependencies(
       new LearningPathUseCases(learningPathRepository, courseRepository, courseProgressRepository, atomicDomainMutationCoordinator)).scoped(),
     nativeCourseUseCases: asFunction(({ courseRepository, courseCurriculumRepository, assetRecordRepository, coursePublicationService }) =>
       new NativeCourseUseCases(courseRepository, courseCurriculumRepository, assetRecordRepository, coursePublicationService)).scoped(),
-    certificateUseCases: asFunction(({ certificateRepository, courseRepository, assetRecordRepository }) => new CertificateUseCases(certificateRepository, courseRepository, assetRecordRepository, { signingKeyReference: readConfig<string>('CERTIFICATE_SIGNING_KEY_REFERENCE'), signingSecret: readConfig<string>('CERTIFICATE_SIGNING_SECRET'), productionLike })).scoped(),
+    certificateUseCases: asFunction(({ certificateRepository, courseRepository, assetRecordRepository, learningPathRepository }) => new CertificateUseCases(certificateRepository, courseRepository, assetRecordRepository, { signingKeyReference: readConfig<string>('CERTIFICATE_SIGNING_KEY_REFERENCE'), signingSecret: readConfig<string>('CERTIFICATE_SIGNING_SECRET'), productionLike }, learningPathRepository)).scoped(),
+    certificateCompletionEventConsumer: asFunction(({ certificateUseCases }) => new CertificateCompletionEventConsumer(certificateUseCases)).scoped(),
     studentWorkspaceUseCases: asFunction(({ studentWorkspaceRepository, studentWorkspaceDeliveryCache }) => new StudentWorkspaceUseCases(studentWorkspaceRepository, studentWorkspaceDeliveryCache)).scoped(),
     adminCmsUseCases: asFunction(({ cmsRepository, cmsDeliveryCache }) => new AdminCmsUseCases(cmsRepository, cmsDeliveryCache)).scoped(),
     publicCmsUseCases: asFunction(({ cmsRepository, cmsDeliveryCache }) => new PublicCmsUseCases(cmsRepository, cmsDeliveryCache)).scoped(),

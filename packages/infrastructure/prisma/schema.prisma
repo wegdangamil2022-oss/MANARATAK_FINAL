@@ -577,87 +577,192 @@ model LearningPathEnrollment {
 
 // --- Phase 14 Enterprise Certificates Platform ---
 
-model CertificateTemplate {
-  id                String   @id @default(uuid())
-  publicId          String   @unique
-  code              String   @unique
-  name              String
-  nameAr            String
-  nameEn            String
-  templateVersion   String
-  status            String   @default("DRAFT")
-  issuerName        String
-  issuerReferenceId String?
-  language          String   @default("BILINGUAL")
-  layout            String   @default("LANDSCAPE")
-  accentColor       String   @default("#075E45")
-  secondaryColor    String   @default("#C9A227")
-  titleAr           String
-  titleEn           String
-  bodyAr            String
-  bodyEn            String
-  signatoryNameAr   String?
-  signatoryNameEn   String?
-  signatoryTitleAr  String?
-  signatoryTitleEn  String?
-  logoAssetId       String?
-  sealAssetId       String?
-  signatureAssetId  String?
-  designAssetId     String?
-  metadata          Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+model CertificateIssuer {
+  id                     String   @id @default(uuid())
+  publicId               String   @unique
+  code                   String   @unique
+  name                   String
+  issuerType             String
+  status                 String   @default("ACTIVE")
+  organizationId         String?
+  universityId           String?
+  issuerLogoAssetId      String
+  signingKeyReference    String
+  accreditationAuthority String?
+  accreditationReference String?
+  metadata               Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  templates        CertificateTemplate[]
+  templateVersions CertificateTemplateVersion[]
+  certificates     Certificate[]
 
   @@index([status])
-  @@index([issuerReferenceId])
+  @@index([universityId])
+}
+
+model CertificateTemplate {
+  id               String   @id @default(uuid())
+  publicId         String   @unique
+  code             String   @unique
+  name             String
+  nameAr           String
+  nameEn           String
+  status           String   @default("DRAFT")
+  issuerId         String?
+  currentVersionId String?  @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  issuer         CertificateIssuer?         @relation(fields: [issuerId], references: [id], onDelete: Restrict)
+  versions       CertificateTemplateVersion[] @relation("CertificateTemplateVersions")
+  currentVersion CertificateTemplateVersion?  @relation("CurrentCertificateTemplateVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
+  certificates   Certificate[]
+
+  @@index([status])
+  @@index([issuerId])
+}
+
+model CertificateTemplateVersion {
+  id                   String   @id @default(uuid())
+  publicId             String   @unique
+  templateId           String
+  issuerId             String
+  versionNumber        String
+  status               String   @default("DRAFT")
+  language             String   @default("BILINGUAL")
+  layout               String   @default("LANDSCAPE")
+  accentColor          String   @default("#075E45")
+  secondaryColor       String   @default("#C9A227")
+  titleAr              String
+  titleEn              String
+  bodyAr               String
+  bodyEn               String
+  signatoryNameAr      String?
+  signatoryNameEn      String?
+  signatoryTitleAr     String?
+  signatoryTitleEn     String?
+  logoAssetId          String?
+  sealAssetId          String?
+  signatureAssetId     String?
+  designAssetId        String?
+  validityPolicy       String   @default("PERMANENT")
+  validityDurationDays Int?
+  renewalPeriodDays    Int?
+  renewalPolicy        String?
+  requiresRevalidation Boolean  @default(false)
+  metadata             Json?
+  createdBy            String
+  approvedBy           String?
+  approvedAt           DateTime?
+  createdAt            DateTime @default(now())
+
+  template           CertificateTemplate  @relation("CertificateTemplateVersions", fields: [templateId], references: [id], onDelete: Restrict)
+  issuer             CertificateIssuer    @relation(fields: [issuerId], references: [id], onDelete: Restrict)
+  currentForTemplate CertificateTemplate? @relation("CurrentCertificateTemplateVersion")
+  certificates       Certificate[]
+
+  @@unique([templateId, versionNumber])
+  @@index([templateId, createdAt])
+  @@index([issuerId])
+  @@index([status])
 }
 
 model Certificate {
-  id                      String   @id @default(uuid())
-  publicId                String   @unique
-  serialNumber            String   @unique
-  verificationCode        String   @unique
-  verificationHash        String   @unique
-  status                  String   @default("ACTIVE")
-  certificateType         String   @default("COURSE")
-  studentReferenceId      String
-  recipientDisplayName    String?
-  courseId                String
-  courseDisplayName       String
-  courseCompletionId      String   @unique
-  courseCompletedAt       DateTime
-  issuedAt                DateTime @default(now())
-  expiresAt               DateTime?
-  validityPolicy          String   @default("PERMANENT")
-  templateId              String?
-  templateVersion         String?
-  certificatePdfAssetId   String?
-  previewImageAssetId     String?
-  verificationQrAssetId   String?
-  signatureAssetId        String?
-  digitalSignature        String?
-  signingKeyReference     String?
-  issuerName              String?
-  issuerReferenceId       String?
-  grade                   String?
-  score                   Float?
-  skills                  Json
-  competencies            Json
-  revokedAt               DateTime?
-  revocationReason        String?
-  revokedBy               String?
-  replacesCertificateId   String?
-  replacedByCertificateId String?
-  archivedAt              DateTime?
-  metadata                Json?
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  id                       String   @id @default(uuid())
+  publicId                 String   @unique
+  serialNumber             String   @unique
+  verificationCode         String   @unique
+  verificationUrl          String?
+  verificationHash         String   @unique
+  status                   String   @default("ACTIVE")
+  certificateType          String   @default("COURSE")
+  studentReferenceId       String
+  recipientDisplayName     String?
+  achievementType          String?
+  achievementId            String?
+  achievementDisplayName   String?
+  sourceCompletionId       String?
+  completedAt              DateTime?
+  sourceEventId            String?  @unique
+  sourceEventType          String?
+  sourceEventVersion       String?
+  sourceEventPayloadHash   String?
+  courseId                 String?
+  courseDisplayName        String?
+  courseCompletionId       String?
+  courseCompletedAt        DateTime?
+  learningPathId           String?
+  learningPathDisplayName  String?
+  learningPathCompletionId String?
+  issuedAt                 DateTime @default(now())
+  expiresAt                DateTime?
+  validityPolicy           String   @default("PERMANENT")
+  renewalPolicy            String?
+  requiresRevalidation     Boolean  @default(false)
+  templateId               String?
+  templateVersionId        String?
+  templateVersion          String
+  issuerId                 String?
+  certificatePdfAssetId    String?
+  previewImageAssetId      String?
+  verificationQrAssetId    String?
+  signatureAssetId         String?
+  digitalSignature         String?
+  signingKeyReference      String?
+  issuerName               String?
+  issuerReferenceId        String?
+  grade                    String?
+  score                    Float?
+  skills                   Json
+  competencies             Json
+  revokedAt                DateTime?
+  revocationReason         String?
+  revokedBy                String?
+  replacesCertificateId    String?
+  replacedByCertificateId  String?
+  archivedAt               DateTime?
+  metadata                 Json?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  template             CertificateTemplate?       @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  templateVersionRecord CertificateTemplateVersion? @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+  issuer               CertificateIssuer?         @relation(fields: [issuerId], references: [id], onDelete: Restrict)
+  ledgerEntries        CertificateLedgerEntry[]
+  verificationLogs     CertificateVerificationLog[]
+  issuanceInbox        CertificateIssuanceInbox?
+  replacesCertificate  Certificate?               @relation("CertificateReplaces", fields: [replacesCertificateId], references: [id], onDelete: Restrict)
+  replacementFor       Certificate[]              @relation("CertificateReplaces")
+  replacedByCertificate Certificate?              @relation("CertificateReplacedBy", fields: [replacedByCertificateId], references: [id], onDelete: Restrict)
+  replacedSources      Certificate[]              @relation("CertificateReplacedBy")
 
   @@index([studentReferenceId, status])
+  @@index([achievementType, sourceCompletionId])
+  @@index([courseCompletionId])
+  @@index([learningPathCompletionId])
   @@index([courseId, studentReferenceId])
+  @@index([learningPathId, studentReferenceId])
   @@index([templateId])
+  @@index([templateVersionId])
+  @@index([issuerId])
   @@index([issuedAt])
   @@index([expiresAt])
+}
+
+model CertificateIssuanceInbox {
+  eventId       String   @id
+  eventType     String
+  eventVersion  String
+  sourceDomain  String
+  payloadHash   String
+  certificateId String   @unique
+  processedAt   DateTime @default(now())
+
+  certificate Certificate @relation(fields: [certificateId], references: [id], onDelete: Restrict)
+
+  @@index([eventType, processedAt])
 }
 
 model CertificateLedgerEntry {
@@ -669,6 +774,8 @@ model CertificateLedgerEntry {
   payload       Json?
   occurredAt    DateTime @default(now())
 
+  certificate Certificate @relation(fields: [certificateId], references: [id], onDelete: Restrict)
+
   @@index([certificateId, occurredAt])
   @@index([action])
 }
@@ -679,6 +786,8 @@ model CertificateVerificationLog {
   result        String
   channel       String
   occurredAt    DateTime @default(now())
+
+  certificate Certificate? @relation(fields: [certificateId], references: [id], onDelete: Restrict)
 
   @@index([certificateId, occurredAt])
   @@index([result, occurredAt])

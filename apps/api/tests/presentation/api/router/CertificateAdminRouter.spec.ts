@@ -20,9 +20,13 @@ describe('CertificateAdminRouter', () => {
       reissue: vi.fn(),
       archive: vi.fn(),
     };
+    const authEvaluatorService: any = {
+      evaluatePermission: vi.fn().mockResolvedValue({ isGranted: true }),
+    };
     const app = express();
     app.use(express.json());
-    app.use('/certificates', CertificateAdminRouter.create({ certificateUseCases: useCases }));
+    app.use((req: any, _res, next) => { req.authUserId = 'admin-1'; next(); });
+    app.use('/certificates', CertificateAdminRouter.create({ certificateUseCases: useCases, authEvaluatorService }));
     return { app, useCases };
   };
   it('lists the real certificate registry', async () => {
@@ -50,7 +54,7 @@ describe('CertificateAdminRouter', () => {
         nameAr: 'قالب احترافي',
         nameEn: 'Professional Template',
         templateVersion: '1.0.0',
-        issuerName: 'MANARATAK',
+        issuerId: 'issuer-1',
         language: 'BILINGUAL',
         layout: 'LANDSCAPE',
         accentColor: '#075E45',
@@ -59,6 +63,7 @@ describe('CertificateAdminRouter', () => {
         titleEn: 'CERTIFICATE',
         bodyAr: 'نص شهادة عربي احترافي مكتمل',
         bodyEn: 'Professional certificate body copy.',
+        validityPolicy: 'PERMANENT',
       });
     expect(response.status).toBe(201);
     expect(useCases.createTemplate).toHaveBeenCalledOnce();
