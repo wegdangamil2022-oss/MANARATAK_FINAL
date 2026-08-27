@@ -229,6 +229,26 @@ export const MOCK_UNIVERSITIES: University[] = [
       postgradNote: 'لبرامج الماجستير والماجستير البحثي والدكتوراه',
       officialTuitionUrl: 'https://www.ox.ac.uk/students/fees-funding/fees/rates',
     },
+    scholarships: [
+      {
+        id: 'oxford-clarendon-fund',
+        name: 'منحة صندوق كلارندون',
+        nameEn: 'Clarendon Fund Scholarship',
+        type: 'تمويل كامل',
+        audience: 'طلاب الدراسات العليا الدوليون والمحليون',
+        officialUrl:
+          'https://www.ox.ac.uk/admissions/graduate/fees-and-funding/funding/clarendon/about',
+      },
+      {
+        id: 'reach-oxford-scholarship',
+        name: 'منحة ريتش أكسفورد',
+        nameEn: 'Reach Oxford Scholarship',
+        type: 'تمويل كامل',
+        audience: 'طلاب البكالوريوس الدوليون المؤهلون من الدول منخفضة الدخل',
+        officialUrl:
+          'https://www.ox.ac.uk/admissions/undergraduate/fees-and-funding/oxford-bursaries-and-scholarships/reach-oxford',
+      },
+    ],
     internationalAdmissions: {
       acceptsInternationalStudents: true,
       acceptsDescription:

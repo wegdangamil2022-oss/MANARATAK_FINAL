@@ -821,6 +821,93 @@ export const UniversityDetailModal: React.FC<UniversityDetailModalProps> = ({
             </div>
           </div>
         )}
+
+        {/* المنح الدراسية تأتي مباشرة بعد الرسوم لمساعدة الطالب على تقييم خيارات التمويل */}
+        {university.scholarships && university.scholarships.length > 0 && (
+          <section
+            className="relative -mx-4 sm:-mx-6 bg-white dark:bg-[#041628] border-b border-[#064D83]/30 dark:border-[#153C63] shadow-md shadow-slate-200/40 dark:shadow-none overflow-hidden"
+            dir="rtl"
+            aria-labelledby="university-scholarships-title"
+          >
+            <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[#D9A93A] to-transparent" />
+
+            <header className="px-4 sm:px-5 pt-5 pb-3 text-center bg-gradient-to-b from-[#FAF5EA]/70 dark:from-[#082848] to-white dark:to-[#041628] border-b border-[#F2E8D5] dark:border-[#153C63]">
+              <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full border border-[#D9A93A]/60 bg-[#064D83] shadow-sm ring-4 ring-[#D9A93A]/10">
+                <Award className="h-4.5 w-4.5 text-[#E4B343]" />
+              </div>
+              <h2
+                id="university-scholarships-title"
+                className="text-sm sm:text-base font-black text-[#064D83] dark:text-[#E4B343]"
+              >
+                المنح الدراسية
+              </h2>
+              <p className="mx-auto mt-1.5 max-w-xl text-[10.5px] sm:text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                هل توجد منح للطلاب الدوليين؟ نعم، توفر الجامعة فرص تمويل تنافسية، وتظهر هنا منحتان
+                لبناء شكل القسم والقالب.
+              </p>
+            </header>
+
+            <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5">
+              {university.scholarships.slice(0, 2).map((scholarship, index) => (
+                <article
+                  key={scholarship.id}
+                  className="group relative overflow-hidden rounded-2xl border border-[#E9DCBF] dark:border-[#1A456E] bg-gradient-to-br from-white via-[#FAFAFA] to-[#FAF5EA]/60 dark:from-[#0A2A48] dark:via-[#082440] dark:to-[#062038] p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#D9A93A] hover:shadow-md"
+                >
+                  <div className="absolute inset-y-0 right-0 w-1 bg-gradient-to-b from-[#064D83] via-[#D9A93A] to-[#064D83]" />
+                  <div className="flex items-start gap-3 pr-1">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#D9A93A]/40 bg-[#064D83] text-[#E4B343] shadow-sm">
+                      <GraduationCap className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                        <span className="rounded-full bg-[#D9A93A]/15 px-2 py-0.5 text-[9.5px] font-black text-[#8A6619] dark:text-[#F1CF7A]">
+                          منحة {index + 1}
+                        </span>
+                        {scholarship.type && (
+                          <span className="rounded-full border border-[#064D83]/15 bg-blue-50 dark:bg-[#062038] px-2 py-0.5 text-[9.5px] font-black text-[#064D83] dark:text-slate-100">
+                            {scholarship.type}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-[12px] sm:text-[13px] font-black leading-5 text-[#064D83] dark:text-white">
+                        {scholarship.name}
+                      </h3>
+                      {scholarship.nameEn && (
+                        <p
+                          className="mt-0.5 truncate text-[9.5px] font-bold text-slate-400"
+                          dir="ltr"
+                        >
+                          {scholarship.nameEn}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {scholarship.audience && (
+                    <div className="mt-3 rounded-xl border border-slate-100 dark:border-[#1A456E] bg-white/80 dark:bg-[#062038]/80 px-3 py-2">
+                      <span className="block text-[9px] font-black text-[#9A7427] dark:text-[#E4B343]">
+                        الفئة المستهدفة
+                      </span>
+                      <p className="mt-0.5 text-[10px] sm:text-[10.5px] font-semibold leading-5 text-slate-600 dark:text-slate-300">
+                        {scholarship.audience}
+                      </p>
+                    </div>
+                  )}
+
+                  <a
+                    href={scholarship.officialUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#002E52] via-[#064D83] to-[#002E52] px-3 text-[10.5px] font-black text-white shadow-sm transition-all hover:from-[#064D83] hover:to-[#0A5D9E] active:scale-[0.99]"
+                  >
+                    <span>زيارة صفحة المنحة الرسمية</span>
+                    <ExternalLink className="h-3.5 w-3.5 text-[#D9A93A]" />
+                  </a>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

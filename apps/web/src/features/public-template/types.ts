@@ -86,6 +86,15 @@ export interface UniversityTuitionFees {
   officialTuitionUrl?: string; // رابط الرسوم الرسمي
 }
 
+export interface UniversityScholarship {
+  id: string;
+  name: string;
+  nameEn?: string;
+  type?: string;
+  audience?: string;
+  officialUrl: string;
+}
+
 export interface UniversityStudyPrograms {
   degrees?: string[];
   faculties?: string[];
@@ -124,6 +133,7 @@ export interface University {
   websiteUrl: string;
   rankings?: UniversityRanking[];
   tuitionFees?: UniversityTuitionFees;
+  scholarships?: UniversityScholarship[];
   studyPrograms?: UniversityStudyPrograms;
   internationalAdmissions?: UniversityInternationalAdmissions;
 }
