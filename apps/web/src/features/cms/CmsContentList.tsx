@@ -60,7 +60,7 @@ export function CmsContentList() {
         title={t('guides_and_articles')}
         description={t('read_manaratak_editorial_guides_articles_faqs_chec')}
       />
-      <section className="border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white rounded-3xl p-5 sm:p-8">
+      <section className="rounded-3xl border border-[#d6ae57]/30 bg-gradient-to-br from-[#071d3a] via-[#0b3763] to-[#123f6b] p-5 text-white sm:p-8">
         <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide mb-2">
           {t('guides_articles')}
         </p>

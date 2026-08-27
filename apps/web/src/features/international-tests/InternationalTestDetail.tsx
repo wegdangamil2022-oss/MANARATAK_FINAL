@@ -63,14 +63,14 @@ export function InternationalTestDetail() {
   const scoreLinks = data.officialLinks?.filter(l => l.linkType === 'SCORE_REPORTING') || [];
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="-mx-4 -my-6 min-h-screen space-y-6 bg-[#f7f9fc] px-4 py-8 sm:-my-10">
       <Seo title={data.displayName} description={`Official test information for ${data.displayName}.`} />
       <Link to="/international-tests" className="mb-4 inline-block text-sm font-bold text-emerald-700 hover:underline">
         {t('lt_back_to_international_tests') || 'Back'}
       </Link>
       
-      <div className="overflow-hidden rounded-3xl border bg-white shadow-sm">
-        <div className="border-b bg-gradient-to-br from-indigo-50 to-white p-5 sm:p-8">
+      <div className="mx-auto max-w-5xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+        <div className="border-b border-white/10 bg-gradient-to-br from-[#071d3a] via-[#0b3763] to-[#0b2a50] p-5 text-white sm:p-8">
           <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-[#044A37]">{t('international_test') || 'International Test'}</p>
           <h1 className="text-3xl font-black leading-tight tracking-tight sm:text-5xl">{data.displayName}</h1>
           <p className="mb-4 mt-3 text-base leading-7 text-gray-600 sm:text-lg">{data.providerName} {data.testCode ? `- ${data.testCode}` : ''}</p>

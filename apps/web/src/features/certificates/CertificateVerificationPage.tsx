@@ -49,7 +49,7 @@ export function CertificateVerificationPage() {
         {t('lt_back_to_home_1')}
       </Link>
 
-      <section className="bg-gradient-to-l from-emerald-950 via-emerald-800 to-teal-700 text-white border rounded-3xl p-5 sm:p-8 md:p-12 mb-6 shadow-xl overflow-hidden">
+      <section className="mb-6 overflow-hidden rounded-3xl border border-[#d6ae57]/20 bg-gradient-to-l from-[#071d3a] via-[#0b3763] to-[#123f6b] p-5 text-white shadow-xl sm:p-8 md:p-12">
         <div className="max-w-3xl">
           <div className="mb-4 flex items-center gap-3">
             <Award className="h-9 w-9 text-amber-300" />

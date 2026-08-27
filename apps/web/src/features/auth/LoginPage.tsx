@@ -108,14 +108,14 @@ export function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-12 text-slate-950">
+    <main className="-mx-4 -my-6 min-h-screen bg-gradient-to-br from-[#071d3a] via-[#0b3763] to-[#123f6b] px-4 py-12 text-slate-950 sm:-my-10">
       <div className="mx-auto w-full max-w-md">
         <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-950 text-white">
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#d6ae57] text-[#071d3a]">
             <ShieldAlert size={22} aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">دخول إدارة منارتك</h1>
+            <h1 className="text-2xl font-bold">دخول منارتك</h1>
             <p className="mt-1 text-sm text-slate-600">
               استخدم حسابًا إداريًا مخولًا.
             </p>
@@ -176,7 +176,7 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-6 flex h-11 w-full items-center justify-center gap-2 bg-slate-950 px-4 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-6 flex h-11 w-full items-center justify-center gap-2 bg-[#0b3763] px-4 font-semibold text-white hover:bg-[#071d3a] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <LogIn size={18} aria-hidden="true" />
             {loading ? 'جارٍ التحقق...' : 'تسجيل الدخول'}

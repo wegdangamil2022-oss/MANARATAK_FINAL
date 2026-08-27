@@ -27,17 +27,17 @@ function Shell({
   children: React.ReactNode;
 }) {
   return (
-    <main dir="rtl" className="mx-auto max-w-5xl space-y-6 pb-16">
+    <main dir="rtl" className="mx-auto max-w-5xl space-y-6 rounded-[2rem] bg-[#f7f9fc] p-4 pb-16 sm:p-6">
       <Seo title={`${title} | منارتك`} description={description} />
       <Link
         to="/tools"
-        className="inline-flex items-center gap-2 text-sm font-bold text-emerald-800"
+        className="inline-flex items-center gap-2 text-sm font-bold text-[#0b3763]"
       >
         <ArrowRight className="h-4 w-4" /> كل الأدوات
       </Link>
-      <header className="rounded-3xl bg-emerald-950 p-7 text-white">
+      <header className="rounded-3xl border border-[#d6ae57]/20 bg-gradient-to-br from-[#071d3a] via-[#0b3763] to-[#123f6b] p-7 text-white shadow-xl">
         <h1 className="text-3xl font-black">{title}</h1>
-        <p className="mt-3 leading-7 text-emerald-100">{description}</p>
+        <p className="mt-3 leading-7 text-blue-100">{description}</p>
       </header>
       {children}
     </main>
@@ -52,12 +52,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 const inputClass =
-  'min-h-12 rounded-xl border border-slate-300 bg-white px-3 py-2 font-normal outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100';
+  'min-h-12 rounded-xl border border-slate-300 bg-white px-3 py-2 font-normal outline-none focus:border-[#0b3763] focus:ring-2 focus:ring-blue-100';
 function Submit({ loading }: { loading: boolean }) {
   return (
     <button
       disabled={loading}
-      className="rounded-xl bg-emerald-700 px-6 py-3 font-black text-white hover:bg-emerald-800 disabled:opacity-60"
+      className="rounded-xl bg-[#0b3763] px-6 py-3 font-black text-white hover:bg-[#071d3a] disabled:opacity-60"
     >
       {loading ? 'جاري التنفيذ...' : 'تنفيذ الأداة'}
     </button>
@@ -73,8 +73,8 @@ function Result({ run }: { run: RunState }) {
     );
   if (!run.result) return null;
   return (
-    <section aria-live="polite" className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6">
-      <h2 className="mb-4 text-xl font-black text-emerald-950">النتيجة</h2>
+    <section aria-live="polite" className="rounded-3xl border border-[#d6ae57]/35 bg-[#fbf5e6] p-6">
+      <h2 className="mb-4 text-xl font-black text-[#0b2a50]">النتيجة</h2>
       <ResultBody value={run.result} />
       {run.executionId ? <div className="mt-5 border-t border-emerald-200 pt-4"><button type="button" disabled={saveState.loading} onClick={async () => { setSaveState({ loading: true, message: '', error: '' }); try { await ApiClient.saveStudentToolExecution(run.executionId!, run.result); setSaveState({ loading: false, message: 'حُفظت النتيجة صراحةً في مساحة الطالب الخاصة.', error: '' }); } catch (error) { setSaveState({ loading: false, message: '', error: error instanceof Error ? translateError(error.message) : 'تعذر الحفظ.' }); } }} className="rounded-xl border border-emerald-700 bg-white px-4 py-2 font-bold text-emerald-800 disabled:opacity-60">{saveState.loading ? 'جاري الحفظ...' : 'حفظ في حسابي'}</button>{saveState.message ? <span className="mr-3 text-sm text-emerald-800">{saveState.message}</span> : null}{saveState.error ? <span role="alert" className="mr-3 text-sm text-red-700">{saveState.error}</span> : null}</div> : null}
     </section>

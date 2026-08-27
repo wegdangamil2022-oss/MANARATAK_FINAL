@@ -205,7 +205,7 @@ export function AdminStudyDestinationsPage() {
     <main dir={isArabic ? 'rtl' : 'ltr'} className="min-h-screen bg-[#f8fafc] px-4 py-8 text-slate-900 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-7xl space-y-6">
         {/* Header Title Banner */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-3xl bg-gradient-to-r from-[#0F4B3A] via-[#155e49] to-[#0a382b] p-6 sm:p-8 text-white shadow-xl">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-3xl bg-gradient-to-r from-[#0b3763] via-[#155e49] to-[#071d3a] p-6 sm:p-8 text-white shadow-xl">
           <div>
             <div className="flex items-center gap-2 text-emerald-300 text-xs sm:text-sm font-bold mb-2">
               <Globe className="w-4 h-4" />
@@ -262,7 +262,7 @@ export function AdminStudyDestinationsPage() {
                   onClick={() => setSelectedContinent(cont.key)}
                   className={`min-h-11 px-4 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
                     active
-                      ? 'bg-[#0F4B3A] text-white shadow-md shadow-emerald-900/10'
+                      ? 'bg-[#0b3763] text-white shadow-md shadow-emerald-900/10'
                       : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
                   }`}
                 >
@@ -319,7 +319,7 @@ export function AdminStudyDestinationsPage() {
         {loading ? (
           <div className="grid min-h-64 place-items-center">
             <div className="flex flex-col items-center gap-3">
-              <Loader2 className="w-8 h-8 animate-spin text-[#0F4B3A]" />
+              <Loader2 className="w-8 h-8 animate-spin text-[#0b3763]" />
               <span className="text-xs font-bold text-slate-500">{isArabic ? 'جاري تحميل ملفات الدول...' : 'Loading country profiles...'}</span>
             </div>
           </div>
@@ -365,7 +365,7 @@ function CountryDirectoryCard({ country, isArabic }: { country: ReferenceCountry
           <div className="flex items-center gap-3">
             <span className="text-3xl leading-none select-none">{flag}</span>
             <div>
-              <h2 className="text-base font-black text-slate-900 group-hover:text-[#0F4B3A] transition-colors line-clamp-1">
+              <h2 className="text-base font-black text-slate-900 group-hover:text-[#0b3763] transition-colors line-clamp-1">
                 {isArabic ? nameAr : country.name}
               </h2>
               <p className="text-[11px] font-bold text-slate-400 font-mono">
@@ -411,7 +411,7 @@ function CountryDirectoryCard({ country, isArabic }: { country: ReferenceCountry
       {/* Action Link */}
       <Link
         to={`/study-destinations/${country.iso2Code}`}
-        className="mt-5 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#0F4B3A] px-4 text-xs sm:text-sm font-bold text-white hover:bg-[#0c3e30] active:scale-[0.98] transition-all shadow-sm"
+        className="mt-5 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#0b3763] px-4 text-xs sm:text-sm font-bold text-white hover:bg-[#0c3e30] active:scale-[0.98] transition-all shadow-sm"
       >
         <span>{isArabic ? 'فتح ملف الدولة الموحد' : 'Open Country Profile'}</span>
         <ChevronLeft className="w-4 h-4 rtl:rotate-0 rotate-180" />
@@ -471,7 +471,7 @@ export function AdminStudyDestinationDetailPage() {
     return (
       <main dir={isArabic ? 'rtl' : 'ltr'} className="min-h-screen bg-[#f8fafc] grid place-items-center p-6">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-10 h-10 animate-spin text-[#0F4B3A]" />
+          <Loader2 className="w-10 h-10 animate-spin text-[#0b3763]" />
           <span className="text-xs font-extrabold text-slate-600">
             {isArabic ? 'جاري تحميل ملف الدولة الموحد...' : 'Loading Unified Country Profile...'}
           </span>
@@ -489,7 +489,7 @@ export function AdminStudyDestinationDetailPage() {
           <p className="text-xs text-slate-500">{error || (isArabic ? 'لم يتم العثور على رمز الدولة المطلوب.' : 'The requested ISO code does not exist.')}</p>
           <Link
             to="/study-destinations"
-            className="inline-flex min-h-11 items-center gap-2 px-5 rounded-xl bg-[#0F4B3A] text-white text-xs font-bold hover:bg-[#0c3e30]"
+            className="inline-flex min-h-11 items-center gap-2 px-5 rounded-xl bg-[#0b3763] text-white text-xs font-bold hover:bg-[#0c3e30]"
           >
             <ArrowRight className="w-4 h-4 rtl:rotate-0 rotate-180" />
             <span>{isArabic ? 'العودة إلى دليل الدول' : 'Return to Country Directory'}</span>
@@ -529,7 +529,7 @@ export function AdminStudyDestinationDetailPage() {
         <div>
           <Link
             to="/study-destinations"
-            className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-[#0F4B3A] transition-colors"
+            className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-[#0b3763] transition-colors"
           >
             <ArrowRight className="w-4 h-4 rtl:rotate-0 rotate-180" />
             <span>{isArabic ? 'العودة إلى دليل الدول والوجهات الدراسية' : 'Back to Countries & Reference Destinations'}</span>
@@ -537,7 +537,7 @@ export function AdminStudyDestinationDetailPage() {
         </div>
 
         {/* Top Country Banner */}
-        <header className="relative overflow-hidden rounded-3xl bg-gradient-to-l from-[#0F4B3A] via-[#125845] to-[#0a382b] p-6 sm:p-10 text-white shadow-xl">
+        <header className="relative overflow-hidden rounded-3xl bg-gradient-to-l from-[#0b3763] via-[#123f6b] to-[#071d3a] p-6 sm:p-10 text-white shadow-xl">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold">
@@ -583,7 +583,7 @@ export function AdminStudyDestinationDetailPage() {
                     onClick={() => scrollToSection(sec.id)}
                     className={`w-full text-right rtl:text-right ltr:text-left min-h-10 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2.5 transition-all cursor-pointer ${
                       active
-                        ? 'bg-[#0F4B3A] text-white shadow-sm'
+                        ? 'bg-[#0b3763] text-white shadow-sm'
                         : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                   >
@@ -606,7 +606,7 @@ export function AdminStudyDestinationDetailPage() {
             <section id="overview" className="scroll-mt-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-6">
               <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <LayoutDashboard className="w-5 h-5 text-[#0F4B3A]" />
+                  <LayoutDashboard className="w-5 h-5 text-[#0b3763]" />
                   <h2 className="text-xl font-black text-slate-900">{isArabic ? '1. نظرة عامة على دولة الدراسة' : '1. Country Overview'}</h2>
                 </div>
                 <span className="text-xs font-extrabold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
@@ -633,7 +633,7 @@ export function AdminStudyDestinationDetailPage() {
             <section id="reference-data" className="scroll-mt-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-6">
               <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Globe className="w-5 h-5 text-[#0F4B3A]" />
+                  <Globe className="w-5 h-5 text-[#0b3763]" />
                   <h2 className="text-xl font-black text-slate-900">{isArabic ? '2. البيانات المرجعية (Phase 07 Canonical Reference Data)' : '2. Phase 07 Canonical Reference Data'}</h2>
                 </div>
                 <span className="text-xs font-bold text-slate-400">100% Complete</span>
@@ -680,11 +680,11 @@ export function AdminStudyDestinationDetailPage() {
                   className="w-full flex items-center justify-between p-4 rounded-2xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 transition-all cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
-                    <MapPin className="w-5 h-5 text-[#0F4B3A]" />
+                    <MapPin className="w-5 h-5 text-[#0b3763]" />
                     <span className="text-base font-extrabold text-slate-900">
                       {isArabic ? `المدن (${loadingCities ? '...' : cities.length})` : `Cities (${loadingCities ? '...' : cities.length})`}
                     </span>
-                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#0F4B3A]">
+                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#0b3763]">
                       {cities.length} {isArabic ? 'مدينة مسجلة' : 'cities'}
                     </span>
                   </div>
@@ -698,7 +698,7 @@ export function AdminStudyDestinationDetailPage() {
                   <div className="mt-4 space-y-3">
                     {loadingCities ? (
                       <div className="p-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin text-[#0F4B3A]" />
+                        <Loader2 className="w-4 h-4 animate-spin text-[#0b3763]" />
                         <span>{isArabic ? 'جاري تحميل المدن المرتبطة...' : 'Loading linked cities...'}</span>
                       </div>
                     ) : cities.length === 0 ? (
@@ -769,7 +769,7 @@ export function AdminStudyDestinationDetailPage() {
             <section id="universities" className="scroll-mt-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
               <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-[#0F4B3A]" />
+                  <Building2 className="w-5 h-5 text-[#0b3763]" />
                   <h2 className="text-xl font-black text-slate-900">{isArabic ? '3. الجامعات والمؤسسات التعليمية' : '3. Universities & Institutions'}</h2>
                 </div>
                 <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100">Phase 11 Pending</span>
@@ -787,7 +787,7 @@ export function AdminStudyDestinationDetailPage() {
             <section id="majors" className="scroll-mt-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
               <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-[#0F4B3A]" />
+                  <BookOpen className="w-5 h-5 text-[#0b3763]" />
                   <h2 className="text-xl font-black text-slate-900">{isArabic ? '4. التخصصات المرتبطة' : '4. Linked Majors'}</h2>
                 </div>
                 <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">Phase 10 Active Stage</span>
@@ -805,7 +805,7 @@ export function AdminStudyDestinationDetailPage() {
             <section id="scholarships" className="scroll-mt-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
               <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <GraduationCap className="w-5 h-5 text-[#0F4B3A]" />
+                  <GraduationCap className="w-5 h-5 text-[#0b3763]" />
                   <h2 className="text-xl font-black text-slate-900">{isArabic ? '5. المنح الدراسية' : '5. Scholarships'}</h2>
                 </div>
                 <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100">Phase 12 Pending</span>
@@ -823,7 +823,7 @@ export function AdminStudyDestinationDetailPage() {
             <section id="tests" className="scroll-mt-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
               <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-[#0F4B3A]" />
+                  <FileText className="w-5 h-5 text-[#0b3763]" />
                   <h2 className="text-xl font-black text-slate-900">{isArabic ? '6. متطلبات القبول والاختبارات الدولية' : '6. Tests & Admission Requirements'}</h2>
                 </div>
               </div>
@@ -843,7 +843,7 @@ export function AdminStudyDestinationDetailPage() {
             <section id="visa" className="scroll-mt-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
               <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-[#0F4B3A]" />
+                  <ShieldCheck className="w-5 h-5 text-[#0b3763]" />
                   <h2 className="text-xl font-black text-slate-900">{isArabic ? '7. التأشيرة وشروط الدراسة' : '7. Visa & Study Requirements'}</h2>
                 </div>
                 <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100">Phase 16 CMS Pending</span>
@@ -861,7 +861,7 @@ export function AdminStudyDestinationDetailPage() {
             <section id="cost-of-living" className="scroll-mt-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
               <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <WalletCards className="w-5 h-5 text-[#0F4B3A]" />
+                  <WalletCards className="w-5 h-5 text-[#0b3763]" />
                   <h2 className="text-xl font-black text-slate-900">{isArabic ? '8. تكاليف المعيشة والدراسة' : '8. Cost of Living'}</h2>
                 </div>
                 <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100">Phase 16 Pending</span>
@@ -879,7 +879,7 @@ export function AdminStudyDestinationDetailPage() {
             <section id="student-life" className="scroll-mt-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
               <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-[#0F4B3A]" />
+                  <Users className="w-5 h-5 text-[#0b3763]" />
                   <h2 className="text-xl font-black text-slate-900">{isArabic ? '9. الحياة الطلابية والاندماج الثقافي' : '9. Student Life'}</h2>
                 </div>
                 <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100">Phase 16 Pending</span>
@@ -897,7 +897,7 @@ export function AdminStudyDestinationDetailPage() {
             <section id="official-links" className="scroll-mt-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
               <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Link2 className="w-5 h-5 text-[#0F4B3A]" />
+                  <Link2 className="w-5 h-5 text-[#0b3763]" />
                   <h2 className="text-xl font-black text-slate-900">{isArabic ? '10. الروابط الرسمية والبوابات الحكومية' : '10. Official Links'}</h2>
                 </div>
                 <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100">Phase 16 Pending</span>
@@ -915,7 +915,7 @@ export function AdminStudyDestinationDetailPage() {
             <section id="sources" className="scroll-mt-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
               <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <FileCheck2 className="w-5 h-5 text-[#0F4B3A]" />
+                  <FileCheck2 className="w-5 h-5 text-[#0b3763]" />
                   <h2 className="text-xl font-black text-slate-900">{isArabic ? '11. المصادر والأدلة وتدقيق البيانات' : '11. Sources, Evidence & Audit'}</h2>
                 </div>
               </div>
@@ -931,7 +931,7 @@ export function AdminStudyDestinationDetailPage() {
             <section id="public-preview" className="scroll-mt-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
               <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-[#0F4B3A]" />
+                  <Sparkles className="w-5 h-5 text-[#0b3763]" />
                   <h2 className="text-xl font-black text-slate-900">{isArabic ? '12. المعاينة العامة العرض الأولي (SEO & Public Preview)' : '12. Public Preview & SEO'}</h2>
                 </div>
                 <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100">Phase 24 Pending</span>
@@ -949,7 +949,7 @@ export function AdminStudyDestinationDetailPage() {
             <section id="readiness" className="scroll-mt-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-6">
               <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Award className="w-5 h-5 text-[#0F4B3A]" />
+                  <Award className="w-5 h-5 text-[#0b3763]" />
                   <h2 className="text-xl font-black text-slate-900">{isArabic ? '13. جاهزية الملف ومراحل الاعتماد (Phase 23 Governance)' : '13. Profile Readiness & Review'}</h2>
                 </div>
                 <span className="text-xs font-black px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -987,7 +987,7 @@ function QuickStatCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200/60 text-center">
       <span className="block text-[11px] font-bold text-slate-400">{label}</span>
-      <strong className="mt-1 block text-base font-black text-[#0F4B3A] dir-auto">{value}</strong>
+      <strong className="mt-1 block text-base font-black text-[#0b3763] dir-auto">{value}</strong>
     </div>
   );
 }
@@ -1031,7 +1031,7 @@ function ReadinessItem({
       <div className="space-y-1">
         <span className="text-xs sm:text-sm font-extrabold text-slate-800">{label}</span>
         <div className="w-full sm:w-48 bg-slate-200 rounded-full h-2 overflow-hidden">
-          <div className="bg-[#0F4B3A] h-2 rounded-full transition-all duration-300" style={{ width: `${percent}%` }} />
+          <div className="bg-[#0b3763] h-2 rounded-full transition-all duration-300" style={{ width: `${percent}%` }} />
         </div>
       </div>
       <span className={`px-3 py-1 rounded-full text-[11px] font-black shrink-0 ${statusColors[status]}`}>

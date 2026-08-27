@@ -60,10 +60,10 @@ export function InternationalTestList() {
   const processedTests = data?.data || [];
 
   return (
-    <div className="flex flex-col gap-5 lg:flex-row lg:gap-8">
+    <div className="rounded-[2rem] bg-[#f7f9fc] p-4 sm:p-6"><div className="mb-8 rounded-3xl bg-gradient-to-br from-[#071d3a] via-[#0b3763] to-[#123f6b] px-6 py-10 text-white"><p className="text-sm font-black text-[#e3bd67]">{t('international_tests')}</p><h1 className="mt-2 text-3xl font-black">{t('official_test_guidance')}</h1></div><div className="flex flex-col gap-5 lg:flex-row lg:gap-8">
       <Seo title={t('international_tests')} description={t('browse_international_language_admission_graduate_a')} />
       <aside className="w-full flex-shrink-0 lg:w-72">
-        <div className="rounded-2xl border bg-white p-4 shadow-sm lg:sticky lg:top-4">
+        <div className="rounded-3xl border border-[#d6ae57]/35 bg-white p-4 shadow-sm lg:sticky lg:top-4">
           <h2 className="text-lg font-bold mb-1">{t('find_a_test')}</h2>
           <p className="mb-4 text-sm text-gray-500">{t('filter_by_test_type_or_provider')}</p>
           <div className="space-y-4">
@@ -150,6 +150,7 @@ export function InternationalTestList() {
           </div>
         )}
       </main>
+      </div>
     </div>
   );
 }

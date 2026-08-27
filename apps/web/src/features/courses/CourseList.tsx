@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ApiClient, PaginatedResult, PublicCourseDto } from '../../api/client';
 import { Button } from '@manaratak/ui';
 import { useTranslation } from "../../i18n/I18nProvider";
+import { localizePathname } from '../../i18n/localeRouting';
 
 function getAccessTypeLabel(accessType: string, t: (key: string) => string) {
   switch (accessType) {
@@ -26,7 +27,7 @@ function renderShortList(items?: string[], limit = 3) {
 }
 
 export function CourseList() {
-    const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<PaginatedResult<PublicCourseDto> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,9 +90,14 @@ export function CourseList() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row gap-8">
-      <aside className="w-full md:w-72 space-y-6 flex-shrink-0">
-        <div>
+    <div className="rounded-[2rem] bg-[#f7f9fc] p-4 sm:p-6">
+      <header className="mb-8 rounded-3xl bg-gradient-to-b from-[#071d3a] via-[#0b3763] to-[#0b2a50] px-6 py-10 text-center text-white">
+        <p className="text-sm font-black text-[#e3bd67]">{t('courses')}</p>
+        <h1 className="mt-2 text-3xl font-black">{t('explore_manaratak_courses_global_free_courses_and_')}</h1>
+      </header>
+      <div className="flex flex-col gap-8 md:flex-row">
+      <aside className="w-full flex-shrink-0 space-y-6 md:w-72">
+        <div className="rounded-3xl border border-[#d6ae57]/40 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold mb-4">{t('filters')}</h2>
 
           <div className="space-y-4">
@@ -146,7 +152,7 @@ export function CourseList() {
               />
             </div>
 
-            <Button onClick={handleApplyFilters} className="w-full">
+            <Button onClick={handleApplyFilters} className="w-full bg-[#0b3763] text-white hover:bg-[#071d3a]">
               {t('apply_filters')}</Button>
           </div>
         </div>
@@ -154,8 +160,7 @@ export function CourseList() {
 
       <main className="flex-1">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">{t('courses')}</h1>
-          <p className="text-gray-600">{t('explore_manaratak_courses_global_free_courses_and_')}</p>
+          <h2 className="mb-2 text-2xl font-black text-[#0b2a50]">{t('courses')}</h2>
         </div>
 
         {loading ? (
@@ -168,11 +173,11 @@ export function CourseList() {
         ) : (
           <div className="space-y-4">
             {data.data.map((course) => (
-              <article key={course.publicId} className="border rounded-xl p-6 hover:shadow-md transition-shadow bg-white">
+              <article key={course.publicId} className="rounded-3xl border border-slate-200 bg-white p-6 transition hover:-translate-y-1 hover:border-[#d6ae57]/60 hover:shadow-xl">
                 <div className="flex justify-between gap-4">
                   <div>
                     <h3 className="text-xl font-bold mb-2">
-                      <Link to={`/courses/${course.slug}`} className="hover:text-blue-600 transition-colors">
+                      <Link to={localizePathname(`/courses/${course.slug}`, language)} className="text-[#0b2a50] transition-colors hover:text-[#9a7427]">
                         {course.displayName}
                       </Link>
                     </h3>
@@ -229,6 +234,7 @@ export function CourseList() {
           </div>
         )}
       </main>
+      </div>
     </div>
   );
 }

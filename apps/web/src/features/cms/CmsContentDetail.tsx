@@ -66,7 +66,7 @@ export function CmsContentDetail() {
         {t('lt_back_to_articles')}
       </Link>
 
-      <header className="bg-white border rounded-3xl shadow-sm p-5 sm:p-8">
+      <header className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#071d3a] via-[#0b3763] to-[#123f6b] p-5 text-white shadow-xl sm:p-8">
         <div className="flex flex-wrap gap-3 text-sm mb-5">
           <span className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full font-medium">
             {formatLabel(data.contentType)}

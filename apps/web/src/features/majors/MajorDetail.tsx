@@ -148,7 +148,7 @@ export function MajorDetail() {
     return (
       <main dir={dir} className="flex min-h-[60vh] items-center justify-center px-4" style={{ fontFamily: "'Cairo', sans-serif" }}>
         <div className="flex items-center gap-3 rounded-lg border border-slate-100 bg-white px-4 py-3 text-[13px] font-bold text-slate-500 shadow-sm">
-          <Loader2 className="h-5 w-5 animate-spin text-emerald-700" />
+          <Loader2 className="h-5 w-5 animate-spin text-[#b68b34]" />
           {t('loading_major_details')}
         </div>
       </main>
@@ -174,19 +174,17 @@ export function MajorDetail() {
   const summaryText = data.studentFriendlySummary || data.description || emptyLabel;
 
   return (
-    <main dir={dir} className="mx-auto max-w-6xl space-y-5 px-4 py-4 sm:px-6 lg:px-8" style={{ fontFamily: "'Cairo', sans-serif" }}>
+    <main dir={dir} className="-mx-4 -my-6 min-h-screen space-y-5 bg-[#f7f9fc] pb-16 sm:-my-10" style={{ fontFamily: "'Cairo', sans-serif" }}>
       <Seo title={data.displayName} description={data.studentFriendlySummary || data.description || data.displayName} />
 
-      <Link to={majorsHref} className="inline-flex min-h-10 items-center gap-2 text-[13px] font-extrabold text-emerald-800 hover:text-emerald-950">
-        <ArrowRight className={`h-4 w-4 ${dir === 'rtl' ? '' : 'rotate-180'}`} />
-        {t('lt_back_to_majors')}
-      </Link>
-
-      <header className="rounded-xl bg-[#071322] p-4 text-white shadow-sm sm:p-6">
+      <header className="relative overflow-hidden bg-gradient-to-b from-[#071d3a] via-[#0b3763] to-[#0b2a50] px-4 py-10 text-white shadow-sm sm:px-8 sm:py-14">
+        <div className="absolute -left-24 -top-32 h-80 w-80 rounded-full border border-[#d6ae57]/20" />
+        <div className="relative mx-auto max-w-6xl">
+        <Link to={majorsHref} className="mb-6 inline-flex min-h-10 items-center gap-2 text-[13px] font-extrabold text-blue-100 hover:text-[#e3bd67]"><ArrowRight className={`h-4 w-4 ${dir === 'rtl' ? '' : 'rotate-180'}`} />{t('lt_back_to_majors')}</Link>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
             <div className="mb-3 flex flex-wrap gap-2">
-              <span className="rounded-md bg-emerald-400/15 px-2.5 py-1 text-[12px] font-bold text-emerald-200">{degreeLabel}</span>
+              <span className="rounded-full bg-[#d6ae57] px-3 py-1 text-[12px] font-black text-[#071d3a]">{degreeLabel}</span>
               {data.classificationCode && (
                 <span className="rounded-md bg-white/10 px-2.5 py-1 font-mono text-[12px] font-bold">{data.classificationCode}</span>
               )}
@@ -204,11 +202,13 @@ export function MajorDetail() {
             <InfoTile label={t('college_faculty')} value={data.collegeOrFaculty} emptyLabel={emptyLabel} />
           </dl>
         </div>
+        </div>
       </header>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="mx-auto max-w-6xl space-y-5 px-4 sm:px-6 lg:px-8">
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <h2 className="mb-2 flex items-center gap-2 text-[17px] font-black text-slate-950">
-          <BookOpen className="h-5 w-5 text-emerald-700" />
+          <BookOpen className="h-5 w-5 text-[#b68b34]" />
           {t('overview')}
         </h2>
         <p className="whitespace-pre-wrap text-[14px] leading-8 text-slate-700">{summaryText}</p>
@@ -219,7 +219,7 @@ export function MajorDetail() {
           {templateSections.map((section) => {
             const heading = section.matched?.title || (language === 'ar' ? section.titleAr : section.titleEn);
             return (
-              <article key={section.key} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <article key={section.key} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="text-[16px] font-black leading-7 text-slate-950">{heading}</h2>
                 <p className="mt-2 whitespace-pre-wrap text-[13px] leading-8 text-slate-700">
                   {section.matched?.content || emptyLabel}
@@ -316,6 +316,7 @@ export function MajorDetail() {
       </div>
 
       <RelatedPublicLinks current="majors" />
+      </div>
     </main>
   );
 }

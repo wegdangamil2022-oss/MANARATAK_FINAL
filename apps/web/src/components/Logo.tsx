@@ -7,9 +7,9 @@ interface LogoProps {
 
 export function Logo({ className = '', showText = true }: LogoProps) {
   return (
-    <div className={`flex items-center gap-4 select-none ${className}`}>
+    <div className={`flex items-center gap-2 select-none sm:gap-4 ${className}`}>
       {/* 2. شكل وحجم إطار اللوجو (Circle Container) */}
-      <div className="w-[80px] h-[80px] md:w-[96px] md:h-[96px] rounded-full bg-white border border-gray-100 shadow-sm flex items-center justify-center p-0 overflow-hidden flex-shrink-0">
+      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-full border border-gray-100 bg-white p-0 shadow-sm sm:h-20 sm:w-20 md:h-24 md:w-24">
         {/* Dynamic, pixel-perfect vector representation of the green-gold lighthouse logo, acting as object-cover fitting 100% */}
         <svg
           viewBox="0 0 120 120"
@@ -18,7 +18,7 @@ export function Logo({ className = '', showText = true }: LogoProps) {
           className="w-full h-full rounded-full object-cover flex-shrink-0"
         >
           {/* Deep Green Base Circle - using the #0F4B3A olive green specified */}
-          <circle cx="60" cy="60" r="58" fill="#0F4B3A" />
+          <circle cx="60" cy="60" r="58" fill="#0b3763" />
           
           {/* Double Gold Ring Border - using #C8A24A gold specified */}
           <circle cx="60" cy="60" r="54" stroke="#C8A24A" strokeWidth="1.5" strokeOpacity="0.95" />
@@ -83,13 +83,13 @@ export function Logo({ className = '', showText = true }: LogoProps) {
       </div>
 
       {showText && (
-        <div className="flex flex-col text-right">
+        <div className="hidden flex-col text-right sm:flex">
           {/* نص اسم المنصة (MANARATAK) */}
-          <span className="text-[18px] font-bold uppercase tracking-tight text-[#0F4B3A] font-display leading-tight">
+          <span className="text-[18px] font-bold uppercase tracking-tight text-[#0b3763] font-display leading-tight">
             MANARATAK
           </span>
           {/* النص الفرعي (منارتك للمنح الدراسية) */}
-          <span className="text-[11px] font-medium text-[#0F4B3A]/80 leading-snug">
+          <span className="text-[11px] font-medium text-[#0b3763]/80 leading-snug">
             منارتك للمنح الدراسية
           </span>
         </div>

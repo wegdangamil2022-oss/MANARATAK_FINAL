@@ -253,8 +253,8 @@ export function StudentWorkspacePage() {
   if (error && !dashboard) {
     return (
       <main dir="rtl" className="mx-auto max-w-xl px-4 py-24 text-center">
-        <div className="rounded-[2rem] border border-emerald-100 bg-white p-10 shadow-sm">
-          <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-emerald-50 text-3xl">
+        <div className="rounded-[2rem] border border-[#d6ae57]/35 bg-white p-10 shadow-sm">
+          <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-[#eaf1f8] text-3xl">
             🔒
           </div>
           <h1 className="text-2xl font-black text-slate-900">مساحة الطالب محمية</h1>
@@ -262,7 +262,7 @@ export function StudentWorkspacePage() {
           <div className="mt-7 flex justify-center gap-3">
             <Link
               to="/login"
-              className="rounded-xl bg-emerald-700 px-6 py-3 font-bold text-white hover:bg-emerald-800"
+              className="rounded-xl bg-[#0b3763] px-6 py-3 font-bold text-white hover:bg-[#071d3a]"
             >
               تسجيل الدخول
             </Link>
@@ -286,8 +286,8 @@ export function StudentWorkspacePage() {
   const accessibility = (workspace.accessibilityPreferences || {}) as Record<string, unknown>;
 
   return (
-    <main dir="rtl" className="min-h-screen bg-[#f4f8f6] pb-16 text-slate-900">
-      <section className="relative overflow-hidden bg-[#075e45] text-white">
+    <main dir="rtl" className="min-h-screen bg-[#f7f9fc] pb-16 text-slate-900">
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#071d3a] via-[#0b3763] to-[#123f6b] text-white">
         <div
           className="absolute inset-0 opacity-20"
           style={{
@@ -301,11 +301,11 @@ export function StudentWorkspacePage() {
                 {(workspace.displayName || 'ط').trim().charAt(0)}
               </div>
               <div>
-                <p className="mb-2 text-sm font-bold text-emerald-100">{greeting}</p>
+                <p className="mb-2 text-sm font-bold text-[#e3bd67]">{greeting}</p>
                 <h1 className="text-3xl font-black sm:text-4xl">
                   {workspace.displayName || 'طالب مناراتك'}
                 </h1>
-                <p className="mt-2 max-w-2xl text-emerald-50/80">
+                <p className="mt-2 max-w-2xl text-blue-100/80">
                   مساحتك الخاصة لتنظيم التعلم والفرص والشهادات والقرارات المهمة.
                 </p>
               </div>
@@ -319,7 +319,7 @@ export function StudentWorkspacePage() {
         </div>
       </section>
 
-      <div className="sticky top-0 z-20 border-b border-emerald-100 bg-white/95 shadow-sm backdrop-blur">
+      <div className="sticky top-0 z-20 border-b border-blue-100 bg-white/95 shadow-sm backdrop-blur">
         <nav
           aria-label="أقسام مساحة الطالب"
           className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-4 py-3 sm:px-6 lg:px-8"
@@ -330,7 +330,7 @@ export function StudentWorkspacePage() {
               type="button"
               onClick={() => setTab(item.id)}
               aria-current={tab === item.id ? 'page' : undefined}
-              className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${tab === item.id ? 'bg-emerald-700 text-white shadow' : 'text-slate-600 hover:bg-emerald-50 hover:text-emerald-800'}`}
+              className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${tab === item.id ? 'bg-[#0b3763] text-white shadow' : 'text-slate-600 hover:bg-blue-50 hover:text-[#0b3763]'}`}
             >
               <span aria-hidden="true">{item.icon}</span>
               {item.label}

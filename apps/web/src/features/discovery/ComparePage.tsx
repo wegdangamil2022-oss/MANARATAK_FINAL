@@ -35,9 +35,9 @@ export function ComparePage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6 rounded-[2rem] bg-[#f7f9fc] p-4 sm:p-6">
       <Seo title={t('compare_opportunities')} description={t('compare_published_scholarships_courses_and_interna')} />
-      <section className="rounded-3xl bg-gradient-to-br from-blue-900 to-slate-950 p-5 text-white shadow-sm sm:p-8">
+      <section className="rounded-3xl border border-[#d6ae57]/20 bg-gradient-to-br from-[#071d3a] via-[#0b3763] to-[#123f6b] p-5 text-white shadow-xl sm:p-8">
         <p className="text-sm font-semibold uppercase tracking-wide text-blue-200">{t('compare')}</p>
         <h1 className="mt-2 text-3xl font-black sm:text-4xl">{t('compare_opportunities')}</h1>
         <p className="mt-3 max-w-2xl text-base leading-7 text-slate-200">

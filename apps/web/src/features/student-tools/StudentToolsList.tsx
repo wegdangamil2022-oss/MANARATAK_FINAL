@@ -56,7 +56,7 @@ export function StudentToolsList() {
         title="أدوات الطلاب | منارتك"
         description="أدوات أكاديمية موثوقة للتخطيط والمقارنة وإعداد الطلبات."
       />
-      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-l from-emerald-950 via-emerald-800 to-teal-700 px-6 py-12 text-white shadow-xl sm:px-10">
+      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-l from-[#071d3a] via-[#0b3763] to-[#123f6b] px-6 py-12 text-white shadow-xl sm:px-10">
         <div className="absolute -left-12 -top-12 h-52 w-52 rounded-full bg-white/10" />
         <p className="mb-3 text-sm font-bold text-emerald-200">منصة أدوات الطالب</p>
         <h1 className="max-w-3xl text-3xl font-black leading-tight sm:text-5xl">
@@ -79,7 +79,7 @@ export function StudentToolsList() {
       </section>
       {error ? <Notice tone="error">تعذر تحميل الأدوات: {error}</Notice> : null}
       {loading ? (
-        <div className="rounded-3xl border border-emerald-100 bg-white p-16 text-center text-slate-500">
+        <div className="rounded-3xl border border-[#d6ae57]/30 bg-white p-16 text-center text-slate-500">
           جاري تحميل الأدوات...
         </div>
       ) : (
@@ -108,7 +108,7 @@ export function StudentToolsList() {
           </section>
         </>
       )}
-      <section className="rounded-3xl border border-emerald-100 bg-emerald-50 p-6 text-sm leading-7 text-emerald-950">
+      <section className="rounded-3xl border border-[#d6ae57]/35 bg-[#fbf5e6] p-6 text-sm leading-7 text-[#0b2a50]">
         <strong>الثقة والذكاء الاصطناعي:</strong> الأدوات الذكية تتصل بمنصة Phase 17 عبر صلاحية
         وظيفية محكومة فقط. لا تتصل بأي مزود مباشرة، وقد تظهر «غير مهيأة» إلى أن يكتمل إعداد التشغيل
         في Google Studio.

@@ -46,12 +46,12 @@ export function ServiceDetail() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="-mx-4 -my-6 min-h-screen space-y-6 bg-[#f7f9fc] px-4 py-8 sm:-my-10">
       <Seo title={data.displayName} description={data.serviceDescription || `${data.displayName} service details and requirements.`} />
       <Link to="/services" className="mb-4 inline-block text-sm font-bold text-blue-700 hover:underline">{t('lt_back_to_services')}</Link>
 
-      <div className="overflow-hidden rounded-3xl border bg-white shadow-sm">
-        <div className="border-b bg-gradient-to-br from-cyan-50 to-white p-5 sm:p-8">
+      <div className="mx-auto max-w-5xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+        <div className="border-b border-white/10 bg-gradient-to-br from-[#071d3a] via-[#0b3763] to-[#0b2a50] p-5 text-white sm:p-8">
           <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-cyan-700">{t('service_details')}</p>
           <h1 className="text-3xl font-black leading-tight tracking-tight sm:text-5xl">{data.displayName}</h1>
           <div className="flex flex-wrap gap-3 text-sm">
