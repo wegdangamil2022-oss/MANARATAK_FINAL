@@ -284,6 +284,39 @@ export const MOCK_UNIVERSITIES: University[] = [
       currency: 'الجنيه الإسترليني (GBP)',
       officialUrl: 'https://www.ox.ac.uk/admissions/graduate/colleges/living-in-oxford',
     },
+    livingCosts: {
+      monthlyEstimate: '1,405 - 2,105 £ شهرياً',
+      currency: 'الجنيه الإسترليني (GBP)',
+      variationNote: 'تختلف التكلفة الفعلية حسب نوع السكن ونمط المعيشة والاحتياجات الشخصية للطالب.',
+      officialUrl: 'https://www.ox.ac.uk/admissions/graduate/fees-and-funding/living-costs',
+    },
+    officialContacts: {
+      phone: '+44 1865 270000',
+      officialWebsite: 'https://www.ox.ac.uk/',
+      mainSocial: {
+        label: 'قنوات جامعة أكسفورد الرسمية',
+        url: 'https://communications.admin.ox.ac.uk/digital-communications/social/social-media-channels',
+      },
+      governmentRegister: {
+        label: 'سجل Office for Students',
+        url: 'https://www.officeforstudents.org.uk/for-providers/registering-with-the-ofs/the-ofs-register/',
+      },
+      usefulLinks: [
+        {
+          label: 'صفحة التواصل الرسمية',
+          url: 'https://www.ox.ac.uk/about/contact-us',
+        },
+        {
+          label: 'دليل التقديم الرسمي',
+          url: 'https://www.ox.ac.uk/admissions/graduate/applying-to-oxford/application-guide',
+        },
+      ],
+    },
+    dataTrust: {
+      lastVerified: 'أغسطس 2026',
+      sourceLabel: 'الموقع الرسمي لجامعة أكسفورد',
+      sourceUrl: 'https://www.ox.ac.uk/',
+    },
     internationalAdmissions: {
       acceptsInternationalStudents: true,
       acceptsDescription:

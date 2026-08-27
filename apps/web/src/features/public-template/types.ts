@@ -116,6 +116,32 @@ export interface UniversityHousing {
   officialUrl?: string;
 }
 
+export interface UniversityLivingCosts {
+  monthlyEstimate: string;
+  currency: string;
+  variationNote: string;
+  officialUrl?: string;
+}
+
+export interface UniversityOfficialLink {
+  label: string;
+  url: string;
+}
+
+export interface UniversityOfficialContacts {
+  phone?: string;
+  officialWebsite: string;
+  mainSocial?: UniversityOfficialLink;
+  governmentRegister?: UniversityOfficialLink;
+  usefulLinks?: UniversityOfficialLink[];
+}
+
+export interface UniversityDataTrust {
+  lastVerified: string;
+  sourceLabel: string;
+  sourceUrl: string;
+}
+
 export interface UniversityStudyPrograms {
   degrees?: string[];
   faculties?: string[];
@@ -158,6 +184,9 @@ export interface University {
   languageRequirements?: UniversityLanguageRequirements;
   documentRequirements?: UniversityDocumentRequirements;
   housing?: UniversityHousing;
+  livingCosts?: UniversityLivingCosts;
+  officialContacts?: UniversityOfficialContacts;
+  dataTrust?: UniversityDataTrust;
   studyPrograms?: UniversityStudyPrograms;
   internationalAdmissions?: UniversityInternationalAdmissions;
 }

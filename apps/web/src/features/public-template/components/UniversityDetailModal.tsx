@@ -34,6 +34,9 @@ import {
   Wrench,
   Banknote,
   Info,
+  Phone,
+  Share2,
+  ShieldCheck,
 } from 'lucide-react';
 import { University } from '../types';
 
@@ -919,6 +922,9 @@ function UniversityDecisionSections({ university }: { university: University }) 
   const language = university.languageRequirements;
   const documents = university.documentRequirements;
   const housing = university.housing;
+  const livingCosts = university.livingCosts;
+  const contacts = university.officialContacts;
+  const dataTrust = university.dataTrust;
 
   return (
     <div className="-mx-4 sm:-mx-6" dir="rtl">
@@ -1006,7 +1012,132 @@ function UniversityDecisionSections({ university }: { university: University }) 
           </div>
         </section>
       )}
+
+      {livingCosts && (
+        <section
+          className="border-b border-[#E9DCBF] dark:border-[#153C63] bg-white dark:bg-[#041628]"
+          aria-labelledby="university-living-costs-title"
+        >
+          <CompactSectionHeader
+            id="university-living-costs-title"
+            title="تكاليف المعيشة"
+            icon={<Banknote className="h-4 w-4" />}
+          />
+          <div className="space-y-2.5 px-4 pb-4 sm:px-5">
+            <div className="grid grid-cols-2 gap-2">
+              <CompactFact label="التكلفة الشهرية التقديرية" value={livingCosts.monthlyEstimate} />
+              <CompactFact label="العملة" value={livingCosts.currency} />
+            </div>
+            <p className="rounded-xl border border-[#E9DCBF] bg-[#FAF5EA] px-3 py-2 text-[9.5px] font-semibold leading-4 text-slate-600 dark:border-[#1A456E] dark:bg-[#082440] dark:text-slate-300">
+              {livingCosts.variationNote}
+            </p>
+            {livingCosts.officialUrl && (
+              <OfficialInfoLink
+                href={livingCosts.officialUrl}
+                label="تفاصيل تكاليف المعيشة الرسمية"
+              />
+            )}
+          </div>
+        </section>
+      )}
+
+      {contacts && (
+        <section
+          className="border-b border-[#E9DCBF] bg-[#FAFAFA] dark:border-[#153C63] dark:bg-[#041628]"
+          aria-labelledby="university-official-contacts-title"
+        >
+          <CompactSectionHeader
+            id="university-official-contacts-title"
+            title="التواصل والروابط الرسمية"
+            icon={<Phone className="h-4 w-4" />}
+          />
+          <div className="grid grid-cols-1 gap-1.5 px-4 pb-4 sm:grid-cols-2 sm:px-5">
+            {contacts.phone && (
+              <ReferenceLink
+                href={`tel:${contacts.phone.replace(/\s/g, '')}`}
+                label="الهاتف الرسمي"
+                value={contacts.phone}
+              />
+            )}
+            <ReferenceLink href={contacts.officialWebsite} label="الموقع الرسمي" value="ox.ac.uk" />
+            {contacts.mainSocial && (
+              <ReferenceLink
+                href={contacts.mainSocial.url}
+                label="التواصل الاجتماعي"
+                value={contacts.mainSocial.label}
+                icon={<Share2 className="h-3.5 w-3.5" />}
+              />
+            )}
+            {contacts.governmentRegister && (
+              <ReferenceLink
+                href={contacts.governmentRegister.url}
+                label="الجهة الرسمية"
+                value={contacts.governmentRegister.label}
+              />
+            )}
+            {contacts.usefulLinks?.map((link) => (
+              <ReferenceLink
+                key={link.url}
+                href={link.url}
+                label="رابط رسمي مفيد"
+                value={link.label}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {dataTrust && (
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-[#002E52] px-4 py-2.5 text-[9px] font-bold text-slate-200">
+          <span className="flex items-center gap-1">
+            <ShieldCheck className="h-3.5 w-3.5 text-[#E4B343]" />
+            آخر تحقق من البيانات: {dataTrust.lastVerified}
+          </span>
+          <span className="hidden h-3 w-px bg-white/25 sm:block" />
+          <a
+            href={dataTrust.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#F2CC72] underline-offset-2 hover:underline"
+          >
+            المصدر: {dataTrust.sourceLabel}
+          </a>
+        </div>
+      )}
     </div>
+  );
+}
+
+function ReferenceLink({
+  href,
+  label,
+  value,
+  icon,
+}: {
+  href: string;
+  label: string;
+  value: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      target={href.startsWith('tel:') ? undefined : '_blank'}
+      rel={href.startsWith('tel:') ? undefined : 'noopener noreferrer'}
+      className="group flex min-h-12 items-center gap-2 rounded-xl border border-[#E9DCBF] bg-white px-3 py-2 transition-colors hover:border-[#D9A93A] dark:border-[#1A456E] dark:bg-[#082440]"
+    >
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#064D83]/10 text-[#064D83] dark:bg-[#E4B343]/10 dark:text-[#E4B343]">
+        {icon ?? <ExternalLink className="h-3.5 w-3.5" />}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[8.5px] font-black text-[#9A7427] dark:text-[#E4B343]">
+          {label}
+        </span>
+        <span className="block text-[9.5px] font-bold leading-4 text-slate-700 group-hover:text-[#064D83] dark:text-slate-200">
+          {value}
+        </span>
+      </span>
+    </a>
   );
 }
 
