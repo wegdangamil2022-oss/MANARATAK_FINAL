@@ -249,6 +249,41 @@ export const MOCK_UNIVERSITIES: University[] = [
           'https://www.ox.ac.uk/admissions/undergraduate/fees-and-funding/oxford-bursaries-and-scholarships/reach-oxford',
       },
     ],
+    languageRequirements: {
+      required: true,
+      languages: ['اللغة الإنجليزية'],
+      acceptedTests: [
+        'IELTS Academic',
+        'TOEFL iBT',
+        'Cambridge C1 Advanced',
+        'Cambridge C2 Proficiency',
+        'Oxford Test of English Advanced',
+      ],
+      officialUrl:
+        'https://www.ox.ac.uk/admissions/graduate/international-applicants/english-language-requirements',
+    },
+    documentRequirements: {
+      generalDocuments: [
+        'السجل الأكاديمي الرسمي وكشف الدرجات',
+        'خطابات التوصية المطلوبة للبرنامج',
+        'البيان الشخصي أو بيان الغرض من الدراسة',
+        'إثبات اللغة الإنجليزية عند اشتراطه',
+      ],
+      graduateAdditionalDocuments: [
+        'مقترح بحث للبرامج البحثية عند طلبه',
+        'نماذج من الأعمال الكتابية وفق متطلبات البرنامج',
+        'السيرة الذاتية الأكاديمية أو المهنية عند طلبها',
+      ],
+      officialUrl:
+        'https://www.ox.ac.uk/admissions/graduate/application-guide/supporting-documents/supporting-documents-requirements',
+    },
+    housing: {
+      available: true,
+      internationalStudentsEligible: true,
+      typicalCost: '825 - 990 £ شهرياً',
+      currency: 'الجنيه الإسترليني (GBP)',
+      officialUrl: 'https://www.ox.ac.uk/admissions/graduate/colleges/living-in-oxford',
+    },
     internationalAdmissions: {
       acceptsInternationalStudents: true,
       acceptsDescription:

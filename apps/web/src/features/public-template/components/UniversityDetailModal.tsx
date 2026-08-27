@@ -908,7 +908,172 @@ export const UniversityDetailModal: React.FC<UniversityDetailModalProps> = ({
             </div>
           </section>
         )}
+
+        <UniversityDecisionSections university={university} />
       </div>
     </div>
   );
 };
+
+function UniversityDecisionSections({ university }: { university: University }) {
+  const language = university.languageRequirements;
+  const documents = university.documentRequirements;
+  const housing = university.housing;
+
+  return (
+    <div className="-mx-4 sm:-mx-6" dir="rtl">
+      {language && (
+        <section
+          className="border-b border-[#E9DCBF] dark:border-[#153C63] bg-[#FAFAFA] dark:bg-[#041628]"
+          aria-labelledby="language-requirements-title"
+        >
+          <CompactSectionHeader
+            id="language-requirements-title"
+            title="متطلبات اللغة"
+            icon={<Languages className="h-4 w-4" />}
+          />
+          <div className="space-y-3 px-4 pb-4 sm:px-5">
+            <div className="grid grid-cols-2 gap-2">
+              <CompactFact label="هل توجد متطلبات لغة؟" value={language.required ? 'نعم' : 'لا'} />
+              <CompactFact label="اللغة المطلوبة" value={language.languages.join('، ')} />
+            </div>
+            <div className="rounded-xl border border-slate-200 dark:border-[#1A456E] bg-white dark:bg-[#082440] p-3">
+              <p className="mb-2 text-[10px] font-black text-[#064D83] dark:text-[#E4B343]">
+                الاختبارات المقبولة
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {language.acceptedTests.map((test) => (
+                  <span
+                    key={test}
+                    className="rounded-lg border border-[#D9A93A]/30 bg-[#FAF5EA] dark:bg-[#062038] px-2 py-1 text-[9.5px] font-bold text-slate-700 dark:text-slate-200"
+                  >
+                    {test}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <OfficialInfoLink href={language.officialUrl} label="متطلبات اللغة الرسمية" />
+          </div>
+        </section>
+      )}
+
+      {documents && (
+        <section
+          className="border-b border-[#E9DCBF] dark:border-[#153C63] bg-white dark:bg-[#041628]"
+          aria-labelledby="required-documents-title"
+        >
+          <CompactSectionHeader
+            id="required-documents-title"
+            title="الوثائق المطلوبة"
+            icon={<FileText className="h-4 w-4" />}
+          />
+          <div className="grid gap-2.5 px-4 pb-4 sm:grid-cols-2 sm:px-5">
+            <DocumentList title="الوثائق العامة المطلوبة" items={documents.generalDocuments} />
+            <DocumentList
+              title="متطلبات إضافية للدراسات العليا"
+              items={documents.graduateAdditionalDocuments}
+            />
+            <div className="sm:col-span-2">
+              <OfficialInfoLink href={documents.officialUrl} label="دليل الوثائق الرسمي" />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {housing && (
+        <section
+          className="border-b border-[#064D83]/30 dark:border-[#153C63] bg-[#FAFAFA] dark:bg-[#041628]"
+          aria-labelledby="university-housing-title"
+        >
+          <CompactSectionHeader
+            id="university-housing-title"
+            title="السكن الجامعي"
+            icon={<Building2 className="h-4 w-4" />}
+          />
+          <div className="space-y-3 px-4 pb-4 sm:px-5">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <CompactFact label="هل يتوفر سكن؟" value={housing.available ? 'نعم' : 'لا'} />
+              <CompactFact
+                label="الطلاب الدوليون"
+                value={housing.internationalStudentsEligible ? 'مؤهلون' : 'غير مؤهلين'}
+              />
+              <CompactFact label="التكلفة النموذجية" value={housing.typicalCost} />
+              <CompactFact label="العملة" value={housing.currency} />
+            </div>
+            {housing.officialUrl && (
+              <OfficialInfoLink href={housing.officialUrl} label="معلومات السكن الرسمية" />
+            )}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function CompactSectionHeader({
+  id,
+  title,
+  icon,
+}: {
+  id: string;
+  title: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <header className="flex items-center justify-center gap-2 px-4 pb-3 pt-4">
+      <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#D9A93A]/50 bg-[#064D83] text-[#E4B343] shadow-sm">
+        {icon}
+      </span>
+      <h2 id={id} className="text-xs sm:text-sm font-black text-[#064D83] dark:text-[#E4B343]">
+        {title}
+      </h2>
+      <span className="h-px w-10 bg-gradient-to-l from-[#D9A93A] to-transparent" />
+    </header>
+  );
+}
+
+function CompactFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-xl border border-[#E9DCBF] dark:border-[#1A456E] bg-white dark:bg-[#082440] px-2.5 py-2.5 shadow-2xs">
+      <span className="block text-[9px] font-black text-[#9A7427] dark:text-[#E4B343]">
+        {label}
+      </span>
+      <span className="mt-1 block text-[10px] sm:text-[10.5px] font-bold leading-4 text-slate-700 dark:text-slate-200">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function DocumentList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="rounded-xl border border-[#E9DCBF] dark:border-[#1A456E] bg-[#FAFAFA] dark:bg-[#082440] p-3">
+      <h3 className="mb-2 text-[10px] font-black text-[#064D83] dark:text-[#E4B343]">{title}</h3>
+      <ul className="space-y-1.5">
+        {items.map((item) => (
+          <li
+            key={item}
+            className="flex items-start gap-1.5 text-[9.5px] sm:text-[10px] font-semibold leading-4 text-slate-600 dark:text-slate-300"
+          >
+            <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-[#D9A93A]" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function OfficialInfoLink({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex min-h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#002E52] via-[#064D83] to-[#002E52] px-3 text-[10px] font-black text-white shadow-sm transition-all hover:from-[#064D83] hover:to-[#0A5D9E] active:scale-[0.99]"
+    >
+      <span>{label}</span>
+      <ExternalLink className="h-3 w-3 text-[#D9A93A]" />
+    </a>
+  );
+}

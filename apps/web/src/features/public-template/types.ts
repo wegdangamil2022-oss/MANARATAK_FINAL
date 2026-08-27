@@ -95,6 +95,27 @@ export interface UniversityScholarship {
   officialUrl: string;
 }
 
+export interface UniversityLanguageRequirements {
+  required: boolean;
+  languages: string[];
+  acceptedTests: string[];
+  officialUrl: string;
+}
+
+export interface UniversityDocumentRequirements {
+  generalDocuments: string[];
+  graduateAdditionalDocuments: string[];
+  officialUrl: string;
+}
+
+export interface UniversityHousing {
+  available: boolean;
+  internationalStudentsEligible: boolean;
+  typicalCost: string;
+  currency: string;
+  officialUrl?: string;
+}
+
 export interface UniversityStudyPrograms {
   degrees?: string[];
   faculties?: string[];
@@ -134,6 +155,9 @@ export interface University {
   rankings?: UniversityRanking[];
   tuitionFees?: UniversityTuitionFees;
   scholarships?: UniversityScholarship[];
+  languageRequirements?: UniversityLanguageRequirements;
+  documentRequirements?: UniversityDocumentRequirements;
+  housing?: UniversityHousing;
   studyPrograms?: UniversityStudyPrograms;
   internationalAdmissions?: UniversityInternationalAdmissions;
 }
