@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import * as XLSX from 'xlsx';
+import { writeXlsxWorkbook } from '@manaratak/shared';
 import { CourseMasterArtifactParser } from '../../src/import-foundation/parsers/CourseMasterArtifactParser';
 
 const HEADERS = [
@@ -16,24 +16,19 @@ const HEADERS = [
   'Short Course Topics (4)',
 ];
 
-function workbookBytes(rows: unknown[][], sheetName = 'Courses'): Uint8Array {
-  const workbook = XLSX.utils.book_new();
-  const sheet = XLSX.utils.aoa_to_sheet([HEADERS, ...rows]);
-  XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
-  return new Uint8Array(
-    XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx', compression: true }),
-  );
+function workbookBytes(rows: unknown[][], sheetName = 'Courses'): Promise<Uint8Array> {
+  return writeXlsxWorkbook([{ name: sheetName, rows: [HEADERS, ...rows] }]);
 }
 
 describe('CourseMasterArtifactParser', () => {
-  it('parses exact course-master columns and preserves worksheet row numbers', () => {
-    const bytes = workbookBytes([
+  it('parses exact course-master columns and preserves worksheet row numbers', async () => {
+    const bytes = await workbookBytes([
       [1, 'Saylor University', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'Yes', 'Certificate of Completion', 'English', 'Not officially specified', '10 hours', 'Business'],
       ['   ', '', '', '', '', '', '', '', '', '', ''],
       [2, 'Saylor University', 'Course B', 'https://learn.saylor.org/course/view.php?id=2', 'Yes', 'No', 'None', 'English', 'Not officially specified', '8 hours', 'Ethics'],
     ]);
 
-    const result = CourseMasterArtifactParser.parse({
+    const result = await CourseMasterArtifactParser.parse({
       bytes,
       originalFilename: 'courses.xlsx',
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -45,12 +40,12 @@ describe('CourseMasterArtifactParser', () => {
     expect(result.security?.archiveEntryCount).toBeGreaterThan(0);
   });
 
-  it('accepts an exact-width row and trailing technically-empty XLSX cells', () => {
-    const bytes = workbookBytes([[
+  it('accepts an exact-width row and trailing technically-empty XLSX cells', async () => {
+    const bytes = await workbookBytes([[
       1, 'Saylor University', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'Yes',
       'Certificate', 'English', 'Level', '10h', 'Topic', '', '',
     ]]);
-    const result = CourseMasterArtifactParser.parse({
+    const result = await CourseMasterArtifactParser.parse({
       bytes,
       originalFilename: 'courses.xlsx',
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -62,12 +57,12 @@ describe('CourseMasterArtifactParser', () => {
     }));
   });
 
-  it('rejects an XLSX data row with a non-empty twelfth cell', () => {
-    const bytes = workbookBytes([[
+  it('rejects an XLSX data row with a non-empty twelfth cell', async () => {
+    const bytes = await workbookBytes([[
       1, 'Saylor University', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'Yes',
       'Certificate', 'English', 'Level', '10h', 'Topic', 'unexpected',
     ]]);
-    const result = CourseMasterArtifactParser.parse({
+    const result = await CourseMasterArtifactParser.parse({
       bytes,
       originalFilename: 'courses.xlsx',
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -81,29 +76,21 @@ describe('CourseMasterArtifactParser', () => {
     }));
   });
 
-  it('requires the Courses sheet', () => {
-    const bytes = workbookBytes([[1, 'x']], 'WrongSheet');
-    expect(() =>
+  it('requires the Courses sheet', async () => {
+    const bytes = await workbookBytes([[1, 'x']], 'WrongSheet');
+    await expect(
       CourseMasterArtifactParser.parse({
         bytes,
         originalFilename: 'courses.xlsx',
         mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         declaredByteSize: bytes.byteLength,
       }),
-    ).toThrow('COURSE_MASTER_REQUIRED_SHEET_MISSING');
+    ).rejects.toThrow('COURSE_MASTER_REQUIRED_SHEET_MISSING');
   });
 
-  it('reports missing required headers', () => {
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(
-      workbook,
-      XLSX.utils.aoa_to_sheet([['Course Name'], ['Course A']]),
-      'Courses',
-    );
-    const bytes = new Uint8Array(
-      XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx', compression: true }),
-    );
-    const result = CourseMasterArtifactParser.parse({
+  it('reports missing required headers', async () => {
+    const bytes = await writeXlsxWorkbook([{ name: 'Courses', rows: [['Course Name'], ['Course A']] }]);
+    const result = await CourseMasterArtifactParser.parse({
       bytes,
       originalFilename: 'courses.xlsx',
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -115,17 +102,11 @@ describe('CourseMasterArtifactParser', () => {
     ).toBe(true);
   });
 
-  it('rejects reordered required columns instead of positionally mis-mapping data', () => {
+  it('rejects reordered required columns instead of positionally mis-mapping data', async () => {
     const reordered = [...HEADERS];
     [reordered[1], reordered[2]] = [reordered[2], reordered[1]];
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(
-      workbook,
-      XLSX.utils.aoa_to_sheet([reordered, [1, 'Course A', 'Saylor University', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'No', 'None', 'English', 'Level', '10h', 'Topic']]),
-      'Courses',
-    );
-    const bytes = new Uint8Array(XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx', compression: true }));
-    const result = CourseMasterArtifactParser.parse({
+    const bytes = await writeXlsxWorkbook([{ name: 'Courses', rows: [reordered, [1, 'Course A', 'Saylor University', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'No', 'None', 'English', 'Level', '10h', 'Topic']] }]);
+    const result = await CourseMasterArtifactParser.parse({
       bytes,
       originalFilename: 'courses.xlsx',
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -135,16 +116,10 @@ describe('CourseMasterArtifactParser', () => {
     expect(result.issues.some((issue) => issue.code === 'COURSE_MASTER_COLUMN_CONTRACT_MISMATCH')).toBe(true);
   });
 
-  it('rejects an extra column in the approved course-master contract', () => {
+  it('rejects an extra column in the approved course-master contract', async () => {
     const headers = [...HEADERS.slice(0, 2), 'Unexpected Column', ...HEADERS.slice(2)];
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(
-      workbook,
-      XLSX.utils.aoa_to_sheet([headers, [1, 'Saylor University', 'extra', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'No', 'None', 'English', 'Level', '10h', 'Topic']]),
-      'Courses',
-    );
-    const bytes = new Uint8Array(XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx', compression: true }));
-    const result = CourseMasterArtifactParser.parse({
+    const bytes = await writeXlsxWorkbook([{ name: 'Courses', rows: [headers, [1, 'Saylor University', 'extra', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'No', 'None', 'English', 'Level', '10h', 'Topic']] }]);
+    const result = await CourseMasterArtifactParser.parse({
       bytes,
       originalFilename: 'courses.xlsx',
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -155,18 +130,14 @@ describe('CourseMasterArtifactParser', () => {
     expect(result.issues.some((issue) => issue.code === 'COURSE_MASTER_COLUMN_CONTRACT_MISMATCH')).toBe(true);
   });
 
-  it('rejects formula cells', () => {
-    const workbook = XLSX.utils.book_new();
-    const sheet = XLSX.utils.aoa_to_sheet([
+  it('rejects formula cells', async () => {
+    const rows = [
       HEADERS,
       [1, 'Saylor University', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'Yes', 'Certificate', 'English', 'Level', '10h', 'Topic'],
-    ]);
-    sheet.C2 = { t: 'n', f: '1+1', v: 2 };
-    XLSX.utils.book_append_sheet(workbook, sheet, 'Courses');
-    const bytes = new Uint8Array(
-      XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx', compression: true }),
-    );
-    const result = CourseMasterArtifactParser.parse({
+    ];
+    rows[1][2] = { formula: '1+1', result: 2 };
+    const bytes = await writeXlsxWorkbook([{ name: 'Courses', rows }]);
+    const result = await CourseMasterArtifactParser.parse({
       bytes,
       originalFilename: 'courses.xlsx',
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -177,10 +148,10 @@ describe('CourseMasterArtifactParser', () => {
     ).toBe(true);
   });
 
-  it('parses UTF-8 CSV with the same contract', () => {
+  it('parses UTF-8 CSV with the same contract', async () => {
     const csv = `${HEADERS.join(',')}\n1,Saylor University,Course A,https://learn.saylor.org/course/view.php?id=1,Yes,No,None,English,Not officially specified,10 hours,Topic`;
     const bytes = new TextEncoder().encode(csv);
-    const result = CourseMasterArtifactParser.parse({
+    const result = await CourseMasterArtifactParser.parse({
       bytes,
       originalFilename: 'courses.csv',
       mimeType: 'text/csv',
@@ -193,13 +164,13 @@ describe('CourseMasterArtifactParser', () => {
   it.each([
     ['extra', `${HEADERS.join(',')}\n1,Saylor University,Course A,https://learn.saylor.org/course/view.php?id=1,Yes,No,None,English,Level,10h,Topic,unexpected`],
     ['missing', `${HEADERS.join(',')}\n1,Saylor University,Course A,https://learn.saylor.org/course/view.php?id=1,Yes,No,None,English,Level,10h`],
-  ])('rejects CSV rows with a %s data column', (_kind, csv) => {
+  ])('rejects CSV rows with a %s data column', async (_kind, csv) => {
     const bytes = new TextEncoder().encode(csv);
-    expect(() => CourseMasterArtifactParser.parse({
+    await expect(CourseMasterArtifactParser.parse({
       bytes,
       originalFilename: 'courses.csv',
       mimeType: 'text/csv',
       declaredByteSize: bytes.byteLength,
-    })).toThrow('COURSE_MASTER_ROW_COLUMN_COUNT_MISMATCH');
+    })).rejects.toThrow('COURSE_MASTER_ROW_COLUMN_COUNT_MISMATCH');
   });
 });

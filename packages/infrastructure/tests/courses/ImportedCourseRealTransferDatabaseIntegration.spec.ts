@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import * as XLSX from 'xlsx';
+import { writeXlsxWorkbook } from '@manaratak/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PrismaClient } from '@prisma/client';
 import {
@@ -84,7 +84,7 @@ describeWithDatabase('WP-IC-10R1 artifact to atomic transfer on disposable Postg
 
   async function stageWorkbook(name: string) {
     const url = `https://example.org/course/${name}`;
-    const bytes = Buffer.from(XLSX.write({ SheetNames: ['Courses'], Sheets: { Courses: XLSX.utils.aoa_to_sheet([headers, [1, providerName, name, url, 'Yes', 'No', 'None', 'English', 'Beginner', '1 hour', 'Import; PostgreSQL']]) } }, { type: 'buffer', bookType: 'xlsx' }));
+    const bytes = Buffer.from(await writeXlsxWorkbook([{ name: 'Courses', rows: [headers, [1, providerName, name, url, 'Yes', 'No', 'None', 'English', 'Beginner', '1 hour', 'Import; PostgreSQL']] }]));
     const assetId = `asset-${randomUUID()}`;
     const locator = new AssetStorageLocator(AssetStorageZone.CLEAN, bucket, `clean/${assetId}.xlsx`);
     await mkdir(path.join(root, bucket, 'clean'), { recursive: true });

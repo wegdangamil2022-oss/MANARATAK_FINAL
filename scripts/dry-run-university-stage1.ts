@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import * as XLSX from 'xlsx';
+import { readXlsxWorkbook, spreadsheetRowsToObjects } from '@manaratak/shared';
 import { UniversityStage1DryRunUseCase } from '../packages/application/src/universities/use-cases/UniversityStage1DryRunUseCase';
 import type { UniversalImportHandoff } from '@manaratak/domain';
 
@@ -21,10 +21,12 @@ const artifacts: Array<{ fileName: string; sha256: string; records: number }> = 
 for (const fileName of files) {
   const filePath = path.join(sourceDirectory, fileName);
   const bytes = fs.readFileSync(filePath);
-  const workbook = XLSX.read(bytes, { type: 'buffer' });
-  const sheetName = workbook.SheetNames[0];
+  const workbook = await readXlsxWorkbook(bytes);
+  const sheetName = workbook.sheetNames[0];
   if (!sheetName) throw new Error(`Workbook has no sheets: ${fileName}`);
-  const rows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], { header: 1, defval: null, raw: false });
+  const sheet = workbook.sheets.get(sheetName);
+  if (!sheet) throw new Error(`Workbook sheet is unavailable: ${fileName}`);
+  const rows = sheet.textRows;
   const headerIndex = rows.findIndex(row => row.some(value => value === 'Reference ID'));
   if (headerIndex < 0) throw new Error(`Reference ID header not found: ${fileName}`);
 
@@ -77,10 +79,10 @@ for (const fileName of files) {
 }
 
 const countryBytes = fs.readFileSync(countrySourcePath);
-const countryWorkbook = XLSX.read(countryBytes, { type: 'buffer' });
-const countrySheet = countryWorkbook.Sheets.Countries;
+const countryWorkbook = await readXlsxWorkbook(countryBytes);
+const countrySheet = countryWorkbook.sheets.get('Countries');
 if (!countrySheet) throw new Error(`Countries sheet not found: ${countrySourcePath}`);
-const countryRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(countrySheet, { defval: null, raw: false });
+const countryRows = spreadsheetRowsToObjects<Record<string, unknown>>(countrySheet, { defaultValue: null, raw: false });
 const countriesByIso3 = new Map(
   countryRows.map(row => [
     text(row.iso_alpha3)?.toUpperCase(),

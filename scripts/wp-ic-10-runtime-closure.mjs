@@ -4,7 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
-import * as XLSX from 'xlsx';
+import { writeXlsxMatrix } from './lib/spreadsheet-workbook-adapter.mjs';
 import {
   WPIC10_EXPECTED_ROWS,
   WPIC10_HEADERS,
@@ -56,9 +56,7 @@ if (command === 'memory') {
       '1 hour',
       'Runtime; Memory; Import; Verification',
     ])];
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(matrix), 'Courses');
-    bytes = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx', compression: true });
+    bytes = await writeXlsxMatrix('Courses', matrix);
     source = 'synthetic-3663-shape';
   }
 
@@ -69,7 +67,7 @@ if (command === 'memory') {
   // workspace export maps while still rehearsing the exact parser implementation.
   execFileSync(process.execPath, [path.join(repoRoot, 'node_modules/esbuild/bin/esbuild'), parserSource, '--bundle', '--platform=node', '--format=cjs', `--outfile=${parserModule}`], { stdio: 'ignore' });
   const { CourseMasterArtifactParser } = createRequire(import.meta.url)(parserModule);
-  const parsed = CourseMasterArtifactParser.parse({
+  const parsed = await CourseMasterArtifactParser.parse({
     bytes: new Uint8Array(bytes),
     originalFilename: workbookPath ? path.basename(workbookPath) : 'wp-ic-10-synthetic-3663.xlsx',
     mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { execFileSync } from 'node:child_process';
-import * as XLSX from 'xlsx';
+import { readXlsxTextMatrix } from './lib/spreadsheet-workbook-adapter.mjs';
 import {
   WPIC08_HISTORICAL_PACKAGE_BASE_SHA,
   WPIC08_EXPECTED_SOURCE_ROWS,
@@ -44,7 +44,7 @@ if (!['source', 'dry-run', 'transfer'].includes(mode)) {
 
 fs.mkdirSync(outputDir, { recursive: true });
 
-const source = readOfficialWorkbook(workbookPath);
+const source = await readOfficialWorkbook(workbookPath);
 writeJson(path.join(outputDir, 'SOURCE_MANIFEST.json'), source.manifest);
 
 if (!source.manifest.pass) {
@@ -269,14 +269,12 @@ persistReport(outputDir, finalReport);
 console.log(JSON.stringify(finalReport, null, 2));
 if (!transferPass) process.exitCode = 3;
 
-function readOfficialWorkbook(filePath) {
+async function readOfficialWorkbook(filePath) {
   if (!fs.existsSync(filePath)) fatal(`Workbook not found: ${filePath}`);
   const bytes = fs.readFileSync(filePath);
   const workbookSha256 = sha256(bytes);
-  const workbook = XLSX.read(bytes, { type: 'buffer', dense: true });
-  const sheet = workbook.Sheets[WPIC08_SHEET_NAME];
-  if (!sheet) fatal(`Required sheet ${WPIC08_SHEET_NAME} not found.`);
-  const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, blankrows: false });
+  const matrix = await readXlsxTextMatrix(bytes, WPIC08_SHEET_NAME);
+  if (!matrix) fatal(`Required sheet ${WPIC08_SHEET_NAME} not found.`);
   if (matrix.length === 0) fatal('Courses sheet is empty.');
   const headers = matrix[0].map(text);
   const dataRows = matrix.slice(1).filter((row) => row.some((value) => text(value) !== ''));

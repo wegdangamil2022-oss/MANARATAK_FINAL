@@ -73,6 +73,11 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Prisma schema validation and client generation
+        env:
+          # Prisma resolves datasource environment references while validating the
+          # schema. This syntactically valid CI-only URL is never used to connect
+          # to PostgreSQL; runtime/database proof remains deferred to Google Studio.
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/manaratak_ci
         run: |
           npx prisma validate --schema=packages/infrastructure/prisma/schema.prisma
           npm run db:generate

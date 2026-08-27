@@ -206,7 +206,7 @@ export class CourseImportArtifactUseCase {
       }
     }
 
-    const parsed = CourseMasterArtifactParser.parse({
+    const parsed = await CourseMasterArtifactParser.parse({
       bytes,
       originalFilename: asset.metadata.originalFilename,
       mimeType: asset.metadata.mimeType,

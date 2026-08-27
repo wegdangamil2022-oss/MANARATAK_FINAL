@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import * as XLSX from 'xlsx';
+import { readXlsxWorkbook, spreadsheetRowsToObjects } from '@manaratak/shared';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -25,10 +25,11 @@ async function main() {
   }
 
   const buf = fs.readFileSync(filePath);
-  const workbook = XLSX.read(buf);
-  const sheetName = workbook.SheetNames[0];
-  const worksheet = workbook.Sheets[sheetName];
-  const rows: any[] = XLSX.utils.sheet_to_json(worksheet);
+  const workbook = await readXlsxWorkbook(buf);
+  const sheetName = workbook.sheetNames[0];
+  const worksheet = workbook.sheets.get(sheetName);
+  if (!worksheet) throw new Error('The workbook has no worksheets.');
+  const rows: any[] = spreadsheetRowsToObjects(worksheet);
 
   console.log(`File: ${fileName}`);
   console.log(`Found ${rows.length} countries in Excel.`);

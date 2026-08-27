@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import * as XLSX from 'xlsx';
+import { writeXlsxWorkbook } from '@manaratak/shared';
 import {
   AssetLifecycleState,
   AssetStorageLocator,
@@ -17,33 +17,21 @@ const HEADERS = [
 
 function artifactBytes(rows: unknown[][] = [[
   1, 'Saylor University', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'Yes', 'Certificate of Completion', 'English', 'Not officially specified', '10 hours', 'Business',
-]]): Uint8Array {
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(
-    workbook,
-    XLSX.utils.aoa_to_sheet([
-      HEADERS,
-      ...rows,
-    ]),
-    'Courses',
-  );
-  return new Uint8Array(
-    XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx', compression: true }),
-  );
+]]): Promise<Uint8Array> {
+  return writeXlsxWorkbook([{ name: 'Courses', rows: [HEADERS, ...rows] }]);
 }
 
-function formulaArtifactBytes(): Uint8Array {
-  const workbook = XLSX.utils.book_new();
-  const sheet = XLSX.utils.aoa_to_sheet([HEADERS, [
+function formulaArtifactBytes(): Promise<Uint8Array> {
+  const row: unknown[] = [
     1, 'Saylor University', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'Yes',
     'Certificate of Completion', 'English', 'Not officially specified', '10 hours', 'Business',
-  ]]);
-  sheet.C2 = { t: 'n', f: '1+1', v: 2 };
-  XLSX.utils.book_append_sheet(workbook, sheet, 'Courses');
-  return new Uint8Array(XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx', compression: true }));
+  ];
+  row[2] = { formula: '1+1', result: 2 };
+  return writeXlsxWorkbook([{ name: 'Courses', rows: [HEADERS, row] }]);
 }
 
-function fixture(existingArtifact = false, bytes = artifactBytes()) {
+async function fixture(existingArtifact = false, suppliedBytes?: Uint8Array) {
+  const bytes = suppliedBytes ?? await artifactBytes();
   const asset = {
     state: AssetLifecycleState.ACTIVE,
     locator: new AssetStorageLocator(AssetStorageZone.CLEAN, 'bucket', 'clean/courses.xlsx'),
@@ -98,7 +86,7 @@ function fixture(existingArtifact = false, bytes = artifactBytes()) {
 
 describe('CourseImportArtifactUseCase', () => {
   it('preflights without creating Phase 06 staging', async () => {
-    const { useCase, stageNormalizedRows } = fixture();
+    const { useCase, stageNormalizedRows } = await fixture();
     const result = await useCase.preflight({ assetId: 'asset-1' });
     expect(result.valid).toBe(true);
     expect(result.summary.rowsFound).toBe(1);
@@ -106,7 +94,7 @@ describe('CourseImportArtifactUseCase', () => {
   });
 
   it('stages through Phase 06 and embeds artifact provenance plus worksheet row', async () => {
-    const { useCase, stageNormalizedRows } = fixture();
+    const { useCase, stageNormalizedRows } = await fixture();
     const result = await useCase.stage({ assetId: 'asset-1' });
     expect(result.duplicateArtifact).toBe(false);
     const input = stageNormalizedRows.mock.calls[0][0];
@@ -117,7 +105,7 @@ describe('CourseImportArtifactUseCase', () => {
   });
 
   it('does not stage an exact artifact already present in Course import records', async () => {
-    const { useCase, stageNormalizedRows, listRecords, bytes } = fixture();
+    const { useCase, stageNormalizedRows, listRecords, bytes } = await fixture();
     const crypto = await import('crypto');
     const sha = crypto.createHash('sha256').update(Buffer.from(bytes)).digest('hex');
     listRecords.mockResolvedValue({
@@ -136,11 +124,11 @@ describe('CourseImportArtifactUseCase', () => {
   });
 
   it('fails closed when parser detects a non-empty cell outside the 11-column contract', async () => {
-    const bytes = artifactBytes([[
+    const bytes = await artifactBytes([[
       1, 'Saylor University', 'Course A', 'https://learn.saylor.org/course/view.php?id=1', 'Yes', 'Yes',
       'Certificate of Completion', 'English', 'Not officially specified', '10 hours', 'Business', 'unexpected',
     ]]);
-    const { useCase, stageNormalizedRows } = fixture(false, bytes);
+    const { useCase, stageNormalizedRows } = await fixture(false, bytes);
 
     const preflight = await useCase.preflight({ assetId: 'asset-1' });
     expect(preflight.valid).toBe(false);
@@ -154,7 +142,7 @@ describe('CourseImportArtifactUseCase', () => {
   });
 
   it('fails closed when the Courses sheet contains a formula cell', async () => {
-    const { useCase, stageNormalizedRows } = fixture(false, formulaArtifactBytes());
+    const { useCase, stageNormalizedRows } = await fixture(false, await formulaArtifactBytes());
     const preflight = await useCase.preflight({ assetId: 'asset-1' });
     expect(preflight.valid).toBe(false);
     expect(preflight.issues).toContainEqual(expect.objectContaining({

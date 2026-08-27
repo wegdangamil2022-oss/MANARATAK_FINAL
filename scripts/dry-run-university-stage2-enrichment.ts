@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import * as XLSX from 'xlsx';
+import { readXlsxWorkbook, spreadsheetRowsToObjects } from '@manaratak/shared';
 import { UniversityStage2EnrichmentDryRunUseCase } from '../packages/application/src/universities/use-cases/UniversityStage2EnrichmentDryRunUseCase';
 import type { UniversalImportHandoff } from '@manaratak/domain';
 
@@ -14,10 +14,10 @@ const handoffs: UniversalImportHandoff[] = [];
 const artifacts: Array<{ fileName: string; sha256: string; records: number; columns: number }> = [];
 for (const fileName of files) {
   const bytes = fs.readFileSync(path.join(sourceDirectory, fileName));
-  const workbook = XLSX.read(bytes, { type: 'buffer' });
-  const sheet = workbook.Sheets['Phase 1 Enrichment'];
+  const workbook = await readXlsxWorkbook(bytes);
+  const sheet = workbook.sheets.get('Phase 1 Enrichment');
   if (!sheet) throw new Error(`Phase 1 Enrichment sheet not found: ${fileName}`);
-  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: null, raw: false });
+  const rows = sheet.textRows;
   const headerIndex = rows.findIndex(row => row.some(value => value === 'University Reference ID'));
   if (headerIndex < 0) throw new Error(`University Reference ID header not found: ${fileName}`);
   const headers = rows[headerIndex].map(value => text(value) ?? '');
@@ -47,10 +47,10 @@ for (const fileName of files) {
 }
 
 const countryBytes = fs.readFileSync(countrySourcePath);
-const countryWorkbook = XLSX.read(countryBytes, { type: 'buffer' });
-const countrySheet = countryWorkbook.Sheets.Countries;
+const countryWorkbook = await readXlsxWorkbook(countryBytes);
+const countrySheet = countryWorkbook.sheets.get('Countries');
 if (!countrySheet) throw new Error(`Countries sheet not found: ${countrySourcePath}`);
-const countryRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(countrySheet, { defval: null, raw: false });
+const countryRows = spreadsheetRowsToObjects<Record<string, unknown>>(countrySheet, { defaultValue: null, raw: false });
 const countriesByIso3 = new Map(countryRows.map(row => [text(row.iso_alpha3)?.toUpperCase(), { id: text(row.public_id), active: text(row.reference_review_status) !== 'INACTIVE' }])
   .filter((entry): entry is [string, { id: string; active: boolean }] => Boolean(entry[0] && entry[1].id)));
 

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import * as XLSX from 'xlsx';
+import { readXlsxWorkbook, spreadsheetRowsToObjects } from '@manaratak/shared';
 import { CountryImportPreviewService } from '../packages/application/src/reference-data/services/CountryImportPreviewService';
 import { CountryDerivedReferencePreviewService } from '../packages/application/src/reference-data/services/CountryDerivedReferencePreviewService';
 
@@ -9,11 +9,11 @@ const sourcePath = path.resolve(
   process.argv[2] ?? 'workspace/reference-data/countries/MANARATAK_All_Continents_Country_Records_CLEAN_IMPORT_READY.xlsx',
 );
 const bytes = fs.readFileSync(sourcePath);
-const workbook = XLSX.read(bytes, { type: 'buffer' });
-const sheet = workbook.Sheets.Countries;
+const workbook = await readXlsxWorkbook(bytes);
+const sheet = workbook.sheets.get('Countries');
 if (!sheet) throw new Error(`Countries sheet not found: ${sourcePath}`);
 
-const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: null, raw: false });
+const rows = spreadsheetRowsToObjects<Record<string, unknown>>(sheet, { defaultValue: null, raw: false });
 const sha256 = createHash('sha256').update(bytes).digest('hex');
 const applicationPreview = new CountryImportPreviewService().preview({
   sourceName: path.basename(sourcePath),

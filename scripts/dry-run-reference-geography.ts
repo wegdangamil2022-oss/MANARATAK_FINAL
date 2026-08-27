@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parse } from 'csv-parse/sync';
-import * as XLSX from 'xlsx';
+import { readXlsxWorkbook, spreadsheetRowsToObjects } from '@manaratak/shared';
 import { GeographySourcePreviewService } from '../packages/application/src/reference-data/services/GeographySourcePreviewService';
 
 const root = process.cwd();
@@ -9,10 +9,10 @@ const countryPath = path.join(root, 'workspace/reference-data/countries/MANARATA
 const regionDirectory = path.join(root, 'workspace/reference-data/regions');
 const cityDirectory = path.join(root, 'workspace/reference-data/cities');
 
-const workbook = XLSX.read(fs.readFileSync(countryPath), { type: 'buffer' });
-const countrySheet = workbook.Sheets.Countries;
+const workbook = await readXlsxWorkbook(fs.readFileSync(countryPath));
+const countrySheet = workbook.sheets.get('Countries');
 if (!countrySheet) throw new Error('Countries sheet not found.');
-const countries = XLSX.utils.sheet_to_json<Record<string, unknown>>(countrySheet, { defval: null, raw: false });
+const countries = spreadsheetRowsToObjects<Record<string, unknown>>(countrySheet, { defaultValue: null, raw: false });
 const regionFiles = csvFiles(regionDirectory);
 const cityFiles = csvFiles(cityDirectory);
 const regions = regionFiles.flatMap(readCsv);

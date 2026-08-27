@@ -1,5 +1,9 @@
 import { parse as parseCsv } from 'csv-parse/sync';
-import * as XLSX from 'xlsx';
+import {
+  readXlsxWorkbook,
+  spreadsheetColumnName,
+  SpreadsheetWorksheet,
+} from '@manaratak/shared';
 import {
   IMPORTED_COURSE_MASTER_COLUMNS,
   ImportedCourseMasterRowContract,
@@ -274,51 +278,32 @@ function rowWidthIssue(values: unknown[], sourceRowNumber: number): CourseMaster
     message: `Course master row contains a value outside the approved ${COURSE_MASTER_COLUMN_COUNT}-column contract.`,
     severity: 'ERROR',
     rowNumber: sourceRowNumber,
-    column: XLSX.utils.encode_col(unexpectedColumn),
+    column: spreadsheetColumnName(unexpectedColumn),
   };
 }
 
-function formulaIssues(sheet: XLSX.WorkSheet): CourseMasterArtifactIssue[] {
-  const issues: CourseMasterArtifactIssue[] = [];
-  for (const address of Object.keys(sheet)) {
-    if (address.startsWith('!')) continue;
-    const cell = sheet[address] as XLSX.CellObject;
-    if (cell && typeof cell.f === 'string' && cell.f.trim()) {
-      const decoded = XLSX.utils.decode_cell(address);
-      issues.push({
-        code: 'COURSE_XLSX_FORMULA_CELL_REJECTED',
-        message: `Formula cells are not allowed in import masters: ${address}`,
-        severity: 'ERROR',
-        rowNumber: decoded.r + 1,
-        column: XLSX.utils.encode_col(decoded.c),
-      });
-    }
-  }
-  return issues;
+function formulaIssues(sheet: SpreadsheetWorksheet): CourseMasterArtifactIssue[] {
+  return sheet.formulas.map(({ address, row, column }) => ({
+    code: 'COURSE_XLSX_FORMULA_CELL_REJECTED',
+    message: `Formula cells are not allowed in import masters: ${address}`,
+    severity: 'ERROR',
+    rowNumber: row,
+    column: spreadsheetColumnName(column - 1),
+  }));
 }
 
-function parseXlsx(bytes: Uint8Array): CourseMasterParseResult {
+async function parseXlsx(bytes: Uint8Array): Promise<CourseMasterParseResult> {
   const security = inspectXlsxArchive(bytes);
-  const workbook = XLSX.read(bytes, {
-    type: 'array',
-    raw: true,
-    cellDates: false,
-    cellFormula: true,
-    cellHTML: false,
-    cellNF: false,
-    cellStyles: false,
+  const workbook = await readXlsxWorkbook(bytes, {
+    maxBytes: MAX_ARTIFACT_BYTES,
+    maxRowsPerSheet: MAX_COURSE_ROWS + 1,
   });
 
-  const sheet = workbook.Sheets[REQUIRED_SHEET];
+  const sheet = workbook.sheets.get(REQUIRED_SHEET);
   if (!sheet) throw new Error(`COURSE_MASTER_REQUIRED_SHEET_MISSING:${REQUIRED_SHEET}`);
 
   const issues = formulaIssues(sheet);
-  const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
-    header: 1,
-    raw: true,
-    defval: '',
-    blankrows: true,
-  });
+  const matrix = sheet.rawRows;
   if (matrix.length === 0) throw new Error('COURSE_MASTER_EMPTY_SHEET');
 
   const headers = (matrix[0] ?? []).map(text);
@@ -426,15 +411,15 @@ function parseCsvBytes(bytes: Uint8Array): CourseMasterParseResult {
 }
 
 export class CourseMasterArtifactParser {
-  public static parse(input: {
+  public static async parse(input: {
     bytes: Uint8Array;
     originalFilename: string;
     mimeType: string;
     declaredByteSize: number;
-  }): CourseMasterParseResult {
+  }): Promise<CourseMasterParseResult> {
     assertSize(input.bytes, input.declaredByteSize);
     return inferFormat(input.originalFilename, input.mimeType) === 'XLSX'
-      ? parseXlsx(input.bytes)
+      ? await parseXlsx(input.bytes)
       : parseCsvBytes(input.bytes);
   }
 }

@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { CsrfClientManager } from '@manaratak/shared';
-import * as XLSX from 'xlsx';
+import {
+  CsrfClientManager,
+  readXlsxWorkbook,
+  spreadsheetRowsToObjects,
+} from '@manaratak/shared';
 import { FileCheck2, Loader2, Upload } from 'lucide-react';
 
 const API_BASE = '/api/v1/reference-data';
@@ -95,11 +98,11 @@ function CountriesTab() {
     setPreview(null);
     setPreviewStatus({ loading: true });
     try {
-      const bytes = await file.arrayBuffer();
-      const workbook = XLSX.read(bytes, { type: 'array' });
-      const sheet = workbook.Sheets.Countries;
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const workbook = await readXlsxWorkbook(bytes);
+      const sheet = workbook.sheets.get('Countries');
       if (!sheet) throw new Error('The workbook must contain a Countries sheet.');
-      const records = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: null, raw: false });
+      const records = spreadsheetRowsToObjects<Record<string, unknown>>(sheet, { defaultValue: null, raw: false });
       const hash = await crypto.subtle.digest('SHA-256', bytes);
       const sha256 = Array.from(new Uint8Array(hash)).map(value => value.toString(16).padStart(2, '0')).join('');
       const response = await CsrfClientManager.getInstance().fetchWithCsrf(`${ADMIN_API_BASE}/countries/import-preview`, {
@@ -223,10 +226,10 @@ function DerivedReferencePreview({ kind }: { kind: 'currencies' | 'languages' })
     setResult(null);
     setStatus({ loading: true });
     try {
-      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
-      const sheet = workbook.Sheets.Countries;
+      const workbook = await readXlsxWorkbook(new Uint8Array(await file.arrayBuffer()));
+      const sheet = workbook.sheets.get('Countries');
       if (!sheet) throw new Error('The workbook must contain a Countries sheet.');
-      const records = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: null, raw: false });
+      const records = spreadsheetRowsToObjects<Record<string, unknown>>(sheet, { defaultValue: null, raw: false });
       const response = await CsrfClientManager.getInstance().fetchWithCsrf(`${ADMIN_API_BASE}/countries/derived-reference-preview`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ records }),
       });

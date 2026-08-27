@@ -16,12 +16,12 @@ describe('WP-IC-03 source invariants', () => {
     expect(useCase).not.toMatch(/courseRepository|prisma\.course|CourseImportPromotionUseCase/);
   });
 
-  it('guards XLSX archive before SheetJS parsing', () => {
+  it('guards XLSX archive before adapter parsing', () => {
     const parser = source(
       'packages/application/src/import-foundation/parsers/CourseMasterArtifactParser.ts',
     );
     expect(parser.indexOf('inspectXlsxArchive(bytes)')).toBeLessThan(
-      parser.indexOf('XLSX.read(bytes'),
+      parser.indexOf('readXlsxWorkbook(bytes'),
     );
     expect(parser).toContain('COURSE_XLSX_COMPRESSION_RATIO_EXCEEDED');
     expect(parser).toContain('COURSE_XLSX_ENCRYPTED_ENTRY');

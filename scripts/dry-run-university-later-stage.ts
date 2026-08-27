@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import * as XLSX from 'xlsx';
+import { readXlsxWorkbook, spreadsheetRowsToObjects } from '@manaratak/shared';
 import { UniversityLaterStagesDryRunUseCase, type UniversityLaterStage } from '../packages/application/src/universities/use-cases/UniversityLaterStagesDryRunUseCase';
 import type { UniversalImportHandoff } from '@manaratak/domain';
 
@@ -16,12 +16,12 @@ const artifacts: Array<{ fileName: string; sha256: string; records: number; colu
 for (const sourcePath of sourcePaths) {
   const bytes = fs.readFileSync(sourcePath);
   const sha256 = createHash('sha256').update(bytes).digest('hex');
-  const workbook = XLSX.read(bytes, { type: 'buffer', cellDates: true });
+  const workbook = await readXlsxWorkbook(bytes);
   const sheetName = stage === 'STAGE_3' ? 'Stage 3' : stage === 'STAGE_4' ? 'Stage 4' : 'Rankings';
-  const sheet = workbook.Sheets[sheetName];
+  const sheet = workbook.sheets.get(sheetName);
   if (!sheet) throw new Error(`${sheetName} sheet not found: ${sourcePath}`);
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: null, raw: false });
-  const columns = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: null })[0]?.length ?? 0;
+  const rows = spreadsheetRowsToObjects<Record<string, unknown>>(sheet, { defaultValue: null, raw: false });
+  const columns = sheet.rawRows[0]?.length ?? 0;
   const expectedColumns = stage === 'STAGE_3' ? 18 : stage === 'STAGE_4' ? 17 : 19;
   if (columns !== expectedColumns) throw new Error(`Expected ${expectedColumns} columns, found ${columns}: ${sourcePath}`);
   rows.filter(row => text(row['University Reference ID'])).forEach((row, index) => {
