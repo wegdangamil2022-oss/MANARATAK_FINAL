@@ -1,11 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { createBrowserRouter, RouterProvider, Link, Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Link,
+  Navigate,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useParams,
+} from 'react-router-dom';
 import { AppShell, Container } from '@manaratak/ui';
 import { CsrfClientManager, isSupportedLocale } from '@manaratak/shared';
 import { Logo } from '../components';
 import { useTranslation } from '../i18n/I18nProvider';
-import { localizeLocation, localizePathname, resolveLegacyPublicLocale } from '../i18n/localeRouting';
-import { NewPublicHome } from '../features/home/NewPublicHome';
+import {
+  localizeLocation,
+  localizePathname,
+  resolveLegacyPublicLocale,
+} from '../i18n/localeRouting';
+import PublicTemplateApp from '../features/public-template/PublicTemplateApp';
 const PageLoadingFallback = () => {
   const { t } = useTranslation();
   return (
@@ -16,80 +29,257 @@ const PageLoadingFallback = () => {
   );
 };
 
-// Public pages lazy loading
-const ScholarshipList = React.lazy(() => import('../features/scholarships/ScholarshipList').then(m => ({ default: m.ScholarshipList })));
-const ScholarshipDetail = React.lazy(() => import('../features/scholarships/ScholarshipDetail').then(m => ({ default: m.ScholarshipDetail })));
-const UniversityList = React.lazy(() => import('../features/universities/UniversityList').then(m => ({ default: m.UniversityList })));
-const UniversityDetail = React.lazy(() => import('../features/universities/UniversityDetail').then(m => ({ default: m.UniversityDetail })));
-const MajorList = React.lazy(() => import('../features/majors/MajorList').then(m => ({ default: m.MajorList })));
-const MajorDetail = React.lazy(() => import('../features/majors/MajorDetail').then(m => ({ default: m.MajorDetail })));
-const CourseList = React.lazy(() => import('../features/courses/CourseList').then(m => ({ default: m.CourseList })));
-const CourseDetail = React.lazy(() => import('../features/courses/CourseDetail').then(m => ({ default: m.CourseDetail })));
-const CmsContentList = React.lazy(() => import('../features/cms/CmsContentList').then(m => ({ default: m.CmsContentList })));
-const CmsContentDetail = React.lazy(() => import('../features/cms/CmsContentDetail').then(m => ({ default: m.CmsContentDetail })));
-const ServiceList = React.lazy(() => import('../features/services/ServiceList').then(m => ({ default: m.ServiceList })));
-const ServiceDetail = React.lazy(() => import('../features/services/ServiceDetail').then(m => ({ default: m.ServiceDetail })));
-const InternationalTestList = React.lazy(() => import('../features/international-tests/InternationalTestList').then(m => ({ default: m.InternationalTestList })));
-const InternationalTestDetail = React.lazy(() => import('../features/international-tests/InternationalTestDetail').then(m => ({ default: m.InternationalTestDetail })));
-const StudentWorkspacePage = React.lazy(() => import('../features/students/StudentWorkspacePage').then(m => ({ default: m.StudentWorkspacePage })));
-const StudentToolsList = React.lazy(() => import('../features/student-tools/StudentToolsList').then(m => ({ default: m.StudentToolsList })));
-const StudentToolPage = React.lazy(() => import('../features/student-tools/StudentToolPage').then(m => ({ default: m.StudentToolPage })));
-const LoginPage = React.lazy(() => import('../features/auth/LoginPage').then(m => ({ default: m.LoginPage })));
-const CertificateVerificationPage = React.lazy(() => import('../features/certificates/CertificateVerificationPage').then(m => ({ default: m.CertificateVerificationPage })));
-const SearchResultsPage = React.lazy(() => import('../features/discovery/SearchResultsPage').then(m => ({ default: m.SearchResultsPage })));
-const ComparePage = React.lazy(() => import('../features/discovery/ComparePage').then(m => ({ default: m.ComparePage })));
-
 // Admin Preview lazy loading
-const AdminGenericPreviewPage = React.lazy(() => import('../features/admin-preview/AdminGenericPreviewPage').then(m => ({ default: m.AdminGenericPreviewPage })));
-const AdminScholarshipsPreviewPage = React.lazy(() => import('../features/admin-preview/AdminScholarshipsPreviewPage').then(m => ({ default: m.AdminScholarshipsPreviewPage })));
-const AdminScholarshipDetailPage = React.lazy(() => import('../features/admin-preview/AdminScholarshipDetailPage').then(m => ({ default: m.AdminScholarshipDetailPage })));
-const AdminUniversitiesPreviewPage = React.lazy(() => import('../features/admin-preview/AdminUniversitiesPreviewPage').then(m => ({ default: m.AdminUniversitiesPreviewPage })));
-const AdminUniversityDetailPage = React.lazy(() => import('../features/admin-preview/AdminUniversityDetailPage').then(m => ({ default: m.AdminUniversityDetailPage })));
-const AdminMajorsPreviewPage = React.lazy(() => import('../features/admin-preview/AdminMajorsPreviewPage').then(m => ({ default: m.AdminMajorsPreviewPage })));
-const AdminMajorDetailPage = React.lazy(() => import('../features/admin-preview/AdminMajorDetailPage').then(m => ({ default: m.AdminMajorDetailPage })));
-const AdminFacultiesPage = React.lazy(() => import('../features/admin-preview/AdminFacultiesPage').then(m => ({ default: m.AdminFacultiesPage })));
-const AdminInternationalTestsPreviewPage = React.lazy(() => import('../features/admin-preview/AdminInternationalTestsPreviewPage').then(m => ({ default: m.AdminInternationalTestsPreviewPage })));
-const AdminInternationalTestDetailPage = React.lazy(() => import('../features/admin-preview/AdminInternationalTestDetailPage').then(m => ({ default: m.AdminInternationalTestDetailPage })));
-const AdminHealthPreviewPage = React.lazy(() => import('../features/admin-preview/AdminHealthPreviewPage').then(m => ({ default: m.AdminHealthPreviewPage })));
-const AdminImportsPreviewPage = React.lazy(() => import('../features/admin-preview/AdminImportsPreviewPage').then(m => ({ default: m.AdminImportsPreviewPage })));
-const AdminCourseImportOperationsPage = React.lazy(() => import('../features/admin-preview/AdminCourseImportOperationsPage').then(m => ({ default: m.AdminCourseImportOperationsPage })));
-const AdminCourseImportProviderPage = React.lazy(() => import('../features/admin-preview/AdminCourseImportProviderPage').then(m => ({ default: m.AdminCourseImportProviderPage })));
-const AdminDomainImportCenterPage = React.lazy(() => import('../features/admin-preview/AdminDomainImportCenterPage').then(m => ({ default: m.AdminDomainImportCenterPage })));
-const AdminReviewQueuePreviewPage = React.lazy(() => import('../features/admin-preview/AdminReviewQueuePreviewPage').then(m => ({ default: m.AdminReviewQueuePreviewPage })));
-const AdminCoursesLandingPage = React.lazy(() => import('../features/admin-preview/AdminCoursesLandingPage').then(m => ({ default: m.AdminCoursesLandingPage })));
-const AdminNativeCoursesPreviewPage = React.lazy(() => import('../features/admin-preview/AdminNativeCoursesPreviewPage').then(m => ({ default: m.AdminNativeCoursesPreviewPage })));
-const AdminNativeCourseDetailPage = React.lazy(() => import('../features/admin-preview/AdminNativeCourseDetailPage').then(m => ({ default: m.AdminNativeCourseDetailPage })));
-const AdminImportedCoursesPreviewPage = React.lazy(() => import('../features/admin-preview/AdminImportedCoursesRuntimePage').then(m => ({ default: m.AdminImportedCoursesRuntimePage })));
-const AdminImportedCourseDetailPage = React.lazy(() => import('../features/admin-preview/AdminImportedCourseRuntimeDetailPage').then(m => ({ default: m.AdminImportedCourseRuntimeDetailPage })));
-const AdminPaidCoursesPreviewPage = React.lazy(() => import('../features/admin-preview/AdminPaidCoursesPreviewPage').then(m => ({ default: m.AdminPaidCoursesPreviewPage })));
-const AdminPaidCourseDetailPage = React.lazy(() => import('../features/admin-preview/AdminPaidCourseDetailPage').then(m => ({ default: m.AdminPaidCourseDetailPage })));
-const AdminServicesLandingPage = React.lazy(() => import('../features/admin-preview/AdminServicesLandingPage').then(m => ({ default: m.AdminServicesLandingPage })));
-const AdminStudentServicesPreviewPage = React.lazy(() => import('../features/admin-preview/AdminStudentServicesPreviewPage').then(m => ({ default: m.AdminStudentServicesPreviewPage })));
-const AdminStudentServiceDetailPage = React.lazy(() => import('../features/admin-preview/AdminStudentServiceDetailPage').then(m => ({ default: m.AdminStudentServiceDetailPage })));
-const AdminGeneralServicesPreviewPage = React.lazy(() => import('../features/admin-preview/AdminGeneralServicesPreviewPage').then(m => ({ default: m.AdminGeneralServicesPreviewPage })));
-const AdminGeneralServiceDetailPage = React.lazy(() => import('../features/admin-preview/AdminGeneralServiceDetailPage').then(m => ({ default: m.AdminGeneralServiceDetailPage })));
-const AdminCmsLandingPage = React.lazy(() => import('../features/admin-preview/AdminCmsLandingPage').then(m => ({ default: m.AdminCmsLandingPage })));
-const AdminCmsArticlesPreviewPage = React.lazy(() => import('../features/admin-preview/AdminCmsArticlesPreviewPage').then(m => ({ default: m.AdminCmsArticlesPreviewPage })));
-const AdminCmsArticleDetailPage = React.lazy(() => import('../features/admin-preview/AdminCmsArticleDetailPage').then(m => ({ default: m.AdminCmsArticleDetailPage })));
-const AdminCmsFaqsPreviewPage = React.lazy(() => import('../features/admin-preview/AdminCmsFaqsPreviewPage').then(m => ({ default: m.AdminCmsFaqsPreviewPage })));
-const AdminCmsFaqDetailPage = React.lazy(() => import('../features/admin-preview/AdminCmsFaqDetailPage').then(m => ({ default: m.AdminCmsFaqDetailPage })));
-const AdminCmsPagesPreviewPage = React.lazy(() => import('../features/admin-preview/AdminCmsPagesPreviewPage').then(m => ({ default: m.AdminCmsPagesPreviewPage })));
-const AdminCmsPageDetailPage = React.lazy(() => import('../features/admin-preview/AdminCmsPageDetailPage').then(m => ({ default: m.AdminCmsPageDetailPage })));
-const AdminCmsCategoriesPreviewPage = React.lazy(() => import('../features/admin-preview/AdminCmsCategoriesPreviewPage').then(m => ({ default: m.AdminCmsCategoriesPreviewPage })));
-const AdminCmsTranslationsPreviewPage = React.lazy(() => import('../features/admin-preview/AdminCmsTranslationsPreviewPage').then(m => ({ default: m.AdminCmsTranslationsPreviewPage })));
-const AdminCmsReviewQueuePage = React.lazy(() => import('../features/admin-preview/AdminCmsReviewQueuePage').then(m => ({ default: m.AdminCmsReviewQueuePage })));
-const AdminCertificatesPreviewPage = React.lazy(() => import('../features/admin-preview/AdminCertificatesPreviewPage').then(m => ({ default: m.AdminCertificatesPreviewPage })));
-const AdminCertificateDetailPage = React.lazy(() => import('../features/admin-preview/AdminCertificateDetailPage').then(m => ({ default: m.AdminCertificateDetailPage })));
-const AdminFinancePreviewPage = React.lazy(() => import('../features/admin-preview/AdminFinancePreviewPage').then(m => ({ default: m.AdminFinancePreviewPage })));
-const AdminInvoiceDetailPage = React.lazy(() => import('../features/admin-preview/AdminInvoiceDetailPage').then(m => ({ default: m.AdminInvoiceDetailPage })));
-const AdminCareersPreviewPage = React.lazy(() => import('../features/admin-preview/AdminCareersPreviewPage').then(m => ({ default: m.AdminCareersPreviewPage })));
-const AdminCareerOpportunityDetailPage = React.lazy(() => import('../features/admin-preview/AdminCareerOpportunityDetailPage').then(m => ({ default: m.AdminCareerOpportunityDetailPage })));
-const AdminAiGovernancePreviewPage = React.lazy(() => import('../features/admin-preview/AdminAiGovernancePreviewPage').then(m => ({ default: m.AdminAiGovernancePreviewPage })));
-const AdminSettingsPreviewPage = React.lazy(() => import('../features/admin-preview/AdminSettingsPreviewPage').then(m => ({ default: m.AdminSettingsPreviewPage })));
-const AdminStudyDestinationsPage = React.lazy(() => import('../features/admin-preview/AdminStudyDestinationsPages').then(m => ({ default: m.AdminStudyDestinationsPage })));
-const AdminStudyDestinationDetailPage = React.lazy(() => import('../features/admin-preview/AdminStudyDestinationsPages').then(m => ({ default: m.AdminStudyDestinationDetailPage })));
-const AdminAcademicTaxonomyPage = React.lazy(() => import('../features/admin-preview/AdminAcademicTaxonomyPages').then(m => ({ default: m.AdminAcademicTaxonomyPage })));
-const AdminAcademicTaxonomyDetailPage = React.lazy(() => import('../features/admin-preview/AdminAcademicTaxonomyPages').then(m => ({ default: m.AdminAcademicTaxonomyDetailPage })));
+const AdminGenericPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminGenericPreviewPage').then((m) => ({
+    default: m.AdminGenericPreviewPage,
+  })),
+);
+const AdminScholarshipsPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminScholarshipsPreviewPage').then((m) => ({
+    default: m.AdminScholarshipsPreviewPage,
+  })),
+);
+const AdminScholarshipDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminScholarshipDetailPage').then((m) => ({
+    default: m.AdminScholarshipDetailPage,
+  })),
+);
+const AdminUniversitiesPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminUniversitiesPreviewPage').then((m) => ({
+    default: m.AdminUniversitiesPreviewPage,
+  })),
+);
+const AdminUniversityDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminUniversityDetailPage').then((m) => ({
+    default: m.AdminUniversityDetailPage,
+  })),
+);
+const AdminMajorsPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminMajorsPreviewPage').then((m) => ({
+    default: m.AdminMajorsPreviewPage,
+  })),
+);
+const AdminMajorDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminMajorDetailPage').then((m) => ({
+    default: m.AdminMajorDetailPage,
+  })),
+);
+const AdminFacultiesPage = React.lazy(() =>
+  import('../features/admin-preview/AdminFacultiesPage').then((m) => ({
+    default: m.AdminFacultiesPage,
+  })),
+);
+const AdminInternationalTestsPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminInternationalTestsPreviewPage').then((m) => ({
+    default: m.AdminInternationalTestsPreviewPage,
+  })),
+);
+const AdminInternationalTestDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminInternationalTestDetailPage').then((m) => ({
+    default: m.AdminInternationalTestDetailPage,
+  })),
+);
+const AdminHealthPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminHealthPreviewPage').then((m) => ({
+    default: m.AdminHealthPreviewPage,
+  })),
+);
+const AdminImportsPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminImportsPreviewPage').then((m) => ({
+    default: m.AdminImportsPreviewPage,
+  })),
+);
+const AdminCourseImportOperationsPage = React.lazy(() =>
+  import('../features/admin-preview/AdminCourseImportOperationsPage').then((m) => ({
+    default: m.AdminCourseImportOperationsPage,
+  })),
+);
+const AdminCourseImportProviderPage = React.lazy(() =>
+  import('../features/admin-preview/AdminCourseImportProviderPage').then((m) => ({
+    default: m.AdminCourseImportProviderPage,
+  })),
+);
+const AdminDomainImportCenterPage = React.lazy(() =>
+  import('../features/admin-preview/AdminDomainImportCenterPage').then((m) => ({
+    default: m.AdminDomainImportCenterPage,
+  })),
+);
+const AdminReviewQueuePreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminReviewQueuePreviewPage').then((m) => ({
+    default: m.AdminReviewQueuePreviewPage,
+  })),
+);
+const AdminCoursesLandingPage = React.lazy(() =>
+  import('../features/admin-preview/AdminCoursesLandingPage').then((m) => ({
+    default: m.AdminCoursesLandingPage,
+  })),
+);
+const AdminNativeCoursesPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminNativeCoursesPreviewPage').then((m) => ({
+    default: m.AdminNativeCoursesPreviewPage,
+  })),
+);
+const AdminNativeCourseDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminNativeCourseDetailPage').then((m) => ({
+    default: m.AdminNativeCourseDetailPage,
+  })),
+);
+const AdminImportedCoursesPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminImportedCoursesRuntimePage').then((m) => ({
+    default: m.AdminImportedCoursesRuntimePage,
+  })),
+);
+const AdminImportedCourseDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminImportedCourseRuntimeDetailPage').then((m) => ({
+    default: m.AdminImportedCourseRuntimeDetailPage,
+  })),
+);
+const AdminPaidCoursesPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminPaidCoursesPreviewPage').then((m) => ({
+    default: m.AdminPaidCoursesPreviewPage,
+  })),
+);
+const AdminPaidCourseDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminPaidCourseDetailPage').then((m) => ({
+    default: m.AdminPaidCourseDetailPage,
+  })),
+);
+const AdminServicesLandingPage = React.lazy(() =>
+  import('../features/admin-preview/AdminServicesLandingPage').then((m) => ({
+    default: m.AdminServicesLandingPage,
+  })),
+);
+const AdminStudentServicesPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminStudentServicesPreviewPage').then((m) => ({
+    default: m.AdminStudentServicesPreviewPage,
+  })),
+);
+const AdminStudentServiceDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminStudentServiceDetailPage').then((m) => ({
+    default: m.AdminStudentServiceDetailPage,
+  })),
+);
+const AdminGeneralServicesPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminGeneralServicesPreviewPage').then((m) => ({
+    default: m.AdminGeneralServicesPreviewPage,
+  })),
+);
+const AdminGeneralServiceDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminGeneralServiceDetailPage').then((m) => ({
+    default: m.AdminGeneralServiceDetailPage,
+  })),
+);
+const AdminCmsLandingPage = React.lazy(() =>
+  import('../features/admin-preview/AdminCmsLandingPage').then((m) => ({
+    default: m.AdminCmsLandingPage,
+  })),
+);
+const AdminCmsArticlesPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminCmsArticlesPreviewPage').then((m) => ({
+    default: m.AdminCmsArticlesPreviewPage,
+  })),
+);
+const AdminCmsArticleDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminCmsArticleDetailPage').then((m) => ({
+    default: m.AdminCmsArticleDetailPage,
+  })),
+);
+const AdminCmsFaqsPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminCmsFaqsPreviewPage').then((m) => ({
+    default: m.AdminCmsFaqsPreviewPage,
+  })),
+);
+const AdminCmsFaqDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminCmsFaqDetailPage').then((m) => ({
+    default: m.AdminCmsFaqDetailPage,
+  })),
+);
+const AdminCmsPagesPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminCmsPagesPreviewPage').then((m) => ({
+    default: m.AdminCmsPagesPreviewPage,
+  })),
+);
+const AdminCmsPageDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminCmsPageDetailPage').then((m) => ({
+    default: m.AdminCmsPageDetailPage,
+  })),
+);
+const AdminCmsCategoriesPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminCmsCategoriesPreviewPage').then((m) => ({
+    default: m.AdminCmsCategoriesPreviewPage,
+  })),
+);
+const AdminCmsTranslationsPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminCmsTranslationsPreviewPage').then((m) => ({
+    default: m.AdminCmsTranslationsPreviewPage,
+  })),
+);
+const AdminCmsReviewQueuePage = React.lazy(() =>
+  import('../features/admin-preview/AdminCmsReviewQueuePage').then((m) => ({
+    default: m.AdminCmsReviewQueuePage,
+  })),
+);
+const AdminCertificatesPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminCertificatesPreviewPage').then((m) => ({
+    default: m.AdminCertificatesPreviewPage,
+  })),
+);
+const AdminCertificateDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminCertificateDetailPage').then((m) => ({
+    default: m.AdminCertificateDetailPage,
+  })),
+);
+const AdminFinancePreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminFinancePreviewPage').then((m) => ({
+    default: m.AdminFinancePreviewPage,
+  })),
+);
+const AdminInvoiceDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminInvoiceDetailPage').then((m) => ({
+    default: m.AdminInvoiceDetailPage,
+  })),
+);
+const AdminCareersPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminCareersPreviewPage').then((m) => ({
+    default: m.AdminCareersPreviewPage,
+  })),
+);
+const AdminCareerOpportunityDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminCareerOpportunityDetailPage').then((m) => ({
+    default: m.AdminCareerOpportunityDetailPage,
+  })),
+);
+const AdminAiGovernancePreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminAiGovernancePreviewPage').then((m) => ({
+    default: m.AdminAiGovernancePreviewPage,
+  })),
+);
+const AdminSettingsPreviewPage = React.lazy(() =>
+  import('../features/admin-preview/AdminSettingsPreviewPage').then((m) => ({
+    default: m.AdminSettingsPreviewPage,
+  })),
+);
+const AdminStudyDestinationsPage = React.lazy(() =>
+  import('../features/admin-preview/AdminStudyDestinationsPages').then((m) => ({
+    default: m.AdminStudyDestinationsPage,
+  })),
+);
+const AdminStudyDestinationDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminStudyDestinationsPages').then((m) => ({
+    default: m.AdminStudyDestinationDetailPage,
+  })),
+);
+const AdminAcademicTaxonomyPage = React.lazy(() =>
+  import('../features/admin-preview/AdminAcademicTaxonomyPages').then((m) => ({
+    default: m.AdminAcademicTaxonomyPage,
+  })),
+);
+const AdminAcademicTaxonomyDetailPage = React.lazy(() =>
+  import('../features/admin-preview/AdminAcademicTaxonomyPages').then((m) => ({
+    default: m.AdminAcademicTaxonomyDetailPage,
+  })),
+);
 import { Globe, Menu, X } from 'lucide-react';
 
 const RootLayout = () => {
@@ -110,9 +300,16 @@ const RootLayout = () => {
   }
 
   const localeRelativePath = location.pathname.replace(/^\/(?:ar|en)(?=\/|$)/, '') || '/';
-  const isAdminPath = localeRelativePath.startsWith('/admin') || localeRelativePath.startsWith('/study-destinations');
+  const isAdminPath =
+    localeRelativePath.startsWith('/admin') || localeRelativePath.startsWith('/study-destinations');
   const isHomePath = localeRelativePath === '/';
   const isLocalAdminReadOnly = import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
+
+  // The public/student experience is now the supplied standalone template.
+  // Admin routes retain the existing application shell and backend contracts.
+  if (!isAdminPath) {
+    return <PublicTemplateApp />;
+  }
 
   const userEmail = localStorage.getItem('manaratak_user_email');
   const token = localStorage.getItem('manaratak_access_token');
@@ -178,7 +375,11 @@ const RootLayout = () => {
           {/* 3. أبعاد الهيدر والأزرار (Header Layout & Buttons) - h-24 (96px) on Mobile, h-28 (112px) on Desktop */}
           <div className="bg-white border-b border-slate-100 flex items-center h-24 lg:h-28">
             <div className="mx-auto max-w-7xl w-full px-4 flex items-center justify-between gap-4">
-              <Link to={localizePathname('/', language)} className="transition-transform active:scale-95" onClick={() => setMenuOpen(false)}>
+              <Link
+                to={localizePathname('/', language)}
+                className="transition-transform active:scale-95"
+                onClick={() => setMenuOpen(false)}
+              >
                 <Logo showText={true} />
               </Link>
 
@@ -193,13 +394,15 @@ const RootLayout = () => {
                   className="text-[#173f68] hover:bg-blue-50 font-bold border border-[#173f68]/10 text-xs md:text-sm rounded-lg md:rounded-xl px-2.5 py-1.5 md:px-4 md:py-2 flex items-center gap-1.5 transition-all cursor-pointer min-h-[40px]"
                 >
                   <Globe className="w-4 h-4 text-[#173f68]" />
-                  <span className="hidden sm:inline">{language === 'en' ? t('language_switch_to_ar') : t('language_switch_to_en')}</span>
+                  <span className="hidden sm:inline">
+                    {language === 'en' ? t('language_switch_to_ar') : t('language_switch_to_en')}
+                  </span>
                   <span className="sm:hidden">{language === 'en' ? 'AR' : 'EN'}</span>
                 </button>
 
                 {/* Interaction Buttons (الدخول / الحساب / خروج) - styled with spec dimensions */}
                 {!isLoggedIn ? (
-                  <Link 
+                  <Link
                     to={localizePathname('/login', language)}
                     className="bg-[#173f68] text-white hover:bg-[#0b2a50] font-bold text-xs md:text-sm rounded-lg md:rounded-xl px-3 py-1.5 md:px-5 md:py-2.5 flex items-center justify-center transition-all min-h-[40px] shadow-sm"
                   >
@@ -207,14 +410,14 @@ const RootLayout = () => {
                   </Link>
                 ) : (
                   <>
-                    <Link 
-                      to={getWorkspaceUrl()} 
+                    <Link
+                      to={getWorkspaceUrl()}
                       className="bg-[#C8A24A] text-white hover:bg-[#b08d3e] font-bold text-xs md:text-sm rounded-lg md:rounded-xl px-3 py-1.5 md:px-5 md:py-2.5 flex items-center justify-center transition-all min-h-[40px] shadow-sm"
                     >
                       {t('nav_account')}
                     </Link>
-                    <button 
-                      onClick={handleLogout} 
+                    <button
+                      onClick={handleLogout}
                       className="bg-rose-50 text-rose-700 border border-rose-100 hover:bg-rose-100 font-bold text-xs md:text-sm rounded-lg md:rounded-xl px-2.5 py-1.5 md:px-4 md:py-2 flex items-center justify-center transition-all min-h-[40px] cursor-pointer"
                     >
                       {t('nav_logout')}
@@ -239,15 +442,16 @@ const RootLayout = () => {
           {/* 4. شريط القائمة العائمة (Navigation Bar) - h-14 (56px), bg-gray-50/90 backdrop-blur-md */}
           <div className="sticky top-0 z-50 h-14 bg-gray-50/90 backdrop-blur-md border-b border-slate-100/80 shadow-[0_1px_3px_rgba(0,0,0,0.01)]">
             <div className="mx-auto max-w-7xl h-full px-4 flex items-center">
-              
               {/* Desktop Nav Items */}
               <nav className="hidden lg:flex items-center gap-6 h-full text-sm font-semibold">
                 {navItems.map((item) => {
-                  const isActive = location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to));
+                  const isActive =
+                    location.pathname === item.to ||
+                    (item.to !== '/' && location.pathname.startsWith(item.to));
                   return (
-                    <Link 
-                      key={item.to} 
-                      to={item.to} 
+                    <Link
+                      key={item.to}
+                      to={item.to}
                       className={`h-full flex items-center relative text-sm font-semibold transition-all px-1 ${
                         isActive ? 'text-[#173f68]' : 'text-slate-600 hover:text-[#173f68]'
                       }`}
@@ -264,11 +468,13 @@ const RootLayout = () => {
               {/* Mobile Nav: scrollable horizontal row of links, text-xs (12px) */}
               <nav className="lg:hidden flex items-center gap-4 h-full w-full overflow-x-auto scrollbar-none scroll-smooth">
                 {navItems.map((item) => {
-                  const isActive = location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to));
+                  const isActive =
+                    location.pathname === item.to ||
+                    (item.to !== '/' && location.pathname.startsWith(item.to));
                   return (
-                    <Link 
-                      key={item.to} 
-                      to={item.to} 
+                    <Link
+                      key={item.to}
+                      to={item.to}
                       className={`h-full flex items-center relative text-[12px] font-semibold whitespace-nowrap px-2 transition-all flex-shrink-0 ${
                         isActive ? 'text-[#173f68]' : 'text-slate-500 hover:text-[#173f68]'
                       }`}
@@ -281,7 +487,6 @@ const RootLayout = () => {
                   );
                 })}
               </nav>
-
             </div>
           </div>
 
@@ -309,9 +514,7 @@ const RootLayout = () => {
         <footer className="border-t border-white/10 bg-[#071d3a] py-10 px-4 text-center text-white">
           <div className="mx-auto max-w-7xl flex flex-col items-center justify-center gap-4">
             <Logo showText={true} className="rounded-xl bg-white px-3 py-2" />
-            <p className="text-xs text-blue-100/70 font-medium">
-              {t('footer_copy')}
-            </p>
+            <p className="text-xs text-blue-100/70 font-medium">{t('footer_copy')}</p>
           </div>
         </footer>
       }
@@ -319,24 +522,32 @@ const RootLayout = () => {
       <Container className={isHomePath ? 'max-w-none p-0' : 'px-4 py-6 sm:py-10 max-w-7xl mx-auto'}>
         {isAdminPath && isLocalAdminReadOnly && (
           <>
-            <div className="mb-3 border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-bold text-amber-900" role="status">
+            <div
+              className="mb-3 border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-bold text-amber-900"
+              role="status"
+            >
               {t('local_admin_readonly_notice')}
             </div>
-            <nav aria-label={t('local_admin_navigation_aria')} className="mb-5 flex min-h-12 items-center gap-1 overflow-x-auto border-y border-slate-200 bg-white px-2 py-2">
+            <nav
+              aria-label={t('local_admin_navigation_aria')}
+              className="mb-5 flex min-h-12 items-center gap-1 overflow-x-auto border-y border-slate-200 bg-white px-2 py-2"
+            >
               {localAdminLinks.map(([path, label]) => {
                 const localizedPath = localizePathname(path, language);
                 return (
-                <Link
-                  key={path}
-                  to={localizedPath}
-                  className={`flex min-h-9 shrink-0 items-center px-3 text-xs font-bold transition-colors ${
-                    location.pathname === localizedPath || (path !== '/admin/dashboard' && location.pathname.startsWith(`${localizedPath}/`))
-                      ? 'bg-[#0F4B3A] text-white'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-[#0F4B3A]'
-                  }`}
-                >
-                  {label}
-                </Link>
+                  <Link
+                    key={path}
+                    to={localizedPath}
+                    className={`flex min-h-9 shrink-0 items-center px-3 text-xs font-bold transition-colors ${
+                      location.pathname === localizedPath ||
+                      (path !== '/admin/dashboard' &&
+                        location.pathname.startsWith(`${localizedPath}/`))
+                        ? 'bg-[#0F4B3A] text-white'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-[#0F4B3A]'
+                    }`}
+                  >
+                    {label}
+                  </Link>
                 );
               })}
             </nav>
@@ -358,326 +569,335 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <NewPublicHome />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'login',
-        element: <LoginPage />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'search',
-        element: <SearchResultsPage />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'compare',
-        element: <ComparePage />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'scholarships',
-        element: <ScholarshipList />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'scholarships/:slug',
-        element: <ScholarshipDetail />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'universities',
-        element: <UniversityList />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'universities/:slug',
-        element: <UniversityDetail />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'majors',
-        element: <MajorList />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'majors/:slug',
-        element: <MajorDetail />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'courses',
-        element: <CourseList />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'courses/:slug',
-        element: <CourseDetail />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'articles',
-        element: <CmsContentList />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'articles/:slug',
-        element: <CmsContentDetail />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'services',
-        element: <ServiceList />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'services/:slug',
-        element: <ServiceDetail />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'international-tests',
-        element: <InternationalTestList />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'international-tests/:slug',
-        element: <InternationalTestDetail />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'tools',
-        element: <StudentToolsList />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'tools/:toolKey',
-        element: <StudentToolPage />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'certificates/verify',
-        element: <CertificateVerificationPage />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'student',
-        element: <StudentWorkspacePage />
+        element: <PublicTemplateApp />,
       },
       {
         path: 'admin',
-        element: <AdminAccessBridgePage />
+        element: <AdminAccessBridgePage />,
       },
       {
         path: 'admin/dashboard',
-        element: <AdminGenericPreviewPage titleKey="admin_dashboard" defaultTitle="Dashboard" descKey="admin_dashboard_desc" defaultDesc="Overview of platform operations, metrics, and quick admin actions." statusKey="admin_status_active" defaultStatus="Active" />
+        element: (
+          <AdminGenericPreviewPage
+            titleKey="admin_dashboard"
+            defaultTitle="Dashboard"
+            descKey="admin_dashboard_desc"
+            defaultDesc="Overview of platform operations, metrics, and quick admin actions."
+            statusKey="admin_status_active"
+            defaultStatus="Active"
+          />
+        ),
       },
       {
         path: 'admin/review-queue',
-        element: <AdminReviewQueuePreviewPage />
+        element: <AdminReviewQueuePreviewPage />,
       },
       {
         path: 'admin/imports',
-        element: <AdminImportsPreviewPage />
+        element: <AdminImportsPreviewPage />,
       },
       {
         path: 'admin/imports/courses',
-        element: <AdminCourseImportOperationsPage />
+        element: <AdminCourseImportOperationsPage />,
       },
       {
         path: 'admin/imports/courses/providers/:id',
-        element: <AdminCourseImportProviderPage />
+        element: <AdminCourseImportProviderPage />,
       },
       {
         path: 'admin/imports/:domainKey',
-        element: <AdminDomainImportCenterPage />
+        element: <AdminDomainImportCenterPage />,
       },
       {
         path: 'study-destinations',
-        element: <AdminStudyDestinationsPage />
+        element: <AdminStudyDestinationsPage />,
       },
       {
         path: 'study-destinations/:countryIso2Code',
-        element: <AdminStudyDestinationDetailPage />
+        element: <AdminStudyDestinationDetailPage />,
       },
       {
         path: 'admin/study-destinations',
-        element: <AdminStudyDestinationsPage />
+        element: <AdminStudyDestinationsPage />,
       },
       {
         path: 'admin/study-destinations/:countryIso2Code',
-        element: <AdminStudyDestinationDetailPage />
+        element: <AdminStudyDestinationDetailPage />,
       },
       {
         path: 'admin/scholarships',
-        element: <AdminScholarshipsPreviewPage />
+        element: <AdminScholarshipsPreviewPage />,
       },
       {
         path: 'admin/scholarships/:id',
-        element: <AdminScholarshipDetailPage />
+        element: <AdminScholarshipDetailPage />,
       },
       {
         path: 'admin/universities',
-        element: <AdminUniversitiesPreviewPage />
+        element: <AdminUniversitiesPreviewPage />,
       },
       {
         path: 'admin/universities/:id',
-        element: <AdminUniversityDetailPage />
+        element: <AdminUniversityDetailPage />,
       },
       {
         path: 'admin/academic-taxonomy',
-        element: <AdminAcademicTaxonomyPage />
+        element: <AdminAcademicTaxonomyPage />,
       },
       {
         path: 'admin/academic-taxonomy/:nodeId',
-        element: <AdminAcademicTaxonomyDetailPage />
+        element: <AdminAcademicTaxonomyDetailPage />,
       },
       {
         path: 'academic-taxonomy',
-        element: <AdminAcademicTaxonomyPage />
+        element: <AdminAcademicTaxonomyPage />,
       },
       {
         path: 'academic-taxonomy/:nodeId',
-        element: <AdminAcademicTaxonomyDetailPage />
+        element: <AdminAcademicTaxonomyDetailPage />,
       },
       {
         path: 'admin/majors',
-        element: <AdminMajorsPreviewPage />
+        element: <AdminMajorsPreviewPage />,
       },
       {
         path: 'admin/majors/:id',
-        element: <AdminMajorDetailPage />
+        element: <AdminMajorDetailPage />,
       },
       {
         path: 'admin/faculties',
-        element: <AdminFacultiesPage />
+        element: <AdminFacultiesPage />,
       },
       {
         path: 'admin/international-tests',
-        element: <AdminInternationalTestsPreviewPage />
+        element: <AdminInternationalTestsPreviewPage />,
       },
       {
         path: 'admin/international-tests/:id',
-        element: <AdminInternationalTestDetailPage />
+        element: <AdminInternationalTestDetailPage />,
       },
       {
         path: 'admin/courses',
-        element: <AdminCoursesLandingPage />
+        element: <AdminCoursesLandingPage />,
       },
       {
         path: 'admin/courses/native',
-        element: <AdminNativeCoursesPreviewPage />
+        element: <AdminNativeCoursesPreviewPage />,
       },
       {
         path: 'admin/courses/native/:id',
-        element: <AdminNativeCourseDetailPage />
+        element: <AdminNativeCourseDetailPage />,
       },
       {
         path: 'admin/courses/imported',
-        element: <AdminImportedCoursesPreviewPage />
+        element: <AdminImportedCoursesPreviewPage />,
       },
       {
         path: 'admin/courses/imported/:id',
-        element: <AdminImportedCourseDetailPage />
+        element: <AdminImportedCourseDetailPage />,
       },
       {
         path: 'admin/courses/paid',
-        element: <AdminPaidCoursesPreviewPage />
+        element: <AdminPaidCoursesPreviewPage />,
       },
       {
         path: 'admin/courses/paid/:id',
-        element: <AdminPaidCourseDetailPage />
+        element: <AdminPaidCourseDetailPage />,
       },
       {
         path: 'admin/services',
-        element: <AdminServicesLandingPage />
+        element: <AdminServicesLandingPage />,
       },
       {
         path: 'admin/services/student',
-        element: <AdminStudentServicesPreviewPage />
+        element: <AdminStudentServicesPreviewPage />,
       },
       {
         path: 'admin/services/student/:id',
-        element: <AdminStudentServiceDetailPage />
+        element: <AdminStudentServiceDetailPage />,
       },
       {
         path: 'admin/services/general',
-        element: <AdminGeneralServicesPreviewPage />
+        element: <AdminGeneralServicesPreviewPage />,
       },
       {
         path: 'admin/services/general/:id',
-        element: <AdminGeneralServiceDetailPage />
+        element: <AdminGeneralServiceDetailPage />,
       },
       {
         path: 'admin/cms',
-        element: <AdminCmsLandingPage />
+        element: <AdminCmsLandingPage />,
       },
       {
         path: 'admin/cms/articles',
-        element: <AdminCmsArticlesPreviewPage />
+        element: <AdminCmsArticlesPreviewPage />,
       },
       {
         path: 'admin/cms/articles/:id',
-        element: <AdminCmsArticleDetailPage />
+        element: <AdminCmsArticleDetailPage />,
       },
       {
         path: 'admin/cms/faqs',
-        element: <AdminCmsFaqsPreviewPage />
+        element: <AdminCmsFaqsPreviewPage />,
       },
       {
         path: 'admin/cms/faqs/:id',
-        element: <AdminCmsFaqDetailPage />
+        element: <AdminCmsFaqDetailPage />,
       },
       {
         path: 'admin/cms/pages',
-        element: <AdminCmsPagesPreviewPage />
+        element: <AdminCmsPagesPreviewPage />,
       },
       {
         path: 'admin/cms/pages/:id',
-        element: <AdminCmsPageDetailPage />
+        element: <AdminCmsPageDetailPage />,
       },
       {
         path: 'admin/cms/categories',
-        element: <AdminCmsCategoriesPreviewPage />
+        element: <AdminCmsCategoriesPreviewPage />,
       },
       {
         path: 'admin/cms/translations',
-        element: <AdminCmsTranslationsPreviewPage />
+        element: <AdminCmsTranslationsPreviewPage />,
       },
       {
         path: 'admin/cms/review',
-        element: <AdminCmsReviewQueuePage />
+        element: <AdminCmsReviewQueuePage />,
       },
       {
         path: 'admin/student-tools',
-        element: <Navigate to="/admin" replace />
+        element: <Navigate to="/admin" replace />,
       },
       {
         path: 'admin/student-tools/:id',
-        element: <Navigate to="/admin" replace />
+        element: <Navigate to="/admin" replace />,
       },
       {
         path: 'admin/certificates',
-        element: <AdminCertificatesPreviewPage />
+        element: <AdminCertificatesPreviewPage />,
       },
       {
         path: 'admin/certificates/:id',
-        element: <AdminCertificateDetailPage />
+        element: <AdminCertificateDetailPage />,
       },
       {
         path: 'admin/finance',
-        element: <AdminFinancePreviewPage />
+        element: <AdminFinancePreviewPage />,
       },
       {
         path: 'admin/finance/invoices/:id',
-        element: <AdminInvoiceDetailPage />
+        element: <AdminInvoiceDetailPage />,
       },
       {
         path: 'admin/careers',
-        element: <AdminCareersPreviewPage />
+        element: <AdminCareersPreviewPage />,
       },
       {
         path: 'admin/careers/opportunities/:id',
-        element: <AdminCareerOpportunityDetailPage />
+        element: <AdminCareerOpportunityDetailPage />,
       },
       {
         path: 'admin/ai',
-        element: <AdminAiGovernancePreviewPage />
+        element: <AdminAiGovernancePreviewPage />,
       },
       {
         path: 'admin/ai-governance',
-        element: <Navigate to="/admin/ai" replace />
+        element: <Navigate to="/admin/ai" replace />,
       },
       {
         path: 'admin/health',
-        element: <AdminHealthPreviewPage />
+        element: <AdminHealthPreviewPage />,
       },
       {
         path: 'admin/settings',
-        element: <AdminSettingsPreviewPage />
-      }
-    ]
-  }
+        element: <AdminSettingsPreviewPage />,
+      },
+    ],
+  },
 ]);
 
 function AdminAccessBridgePage() {
@@ -700,13 +920,13 @@ function AdminAccessBridgePage() {
 
       try {
         const res = await CsrfClientManager.getInstance().fetchWithCsrf('/api/v1/auth/me', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
           const result = await res.json();
           const perms: string[] = result.data?.effectivePermissions || [];
           const hasAdminAuthority = perms.some(
-            p => p === '*' || p === 'admin:*' || p.startsWith('admin:')
+            (p) => p === '*' || p === 'admin:*' || p.startsWith('admin:'),
           );
 
           if (active) {
@@ -726,7 +946,9 @@ function AdminAccessBridgePage() {
     }
 
     checkAdminAuth();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   if (isLocalAdminReadOnly) {
@@ -742,14 +964,18 @@ function AdminAccessBridgePage() {
       <div className="max-w-2xl mx-auto py-12 text-center">
         <div className="bg-white border rounded-3xl p-10 shadow-sm space-y-4">
           <h1 className="text-2xl font-bold text-red-600">{t('admin_access_denied_title')}</h1>
-          <p className="text-gray-600">
-            {t('admin_access_denied_desc')}
-          </p>
+          <p className="text-gray-600">{t('admin_access_denied_desc')}</p>
           <div className="flex items-center justify-center gap-3 pt-2">
-            <Link to="/login" className="px-6 py-3 bg-[#0F4B3A] text-white rounded-xl font-bold hover:bg-[#0c3e30]">
+            <Link
+              to="/login"
+              className="px-6 py-3 bg-[#0F4B3A] text-white rounded-xl font-bold hover:bg-[#0c3e30]"
+            >
               {t('admin_go_to_login')}
             </Link>
-            <Link to="/student" className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200">
+            <Link
+              to="/student"
+              className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200"
+            >
               {t('admin_student_workspace')}
             </Link>
           </div>
@@ -759,7 +985,8 @@ function AdminAccessBridgePage() {
   }
 
   const rawAdminUrl = import.meta.env.VITE_ADMIN_URL;
-  const hasExternalAdminUrl = rawAdminUrl && rawAdminUrl !== '/admin' && rawAdminUrl.startsWith('http');
+  const hasExternalAdminUrl =
+    rawAdminUrl && rawAdminUrl !== '/admin' && rawAdminUrl.startsWith('http');
 
   const openAdminPortal = () => {
     if (hasExternalAdminUrl) {
@@ -772,15 +999,18 @@ function AdminAccessBridgePage() {
   return (
     <div className="max-w-2xl mx-auto py-12 text-center">
       <div className="bg-white border rounded-3xl p-10 shadow-sm">
-        <h1 className="text-2xl font-bold mb-4">{t('admin_portal_access') || 'Admin Portal Access'}</h1>
-        
+        <h1 className="text-2xl font-bold mb-4">
+          {t('admin_portal_access') || 'Admin Portal Access'}
+        </h1>
+
         <div className="bg-green-50 text-green-800 p-4 rounded-xl text-sm font-medium mb-6">
           ✓ {t('demo_admin_unlocked') || 'Admin authority verified successfully via backend.'}
         </div>
 
         <div className="space-y-6">
           <p className="text-gray-600">
-            {t('admin_portal_external') || 'The Admin Portal is hosted externally. Click below to proceed.'}
+            {t('admin_portal_external') ||
+              'The Admin Portal is hosted externally. Click below to proceed.'}
           </p>
           <button
             onClick={openAdminPortal}
@@ -796,9 +1026,10 @@ function AdminAccessBridgePage() {
 
 function CanonicalAdminRedirect({ legacyPath }: { legacyPath: string }) {
   const rawAdminUrl = import.meta.env.VITE_ADMIN_URL;
-  const adminBase = rawAdminUrl && rawAdminUrl !== '/admin' && rawAdminUrl.startsWith('http')
-    ? rawAdminUrl.replace(/\/$/, '')
-    : null;
+  const adminBase =
+    rawAdminUrl && rawAdminUrl !== '/admin' && rawAdminUrl.startsWith('http')
+      ? rawAdminUrl.replace(/\/$/, '')
+      : null;
   const targetPath = legacyPath.replace(/^\/admin/, '') || '/dashboard';
 
   useEffect(() => {
