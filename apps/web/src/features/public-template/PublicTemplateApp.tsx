@@ -332,7 +332,7 @@ export default function App() {
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
   return (
-    <div className="flex flex-col min-h-screen w-full bg-slate-50 dark:bg-[#031322] text-slate-900 dark:text-slate-100 selection:bg-[#E4B343]/30 selection:text-slate-950 font-['Cairo',sans-serif] pb-24 sm:pb-28 transition-colors">
+    <div className="manaratak-public flex flex-col min-h-screen w-full bg-slate-50 dark:bg-[#031322] text-slate-900 dark:text-slate-100 selection:bg-[#E4B343]/30 selection:text-slate-950 font-['Cairo',sans-serif] pb-24 sm:pb-28 transition-colors">
       {/* App Header (Top Sticky) */}
       <Header
         language={language}

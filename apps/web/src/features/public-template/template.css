@@ -393,3 +393,529 @@
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
 }
+
+/* ========================================================
+   MANARATAK PUBLIC BRAND PALETTE
+   Scoped to the public/student experience so Admin remains unchanged.
+   ======================================================== */
+.manaratak-public {
+  --mn-primary: #142b5f;
+  --mn-primary-deep: #0d1d3f;
+  --mn-secondary: #0e7c86;
+  --mn-secondary-deep: #0a626b;
+  --mn-digital: #21a7b4;
+  --mn-gold: #d6a43b;
+  --mn-gold-soft: #f2cd78;
+  --mn-fog: #ddeff2;
+  --mn-page: #faf7f0;
+  --mn-text: #203442;
+  --mn-text-muted: #536b75;
+  --mn-card: #ffffff;
+  --mn-text-on-dark: #ffffff;
+  --mn-border-soft: rgb(14 124 134 / 14%);
+  --mn-border-neutral: rgb(32 52 66 / 11%);
+  --mn-shadow-card: 0 6px 22px rgb(20 43 95 / 6%);
+  --mn-shadow-hover: 0 9px 26px rgb(20 43 95 / 10%);
+  --mn-focus: rgb(214 164 59 / 42%);
+
+  /* Tailwind semantic colors are scoped to this experience only. */
+  --color-slate-50: #faf7f0;
+  --color-slate-100: #eef3f1;
+  --color-slate-200: #ddeff2;
+  --color-slate-300: #b8cdd2;
+  --color-slate-400: #708992;
+  --color-slate-500: #536b75;
+  --color-slate-600: #405966;
+  --color-slate-700: #304956;
+  --color-slate-800: #203442;
+  --color-slate-900: #142b5f;
+  --color-slate-950: #0d1d3f;
+  --color-blue-50: #edf7f8;
+  --color-blue-100: #ddeff2;
+  --color-blue-200: #b9dfe3;
+  --color-blue-300: #83cbd2;
+  --color-blue-400: #21a7b4;
+  --color-blue-500: #15949f;
+  --color-blue-600: #0e7c86;
+  --color-blue-700: #0a626b;
+  --color-blue-800: #142b5f;
+  --color-blue-900: #0d1d3f;
+  --color-amber-50: #fff9ea;
+  --color-amber-100: #fbefc9;
+  --color-amber-200: #f2cd78;
+  --color-amber-300: #e6bb5b;
+  --color-amber-400: #d6a43b;
+  --color-amber-500: #c38e27;
+  --color-amber-600: #9e6e1b;
+  --color-amber-700: #7b5318;
+  background-color: var(--mn-page);
+  color: var(--mn-text);
+}
+
+.dark .manaratak-public {
+  --mn-page: #09152f;
+  --mn-card: #10264a;
+  --mn-text: #edf5f5;
+  --mn-text-muted: #c7d9dd;
+  --mn-border-soft: rgb(33 167 180 / 23%);
+  --mn-border-neutral: rgb(221 239 242 / 14%);
+  --mn-shadow-card: 0 6px 22px rgb(0 0 0 / 18%);
+  --mn-shadow-hover: 0 9px 26px rgb(0 0 0 / 24%);
+  --color-slate-50: #10264a;
+  --color-slate-100: #153258;
+  --color-slate-200: #1a4263;
+  --color-slate-300: #c7d9dd;
+  --color-slate-400: #a9c2c8;
+  --color-slate-500: #8caab2;
+  --color-slate-600: #c7d9dd;
+  --color-slate-700: #d8e7e8;
+  --color-slate-800: #edf5f5;
+  --color-slate-900: #f6fbfb;
+  --color-slate-950: #ffffff;
+  background-color: var(--mn-page);
+  color: var(--mn-text);
+}
+
+/* Public page, cards, borders, typography and focus treatment. */
+.manaratak-public.bg-slate-50,
+.manaratak-public .bg-slate-50 {
+  background-color: var(--mn-page);
+}
+
+.manaratak-public .bg-white {
+  background-color: var(--mn-card);
+}
+
+.manaratak-public .border-slate-100,
+.manaratak-public .border-slate-200,
+.manaratak-public .border-slate-200\/80,
+.manaratak-public .border-slate-200\/90 {
+  border-color: var(--mn-border-neutral);
+}
+
+.manaratak-public .shadow-2xs,
+.manaratak-public .shadow-xs,
+.manaratak-public .shadow-sm {
+  box-shadow: var(--mn-shadow-card);
+}
+
+.manaratak-public .hover\:shadow-md:hover,
+.manaratak-public .hover\:shadow-lg:hover,
+.manaratak-public .hover\:shadow-xl:hover {
+  box-shadow: var(--mn-shadow-hover);
+}
+
+.manaratak-public input:focus,
+.manaratak-public textarea:focus,
+.manaratak-public select:focus,
+.manaratak-public button:focus-visible,
+.manaratak-public a:focus-visible {
+  outline-color: var(--mn-gold);
+  box-shadow: 0 0 0 3px var(--mn-focus);
+}
+
+/* Old primary identities map by role to Lighthouse Indigo. */
+.manaratak-public [class~='text-[#064D83]' i],
+.manaratak-public [class~='text-[#064D83]/80' i],
+.manaratak-public [class~='text-[#003B68]' i],
+.manaratak-public [class~='text-[#005B9F]' i],
+.manaratak-public [class~='text-[#0F4B3A]' i] {
+  color: var(--mn-primary) !important;
+}
+
+.manaratak-public [class~='bg-[#064D83]' i],
+.manaratak-public [class~='bg-[#064D83]/80' i],
+.manaratak-public [class~='bg-[#064D83]/20' i],
+.manaratak-public [class~='bg-[#064D83]/10' i],
+.manaratak-public [class~='bg-[#064D83]/8' i],
+.manaratak-public [class~='bg-[#064D83]/5' i],
+.manaratak-public [class~='bg-[#064D83]/[0.03]' i],
+.manaratak-public [class~='bg-[#003B68]' i],
+.manaratak-public [class~='bg-[#003B68]/10' i],
+.manaratak-public [class~='bg-[#003B68]/5' i],
+.manaratak-public [class~='bg-[#005B9F]' i],
+.manaratak-public [class~='bg-[#0F4B3A]' i] {
+  background-color: var(--mn-primary) !important;
+}
+
+.manaratak-public [class~='border-[#064D83]' i],
+.manaratak-public [class~='border-[#064D83]/60' i],
+.manaratak-public [class~='border-[#064D83]/45' i],
+.manaratak-public [class~='border-[#064D83]/40' i],
+.manaratak-public [class~='border-[#064D83]/30' i],
+.manaratak-public [class~='border-[#064D83]/25' i],
+.manaratak-public [class~='border-[#064D83]/20' i],
+.manaratak-public [class~='border-[#064D83]/15' i],
+.manaratak-public [class~='border-[#064D83]/10' i],
+.manaratak-public [class~='border-[#003B68]' i],
+.manaratak-public [class~='border-[#003B68]/30' i],
+.manaratak-public [class~='border-[#005B9F]' i],
+.manaratak-public [class~='border-[#0F4B3A]' i] {
+  border-color: var(--mn-primary) !important;
+}
+
+.manaratak-public [class~='ring-[#064D83]' i],
+.manaratak-public [class~='ring-[#003B68]' i] {
+  --tw-ring-color: var(--mn-primary) !important;
+}
+
+.manaratak-public [class~='fill-[#064D83]' i] {
+  fill: var(--mn-primary) !important;
+}
+
+.manaratak-public [class~='stroke-[#064D83]' i] {
+  stroke: var(--mn-primary) !important;
+}
+
+/* Gold remains a restrained accent and uses indigo text on filled surfaces. */
+.manaratak-public [class~='text-[#D9A93A]' i],
+.manaratak-public [class~='text-[#E4B343]' i],
+.manaratak-public [class~='text-[#C8A24A]' i],
+.manaratak-public [class~='text-[#8A630F]' i],
+.manaratak-public [class~='text-[#A87D1A]' i] {
+  color: var(--mn-gold) !important;
+}
+
+.manaratak-public [class~='bg-[#D9A93A]' i],
+.manaratak-public [class~='bg-[#D9A93A]/40' i],
+.manaratak-public [class~='bg-[#D9A93A]/30' i],
+.manaratak-public [class~='bg-[#D9A93A]/25' i],
+.manaratak-public [class~='bg-[#D9A93A]/20' i],
+.manaratak-public [class~='bg-[#D9A93A]/15' i],
+.manaratak-public [class~='bg-[#D9A93A]/10' i],
+.manaratak-public [class~='bg-[#D9A93A]/5' i],
+.manaratak-public [class~='bg-[#E4B343]' i],
+.manaratak-public [class~='bg-[#E4B343]/30' i],
+.manaratak-public [class~='bg-[#E4B343]/20' i],
+.manaratak-public [class~='bg-[#E4B343]/10' i],
+.manaratak-public [class~='bg-[#C8A24A]' i] {
+  background-color: var(--mn-gold) !important;
+}
+
+.manaratak-public [class~='border-[#D9A93A]' i],
+.manaratak-public [class~='border-[#D9A93A]/70' i],
+.manaratak-public [class~='border-[#D9A93A]/60' i],
+.manaratak-public [class~='border-[#D9A93A]/50' i],
+.manaratak-public [class~='border-[#D9A93A]/40' i],
+.manaratak-public [class~='border-[#D9A93A]/30' i],
+.manaratak-public [class~='border-[#D9A93A]/25' i],
+.manaratak-public [class~='border-[#D9A93A]/20' i],
+.manaratak-public [class~='border-[#D9A93A]/15' i],
+.manaratak-public [class~='border-[#E4B343]' i],
+.manaratak-public [class~='border-[#E4B343]/50' i],
+.manaratak-public [class~='border-[#E4B343]/40' i],
+.manaratak-public [class~='border-[#E4B343]/30' i],
+.manaratak-public [class~='border-[#E4B343]/25' i],
+.manaratak-public [class~='border-[#C8A24A]' i],
+.manaratak-public [class~='border-[#E9DCBF]' i] {
+  border-color: var(--mn-gold) !important;
+}
+
+.manaratak-public [class~='ring-[#D9A93A]' i],
+.manaratak-public [class~='ring-[#E4B343]' i] {
+  --tw-ring-color: var(--mn-focus) !important;
+}
+
+.manaratak-public [class~='bg-[#D9A93A]' i][class~='text-white'],
+.manaratak-public [class~='bg-[#E4B343]' i][class~='text-white'],
+.manaratak-public .bg-amber-400,
+.manaratak-public .bg-amber-500 {
+  color: var(--mn-primary) !important;
+}
+
+/* Warm and cool supporting surfaces remove large-area glare. */
+.manaratak-public [class~='bg-[#F2E8D5]' i],
+.manaratak-public [class~='bg-[#FAF5EA]' i],
+.manaratak-public [class~='bg-[#FAFAFA]' i],
+.manaratak-public [class~='bg-[#F8FAFC]' i] {
+  background-color: var(--mn-page) !important;
+}
+
+.manaratak-public [class~='border-[#F2E8D5]' i],
+.manaratak-public [class~='border-[#F2E8D5]/90' i],
+.manaratak-public [class~='border-[#F2E8D5]/80' i],
+.manaratak-public [class~='border-[#F2E8D5]/70' i],
+.manaratak-public [class~='border-[#F2E8D5]/50' i],
+.manaratak-public [class~='border-[#F2E8D5]/40' i],
+.manaratak-public [class~='border-[#E9DFC8]/70' i] {
+  border-color: var(--mn-border-neutral) !important;
+}
+
+/* Search headers share the official indigo-to-horizon gradient. */
+.manaratak-public [class*='from-[#002642]' i][class*='via-[#003B68]' i][class*='to-[#002E52]' i],
+.manaratak-public [class*='from-[#002E52]' i][class*='via-[#064D83]' i][class*='to-[#003B68]' i] {
+  background-image: linear-gradient(
+    110deg,
+    var(--mn-primary) 0%,
+    var(--mn-primary) 42%,
+    var(--mn-secondary) 82%,
+    var(--mn-digital) 100%
+  ) !important;
+}
+
+/* Existing hero keeps its structure and receives the same calm horizon palette. */
+.manaratak-public [class*='from-[#064D83]' i][class*='via-[#064D83]' i][class*='to-transparent'] {
+  background-image: linear-gradient(
+    to left,
+    rgb(20 43 95 / 96%) 0%,
+    rgb(14 124 134 / 78%) 64%,
+    transparent 100%
+  ) !important;
+}
+
+/* Gradient stops used elsewhere inherit the new brand roles. */
+.manaratak-public [class*='from-[#064D83]' i],
+.manaratak-public [class*='from-[#003B68]' i],
+.manaratak-public [class*='from-[#002E52]' i],
+.manaratak-public [class*='from-[#002642]' i] {
+  --tw-gradient-from: var(--mn-primary) !important;
+}
+
+.manaratak-public [class*='via-[#064D83]' i],
+.manaratak-public [class*='via-[#003B68]' i] {
+  --tw-gradient-via: var(--mn-secondary) !important;
+}
+
+.manaratak-public [class*='to-[#064D83]' i],
+.manaratak-public [class*='to-[#003B68]' i],
+.manaratak-public [class*='to-[#002E52]' i] {
+  --tw-gradient-to: var(--mn-secondary) !important;
+}
+
+.manaratak-public [class*='from-[#D9A93A]' i],
+.manaratak-public [class*='from-[#E4B343]' i] {
+  --tw-gradient-from: var(--mn-gold) !important;
+}
+
+.manaratak-public [class*='via-[#D9A93A]' i],
+.manaratak-public [class*='via-[#E4B343]' i] {
+  --tw-gradient-via: var(--mn-gold-soft) !important;
+}
+
+.manaratak-public [class*='to-[#D9A93A]' i],
+.manaratak-public [class*='to-[#E4B343]' i],
+.manaratak-public [class*='to-[#FDE08B]' i] {
+  --tw-gradient-to: var(--mn-gold-soft) !important;
+}
+
+/* Reduced brand glow while preserving the existing motion and layout. */
+.manaratak-public .animate-card-gold-glow {
+  animation-name: mn-card-gold-pulse;
+}
+
+@keyframes mn-card-gold-pulse {
+  0%,
+  100% {
+    border-color: rgb(214 164 59 / 24%);
+    box-shadow: var(--mn-shadow-card);
+  }
+  50% {
+    border-color: rgb(214 164 59 / 48%);
+    box-shadow: 0 3px 12px rgb(20 43 95 / 8%);
+  }
+}
+
+.manaratak-public .animate-glow-btn-gold,
+.manaratak-public .animate-glow-btn-blue,
+.manaratak-public .animate-glow-btn-emerald {
+  animation-name: mn-button-soft-pulse;
+}
+
+@keyframes mn-button-soft-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(214 164 59 / 18%);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgb(214 164 59 / 8%);
+  }
+}
+
+/* Dark surfaces are derived from Lighthouse Indigo, not the retired blue theme. */
+.dark .manaratak-public.bg-slate-50,
+.dark .manaratak-public [class~='dark:bg-[#031322]' i],
+.dark .manaratak-public [class~='bg-[#031322]' i] {
+  background-color: #09152f !important;
+}
+
+.dark .manaratak-public .bg-white,
+.dark .manaratak-public [class~='dark:bg-[#041627]' i],
+.dark .manaratak-public [class~='dark:bg-[#041628]' i],
+.dark .manaratak-public [class~='dark:bg-[#061B2E]' i],
+.dark .manaratak-public [class~='dark:bg-[#062038]' i],
+.dark .manaratak-public [class~='dark:bg-[#072440]' i],
+.dark .manaratak-public [class~='dark:bg-[#082038]' i],
+.dark .manaratak-public [class~='dark:bg-[#082440]' i],
+.dark .manaratak-public [class~='dark:bg-[#082848]' i],
+.dark .manaratak-public [class~='dark:bg-[#0A2238]' i],
+.dark .manaratak-public [class~='dark:bg-[#0A2A48]' i],
+.dark .manaratak-public [class~='bg-[#041627]' i],
+.dark .manaratak-public [class~='bg-[#041628]' i],
+.dark .manaratak-public [class~='bg-[#061B2E]' i],
+.dark .manaratak-public [class~='bg-[#062038]' i],
+.dark .manaratak-public [class~='bg-[#072440]' i],
+.dark .manaratak-public [class~='bg-[#082038]' i],
+.dark .manaratak-public [class~='bg-[#082440]' i],
+.dark .manaratak-public [class~='bg-[#082848]' i],
+.dark .manaratak-public [class~='bg-[#0A2238]' i],
+.dark .manaratak-public [class~='bg-[#0A2A48]' i] {
+  background-color: #10264a !important;
+}
+
+.dark .manaratak-public [class~='dark:bg-[#0C2B4A]' i],
+.dark .manaratak-public [class~='dark:bg-[#0D3358]' i],
+.dark .manaratak-public [class~='dark:bg-[#113454]' i],
+.dark .manaratak-public [class~='dark:bg-[#14385A]' i],
+.dark .manaratak-public [class~='bg-[#0C2B4A]' i],
+.dark .manaratak-public [class~='bg-[#0D3358]' i],
+.dark .manaratak-public [class~='bg-[#113454]' i],
+.dark .manaratak-public [class~='bg-[#14385A]' i] {
+  background-color: #153258 !important;
+}
+
+.dark .manaratak-public [class~='dark:border-[#153C63]' i],
+.dark .manaratak-public [class~='dark:border-[#1A456E]' i],
+.dark .manaratak-public [class~='dark:border-[#1B476E]' i],
+.dark .manaratak-public [class~='border-[#153C63]' i],
+.dark .manaratak-public [class~='border-[#1A456E]' i],
+.dark .manaratak-public [class~='border-[#1B476E]' i] {
+  border-color: rgb(33 167 180 / 28%) !important;
+}
+
+.dark .manaratak-public [class~='dark:text-[#E4B343]' i],
+.dark .manaratak-public [class~='text-[#E4B343]' i] {
+  color: var(--mn-gold-soft) !important;
+}
+
+.dark .manaratak-public input:not([type='checkbox']):not([type='radio']),
+.dark .manaratak-public textarea,
+.dark .manaratak-public select {
+  background-color: #10264a;
+  color: #edf5f5;
+  border-color: rgb(33 167 180 / 28%);
+}
+
+/* Preserve the intent of existing opacity modifiers with the new palette. */
+.manaratak-public [class~='bg-[#064D83]/80' i] {
+  background-color: rgb(20 43 95 / 80%) !important;
+}
+.manaratak-public [class~='bg-[#064D83]/20' i] {
+  background-color: rgb(20 43 95 / 20%) !important;
+}
+.manaratak-public [class~='bg-[#064D83]/10' i] {
+  background-color: rgb(20 43 95 / 10%) !important;
+}
+.manaratak-public [class~='bg-[#064D83]/8' i] {
+  background-color: rgb(20 43 95 / 8%) !important;
+}
+.manaratak-public [class~='bg-[#064D83]/5' i] {
+  background-color: rgb(20 43 95 / 5%) !important;
+}
+.manaratak-public [class~='bg-[#064D83]/[0.03]' i] {
+  background-color: rgb(20 43 95 / 3%) !important;
+}
+.manaratak-public [class~='bg-[#003B68]/10' i] {
+  background-color: rgb(20 43 95 / 10%) !important;
+}
+.manaratak-public [class~='bg-[#003B68]/5' i] {
+  background-color: rgb(20 43 95 / 5%) !important;
+}
+.manaratak-public [class~='text-[#064D83]/80' i] {
+  color: rgb(20 43 95 / 80%) !important;
+}
+
+.manaratak-public [class~='bg-[#D9A93A]/40' i] {
+  background-color: rgb(214 164 59 / 40%) !important;
+}
+.manaratak-public [class~='bg-[#D9A93A]/30' i],
+.manaratak-public [class~='bg-[#E4B343]/30' i] {
+  background-color: rgb(214 164 59 / 30%) !important;
+}
+.manaratak-public [class~='bg-[#D9A93A]/25' i] {
+  background-color: rgb(214 164 59 / 25%) !important;
+}
+.manaratak-public [class~='bg-[#D9A93A]/20' i],
+.manaratak-public [class~='bg-[#E4B343]/20' i] {
+  background-color: rgb(214 164 59 / 20%) !important;
+}
+.manaratak-public [class~='bg-[#D9A93A]/15' i] {
+  background-color: rgb(214 164 59 / 15%) !important;
+}
+.manaratak-public [class~='bg-[#D9A93A]/10' i],
+.manaratak-public [class~='bg-[#E4B343]/10' i] {
+  background-color: rgb(214 164 59 / 10%) !important;
+}
+.manaratak-public [class~='bg-[#D9A93A]/5' i] {
+  background-color: rgb(214 164 59 / 5%) !important;
+}
+
+.manaratak-public [class~='border-[#064D83]/60' i] {
+  border-color: rgb(20 43 95 / 60%) !important;
+}
+.manaratak-public [class~='border-[#064D83]/45' i] {
+  border-color: rgb(20 43 95 / 45%) !important;
+}
+.manaratak-public [class~='border-[#064D83]/40' i] {
+  border-color: rgb(20 43 95 / 40%) !important;
+}
+.manaratak-public [class~='border-[#064D83]/30' i],
+.manaratak-public [class~='border-[#003B68]/30' i] {
+  border-color: rgb(20 43 95 / 30%) !important;
+}
+.manaratak-public [class~='border-[#064D83]/25' i] {
+  border-color: rgb(20 43 95 / 25%) !important;
+}
+.manaratak-public [class~='border-[#064D83]/20' i] {
+  border-color: rgb(20 43 95 / 20%) !important;
+}
+.manaratak-public [class~='border-[#064D83]/15' i] {
+  border-color: rgb(20 43 95 / 15%) !important;
+}
+.manaratak-public [class~='border-[#064D83]/10' i] {
+  border-color: rgb(20 43 95 / 10%) !important;
+}
+
+.manaratak-public [class~='border-[#D9A93A]/70' i] {
+  border-color: rgb(214 164 59 / 70%) !important;
+}
+.manaratak-public [class~='border-[#D9A93A]/60' i] {
+  border-color: rgb(214 164 59 / 60%) !important;
+}
+.manaratak-public [class~='border-[#D9A93A]/50' i],
+.manaratak-public [class~='border-[#E4B343]/50' i] {
+  border-color: rgb(214 164 59 / 50%) !important;
+}
+.manaratak-public [class~='border-[#D9A93A]/40' i],
+.manaratak-public [class~='border-[#E4B343]/40' i] {
+  border-color: rgb(214 164 59 / 40%) !important;
+}
+.manaratak-public [class~='border-[#D9A93A]/30' i],
+.manaratak-public [class~='border-[#E4B343]/30' i] {
+  border-color: rgb(214 164 59 / 30%) !important;
+}
+.manaratak-public [class~='border-[#D9A93A]/25' i],
+.manaratak-public [class~='border-[#E4B343]/25' i] {
+  border-color: rgb(214 164 59 / 25%) !important;
+}
+.manaratak-public [class~='border-[#D9A93A]/20' i] {
+  border-color: rgb(214 164 59 / 20%) !important;
+}
+.manaratak-public [class~='border-[#D9A93A]/15' i] {
+  border-color: rgb(214 164 59 / 15%) !important;
+}
+
+/* Eliminate strong halo effects without changing animation or component geometry. */
+.manaratak-public [class*='shadow-[0_0_'],
+.manaratak-public [class*='shadow-[0_4px_'],
+.manaratak-public [class*='shadow-[0_8px_'] {
+  box-shadow: var(--mn-shadow-card) !important;
+}
+
+.manaratak-public [class*='drop-shadow-[0_0_'] {
+  filter: none !important;
+}
+
+.manaratak-public [class~='blur-xl'][class~='bg-[#D9A93A]/10' i],
+.manaratak-public [class*='blur-['][class~='bg-[#D9A93A]' i] {
+  opacity: 0.08 !important;
+}
