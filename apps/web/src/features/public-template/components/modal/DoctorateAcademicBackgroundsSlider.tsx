@@ -76,31 +76,31 @@ export const DoctorateAcademicBackgroundsSlider: React.FC<
 
   return (
     <div
-      className="relative w-full bg-white rounded-none p-3.5 sm:p-4 border-y border-[#064D83]/40 shadow-md shadow-slate-200/60 overflow-hidden"
+      className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-slate-200/60 overflow-hidden"
       dir="rtl"
     >
       {/* Top Emerald Accent Line */}
-      <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[#064D83] to-transparent" />
+      <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-secondary)] to-transparent" />
 
       {/* Section Header */}
       <div className="flex flex-col items-center justify-center mb-3.5 pt-0.5">
         <div className="flex items-center justify-center gap-2 mb-1.5">
-          <div className="w-6.5 h-6.5 rounded-full bg-[#064D83]/5 border border-[#D9A93A]/60 ring-2 ring-[#D9A93A]/20 flex items-center justify-center shrink-0 shadow-2xs">
-            <Layers className="w-3.5 h-3.5 text-[#064D83]" />
+          <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
+            <Layers className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
           </div>
-          <h2 className="text-xs sm:text-[13px] font-black text-[#064D83] leading-tight">
+          <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
             4. الخلفيات الأكاديمية المناسبة ومسارات الدخول
           </h2>
         </div>
         {/* Glowing Gold Underline */}
-        <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[#D9A93A] to-transparent shadow-[0_0_8px_rgba(200,162,74,0.7)]" />
+        <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(200,162,74,0.7)]" />
       </div>
 
       {/* 4 Clean Segmented Tab Buttons (التنقل السريع) with Animated Glowing Line */}
       <div className="relative mb-3 rounded-2xl overflow-hidden p-[2px] shadow-[0_0_12px_rgba(200,162,74,0.2)] bg-slate-200/50">
         {/* Animated Moving Glowing Border Line (Slanted Shine) */}
         <motion.div
-          className="absolute inset-0 w-[200%] h-full bg-gradient-to-r from-transparent via-[#D9A93A] to-transparent opacity-100 -rotate-12 scale-150 origin-center"
+          className="absolute inset-0 w-[200%] h-full bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent opacity-100 -rotate-12 scale-150 origin-center"
           initial={{ x: '-100%' }}
           animate={{ x: '100%' }}
           transition={{ duration: 3, ease: 'linear', repeat: Infinity }}
@@ -117,12 +117,12 @@ export const DoctorateAcademicBackgroundsSlider: React.FC<
                 onClick={() => handleSelectTab(idx)}
                 className={`py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer select-none text-center ${
                   isActive
-                    ? 'bg-white text-[#064D83] shadow-xs border border-[#D9A93A]/60 ring-1 ring-[#D9A93A]/20 font-black'
+                    ? 'bg-[var(--mn-surface)] text-[var(--mn-heading)] shadow-xs border border-[var(--mn-accent)]/60 ring-1 ring-[var(--mn-focus)]/20 font-black'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 border border-transparent font-bold'
                 }`}
               >
                 <Icon
-                  className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-[#064D83]' : 'text-slate-500'}`}
+                  className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-[var(--mn-heading)]' : 'text-slate-500'}`}
                 />
                 <span className="text-[11px] sm:text-[11.5px] leading-tight truncate">
                   {tab.tabLabel}
@@ -151,11 +151,11 @@ export const DoctorateAcademicBackgroundsSlider: React.FC<
           >
             {/* Slide Header */}
             <div className="flex items-center gap-2.5 pb-2.5 border-b border-[#F2E8D5]/70">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#064D83] to-[#082b21] text-[#D9A93A] flex items-center justify-center shadow-2xs shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[var(--mn-primary)] to-[#082b21] text-[var(--mn-accent-text)] flex items-center justify-center shadow-2xs shrink-0">
                 {React.createElement(currentTab.icon, { className: 'w-4.5 h-4.5 text-amber-300' })}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-[12px] sm:text-[13px] font-black text-[#064D83] leading-tight">
+                <h3 className="text-[12px] sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
                   {currentTab.title}
                 </h3>
                 <p className="text-[10.5px] text-slate-600 font-bold mt-0.5 leading-snug">
@@ -169,9 +169,9 @@ export const DoctorateAcademicBackgroundsSlider: React.FC<
               {currentTab.items.map((item, idx) => (
                 <div
                   key={idx}
-                  className="flex items-start gap-2.5 p-2.5 sm:p-3 rounded-xl bg-white border border-[#F2E8D5] hover:border-[#D9A93A] hover:shadow-2xs transition-all duration-200 text-right"
+                  className="flex items-start gap-2.5 p-2.5 sm:p-3 rounded-xl bg-[var(--mn-surface)] border border-[#F2E8D5] hover:border-[var(--mn-accent)] hover:shadow-2xs transition-all duration-200 text-right"
                 >
-                  <div className="w-5 h-5 rounded-lg bg-[#064D83]/10 text-[#064D83] flex items-center justify-center shrink-0 mt-0.5 font-black text-[11px]">
+                  <div className="w-5 h-5 rounded-lg bg-[var(--mn-primary)]/10 text-[var(--mn-heading)] flex items-center justify-center shrink-0 mt-0.5 font-black text-[11px]">
                     ✓
                   </div>
                   <span className="text-[11px] sm:text-[11.5px] font-bold text-slate-800 leading-relaxed flex-1">

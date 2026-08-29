@@ -47,12 +47,12 @@ export const FeaturedArticles: React.FC<FeaturedArticlesProps> = ({ onViewAllCli
       className="px-0.5 sm:px-1 py-3 w-full font-['Cairo',sans-serif]"
     >
       {/* Container with top accent border */}
-      <div className="relative rounded-3xl p-3.5 sm:p-4 bg-gradient-to-b from-white to-slate-50/80 border border-slate-200/90 shadow-sm border-t-2 border-t-[#064D83]/40 overflow-hidden">
+      <div className="relative rounded-3xl p-3.5 sm:p-4 bg-gradient-to-b from-[var(--mn-surface)] to-slate-50/80 border border-slate-200/90 shadow-sm border-t-2 border-t-[var(--mn-primary)]/40 overflow-hidden">
         <div className="relative z-10">
           {/* Centered Section Title */}
           <div className="text-center mb-5">
             <h3 className="text-sm sm:text-base font-bold text-slate-900 inline-flex items-center justify-center gap-1.5">
-              <Newspaper className="w-4 h-4 text-[#064D83]" />
+              <Newspaper className="w-4 h-4 text-[var(--mn-heading)]" />
               <span>منصة المعرفة والمقالات</span>
             </h3>
             <p className="text-[10px] sm:text-xs text-slate-600 font-medium mt-0.5 max-w-xs mx-auto">
@@ -65,7 +65,7 @@ export const FeaturedArticles: React.FC<FeaturedArticlesProps> = ({ onViewAllCli
             {MOCK_ARTICLES.map((article) => (
               <div
                 key={article.id}
-                className="snap-start shrink-0 w-[160px] sm:w-[180px] group flex flex-col rounded-2xl bg-white border border-slate-100 hover:border-[#D9A93A]/40 hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden"
+                className="snap-start shrink-0 w-[160px] sm:w-[180px] group flex flex-col rounded-2xl bg-[var(--mn-surface)] border border-slate-100 hover:border-[var(--mn-accent)]/40 hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden"
               >
                 {/* Thumbnail Header */}
                 <div className="w-full h-24 sm:h-28 relative overflow-hidden bg-slate-100">
@@ -76,7 +76,7 @@ export const FeaturedArticles: React.FC<FeaturedArticlesProps> = ({ onViewAllCli
                     referrerPolicy="no-referrer"
                   />
                   {/* Category Badge on top of image */}
-                  <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm text-[#064D83] text-[8px] sm:text-[9px] font-bold px-2 py-1 rounded-full shadow-sm">
+                  <div className="absolute top-2 right-2 bg-[var(--mn-surface-elevated)]/90 backdrop-blur-sm text-[var(--mn-heading)] text-[8px] sm:text-[9px] font-bold px-2 py-1 rounded-full shadow-sm">
                     {article.category}
                   </div>
                   {/* Subtle Gradient Overlay */}
@@ -85,7 +85,7 @@ export const FeaturedArticles: React.FC<FeaturedArticlesProps> = ({ onViewAllCli
 
                 {/* Content Body */}
                 <div className="flex flex-col p-2.5 sm:p-3 flex-1">
-                  <h4 className="font-bold text-[11px] sm:text-xs text-slate-800 leading-snug line-clamp-2 group-hover:text-[#064D83] transition-colors mb-2">
+                  <h4 className="font-bold text-[11px] sm:text-xs text-slate-800 leading-snug line-clamp-2 group-hover:text-[var(--mn-heading)] transition-colors mb-2">
                     {article.title}
                   </h4>
                   {article.isFeatured && (
@@ -100,7 +100,7 @@ export const FeaturedArticles: React.FC<FeaturedArticlesProps> = ({ onViewAllCli
                       <Clock className="w-3 h-3" />
                       {article.readTime}
                     </span>
-                    <div className="w-5 h-5 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-[#064D83] transition-colors">
+                    <div className="w-5 h-5 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-[var(--mn-primary)] transition-colors">
                       <ArrowUpLeft className="w-2.5 h-2.5 text-slate-400 group-hover:text-white" />
                     </div>
                   </div>
@@ -113,10 +113,10 @@ export const FeaturedArticles: React.FC<FeaturedArticlesProps> = ({ onViewAllCli
           <div className="mt-1 flex justify-center">
             <button
               onClick={onViewAllClick}
-              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-2.5 sm:py-3 bg-white hover:bg-[#D9A93A]/10 text-[#064D83] border border-[#D9A93A]/50 rounded-full text-xs sm:text-sm font-bold transition-all shadow-[0_0_15px_rgba(200,162,74,0.3)] hover:shadow-[0_0_25px_rgba(200,162,74,0.5)] animate-pulse hover:animate-none active:scale-95 font-['Cairo',sans-serif]"
+              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-2.5 sm:py-3 bg-[var(--mn-surface)] hover:bg-[var(--mn-accent)]/10 text-[var(--mn-heading)] border border-[var(--mn-accent)]/50 rounded-full text-xs sm:text-sm font-bold transition-all shadow-[0_0_15px_rgba(200,162,74,0.3)] hover:shadow-[0_0_25px_rgba(200,162,74,0.5)] animate-pulse hover:animate-none active:scale-95 font-['Cairo',sans-serif]"
             >
               <span>المزيد من المقالات</span>
-              <ChevronLeft className="w-4 h-4 text-[#064D83] transition-transform group-hover:-translate-x-1" />
+              <ChevronLeft className="w-4 h-4 text-[var(--mn-heading)] transition-transform group-hover:-translate-x-1" />
             </button>
           </div>
         </div>

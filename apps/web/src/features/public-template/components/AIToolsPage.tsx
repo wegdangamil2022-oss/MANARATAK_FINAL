@@ -17,11 +17,14 @@ interface AIToolsPageProps {
 
 export const AIToolsPage: React.FC<AIToolsPageProps> = ({ onBack, onOpenTool }) => {
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-24 font-sans select-none" dir="rtl">
+    <div
+      className="min-h-screen bg-[var(--mn-page)] text-slate-900 pb-24 font-sans select-none"
+      dir="rtl"
+    >
       {/* ========================================================================= */}
       {/* HERO TECH BANNER - FUTURISTIC AI DESIGN WITH FALLING TOOLS               */}
       {/* ========================================================================= */}
-      <div className="relative bg-gradient-to-b from-[#002642] via-[#003B68] to-[#002E52] text-white px-3 sm:px-4 pt-4 pb-12 sm:pb-14 overflow-hidden shadow-xs border-b border-[#D9A93A]/20">
+      <div className="relative mn-search-hero text-white px-3 sm:px-4 pt-4 pb-12 sm:pb-14 overflow-hidden shadow-xs border-b border-[var(--mn-accent)]/20">
         {/* Custom CSS for Falling Animation */}
         <style>{`
           @keyframes fallDown {
@@ -32,7 +35,7 @@ export const AIToolsPage: React.FC<AIToolsPageProps> = ({ onBack, onOpenTool }) 
           }
           .falling-icon {
             position: absolute;
-            color: #D9A93A;
+            color: var(--mn-accent);
             animation: fallDown linear infinite;
             pointer-events: none;
             z-index: 0;
@@ -100,8 +103,8 @@ export const AIToolsPage: React.FC<AIToolsPageProps> = ({ onBack, onOpenTool }) 
           {/* Top Tech Icon */}
           <div className="flex justify-center mb-3">
             <div className="relative">
-              <div className="absolute inset-0 bg-[#D9A93A] blur-md opacity-40 rounded-full animate-pulse" />
-              <Cpu className="w-10 h-10 sm:w-12 sm:h-12 text-[#D9A93A] relative z-10" />
+              <div className="absolute inset-0 bg-[var(--mn-accent)] blur-md opacity-40 rounded-full animate-pulse" />
+              <Cpu className="w-10 h-10 sm:w-12 sm:h-12 text-[var(--mn-accent-text)] relative z-10" />
             </div>
           </div>
 
@@ -110,7 +113,7 @@ export const AIToolsPage: React.FC<AIToolsPageProps> = ({ onBack, onOpenTool }) 
             <h1 className="text-2xl sm:text-3xl font-black text-white font-['Cairo',sans-serif] tracking-tight leading-tight flex flex-col items-center justify-center gap-1">
               <span>
                 أدوات{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E4B343] to-[#FDE08B]">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--mn-accent-soft)] to-[var(--mn-accent-soft)]">
                   الذكاء الاصطناعي
                 </span>
               </span>
@@ -118,7 +121,7 @@ export const AIToolsPage: React.FC<AIToolsPageProps> = ({ onBack, onOpenTool }) 
 
             {/* Divider */}
             <div className="flex justify-center pt-2 pb-1">
-              <div className="w-16 h-1 bg-gradient-to-r from-transparent via-[#E4B343] to-transparent rounded-full opacity-80" />
+              <div className="w-16 h-1 bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent rounded-full opacity-80" />
             </div>
 
             {/* Subtitle */}
@@ -130,7 +133,7 @@ export const AIToolsPage: React.FC<AIToolsPageProps> = ({ onBack, onOpenTool }) 
 
           {/* Glowing Tech Stats/Tags */}
           <div className="flex justify-center gap-3 pt-4">
-            <span className="px-3 py-1.5 bg-[#D9A93A]/10 border border-[#D9A93A]/40 rounded-full text-[10px] sm:text-xs text-[#D9A93A] font-bold shadow-[0_0_12px_rgba(200,162,74,0.25)] backdrop-blur-sm flex items-center gap-1.5">
+            <span className="px-3 py-1.5 bg-[var(--mn-accent)]/10 border border-[var(--mn-accent)]/40 rounded-full text-[10px] sm:text-xs text-[var(--mn-accent-text)] font-bold shadow-[0_0_12px_rgba(200,162,74,0.25)] backdrop-blur-sm flex items-center gap-1.5">
               <Zap className="w-3.5 h-3.5" />
               معالجة فورية
             </span>

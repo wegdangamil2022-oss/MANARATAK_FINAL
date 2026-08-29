@@ -21,7 +21,7 @@ export const MajorsList: React.FC<MajorsListProps> = ({
       <div className="flex items-center justify-between px-1">
         <div>
           <h2 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5 font-['Cairo',sans-serif]">
-            <Layers className="w-4 h-4 text-[#064D83]" />
+            <Layers className="w-4 h-4 text-[var(--mn-heading)]" />
             <span>دليل التخصصات الأكاديمية والمهنية</span>
           </h2>
           <p className="text-[10px] sm:text-[11px] text-slate-500 font-bold font-['Cairo',sans-serif] mt-0.5">

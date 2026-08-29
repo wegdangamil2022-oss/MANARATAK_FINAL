@@ -89,26 +89,29 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
   const getIcon = (iconName: string) => {
     switch (iconName) {
       case 'Cpu':
-        return <Cpu className="w-5 h-5 text-[#D9A93A]" />;
+        return <Cpu className="w-5 h-5 text-[var(--mn-accent-text)]" />;
       case 'Activity':
         return <Activity className="w-5 h-5 text-red-500" />;
       case 'Microscope':
-        return <Microscope className="w-5 h-5 text-[#064D83]" />;
+        return <Microscope className="w-5 h-5 text-[var(--mn-heading)]" />;
       case 'Zap':
-        return <Zap className="w-5 h-5 text-[#D9A93A]" />;
+        return <Zap className="w-5 h-5 text-[var(--mn-accent-text)]" />;
       case 'TrendingUp':
-        return <TrendingUp className="w-5 h-5 text-[#064D83]" />;
+        return <TrendingUp className="w-5 h-5 text-[var(--mn-heading)]" />;
       default:
-        return <BookOpen className="w-5 h-5 text-[#064D83]" />;
+        return <BookOpen className="w-5 h-5 text-[var(--mn-heading)]" />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-24 font-sans select-none" dir="rtl">
+    <div
+      className="min-h-screen bg-[var(--mn-page)] text-slate-900 pb-24 font-sans select-none"
+      dir="rtl"
+    >
       {/* ========================================================================= */}
       {/* HERO EMERALD CURVED BANNER */}
       {/* ========================================================================= */}
-      <div className="relative bg-gradient-to-b from-[#002E52] via-[#064D83] to-[#003B68] text-white px-3 sm:px-4 pt-4 pb-12 sm:pb-14 overflow-hidden shadow-sm">
+      <div className="relative mn-search-hero text-white px-3 sm:px-4 pt-4 pb-12 sm:pb-14 overflow-hidden shadow-sm">
         {/* Back Button */}
         {onBack && (
           <button
@@ -130,29 +133,29 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
           >
             <path
               d="M-50,50 Q100,-20 250,60 T550,40"
-              stroke="#D9A93A"
+              stroke="var(--mn-accent)"
               strokeWidth="1.5"
               fill="none"
             />
             <path
               d="M-20,120 Q150,40 300,140 T600,100"
-              stroke="#D9A93A"
+              stroke="var(--mn-accent)"
               strokeWidth="1"
               fill="none"
             />
-            <circle cx="30" cy="30" r="1" fill="#D9A93A" />
-            <circle cx="45" cy="30" r="1" fill="#D9A93A" />
-            <circle cx="60" cy="30" r="1" fill="#D9A93A" />
-            <circle cx="30" cy="45" r="1" fill="#D9A93A" />
-            <circle cx="45" cy="45" r="1" fill="#D9A93A" />
-            <circle cx="60" cy="45" r="1" fill="#D9A93A" />
+            <circle cx="30" cy="30" r="1" fill="var(--mn-accent)" />
+            <circle cx="45" cy="30" r="1" fill="var(--mn-accent)" />
+            <circle cx="60" cy="30" r="1" fill="var(--mn-accent)" />
+            <circle cx="30" cy="45" r="1" fill="var(--mn-accent)" />
+            <circle cx="45" cy="45" r="1" fill="var(--mn-accent)" />
+            <circle cx="60" cy="45" r="1" fill="var(--mn-accent)" />
           </svg>
         </div>
 
         <div className="max-w-xl mx-auto text-center relative z-10 space-y-2.5">
           {/* Little 4-pointed Gold Sparkle Star */}
           <div className="flex justify-center -mb-1">
-            <span className="text-[#D9A93A] text-sm animate-pulse">✦</span>
+            <span className="text-[var(--mn-accent-text)] text-sm animate-pulse">✦</span>
           </div>
 
           {/* Headline with Gold Curve */}
@@ -163,14 +166,14 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
                 تخصصك الأكاديمي
                 {/* Gold brush accent line underneath */}
                 <svg
-                  className="absolute -bottom-1.5 inset-x-0 w-full h-2 text-[#D9A93A]"
+                  className="absolute -bottom-1.5 inset-x-0 w-full h-2 text-[var(--mn-accent-text)]"
                   viewBox="0 0 100 12"
                   fill="none"
                   preserveAspectRatio="none"
                 >
                   <path
                     d="M2,9 Q50,2 98,6"
-                    stroke="#D9A93A"
+                    stroke="var(--mn-accent)"
                     strokeWidth="2.5"
                     strokeLinecap="round"
                   />
@@ -192,9 +195,9 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="ابحث باسم التخصص، الكلية، الوظيفة..."
-                className="w-full py-2.5 pl-4 pr-10 bg-[#002642]/85 hover:bg-[#002642] focus:bg-[#002642] border border-[#D9A93A]/40 focus:border-[#D9A93A] rounded-full text-xs sm:text-[13px] font-bold text-white placeholder-white focus:outline-none shadow-inner transition-all text-center font-['Cairo',sans-serif]"
+                className="w-full py-2.5 pl-4 pr-10 bg-[#002642]/85 hover:bg-[#002642] focus:bg-[#002642] border border-[var(--mn-accent)]/40 focus:border-[var(--mn-accent)] rounded-full text-xs sm:text-[13px] font-bold text-white placeholder-white focus:outline-none shadow-inner transition-all text-center font-['Cairo',sans-serif]"
               />
-              <Search className="w-4 h-4 text-[#D9A93A] absolute right-4 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-[var(--mn-accent-text)] absolute right-4 top-1/2 -translate-y-1/2" />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
@@ -225,12 +228,12 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
       {/* ========================================================================= */}
       <div className="max-w-xl mx-auto px-3 sm:px-4 -mt-7 sm:-mt-8 relative z-20 space-y-2.5">
         {/* Outer Framed Box with Gold Border */}
-        <div className="bg-white border border-[#D9A93A]/50 rounded-3xl p-2 sm:p-2.5 shadow-md">
+        <div className="bg-[var(--mn-surface)] border border-[var(--mn-accent)]/50 rounded-3xl p-2 sm:p-2.5 shadow-md">
           <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
             {/* Tile 1: الكلية */}
-            <div className="relative bg-white hover:bg-slate-50/80 border border-slate-200/80 rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-2xs transition-colors">
+            <div className="relative bg-[var(--mn-surface)] hover:bg-slate-50/80 border border-slate-200/80 rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-2xs transition-colors">
               <div className="flex items-center gap-1 text-slate-800 font-bold text-[10px] sm:text-[11px] font-['Cairo',sans-serif] leading-tight">
-                <Layers className="w-3 h-3 text-[#D9A93A]" />
+                <Layers className="w-3 h-3 text-[var(--mn-accent-text)]" />
                 <span className="truncate">
                   {selectedFaculty === 'الكل' ? 'اختر الكلية' : selectedFaculty}
                 </span>
@@ -251,9 +254,9 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
             </div>
 
             {/* Tile 2: الدرجة العلمية */}
-            <div className="relative bg-white hover:bg-slate-50/80 border border-slate-200/80 rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-2xs transition-colors">
+            <div className="relative bg-[var(--mn-surface)] hover:bg-slate-50/80 border border-slate-200/80 rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-2xs transition-colors">
               <div className="flex items-center gap-1 text-slate-800 font-bold text-[10px] sm:text-[11px] font-['Cairo',sans-serif] leading-tight">
-                <GraduationCap className="w-3 h-3 text-[#D9A93A]" />
+                <GraduationCap className="w-3 h-3 text-[var(--mn-accent-text)]" />
                 <span className="truncate">
                   {selectedDegree === 'الكل' ? 'الدرجة العلمية' : selectedDegree}
                 </span>
@@ -285,7 +288,7 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
           <span className="text-xs sm:text-sm font-black text-slate-900 font-['Cairo',sans-serif]">
             التخصصات المتاحة ({filteredMajors.length})
           </span>
-          <span className="text-[10px] sm:text-[11px] text-[#D9A93A] font-bold font-['Cairo',sans-serif]">
+          <span className="text-[10px] sm:text-[11px] text-[var(--mn-accent-text)] font-bold font-['Cairo',sans-serif]">
             محدثة باستمرار
           </span>
         </div>
@@ -293,7 +296,7 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
         {/* Cards Stack */}
         <div className="flex flex-col gap-2.5 sm:gap-3 w-full">
           {filteredMajors.length === 0 ? (
-            <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center flex flex-col items-center justify-center gap-2 shadow-2xs">
+            <div className="bg-[var(--mn-surface)] border border-slate-200 rounded-3xl p-8 text-center flex flex-col items-center justify-center gap-2 shadow-2xs">
               <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
                 <Search className="w-6 h-6" />
               </div>
@@ -305,7 +308,7 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
               </p>
               <button
                 onClick={handleResetFilters}
-                className="mt-2 px-4 py-1.5 bg-[#064D83] text-white rounded-xl text-xs font-bold cursor-pointer font-['Cairo',sans-serif]"
+                className="mt-2 px-4 py-1.5 bg-[var(--mn-primary)] text-white rounded-xl text-xs font-bold cursor-pointer font-['Cairo',sans-serif]"
               >
                 إلغاء التصفية وعرض الكل
               </button>

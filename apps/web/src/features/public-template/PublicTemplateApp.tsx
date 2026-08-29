@@ -332,7 +332,7 @@ export default function App() {
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
   return (
-    <div className="manaratak-public flex flex-col min-h-screen w-full bg-slate-50 dark:bg-[#031322] text-slate-900 dark:text-slate-100 selection:bg-[#E4B343]/30 selection:text-slate-950 font-['Cairo',sans-serif] pb-24 sm:pb-28 transition-colors">
+    <div className="manaratak-public flex flex-col min-h-screen w-full bg-[var(--mn-page)] text-[var(--mn-text)] selection:bg-[var(--mn-accent)]/30 selection:text-slate-950 font-['Cairo',sans-serif] pb-24 sm:pb-28 transition-colors">
       {/* App Header (Top Sticky) */}
       <Header
         language={language}
@@ -450,7 +450,7 @@ export default function App() {
                 <div className="w-full relative mt-2 pb-4">
                   {/* 🌟 The Glowing Scroll Track (Yellow line only) pushed to exact right edge */}
                   <div className="absolute right-0 sm:-right-2 top-8 bottom-12 w-[3px] z-0">
-                    <div className="sticky top-1/2 w-full h-24 -mt-12 bg-gradient-to-b from-transparent via-[#D9A93A]/80 to-transparent rounded-full animate-pulse-subtle shadow-[0_0_8px_rgba(200,162,74,0.6)]"></div>
+                    <div className="sticky top-1/2 w-full h-24 -mt-12 bg-gradient-to-b from-transparent via-[var(--mn-accent-soft)]/80 to-transparent rounded-full animate-pulse-subtle shadow-[0_0_8px_rgba(200,162,74,0.6)]"></div>
                   </div>
 
                   <div className="space-y-5 relative z-10 w-full px-1 sm:px-2">
@@ -711,7 +711,7 @@ export default function App() {
                           selectedCategory === item.id ||
                           (selectedCategory === 'all' && item.id === 'scholarships')
                             ? 'bg-[#002E52] text-amber-300 shadow-xs'
-                            : 'bg-[#FAFAFA] border border-stone-200 text-stone-700 hover:bg-stone-50'
+                            : 'bg-[var(--mn-surface-muted)] border border-stone-200 text-stone-700 hover:bg-stone-50'
                         }`}
                       >
                         {item.label}
@@ -760,7 +760,7 @@ export default function App() {
                           className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors ${
                             onlyFullyFunded
                               ? 'bg-amber-400 text-slate-900 border-amber-500'
-                              : 'bg-[#FAFAFA] text-stone-700 border-stone-200'
+                              : 'bg-[var(--mn-surface-muted)] text-stone-700 border-stone-200'
                           }`}
                         >
                           ⭐ ممولة بالكامل فقط
@@ -791,7 +791,7 @@ export default function App() {
                             <div
                               key={sch.id}
                               onClick={() => setSelectedScholarship(sch)}
-                              className="bg-[#FAFAFA] rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-all overflow-hidden p-3.5 space-y-2.5 text-right hover:border-amber-400 cursor-pointer active:scale-99"
+                              className="bg-[var(--mn-surface-muted)] rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-all overflow-hidden p-3.5 space-y-2.5 text-right hover:border-amber-400 cursor-pointer active:scale-99"
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="flex items-start gap-3">
@@ -900,7 +900,7 @@ export default function App() {
                         <div
                           key={sch.id}
                           onClick={() => setSelectedScholarship(sch)}
-                          className="bg-[#FAFAFA] rounded-2xl border border-amber-200 shadow-xs hover:shadow-md p-3.5 space-y-2 text-right cursor-pointer"
+                          className="bg-[var(--mn-surface-muted)] rounded-2xl border border-amber-200 shadow-xs hover:shadow-md p-3.5 space-y-2 text-right cursor-pointer"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3">

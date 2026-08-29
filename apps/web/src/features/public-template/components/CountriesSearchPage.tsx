@@ -195,11 +195,14 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-24 font-sans select-none" dir="rtl">
+    <div
+      className="min-h-screen bg-[var(--mn-page)] text-slate-900 pb-24 font-sans select-none"
+      dir="rtl"
+    >
       {/* ========================================================================= */}
       {/* HERO EMERALD BANNER - COMPACT ROYAL DESIGN                                */}
       {/* ========================================================================= */}
-      <div className="relative bg-gradient-to-b from-[#002642] via-[#003B68] to-[#002E52] text-white px-3 sm:px-4 pt-4 pb-12 sm:pb-14 overflow-hidden shadow-xs">
+      <div className="relative mn-search-hero text-white px-3 sm:px-4 pt-4 pb-12 sm:pb-14 overflow-hidden shadow-xs">
         {/* Top-Right Circular Back Button */}
         <button
           onClick={onBack}
@@ -214,13 +217,13 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
           {/* Top-left dot grid */}
           <div className="absolute top-3 left-5 grid grid-cols-5 gap-1.5 opacity-20">
             {Array.from({ length: 20 }).map((_, i) => (
-              <div key={i} className="w-1 h-1 rounded-full bg-[#D9A93A]" />
+              <div key={i} className="w-1 h-1 rounded-full bg-[var(--mn-accent)]" />
             ))}
           </div>
 
           {/* Thin gold curved orbital line on left */}
-          <div className="absolute -top-12 -left-12 w-56 h-56 rounded-full border border-[#D9A93A]/25 pointer-events-none" />
-          <div className="absolute -top-6 -left-6 w-72 h-72 rounded-full border border-[#D9A93A]/15 pointer-events-none" />
+          <div className="absolute -top-12 -left-12 w-56 h-56 rounded-full border border-[var(--mn-accent)]/25 pointer-events-none" />
+          <div className="absolute -top-6 -left-6 w-72 h-72 rounded-full border border-[var(--mn-accent)]/15 pointer-events-none" />
 
           {/* Mosque / Architectural silhouette on right in dark shade */}
           <svg
@@ -247,14 +250,19 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
             fill="none"
             preserveAspectRatio="none"
           >
-            <path d="M-20,70 Q250,-20 520,70" stroke="#D9A93A" strokeWidth="2" fill="none" />
+            <path
+              d="M-20,70 Q250,-20 520,70"
+              stroke="var(--mn-accent)"
+              strokeWidth="2"
+              fill="none"
+            />
           </svg>
         </div>
 
         <div className="max-w-md sm:max-w-xl mx-auto text-center relative z-10 space-y-2 pt-1">
           {/* Top 4-pointed Gold Sparkle Star */}
           <div className="flex justify-center">
-            <span className="text-[#D9A93A] text-lg sm:text-xl drop-shadow-[0_0_8px_rgba(200,162,74,0.8)] animate-pulse">
+            <span className="text-[var(--mn-accent-text)] text-lg sm:text-xl drop-shadow-[0_0_8px_rgba(200,162,74,0.8)] animate-pulse">
               ✦
             </span>
           </div>
@@ -262,12 +270,12 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
           {/* Main Title */}
           <div className="space-y-0.5">
             <h1 className="text-xl sm:text-2xl font-black text-white font-['Cairo',sans-serif] tracking-tight leading-tight">
-              ابحث عن <span className="text-[#E4B343]">وجهتك الدراسية</span>
+              ابحث عن <span className="text-[var(--mn-accent-text)]">وجهتك الدراسية</span>
             </h1>
 
             {/* Small Gold Horizontal Divider */}
             <div className="flex justify-center pt-1 pb-0.5">
-              <div className="w-10 h-0.5 bg-[#E4B343] rounded-full" />
+              <div className="w-10 h-0.5 bg-[var(--mn-accent)] rounded-full" />
             </div>
 
             {/* Subtitle */}
@@ -284,9 +292,9 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="ابحث باسم الدولة أو القارة..."
-                className="w-full py-2.5 pl-4 pr-10 bg-white text-slate-800 rounded-full text-xs font-semibold placeholder:text-slate-400 focus:outline-none shadow-md border border-slate-100 focus:border-[#D9A93A] transition-all text-center font-['Cairo',sans-serif]"
+                className="w-full py-2.5 pl-4 pr-10 bg-[var(--mn-surface)] text-slate-800 rounded-full text-xs font-semibold placeholder:text-slate-400 focus:outline-none shadow-md border border-slate-100 focus:border-[var(--mn-accent)] transition-all text-center font-['Cairo',sans-serif]"
               />
-              <Search className="w-4 h-4 text-[#D9A93A] absolute right-3.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-[var(--mn-accent-text)] absolute right-3.5 top-1/2 -translate-y-1/2" />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
@@ -303,7 +311,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
           <div className="flex justify-center mt-2 relative z-10">
             <button
               onClick={handleResetFilters}
-              className="text-[10px] font-bold text-red-600 hover:text-red-700 bg-white/95 px-2.5 py-0.5 rounded-full shadow-xs transition-colors flex items-center gap-1 cursor-pointer font-['Cairo',sans-serif]"
+              className="text-[10px] font-bold text-red-600 hover:text-red-700 bg-[var(--mn-surface-elevated)]/95 px-2.5 py-0.5 rounded-full shadow-xs transition-colors flex items-center gap-1 cursor-pointer font-['Cairo',sans-serif]"
             >
               <RotateCcw className="w-3 h-3" />
               <span>إعادة ضبط الفلاتر ({activeFiltersCount})</span>
@@ -318,12 +326,12 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
       <div className="max-w-lg mx-auto px-4 -mt-7 sm:-mt-8 relative z-20">
         <div className="grid grid-cols-2 gap-2 sm:gap-3">
           {/* Tile 1: القارة */}
-          <div className="relative bg-white hover:bg-amber-50/40 border-1.5 border-[#D9A93A]/70 hover:border-[#D9A93A] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)] transition-all h-[58px] sm:h-[64px] cursor-pointer">
+          <div className="relative bg-[var(--mn-surface)] hover:bg-amber-50/40 border-1.5 border-[var(--mn-accent)]/70 hover:border-[var(--mn-accent)] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)] transition-all h-[58px] sm:h-[64px] cursor-pointer">
             <div className="flex items-center justify-center gap-1.5 text-slate-900 font-extrabold text-xs sm:text-[13px] font-['Cairo',sans-serif] w-full">
               <span className="truncate">
                 {selectedContinent === 'الكل' ? 'القارة' : selectedContinent}
               </span>
-              <Globe2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#D9A93A] shrink-0" />
+              <Globe2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--mn-accent-text)] shrink-0" />
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 mt-0.5" />
             <select
@@ -341,12 +349,12 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
           </div>
 
           {/* Tile 2: الدولة */}
-          <div className="relative bg-white hover:bg-amber-50/40 border-1.5 border-[#D9A93A]/70 hover:border-[#D9A93A] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)] transition-all h-[58px] sm:h-[64px] cursor-pointer">
+          <div className="relative bg-[var(--mn-surface)] hover:bg-amber-50/40 border-1.5 border-[var(--mn-accent)]/70 hover:border-[var(--mn-accent)] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)] transition-all h-[58px] sm:h-[64px] cursor-pointer">
             <div className="flex items-center justify-center gap-1.5 text-slate-900 font-extrabold text-xs sm:text-[13px] font-['Cairo',sans-serif] w-full">
               <span className="truncate">
                 {selectedCountryName === 'الكل' ? 'الدولة' : selectedCountryName}
               </span>
-              <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#D9A93A] shrink-0" />
+              <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--mn-accent-text)] shrink-0" />
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 mt-0.5" />
             <select
@@ -366,7 +374,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
       </div>
 
       {/* Gold Divider Ribbon Line Connecting Hero Directly to Content */}
-      <div className="w-full h-0.5 bg-gradient-to-r from-[#8A630F] via-[#E4B343] to-[#8A630F] shadow-xs mt-3" />
+      <div className="w-full h-0.5 bg-gradient-to-r from-[var(--mn-accent-text)] via-[var(--mn-accent-soft)] to-[var(--mn-accent-text)] shadow-xs mt-3" />
 
       {/* ========================================================================= */}
       {/* 4. CONTENT & HORIZONTAL COUNTRY CARDS SEAMLESSLY ATTACHED                  */}
@@ -375,19 +383,19 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
         {/* Results Header: "الدول المتاحة (6) 🌐" and "محدثة باستمرار 🔄" */}
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-1.5 text-slate-900 font-extrabold text-xs sm:text-sm font-['Cairo',sans-serif]">
-            <Globe2 className="w-3.5 h-3.5 text-[#D9A93A]" />
+            <Globe2 className="w-3.5 h-3.5 text-[var(--mn-accent-text)]" />
             <span>الدول المتاحة ({filteredCountries.length})</span>
           </div>
 
-          <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-[#D9A93A] bg-[#D9A93A]/10 px-2 py-0.5 rounded-full border border-[#D9A93A]/30">
-            <RotateCcw className="w-2.5 h-2.5 text-[#D9A93A]" />
+          <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-[var(--mn-accent-text)] bg-[var(--mn-accent)]/10 px-2 py-0.5 rounded-full border border-[var(--mn-accent)]/30">
+            <RotateCcw className="w-2.5 h-2.5 text-[var(--mn-accent-text)]" />
             <span>محدثة باستمرار</span>
           </div>
         </div>
 
         {/* Empty state */}
         {filteredCountries.length === 0 && (
-          <div className="bg-white rounded-2xl p-6 text-center border border-slate-200 shadow-xs space-y-2.5">
+          <div className="bg-[var(--mn-surface)] rounded-2xl p-6 text-center border border-slate-200 shadow-xs space-y-2.5">
             <div className="w-10 h-10 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-amber-600">
               <Compass className="w-5 h-5" />
             </div>
@@ -399,7 +407,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
             </p>
             <button
               onClick={handleResetFilters}
-              className="text-xs font-bold text-[#064D83] hover:underline"
+              className="text-xs font-bold text-[var(--mn-heading)] hover:underline"
             >
               إلغاء جميع الفلاتر
             </button>
@@ -411,15 +419,15 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
           {filteredCountries.map((country) => (
             <div
               key={country.id}
-              className="bg-white rounded-2xl border border-[#e8dcb8] hover:border-[#D9A93A] shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-md transition-all p-3 sm:p-3.5 space-y-2.5 relative overflow-hidden group"
+              className="bg-[var(--mn-surface)] rounded-2xl border border-[#e8dcb8] hover:border-[var(--mn-accent)] shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-md transition-all p-3 sm:p-3.5 space-y-2.5 relative overflow-hidden group"
             >
               {/* Top Row: Right Country Info & Circular Flag Badge | Left Explore Button */}
               <div className="flex items-center justify-between gap-2">
                 {/* Visual Right (RTL): Circular Flag + Country Names */}
                 <div className="flex items-center gap-2 sm:gap-2.5 text-right">
                   {/* Circular Flag Badge with Double Golden/Red Ring */}
-                  <div className="w-9.5 h-9.5 sm:w-10.5 sm:h-10.5 rounded-full p-0.5 bg-gradient-to-tr from-[#D9A93A] via-amber-300 to-[#064D83] shadow-xs shrink-0 flex items-center justify-center">
-                    <div className="w-full h-full rounded-full overflow-hidden bg-white border border-white flex items-center justify-center text-lg sm:text-xl shadow-inner">
+                  <div className="w-9.5 h-9.5 sm:w-10.5 sm:h-10.5 rounded-full p-0.5 bg-gradient-to-tr from-[var(--mn-accent)] via-amber-300 to-[var(--mn-secondary)] shadow-xs shrink-0 flex items-center justify-center">
+                    <div className="w-full h-full rounded-full overflow-hidden bg-[var(--mn-surface)] border border-white flex items-center justify-center text-lg sm:text-xl shadow-inner">
                       <CountryFlagImage
                         countryId={country.id}
                         countryName={country.name}
@@ -433,7 +441,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
                     <h3 className="text-[15px] sm:text-base font-black text-slate-900 font-['Cairo',sans-serif] leading-tight">
                       {country.name}
                     </h3>
-                    <span className="text-[11px] sm:text-xs font-semibold text-[#D9A93A] font-['Cairo',sans-serif]">
+                    <span className="text-[11px] sm:text-xs font-semibold text-[var(--mn-accent-text)] font-['Cairo',sans-serif]">
                       {country.nameEn}
                     </span>
                   </div>
@@ -445,7 +453,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
 
                   <button
                     onClick={() => setActiveCountryModal(country)}
-                    className="bg-[#002E52] hover:bg-[#003B68] text-white text-[10.5px] sm:text-xs font-bold px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full flex items-center gap-1 shadow-xs transition-all active:scale-95 cursor-pointer font-['Cairo',sans-serif]"
+                    className="bg-[#002E52] hover:bg-[var(--mn-primary)] text-white text-[10.5px] sm:text-xs font-bold px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full flex items-center gap-1 shadow-xs transition-all active:scale-95 cursor-pointer font-['Cairo',sans-serif]"
                   >
                     <span>استكشف الدولة</span>
                     <ChevronLeft className="w-3 h-3 sm:w-3.5 sm:h-3.5 rotate-180" />
@@ -456,25 +464,25 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
               {/* Bottom Row: 4 Pill Badges (Continent, Cost, Scholarships, Suitability) */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-0.5">
                 {/* 1. Continent */}
-                <div className="bg-[#f8fafc] border border-slate-200/80 rounded-lg px-2 py-1 flex items-center justify-center gap-1 text-[10px] sm:text-[11px] font-bold text-slate-700 font-['Cairo',sans-serif]">
-                  <Globe2 className="w-3 h-3 text-[#064D83] shrink-0" />
+                <div className="bg-[var(--mn-page)] border border-slate-200/80 rounded-lg px-2 py-1 flex items-center justify-center gap-1 text-[10px] sm:text-[11px] font-bold text-slate-700 font-['Cairo',sans-serif]">
+                  <Globe2 className="w-3 h-3 text-[var(--mn-heading)] shrink-0" />
                   <span className="truncate">{country.continent}</span>
                 </div>
 
                 {/* 2. Living Cost */}
-                <div className="bg-[#f8fafc] border border-slate-200/80 rounded-lg px-2 py-1 flex items-center justify-center gap-1 text-[10px] sm:text-[11px] font-bold text-slate-700 font-['Cairo',sans-serif]">
-                  <Coins className="w-3 h-3 text-[#D9A93A] shrink-0" />
+                <div className="bg-[var(--mn-page)] border border-slate-200/80 rounded-lg px-2 py-1 flex items-center justify-center gap-1 text-[10px] sm:text-[11px] font-bold text-slate-700 font-['Cairo',sans-serif]">
+                  <Coins className="w-3 h-3 text-[var(--mn-accent-text)] shrink-0" />
                   <span className="truncate">تكلفة المعيشة {country.livingCost}</span>
                 </div>
 
                 {/* 3. Scholarship Availability */}
-                <div className="bg-[#f8fafc] border border-slate-200/80 rounded-lg px-2 py-1 flex items-center justify-center gap-1 text-[10px] sm:text-[11px] font-bold text-slate-700 font-['Cairo',sans-serif]">
-                  <GraduationCap className="w-3 h-3 text-[#064D83] shrink-0" />
+                <div className="bg-[var(--mn-page)] border border-slate-200/80 rounded-lg px-2 py-1 flex items-center justify-center gap-1 text-[10px] sm:text-[11px] font-bold text-slate-700 font-['Cairo',sans-serif]">
+                  <GraduationCap className="w-3 h-3 text-[var(--mn-heading)] shrink-0" />
                   <span className="truncate">المنح {country.scholarshipAvailability}</span>
                 </div>
 
                 {/* 4. Student Suitability */}
-                <div className="bg-[#f8fafc] border border-slate-200/80 rounded-lg px-2 py-1 flex items-center justify-center gap-1 text-[10px] sm:text-[11px] font-bold text-slate-700 font-['Cairo',sans-serif]">
+                <div className="bg-[var(--mn-page)] border border-slate-200/80 rounded-lg px-2 py-1 flex items-center justify-center gap-1 text-[10px] sm:text-[11px] font-bold text-slate-700 font-['Cairo',sans-serif]">
                   <Users className="w-3 h-3 text-blue-600 shrink-0" />
                   <span className="truncate">ملاءمة للطلاب {country.studentSuitability}</span>
                 </div>
@@ -490,11 +498,11 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
       {activeCountryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm animate-fade-in">
           <div
-            className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border border-amber-100 flex flex-col max-h-[90vh] animate-scale-up"
+            className="bg-[var(--mn-surface)] w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border border-amber-100 flex flex-col max-h-[90vh] animate-scale-up"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="relative bg-gradient-to-r from-[#01241b] via-[#033a2c] to-[#012219] text-white p-5">
+            <div className="relative bg-gradient-to-r from-[var(--mn-primary)] via-[var(--mn-secondary)] to-[var(--mn-primary)] text-white p-5">
               <button
                 onClick={() => setActiveCountryModal(null)}
                 className="absolute top-4 left-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
@@ -503,7 +511,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
               </button>
 
               <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-full border-2 border-[#E4B343] overflow-hidden bg-white shrink-0 shadow-md">
+                <div className="w-14 h-14 rounded-full border-2 border-[var(--mn-accent)] overflow-hidden bg-[var(--mn-surface)] shrink-0 shadow-md">
                   <CountryFlagImage
                     countryId={activeCountryModal.id}
                     countryName={activeCountryModal.name}
@@ -515,7 +523,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
                   <h2 className="text-xl font-black font-['Cairo',sans-serif]">
                     {activeCountryModal.name}
                   </h2>
-                  <p className="text-xs text-[#E4B343] font-semibold">
+                  <p className="text-xs text-[var(--mn-accent-text)] font-semibold">
                     {activeCountryModal.nameEn} • {activeCountryModal.continent}
                   </p>
                 </div>
@@ -557,7 +565,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
                 </div>
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
                   <span className="text-[10px] text-slate-400 font-bold block">المنح المتاحة</span>
-                  <span className="text-xs font-black text-[#064D83]">
+                  <span className="text-xs font-black text-[var(--mn-heading)]">
                     {activeCountryModal.scholarshipsCount} منحة ممولة
                   </span>
                 </div>
@@ -566,7 +574,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
               {/* Popular Cities */}
               <div className="space-y-1.5">
                 <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  <Building2 className="w-3.5 h-3.5 text-[#D9A93A]" />
+                  <Building2 className="w-3.5 h-3.5 text-[var(--mn-accent-text)]" />
                   <span>أبرز المدن الطلابية</span>
                 </h4>
                 <div className="flex flex-wrap gap-1.5">
@@ -599,7 +607,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
                     onSelectCountryScholarships(countryName);
                   }
                 }}
-                className="bg-[#064D83] hover:bg-[#0a382b] text-white text-xs font-bold px-5 py-2.5 rounded-full flex items-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
+                className="bg-[var(--mn-primary)] hover:bg-[#0a382b] text-white text-xs font-bold px-5 py-2.5 rounded-full flex items-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
               >
                 <span>تصفح منح {activeCountryModal.name}</span>
                 <ExternalLink className="w-3.5 h-3.5" />

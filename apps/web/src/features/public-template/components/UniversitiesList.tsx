@@ -13,7 +13,7 @@ export const UniversitiesList: React.FC<UniversitiesListProps> = ({ universities
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-black text-stone-900 flex items-center gap-1.5">
-            <Building2 className="w-4 h-4 text-[#003B68]" />
+            <Building2 className="w-4 h-4 text-[var(--mn-heading)]" />
             <span>أفضل الجامعات العالمية والشريكة</span>
           </h2>
           <p className="text-[11px] text-stone-500">
@@ -26,7 +26,7 @@ export const UniversitiesList: React.FC<UniversitiesListProps> = ({ universities
         {universities.map((uni) => (
           <div
             key={uni.id}
-            className="bg-white rounded-2xl border border-stone-200 shadow-xs hover:shadow-md transition-all overflow-hidden p-3.5 space-y-2.5 text-right hover:border-amber-400"
+            className="bg-[var(--mn-surface)] rounded-2xl border border-stone-200 shadow-xs hover:shadow-md transition-all overflow-hidden p-3.5 space-y-2.5 text-right hover:border-amber-400"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">

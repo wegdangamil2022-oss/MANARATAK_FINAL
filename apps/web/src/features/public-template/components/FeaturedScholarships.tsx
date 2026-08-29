@@ -54,13 +54,13 @@ export const FeaturedScholarships: React.FC<FeaturedScholarshipsProps> = ({
   return (
     <section id="featured-scholarships-section" className="px-0.5 sm:px-1 py-3 w-full">
       {/* Standard Framed Container with top accent border only */}
-      <div className="relative rounded-3xl p-3.5 sm:p-4 bg-gradient-to-b from-white to-slate-50/80 border border-slate-200/90 shadow-sm border-t-2 border-t-[#D9A93A]/40 overflow-hidden">
+      <div className="relative rounded-3xl p-3.5 sm:p-4 bg-gradient-to-b from-[var(--mn-surface)] to-slate-50/80 border border-slate-200/90 shadow-sm border-t-2 border-t-[var(--mn-accent)]/40 overflow-hidden">
         {/* Content Inside the Framed Section */}
         <div className="relative z-10">
           {/* Centered Section Title */}
           <div className="text-center mb-4">
             <h3 className="text-sm sm:text-base font-bold text-slate-900 inline-flex items-center justify-center gap-1.5 font-['Cairo',sans-serif]">
-              <GraduationCap className="w-4 h-4 text-[#064D83]" />
+              <GraduationCap className="w-4 h-4 text-[var(--mn-heading)]" />
               <span>المنح الدراسية</span>
             </h3>
             <p className="text-[10px] sm:text-xs text-slate-600 font-medium mt-1 max-w-xs mx-auto font-['Cairo',sans-serif]">
@@ -76,10 +76,10 @@ export const FeaturedScholarships: React.FC<FeaturedScholarshipsProps> = ({
                 <div
                   key={scholarship.id}
                   onClick={() => handleCardClick(scholarship.id)}
-                  className="group relative flex flex-col rounded-2xl overflow-hidden shadow-xs hover:shadow-md border border-slate-200 bg-slate-900 cursor-pointer transition-all active:scale-97 hover:border-[#D9A93A]"
+                  className="group relative flex flex-col rounded-2xl overflow-hidden shadow-xs hover:shadow-md border border-slate-200 bg-slate-900 cursor-pointer transition-all active:scale-97 hover:border-[var(--mn-accent)]"
                 >
                   {/* Image Container with Square (1:1) Proportions */}
-                  <div className="relative aspect-square w-full overflow-hidden bg-[#003B68]">
+                  <div className="relative aspect-square w-full overflow-hidden bg-[var(--mn-primary)]">
                     <img
                       src={scholarship.imageUrl}
                       alt={scholarship.title}
@@ -97,11 +97,11 @@ export const FeaturedScholarships: React.FC<FeaturedScholarshipsProps> = ({
                         e.stopPropagation();
                         if (onToggleFavorite) onToggleFavorite(scholarship.id);
                       }}
-                      className="absolute top-2 left-2 p-1.5 rounded-full bg-black/50 backdrop-blur-xs text-white hover:text-[#D9A93A] transition-colors z-10 cursor-pointer"
+                      className="absolute top-2 left-2 p-1.5 rounded-full bg-black/50 backdrop-blur-xs text-white hover:text-[var(--mn-accent-text)] transition-colors z-10 cursor-pointer"
                       aria-label="إضافة للمفضلة"
                     >
                       <Heart
-                        className={`w-3.5 h-3.5 ${isFav ? 'fill-[#D9A93A] text-[#D9A93A]' : 'text-white'}`}
+                        className={`w-3.5 h-3.5 ${isFav ? 'fill-[var(--mn-accent)] text-[var(--mn-accent-text)]' : 'text-white'}`}
                       />
                     </button>
 
@@ -128,10 +128,10 @@ export const FeaturedScholarships: React.FC<FeaturedScholarshipsProps> = ({
             <button
               id="btn-view-all-scholarships"
               onClick={onViewAllClick}
-              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-2.5 sm:py-3 bg-white hover:bg-[#D9A93A]/10 text-[#064D83] border border-[#D9A93A]/50 rounded-full text-xs sm:text-sm font-bold transition-all shadow-[0_0_15px_rgba(200,162,74,0.3)] hover:shadow-[0_0_25px_rgba(200,162,74,0.5)] animate-pulse hover:animate-none active:scale-95 font-['Cairo',sans-serif]"
+              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-2.5 sm:py-3 bg-[var(--mn-surface)] hover:bg-[var(--mn-accent)]/10 text-[var(--mn-heading)] border border-[var(--mn-accent)]/50 rounded-full text-xs sm:text-sm font-bold transition-all shadow-[0_0_15px_rgba(200,162,74,0.3)] hover:shadow-[0_0_25px_rgba(200,162,74,0.5)] animate-pulse hover:animate-none active:scale-95 font-['Cairo',sans-serif]"
             >
               <span>تصفح جميع المنح الدراسية</span>
-              <ChevronLeft className="w-4 h-4 text-[#064D83] transition-transform group-hover:-translate-x-1" />
+              <ChevronLeft className="w-4 h-4 text-[var(--mn-heading)] transition-transform group-hover:-translate-x-1" />
             </button>
           </div>
         </div>

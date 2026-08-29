@@ -14,7 +14,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
       sublabel: 'والفرص',
       icon: (
         <svg
-          className="w-5 h-5 text-[#E4B343]"
+          className="w-5 h-5 text-[var(--mn-accent-text)]"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -33,7 +33,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
       sublabel: 'العالمية',
       icon: (
         <svg
-          className="w-5 h-5 text-[#E4B343]"
+          className="w-5 h-5 text-[var(--mn-accent-text)]"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -57,7 +57,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
       sublabel: 'والوجهات',
       icon: (
         <svg
-          className="w-5 h-5 text-[#E4B343]"
+          className="w-5 h-5 text-[var(--mn-accent-text)]"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -77,7 +77,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
       sublabel: 'المطلوبة',
       icon: (
         <svg
-          className="w-5 h-5 text-[#E4B343]"
+          className="w-5 h-5 text-[var(--mn-accent-text)]"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -98,7 +98,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
       sublabel: 'التأهيلية',
       icon: (
         <svg
-          className="w-5 h-5 text-[#E4B343]"
+          className="w-5 h-5 text-[var(--mn-accent-text)]"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -119,7 +119,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
       sublabel: 'والمعرفة',
       icon: (
         <svg
-          className="w-5 h-5 text-[#E4B343]"
+          className="w-5 h-5 text-[var(--mn-accent-text)]"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -138,7 +138,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
       sublabel: 'المتخصصة',
       icon: (
         <svg
-          className="w-5 h-5 text-[#E4B343]"
+          className="w-5 h-5 text-[var(--mn-accent-text)]"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -157,7 +157,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
       sublabel: 'الدولية',
       icon: (
         <svg
-          className="w-5 h-5 text-[#E4B343]"
+          className="w-5 h-5 text-[var(--mn-accent-text)]"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -179,7 +179,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
       sublabel: 'والتدريب',
       icon: (
         <svg
-          className="w-5 h-5 text-[#E4B343]"
+          className="w-5 h-5 text-[var(--mn-accent-text)]"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -198,7 +198,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
       sublabel: 'الذكية',
       icon: (
         <svg
-          className="w-5 h-5 text-[#E4B343]"
+          className="w-5 h-5 text-[var(--mn-accent-text)]"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -223,7 +223,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
         {selectedCategory !== 'all' && (
           <button
             onClick={() => onSelectCategory('all')}
-            className="text-[11px] text-[#003B68] font-bold hover:underline cursor-pointer"
+            className="text-[11px] text-[var(--mn-heading)] font-bold hover:underline cursor-pointer"
           >
             عرض الكل
           </button>
@@ -241,16 +241,16 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
               onClick={() => onSelectCategory(isActive ? 'all' : cat.id)}
               className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all active:scale-95 group cursor-pointer ${
                 isActive
-                  ? 'bg-[#003B68] text-[#E4B343] shadow-sm ring-2 ring-[#E4B343]'
-                  : 'bg-white hover:bg-slate-50 border border-slate-200 shadow-2xs hover:border-[#E4B343]/50'
+                  ? 'bg-[var(--mn-primary)] text-[var(--mn-accent-text)] shadow-sm ring-2 ring-[var(--mn-focus)]'
+                  : 'bg-[var(--mn-surface)] hover:bg-slate-50 border border-slate-200 shadow-2xs hover:border-[var(--mn-accent)]/50'
               }`}
             >
               {/* Circular Icon Container */}
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center mb-1.5 transition-transform group-hover:scale-110 ${
                   isActive
-                    ? 'bg-[#002E52] border border-[#E4B343]'
-                    : 'bg-slate-50 border border-slate-100 group-hover:bg-[#E4B343]/10'
+                    ? 'bg-[#002E52] border border-[var(--mn-accent)]'
+                    : 'bg-slate-50 border border-slate-100 group-hover:bg-[var(--mn-accent)]/10'
                 }`}
               >
                 {cat.icon}
@@ -259,7 +259,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
               {/* Label */}
               <span
                 className={`text-[11px] font-bold leading-tight ${
-                  isActive ? 'text-[#E4B343] font-black' : 'text-slate-700'
+                  isActive ? 'text-[var(--mn-accent-text)] font-black' : 'text-slate-700'
                 }`}
               >
                 {cat.label}

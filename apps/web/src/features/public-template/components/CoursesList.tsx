@@ -13,7 +13,7 @@ export const CoursesList: React.FC<CoursesListProps> = ({ courses }) => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-black text-stone-900 flex items-center gap-1.5">
-            <BookOpen className="w-4 h-4 text-[#003B68]" />
+            <BookOpen className="w-4 h-4 text-[var(--mn-heading)]" />
             <span>الدورات التدريبية والتأهيلية للمنح</span>
           </h2>
           <p className="text-[11px] text-stone-500">
@@ -26,7 +26,7 @@ export const CoursesList: React.FC<CoursesListProps> = ({ courses }) => {
         {courses.map((course) => (
           <div
             key={course.id}
-            className="bg-white rounded-2xl border border-stone-200 shadow-xs hover:shadow-md transition-all overflow-hidden p-3.5 space-y-2.5 text-right hover:border-amber-400"
+            className="bg-[var(--mn-surface)] rounded-2xl border border-stone-200 shadow-xs hover:shadow-md transition-all overflow-hidden p-3.5 space-y-2.5 text-right hover:border-amber-400"
           >
             <div className="flex items-start gap-3">
               <img
@@ -57,7 +57,7 @@ export const CoursesList: React.FC<CoursesListProps> = ({ courses }) => {
             <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-[11px]">
               <div className="flex items-center gap-3 text-stone-500 font-semibold">
                 <span className="flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-[#064D83]" />
+                  <Clock className="w-3 h-3 text-[var(--mn-heading)]" />
                   {course.duration}
                 </span>
                 <span className="flex items-center gap-1">

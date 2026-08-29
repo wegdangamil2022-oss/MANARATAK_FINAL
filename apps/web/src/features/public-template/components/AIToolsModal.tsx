@@ -200,18 +200,18 @@ export const AIToolsModal: React.FC<AIToolsModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 flex items-center justify-center p-2 overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-[420px] w-full shadow-2xl border border-amber-200 overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
-        {/* Header with #003B68 & #E4B343 */}
-        <div className="bg-[#003B68] p-4 text-white flex items-center justify-between border-b border-[#E4B343]/30">
+      <div className="bg-[var(--mn-surface)] rounded-3xl max-w-[420px] w-full shadow-2xl border border-amber-200 overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
+        {/* Header with var(--mn-primary) & var(--mn-accent-soft) */}
+        <div className="bg-[var(--mn-primary)] p-4 text-white flex items-center justify-between border-b border-[var(--mn-accent)]/30">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-[#002E52] border border-[#E4B343] flex items-center justify-center text-[#E4B343]">
+            <div className="w-8 h-8 rounded-full bg-[#002E52] border border-[var(--mn-accent)] flex items-center justify-center text-[var(--mn-accent-text)]">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
               <h3 className="text-sm font-black text-white flex items-center gap-1.5">
                 <span>أدوات الذكاء الاصطناعي لمنارتك</span>
               </h3>
-              <p className="text-[10px] text-[#E4B343] font-bold">
+              <p className="text-[10px] text-[var(--mn-accent-text)] font-bold">
                 مساعدك الذكي لصناعة قبولك الأكاديمي
               </p>
             </div>
@@ -231,7 +231,7 @@ export const AIToolsModal: React.FC<AIToolsModalProps> = ({
             onClick={() => setActiveTab('letter')}
             className={`py-2 px-1 rounded-xl text-[11px] font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer ${
               activeTab === 'letter'
-                ? 'bg-[#003B68] text-[#E4B343] shadow-xs'
+                ? 'bg-[var(--mn-primary)] text-[var(--mn-accent-text)] shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -243,7 +243,7 @@ export const AIToolsModal: React.FC<AIToolsModalProps> = ({
             onClick={() => setActiveTab('cv')}
             className={`py-2 px-1 rounded-xl text-[11px] font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer ${
               activeTab === 'cv'
-                ? 'bg-[#003B68] text-[#E4B343] shadow-xs'
+                ? 'bg-[var(--mn-primary)] text-[var(--mn-accent-text)] shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -255,7 +255,7 @@ export const AIToolsModal: React.FC<AIToolsModalProps> = ({
             onClick={() => setActiveTab('search')}
             className={`py-2 px-1 rounded-xl text-[11px] font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer ${
               activeTab === 'search'
-                ? 'bg-[#003B68] text-[#E4B343] shadow-xs'
+                ? 'bg-[var(--mn-primary)] text-[var(--mn-accent-text)] shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -267,7 +267,7 @@ export const AIToolsModal: React.FC<AIToolsModalProps> = ({
             onClick={() => setActiveTab('chat')}
             className={`py-2 px-1 rounded-xl text-[11px] font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer ${
               activeTab === 'chat'
-                ? 'bg-[#003B68] text-[#E4B343] shadow-xs'
+                ? 'bg-[var(--mn-primary)] text-[var(--mn-accent-text)] shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -394,7 +394,7 @@ export const AIToolsModal: React.FC<AIToolsModalProps> = ({
                       className="flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-lg transition-colors"
                     >
                       {copied ? (
-                        <Check className="w-3.5 h-3.5 text-[#064D83]" />
+                        <Check className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
                       ) : (
                         <Copy className="w-3.5 h-3.5" />
                       )}
@@ -402,7 +402,7 @@ export const AIToolsModal: React.FC<AIToolsModalProps> = ({
                     </button>
                   </div>
 
-                  <div className="text-xs text-stone-800 leading-relaxed whitespace-pre-line max-h-60 overflow-y-auto p-2 bg-white rounded-xl border border-stone-100 font-sans">
+                  <div className="text-xs text-stone-800 leading-relaxed whitespace-pre-line max-h-60 overflow-y-auto p-2 bg-[var(--mn-surface)] rounded-xl border border-stone-100 font-sans">
                     {generatedLetter}
                   </div>
 
@@ -512,7 +512,7 @@ export const AIToolsModal: React.FC<AIToolsModalProps> = ({
 
               {/* Evaluation Results */}
               {cvResult && (
-                <div className="mt-3 p-3 bg-white rounded-2xl border-2 border-[#064D83]/40 shadow-md space-y-3">
+                <div className="mt-3 p-3 bg-[var(--mn-surface)] rounded-2xl border-2 border-[var(--mn-border-brand)]/40 shadow-md space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-xs text-stone-500 font-bold">
@@ -538,7 +538,7 @@ export const AIToolsModal: React.FC<AIToolsModalProps> = ({
                             key={idx}
                             className="flex items-center gap-1.5 text-[11px] text-stone-700"
                           >
-                            <CheckCircle2 className="w-3.5 h-3.5 text-[#064D83] shrink-0" />
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[var(--mn-heading)] shrink-0" />
                             <span>{s}</span>
                           </div>
                         ))}
@@ -583,7 +583,7 @@ export const AIToolsModal: React.FC<AIToolsModalProps> = ({
                   onChange={(e) => setAiSearchPrompt(e.target.value)}
                   rows={3}
                   placeholder="مثال: أريد منحة ممولة بالكامل لدراسة ماجستير هندسة البرمجيات في أوروبا بدون شرط اختبار آيلتس..."
-                  className="w-full py-2 px-3 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-800 focus:outline-hidden focus:border-[#064D83]"
+                  className="w-full py-2 px-3 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-800 focus:outline-hidden focus:border-[var(--mn-border-brand)]"
                 />
               </div>
 
@@ -622,7 +622,7 @@ export const AIToolsModal: React.FC<AIToolsModalProps> = ({
                             onSelectScholarship(sch);
                             onClose();
                           }}
-                          className="p-2 rounded-xl bg-white border border-stone-200 hover:border-amber-400 flex items-center justify-between cursor-pointer"
+                          className="p-2 rounded-xl bg-[var(--mn-surface)] border border-stone-200 hover:border-amber-400 flex items-center justify-between cursor-pointer"
                         >
                           <div className="flex items-center gap-2">
                             <span>{sch.countryFlag}</span>
@@ -653,7 +653,7 @@ export const AIToolsModal: React.FC<AIToolsModalProps> = ({
                       className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed ${
                         msg.role === 'user'
                           ? 'bg-[#002E52] text-white rounded-br-none'
-                          : 'bg-white border border-amber-200 text-stone-800 rounded-bl-none shadow-2xs'
+                          : 'bg-[var(--mn-surface)] border border-amber-200 text-stone-800 rounded-bl-none shadow-2xs'
                       }`}
                     >
                       <div className="font-bold text-[10px] text-amber-400 mb-1">
@@ -665,7 +665,7 @@ export const AIToolsModal: React.FC<AIToolsModalProps> = ({
                 ))}
                 {isSendingChat && (
                   <div className="flex justify-end">
-                    <div className="bg-white border border-stone-200 p-2 rounded-2xl text-[11px] text-stone-500 flex items-center gap-1.5">
+                    <div className="bg-[var(--mn-surface)] border border-stone-200 p-2 rounded-2xl text-[11px] text-stone-500 flex items-center gap-1.5">
                       <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-500" />
                       <span>المستشار يكتب الرد...</span>
                     </div>
@@ -681,7 +681,7 @@ export const AIToolsModal: React.FC<AIToolsModalProps> = ({
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
                   placeholder="اسأل المستشار عن أي منحة أو جامعة..."
-                  className="flex-1 py-2 px-3 bg-stone-50 border border-stone-200 rounded-xl text-xs focus:outline-hidden focus:border-[#064D83]"
+                  className="flex-1 py-2 px-3 bg-stone-50 border border-stone-200 rounded-xl text-xs focus:outline-hidden focus:border-[var(--mn-border-brand)]"
                 />
                 <button
                   onClick={handleSendChat}

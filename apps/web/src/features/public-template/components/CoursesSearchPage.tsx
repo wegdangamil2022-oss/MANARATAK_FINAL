@@ -26,11 +26,14 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({
   }, [courses]);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-24 font-sans select-none" dir="rtl">
+    <div
+      className="min-h-screen bg-[var(--mn-page)] text-slate-900 pb-24 font-sans select-none"
+      dir="rtl"
+    >
       {/* ========================================================================= */}
       {/* HERO SECTION - ELEGANT TRAINING COURSES THEME */}
       {/* ========================================================================= */}
-      <div className="relative bg-gradient-to-b from-[#002E52] via-[#064D83] to-[#003B68] text-white px-3 sm:px-4 pt-4 pb-12 sm:pb-14 overflow-hidden shadow-xs border-b border-[#D9A93A]/20">
+      <div className="relative mn-search-hero text-white px-3 sm:px-4 pt-4 pb-12 sm:pb-14 overflow-hidden shadow-xs border-b border-[var(--mn-accent)]/20">
         {/* Animated Background Elements */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           {/* Background Decorative Gold Waves & Dot Patterns */}
@@ -43,28 +46,28 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({
             >
               <path
                 d="M-50,50 Q100,-20 250,60 T550,40"
-                stroke="#D9A93A"
+                stroke="var(--mn-accent)"
                 strokeWidth="1.5"
                 fill="none"
               />
               <path
                 d="M-20,120 Q150,40 300,140 T600,100"
-                stroke="#D9A93A"
+                stroke="var(--mn-accent)"
                 strokeWidth="1"
                 fill="none"
               />
-              <circle cx="30" cy="30" r="1" fill="#D9A93A" />
-              <circle cx="45" cy="30" r="1" fill="#D9A93A" />
-              <circle cx="60" cy="30" r="1" fill="#D9A93A" />
-              <circle cx="30" cy="45" r="1" fill="#D9A93A" />
-              <circle cx="45" cy="45" r="1" fill="#D9A93A" />
-              <circle cx="60" cy="45" r="1" fill="#D9A93A" />
+              <circle cx="30" cy="30" r="1" fill="var(--mn-accent)" />
+              <circle cx="45" cy="30" r="1" fill="var(--mn-accent)" />
+              <circle cx="60" cy="30" r="1" fill="var(--mn-accent)" />
+              <circle cx="30" cy="45" r="1" fill="var(--mn-accent)" />
+              <circle cx="45" cy="45" r="1" fill="var(--mn-accent)" />
+              <circle cx="60" cy="45" r="1" fill="var(--mn-accent)" />
             </svg>
           </div>
 
           {/* Glowing Ambient Orbs */}
-          <div className="absolute top-0 right-10 w-64 h-64 bg-[#D9A93A] rounded-full mix-blend-screen filter blur-[120px] opacity-10" />
-          <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-[#064D83] rounded-full mix-blend-screen filter blur-[100px] opacity-20" />
+          <div className="absolute top-0 right-10 w-64 h-64 bg-[var(--mn-accent)] rounded-full mix-blend-screen filter blur-[120px] opacity-10" />
+          <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-[var(--mn-primary)] rounded-full mix-blend-screen filter blur-[100px] opacity-20" />
 
           {/* Subtle Floating Elements: Training Icons */}
           <style>{`
@@ -77,7 +80,7 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({
             .course-float {
               position: absolute;
               animation: floatUp ease-in-out infinite;
-              color: #D9A93A;
+              color: var(--mn-accent);
             }
           `}</style>
 
@@ -114,10 +117,10 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({
         <div className="max-w-md sm:max-w-xl mx-auto text-center relative z-10 space-y-3 pt-6">
           {/* Main Title Container */}
           <div className="relative inline-block mb-2">
-            <div className="absolute -inset-x-6 -inset-y-3 bg-[#D9A93A]/10 blur-xl rounded-full" />
+            <div className="absolute -inset-x-6 -inset-y-3 bg-[var(--mn-accent)]/10 blur-xl rounded-full" />
             <h1 className="relative text-2xl sm:text-3xl font-black text-white font-['Cairo',sans-serif] tracking-tight leading-tight">
               دليل الدورات{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E4B343] to-[#FDE08B]">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--mn-accent-soft)] to-[var(--mn-accent-soft)]">
                 التدريبية
               </span>
             </h1>
@@ -125,9 +128,9 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({
 
           {/* Divider */}
           <div className="flex justify-center items-center gap-2 pt-1 pb-2">
-            <div className="w-12 h-px bg-gradient-to-r from-transparent to-[#D9A93A]/50" />
-            <PlayCircle className="w-4 h-4 text-[#D9A93A]" />
-            <div className="w-12 h-px bg-gradient-to-l from-transparent to-[#D9A93A]/50" />
+            <div className="w-12 h-px bg-gradient-to-r from-transparent to-[var(--mn-accent-soft)]/50" />
+            <PlayCircle className="w-4 h-4 text-[var(--mn-accent-text)]" />
+            <div className="w-12 h-px bg-gradient-to-l from-transparent to-[var(--mn-accent-soft)]/50" />
           </div>
 
           {/* Subtitle / Beautiful Copywriting */}
@@ -143,9 +146,9 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({
       {/* ========================================================================= */}
       <div className="max-w-3xl mx-auto px-4 -mt-6 relative z-20">
         {/* Search Bar Container */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200/60 p-2 sm:p-3 flex flex-col gap-3">
+        <div className="bg-[var(--mn-surface)] rounded-2xl shadow-lg border border-slate-200/60 p-2 sm:p-3 flex flex-col gap-3">
           {/* Search Input */}
-          <div className="relative flex items-center w-full bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#D9A93A] focus-within:ring-1 focus-within:ring-[#D9A93A] transition-all">
+          <div className="relative flex items-center w-full bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:border-[var(--mn-accent)] focus-within:ring-1 focus-within:ring-[var(--mn-focus)] transition-all">
             <div className="pl-3 pr-3 text-slate-400">
               <Search className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
@@ -174,8 +177,8 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({
                 onClick={() => setSelectedCategory(cat)}
                 className={`px-4 py-1.5 rounded-full text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
                   selectedCategory === cat
-                    ? 'bg-[#002642] text-[#D9A93A] shadow-md border border-[#002642]'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    ? 'bg-[#002642] text-[var(--mn-accent-text)] shadow-md border border-[#002642]'
+                    : 'bg-[var(--mn-surface)] border border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 {cat}

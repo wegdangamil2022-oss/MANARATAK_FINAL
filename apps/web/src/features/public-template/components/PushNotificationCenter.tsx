@@ -59,7 +59,7 @@ export const PushNotificationCenter: React.FC<PushNotificationCenterProps> = ({
           id="instant-push-toast"
           className="fixed top-3 inset-x-3 max-w-md mx-auto z-50 animate-in slide-in-from-top-4 duration-300 pointer-events-auto"
         >
-          <div className="bg-white/95 backdrop-blur-md rounded-2xl p-3.5 border-2 border-amber-400 shadow-2xl flex items-start justify-between gap-3 text-right">
+          <div className="bg-[var(--mn-surface-elevated)]/95 backdrop-blur-md rounded-2xl p-3.5 border-2 border-amber-400 shadow-2xl flex items-start justify-between gap-3 text-right">
             {/* App Icon & Badge */}
             <div className="w-10 h-10 rounded-xl bg-slate-900 border border-amber-400 flex items-center justify-center text-amber-300 shrink-0 shadow-xs">
               <BellRing className="w-5 h-5 animate-bounce" />
@@ -100,9 +100,9 @@ export const PushNotificationCenter: React.FC<PushNotificationCenterProps> = ({
       {/* 2. Full Notification Center Drawer / Modal */}
       {isOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[85vh] animate-in slide-in-from-bottom-6 duration-200 text-right">
+          <div className="bg-[var(--mn-surface)] rounded-t-3xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[85vh] animate-in slide-in-from-bottom-6 duration-200 text-right">
             {/* Header */}
-            <div className="bg-gradient-to-r from-slate-900 via-[#002E52] to-[#043324] p-4 text-white flex items-center justify-between border-b border-[#064D83]/60">
+            <div className="bg-gradient-to-r from-[var(--mn-primary)] via-[var(--mn-secondary)] to-[var(--mn-primary)] p-4 text-white flex items-center justify-between border-b border-[var(--mn-border-brand)]/60">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-slate-900 border border-amber-400 flex items-center justify-center text-amber-300">
                   <Bell className="w-4 h-4" />
@@ -152,7 +152,7 @@ export const PushNotificationCenter: React.FC<PushNotificationCenterProps> = ({
               {unreadCount > 0 && (
                 <button
                   onClick={onMarkAllAsRead}
-                  className="flex items-center gap-1 text-[11px] font-bold text-[#003B68] hover:underline"
+                  className="flex items-center gap-1 text-[11px] font-bold text-[var(--mn-heading)] hover:underline"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
                   <span>تحديد الكل كمقروء</span>
@@ -175,7 +175,7 @@ export const PushNotificationCenter: React.FC<PushNotificationCenterProps> = ({
                   className={`px-2.5 py-1 rounded-xl text-[10px] font-bold whitespace-nowrap transition-all ${
                     filter === f.id
                       ? 'bg-[#002E52] text-amber-300 shadow-2xs'
-                      : 'bg-white text-stone-600 hover:bg-stone-200'
+                      : 'bg-[var(--mn-surface)] text-stone-600 hover:bg-stone-200'
                   }`}
                 >
                   {f.label}
@@ -222,7 +222,7 @@ export const PushNotificationCenter: React.FC<PushNotificationCenterProps> = ({
 
                     {notif.actionType && (
                       <div className="mt-2 text-left">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-[#003B68] hover:underline">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-[var(--mn-heading)] hover:underline">
                           <span>عرض وتفاصيل الفرصة</span>
                           <span>❯</span>
                         </span>

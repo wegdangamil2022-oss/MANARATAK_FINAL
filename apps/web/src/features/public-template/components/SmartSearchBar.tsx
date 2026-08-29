@@ -31,19 +31,19 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
       {/* Search Input Box */}
       <div className="relative">
         <div
-          className={`flex items-center bg-white rounded-2xl border transition-all shadow-sm overflow-hidden ${
+          className={`flex items-center bg-[var(--mn-surface)] rounded-2xl border transition-all shadow-sm overflow-hidden ${
             isFocused
-              ? 'border-[#064D83] ring-2 ring-[#064D83]/20 shadow-md'
-              : 'border-slate-200 hover:border-[#D9A93A]'
+              ? 'border-[var(--mn-border-brand)] ring-2 ring-[var(--mn-primary)]/20 shadow-md'
+              : 'border-slate-200 hover:border-[var(--mn-accent)]'
           }`}
         >
           {/* AI Quick Search Trigger Floating Helper */}
           <button
             onClick={() => onOpenAiTools('search')}
-            className="flex items-center gap-1 px-2.5 py-1.5 mr-2 bg-[#D9A93A]/15 hover:bg-[#D9A93A]/25 text-[#064D83] border border-[#D9A93A]/40 rounded-xl text-[10px] font-bold shadow-2xs transition-transform active:scale-95 z-10 shrink-0 cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1.5 mr-2 bg-[var(--mn-accent)]/15 hover:bg-[var(--mn-accent)]/25 text-[var(--mn-heading)] border border-[var(--mn-accent)]/40 rounded-xl text-[10px] font-bold shadow-2xs transition-transform active:scale-95 z-10 shrink-0 cursor-pointer"
             title="استخدم البحث بالذكاء الاصطناعي"
           >
-            <Sparkles className="w-3 h-3 text-[#D9A93A] fill-[#D9A93A] animate-pulse" />
+            <Sparkles className="w-3 h-3 text-[var(--mn-accent-text)] fill-[var(--mn-accent)] animate-pulse" />
             <span>بحث AI</span>
           </button>
 
@@ -80,10 +80,10 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
 
         {/* Live Search Suggestions Dropdown */}
         {isFocused && (
-          <div className="absolute top-full right-0 left-0 mt-1.5 bg-white border border-[#D9A93A]/30 rounded-2xl shadow-xl z-40 overflow-hidden text-right divide-y divide-slate-100 animate-in fade-in slide-in-from-top-1 duration-150">
-            <div className="p-2.5 bg-[#064D83] text-[#D9A93A] text-[11px] font-bold flex items-center justify-between font-['Cairo',sans-serif]">
+          <div className="absolute top-full right-0 left-0 mt-1.5 bg-[var(--mn-surface)] border border-[var(--mn-accent)]/30 rounded-2xl shadow-xl z-40 overflow-hidden text-right divide-y divide-slate-100 animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="p-2.5 bg-[var(--mn-primary)] text-[var(--mn-accent-text)] text-[11px] font-bold flex items-center justify-between font-['Cairo',sans-serif]">
               <span className="flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-[#D9A93A]" />
+                <Sparkles className="w-3.5 h-3.5 text-[var(--mn-accent-text)]" />
                 مقترحات بحث شائعة وذكية
               </span>
               <span className="text-[10px] text-white/80 font-normal">منارتك AI</span>
@@ -97,10 +97,10 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
                     onSearchChange(item);
                     setIsFocused(false);
                   }}
-                  className="w-full text-right px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-[#064D83] rounded-xl flex items-center justify-between transition-colors group cursor-pointer font-['Cairo',sans-serif]"
+                  className="w-full text-right px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-[var(--mn-heading)] rounded-xl flex items-center justify-between transition-colors group cursor-pointer font-['Cairo',sans-serif]"
                 >
                   <span className="truncate">{item}</span>
-                  <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#064D83] opacity-70" />
+                  <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[var(--mn-heading)] opacity-70" />
                 </button>
               ))}
             </div>

@@ -36,7 +36,7 @@ export const MajorCard: React.FC<MajorCardProps> = ({
 }) => {
   // Select specialty icon in green outline style matching the design
   const renderSpecialtyIcon = () => {
-    const iconClass = 'w-6 h-6 sm:w-7 sm:h-7 text-[#064D83] stroke-[1.75]';
+    const iconClass = 'w-6 h-6 sm:w-7 sm:h-7 text-[var(--mn-heading)] stroke-[1.75]';
     const nameLower = (
       major.name +
       ' ' +
@@ -150,7 +150,7 @@ export const MajorCard: React.FC<MajorCardProps> = ({
   return (
     <div
       onClick={() => onSelectMajor && onSelectMajor(major)}
-      className="group relative overflow-hidden bg-white rounded-[24px] sm:rounded-[28px] border border-[#F2E8D5]/90 hover:border-[#D9A93A] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(200,162,74,0.14)] transition-all duration-300 p-3 sm:p-4 text-right cursor-pointer select-none"
+      className="group relative overflow-hidden bg-[var(--mn-surface)] rounded-[24px] sm:rounded-[28px] border border-[#F2E8D5]/90 hover:border-[var(--mn-accent)] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(200,162,74,0.14)] transition-all duration-300 p-3 sm:p-4 text-right cursor-pointer select-none"
       dir="rtl"
     >
       {/* Top-Right Metallic Gold Corner Ribbon */}
@@ -163,7 +163,7 @@ export const MajorCard: React.FC<MajorCardProps> = ({
           <defs>
             <linearGradient id="goldRibbonGrad" x1="1" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#DFBA60" />
-              <stop offset="50%" stopColor="#D9A93A" />
+              <stop offset="50%" stopColor="var(--mn-accent)" />
               <stop offset="100%" stopColor="#9E7422" />
             </linearGradient>
           </defs>
@@ -172,7 +172,7 @@ export const MajorCard: React.FC<MajorCardProps> = ({
         <div className="absolute top-1.5 right-1.5 text-white/90 drop-shadow-xs">
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2C12 6.5 8 10 3 12C8 14 12 17.5 12 22C12 17.5 16 14 21 12C16 10 12 6.5 12 2Z" />
-            <circle cx="12" cy="12" r="1.5" fill="#D9A93A" />
+            <circle cx="12" cy="12" r="1.5" fill="var(--mn-accent)" />
           </svg>
         </div>
       </div>
@@ -184,13 +184,13 @@ export const MajorCard: React.FC<MajorCardProps> = ({
           {/* Circular Graphic with Delicate Emerald Green Rings */}
           <div className="relative w-12 h-12 sm:w-15 sm:h-15 shrink-0 flex items-center justify-center">
             {/* Outer orbital track */}
-            <div className="absolute inset-0 rounded-full border border-[#064D83]/25 group-hover:border-[#064D83]/45 transition-colors" />
+            <div className="absolute inset-0 rounded-full border border-[var(--mn-border-brand)]/25 group-hover:border-[var(--mn-border-brand)]/45 transition-colors" />
             {/* Middle orbital dashed track */}
-            <div className="absolute inset-1 sm:inset-1.5 rounded-full border border-dashed border-[#064D83]/30 group-hover:rotate-45 transition-transform duration-700" />
+            <div className="absolute inset-1 sm:inset-1.5 rounded-full border border-dashed border-[var(--mn-border-brand)]/30 group-hover:rotate-45 transition-transform duration-700" />
             {/* Inner delicate track */}
-            <div className="absolute inset-2 sm:inset-2.5 rounded-full border border-[#064D83]/20" />
+            <div className="absolute inset-2 sm:inset-2.5 rounded-full border border-[var(--mn-border-brand)]/20" />
             {/* Tiny green dot on orbit */}
-            <div className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-1.5 h-1.5 rounded-full bg-[#064D83] shadow-[0_0_5px_rgba(15,75,58,0.6)]" />
+            <div className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-1.5 h-1.5 rounded-full bg-[var(--mn-primary)] shadow-[0_0_5px_rgba(15,75,58,0.6)]" />
 
             {/* Central Specialty Icon */}
             <div className="relative z-10 flex items-center justify-center transition-transform duration-300 group-hover:scale-108">
@@ -202,7 +202,7 @@ export const MajorCard: React.FC<MajorCardProps> = ({
           <div className="flex flex-col min-w-0 flex-1 space-y-1 sm:space-y-1.5">
             {/* Arabic Name & English Name */}
             <div>
-              <h3 className="text-[12.5px] sm:text-[14px] font-black text-[#064D83] font-['Cairo',sans-serif] group-hover:text-[#D9A93A] transition-colors leading-snug truncate">
+              <h3 className="text-[12.5px] sm:text-[14px] font-black text-[var(--mn-heading)] font-['Cairo',sans-serif] group-hover:text-[var(--mn-accent-text)] transition-colors leading-snug truncate">
                 {major.name}
               </h3>
               {major.nameEn && (
@@ -215,7 +215,7 @@ export const MajorCard: React.FC<MajorCardProps> = ({
             {/* Top Pill: Faculty / College (Golden text & Golden border/box) */}
             <div className="flex items-center">
               <span className="inline-flex items-center gap-1.5 bg-[#FFF9ED] text-[#8C6B1C] border border-[#F2E8D5] rounded-lg sm:rounded-xl px-2 py-0.5 text-[10px] font-bold font-['Cairo',sans-serif] leading-tight">
-                <School className="w-3 h-3 text-[#D9A93A] shrink-0" />
+                <School className="w-3 h-3 text-[var(--mn-accent-text)] shrink-0" />
                 <span className="truncate">{facultyCategory}</span>
               </span>
             </div>
@@ -264,7 +264,7 @@ export const MajorCard: React.FC<MajorCardProps> = ({
               e.stopPropagation();
               if (onSelectMajor) onSelectMajor(major);
             }}
-            className="inline-flex items-center justify-center px-3 sm:px-4 py-1.5 bg-[#064D83] text-white border border-[#064D83] hover:bg-[#003B68] rounded-full text-[10px] font-black shadow-[0_2px_8px_rgba(15,75,58,0.25)] hover:shadow-[0_4px_12px_rgba(15,75,58,0.35)] transition-all cursor-pointer font-['Cairo',sans-serif] active:scale-95 whitespace-nowrap"
+            className="inline-flex items-center justify-center px-3 sm:px-4 py-1.5 bg-[var(--mn-primary)] text-white border border-[var(--mn-border-brand)] hover:bg-[var(--mn-primary)] rounded-full text-[10px] font-black shadow-[0_2px_8px_rgba(15,75,58,0.25)] hover:shadow-[0_4px_12px_rgba(15,75,58,0.35)] transition-all cursor-pointer font-['Cairo',sans-serif] active:scale-95 whitespace-nowrap"
           >
             التفاصيل
           </button>
