@@ -43,7 +43,7 @@ export interface Scholarship {
   university: string;
   universityEn: string;
   degreeLevel: DegreeLevel[];
-  fundingType: FundingType;
+  fundingType: FundingType | string;
   financialCoverage: string[];
   deadline: string; // YYYY-MM-DD
   daysLeft: number;

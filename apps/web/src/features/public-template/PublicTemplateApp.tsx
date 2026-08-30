@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import './template.css';
 import {readStored, writeStored, readStoredArray} from './storage';
 import { usePublicNavigation } from './usePublicNavigation';
+import {
+  loadPublishedScholarships,
+  resolvePublicTemplateDataMode,
+  type PublicScholarshipDataStatus,
+} from './publicScholarshipDataSource';
 import { PublicInfoPage } from './components/PublicInfoPage';
 import { CourseTrackPreview } from './components/CourseTrackPreview';
 import {
@@ -97,6 +102,9 @@ import {
 } from 'lucide-react';
 
 export default function App() {
+  const publicDataMode = resolvePublicTemplateDataMode(
+    import.meta.env.VITE_PUBLIC_TEMPLATE_DATA_MODE,
+  );
   const navigation = usePublicNavigation();
   const { back: goBack, navigate } = navigation;
   // UI States
@@ -135,9 +143,33 @@ export default function App() {
   const [onlyWithoutIelts, setOnlyWithoutIelts] = navigation.field('onlyWithoutIelts');
 
   // Data States with LocalStorage Persistence
-  const [scholarships, setScholarships] = useState<Scholarship[]>(() => {
-    return readStoredArray<Scholarship>('manaratak_scholarships', INITIAL_SCHOLARSHIPS);
-  });
+  const [scholarships, setScholarships] = useState<Scholarship[]>(() =>
+    publicDataMode === 'api'
+      ? []
+      : readStoredArray<Scholarship>('manaratak_scholarships', INITIAL_SCHOLARSHIPS),
+  );
+  const [scholarshipDataStatus, setScholarshipDataStatus] =
+    useState<PublicScholarshipDataStatus>(publicDataMode === 'api' ? 'loading' : 'prototype');
+
+  useEffect(() => {
+    if (publicDataMode !== 'api') return;
+    let active = true;
+    setScholarshipDataStatus('loading');
+    loadPublishedScholarships()
+      .then((items) => {
+        if (!active) return;
+        setScholarships(items);
+        setScholarshipDataStatus('ready');
+      })
+      .catch(() => {
+        if (!active) return;
+        setScholarships([]);
+        setScholarshipDataStatus('unavailable');
+      });
+    return () => {
+      active = false;
+    };
+  }, [publicDataMode]);
 
   const [milestones, setMilestones] = useState<ApplicationMilestone[]>(() => {
     return readStoredArray<ApplicationMilestone>('manaratak_milestones', INITIAL_MILESTONES);
@@ -1112,6 +1144,7 @@ export default function App() {
             selectedCategory === 'scholarships' ? (
               <ScholarshipsSearchPage
                 scholarships={scholarships}
+                dataStatus={scholarshipDataStatus}
                 initialCountryName={selectedCountry !== 'الكل' ? selectedCountry : undefined}
                 onBack={goBack}
                 onSelectScholarship={setSelectedScholarship}

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Scholarship, DegreeLevel } from '../types';
 import { INITIAL_SCHOLARSHIPS } from '../data/mockData';
+import type { PublicScholarshipDataStatus } from '../publicScholarshipDataSource';
 
 interface ScholarshipsSearchPageProps {
   scholarships?: Scholarship[];
@@ -21,6 +22,7 @@ interface ScholarshipsSearchPageProps {
   favoriteIds?: string[];
   onToggleFavorite?: (id: string) => void;
   initialCountryName?: string;
+  dataStatus?: PublicScholarshipDataStatus;
 }
 
 // Crisp Vector SVG Flag renderer matching Countries page style
@@ -157,6 +159,7 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
   favoriteIds = [],
   onToggleFavorite,
   initialCountryName,
+  dataStatus = 'prototype',
 }) => {
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -487,7 +490,15 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
 
           <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-[var(--mn-accent-text)] bg-[var(--mn-accent)]/10 px-2 py-0.5 rounded-full border border-[var(--mn-accent)]/30 font-['Cairo',sans-serif]">
             <RotateCcw className="w-2.5 h-2.5 text-[var(--mn-accent-text)]" />
-            <span>محدثة باستمرار</span>
+            <span>
+              {dataStatus === 'prototype'
+                ? 'بيانات قالب تجريبية'
+                : dataStatus === 'ready'
+                  ? 'من السجل المنشور'
+                  : dataStatus === 'loading'
+                    ? 'جارٍ تحميل البيانات المنشورة'
+                    : 'الخدمة غير متاحة'}
+            </span>
           </div>
         </div>
 
@@ -499,17 +510,25 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
                 <Search className="w-6 h-6" />
               </div>
               <h3 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">
-                لا توجد منح مطابقة للبحث
+                {dataStatus === 'unavailable'
+                  ? 'تعذر تحميل المنح المنشورة'
+                  : dataStatus === 'loading'
+                    ? 'جارٍ تحميل المنح المنشورة'
+                    : 'لا توجد منح مطابقة للبحث'}
               </h3>
               <p className="text-xs text-[var(--mn-text-muted)] max-w-xs font-['Cairo',sans-serif]">
-                جرب تغيير خيارات التصفية أو البحث باسم دولة أو تخصص آخر.
+                {dataStatus === 'unavailable'
+                  ? 'لم نعرض بيانات تجريبية بديلة. حاول مرة أخرى بعد عودة الخدمة.'
+                  : dataStatus === 'loading'
+                    ? 'يتم الآن الاتصال بواجهة القراءة العامة دون أي كتابة على البيانات.'
+                    : 'جرب تغيير خيارات التصفية أو البحث باسم دولة أو تخصص آخر.'}
               </p>
-              <button
+              {dataStatus !== 'loading' && dataStatus !== 'unavailable' ? <button
                 onClick={handleResetFilters}
                 className="mt-2 px-4 py-1.5 bg-[var(--mn-primary)] text-white rounded-xl text-xs font-bold cursor-pointer font-['Cairo',sans-serif] mn-inverse "
               >
                 إلغاء التصفية وعرض الكل
-              </button>
+              </button> : null}
             </div>
           ) : (
             filteredScholarships.map((scholarship) => {
