@@ -1447,6 +1447,14 @@ export default function App() {
                           return (
                             <div
                               key={sch.id}
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={function (event) {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  setSelectedScholarship(sch);
+                                }
+                              }}
                               onClick={() => setSelectedScholarship(sch)}
                               className="bg-[var(--mn-surface-muted)] rounded-2xl border border-[var(--mn-border)] shadow-xs hover:shadow-md transition-all overflow-hidden p-3.5 space-y-2.5 text-right hover:border-[var(--mn-border-gold)] cursor-pointer active:scale-99 mn-panel "
                             >

@@ -61,6 +61,14 @@ export const FeaturedUniversities: React.FC<FeaturedUniversitiesProps> = ({
               return (
                 <div
                   key={uni.id}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={function (event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onSelectUniversity(uni);
+                    }
+                  }}
                   onClick={() => onSelectUniversity(uni)}
                   className="group relative flex items-center justify-between p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-[var(--mn-surface)] border border-[var(--mn-border)] hover:border-[var(--mn-accent)] shadow-xs hover:shadow-sm transition-all duration-300 cursor-pointer active:scale-[0.99] mn-panel "
                 >

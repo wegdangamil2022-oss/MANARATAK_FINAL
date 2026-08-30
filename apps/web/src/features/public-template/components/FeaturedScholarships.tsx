@@ -75,6 +75,14 @@ export const FeaturedScholarships: React.FC<FeaturedScholarshipsProps> = ({
               return (
                 <div
                   key={scholarship.id}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={function (event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleCardClick(scholarship.id);
+                    }
+                  }}
                   onClick={() => handleCardClick(scholarship.id)}
                   className="group relative flex flex-col rounded-2xl overflow-hidden shadow-xs hover:shadow-md border border-[var(--mn-border)] bg-[var(--mn-primary)] cursor-pointer transition-all active:scale-97 hover:border-[var(--mn-accent)] mn-inverse "
                 >

@@ -105,7 +105,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   ];
 
   return (
-    <div onClick={event => {if (event.target === event.currentTarget) onClose();}} className="fixed inset-0 bg-black/70 backdrop-blur-xs z-[80] flex justify-end">
+    <div role="presentation" tabIndex={-1} onKeyDown={function (event) { if (event.key === 'Escape') onClose(); }} onClick={event => {if (event.target === event.currentTarget) onClose();}} className="fixed inset-0 bg-black/70 backdrop-blur-xs z-[80] flex justify-end">
       <div id="mn-navigation-dialog" role="dialog" aria-modal="true" aria-label="القائمة الرئيسية" tabIndex={-1} className="bg-[var(--mn-surface)] mn-dark:bg-[var(--mn-surface)] max-w-xs w-full h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 text-right border-l border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] mn-panel mn-dark:mn-panel ">
         {/* Drawer Header */}
         <div className="bg-[var(--mn-primary)] mn-dark:bg-[var(--mn-surface)] p-5 text-white border-b border-[var(--mn-accent)]/30 relative mn-inverse mn-dark:mn-panel ">

@@ -262,6 +262,15 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
               {activeMilestone.checklist.map((task) => (
                 <div
                   key={task.id}
+                  role="checkbox"
+                  aria-checked={task.completed}
+                  tabIndex={0}
+                  onKeyDown={function (event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleToggleTask(activeMilestone.id, task.id);
+                    }
+                  }}
                   onClick={() => handleToggleTask(activeMilestone.id, task.id)}
                   className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all active:scale-98 ${
                     task.completed

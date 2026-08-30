@@ -83,6 +83,14 @@ export const FeaturedCourses: React.FC<FeaturedCoursesProps> = ({
             {displayCourses.map((course) => (
               <div
                 key={course.id}
+                role="button"
+                tabIndex={0}
+                onKeyDown={function (event) {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onSelectCourse?.(course);
+                  }
+                }}
                 onClick={() => onSelectCourse && onSelectCourse(course)}
                 className={`group relative flex items-start gap-3 p-2.5 sm:p-3 rounded-2xl bg-[var(--mn-surface)] border  mn-panel ${
                   activeTab === 'internal'

@@ -202,7 +202,7 @@ export const AIToolsModal: React.FC<AIToolsModalProps> = ({
   };
 
   return (
-    <div onClick={event => {if (event.target === event.currentTarget) onClose();}} className="fixed inset-0 bg-black/70 backdrop-blur-xs z-[80] flex items-center justify-center p-2 overflow-y-auto">
+    <div role="presentation" tabIndex={-1} onKeyDown={function (event) { if (event.key === 'Escape') onClose(); }} onClick={event => {if (event.target === event.currentTarget) onClose();}} className="fixed inset-0 bg-black/70 backdrop-blur-xs z-[80] flex items-center justify-center p-2 overflow-y-auto">
       <div id="mn-ai-dialog" role="dialog" aria-modal="true" aria-label="أدوات منارتك" tabIndex={-1} className="bg-[var(--mn-surface)] rounded-3xl max-w-[420px] w-full shadow-2xl border border-[var(--mn-border-gold)] overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200 mn-panel ">
         {/* Header with var(--mn-primary) & var(--mn-accent-soft) */}
         <div className="bg-[var(--mn-primary)] p-4 text-white flex items-center justify-between border-b border-[var(--mn-accent)]/30 mn-inverse ">
@@ -621,6 +621,15 @@ export const AIToolsModal: React.FC<AIToolsModalProps> = ({
                       {allScholarships.slice(0, 3).map((sch) => (
                         <div
                           key={sch.id}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={function (event) {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              onSelectScholarship(sch);
+                              onClose();
+                            }
+                          }}
                           onClick={() => {
                             onSelectScholarship(sch);
                             onClose();

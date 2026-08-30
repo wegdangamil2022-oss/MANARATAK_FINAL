@@ -110,6 +110,14 @@ export const FeaturedCountries: React.FC<FeaturedCountriesProps> = ({
             {DESTINATION_BUBBLES.map((item) => (
               <div
                 key={item.id}
+                role="button"
+                tabIndex={0}
+                onKeyDown={function (event) {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onSelectCountry(item.id);
+                  }
+                }}
                 onClick={() => onSelectCountry(item.id)}
                 className="group flex flex-col items-center cursor-pointer active:scale-95 transition-all text-center"
               >

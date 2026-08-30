@@ -536,6 +536,14 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
               return (
                 <div
                   key={scholarship.id}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={function (event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onSelectScholarship?.(scholarship);
+                    }
+                  }}
                   onClick={() => onSelectScholarship && onSelectScholarship(scholarship)}
                   className="bg-[var(--mn-surface)] rounded-xl sm:rounded-2xl border-2 border-[var(--mn-border-brand)]/40 hover:border-[var(--mn-border-brand)] shadow-sm hover:shadow-md transition-all duration-150 active:scale-[0.985] p-2.5 sm:p-3 relative overflow-hidden group cursor-pointer flex flex-col gap-2 sm:gap-2.5 select-none mn-panel "
                 >

@@ -396,6 +396,14 @@ export const UniversitiesSearchPage: React.FC<UniversitiesSearchPageProps> = ({
               return (
                 <div
                   key={univ.id}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={function (event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onSelectUniversity?.(univ);
+                    }
+                  }}
                   onClick={() => onSelectUniversity?.(univ)}
                   className="bg-[var(--mn-surface)] rounded-xl sm:rounded-2xl border-2 border-[var(--mn-border-brand)]/40 hover:border-[var(--mn-border-brand)] shadow-sm hover:shadow-md transition-all p-2.5 sm:p-3 relative overflow-hidden group cursor-pointer flex flex-col gap-2 sm:gap-2.5 mn-panel "
                 >

@@ -70,6 +70,15 @@ export const PushNotificationCenter: React.FC<PushNotificationCenterProps> = ({
             {/* Notification Text */}
             <div
               className="flex-1 cursor-pointer"
+              role="button"
+              tabIndex={0}
+              onKeyDown={function (event) {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onSelectAction?.(activeToast.actionType, activeToast.targetId);
+                  onDismissToast();
+                }
+              }}
               onClick={() => {
                 onSelectAction?.(activeToast.actionType, activeToast.targetId);
                 onDismissToast();
@@ -101,7 +110,7 @@ export const PushNotificationCenter: React.FC<PushNotificationCenterProps> = ({
 
       {/* 2. Full Notification Center Drawer / Modal */}
       {isOpen && (
-        <div onClick={event => {if (event.target === event.currentTarget) onClose();}} className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div role="presentation" tabIndex={-1} onKeyDown={function (event) { if (event.key === 'Escape') onClose(); }} onClick={event => {if (event.target === event.currentTarget) onClose();}} className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div id="mn-notification-dialog" role="dialog" aria-modal="true" aria-label="مركز التنبيهات" tabIndex={-1} className="bg-[var(--mn-surface)] rounded-t-3xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-[var(--mn-border)] overflow-hidden flex flex-col max-h-[85vh] animate-in slide-in-from-bottom-6 duration-200 text-right mn-panel ">
             {/* Header */}
             <div className="bg-gradient-to-r from-[var(--mn-primary)] via-[var(--mn-hero-secondary)] to-[var(--mn-primary)] p-4 text-white flex items-center justify-between border-b border-[var(--mn-border-brand)]/60 mn-inverse ">
@@ -195,6 +204,18 @@ export const PushNotificationCenter: React.FC<PushNotificationCenterProps> = ({
                 filteredNotifications.map((notif) => (
                   <div
                     key={notif.id}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={function (event) {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        onMarkAsRead(notif.id);
+                        if (notif.actionType) {
+                          onSelectAction?.(notif.actionType, notif.targetId);
+                          onClose();
+                        }
+                      }
+                    }}
                     onClick={() => {
                       onMarkAsRead(notif.id);
                       if (notif.actionType) {

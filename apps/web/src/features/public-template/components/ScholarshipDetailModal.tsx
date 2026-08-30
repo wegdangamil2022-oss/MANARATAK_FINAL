@@ -896,6 +896,12 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
 
             {/* Secondary Apply Button (Manartak Platform - Green Style) */}
             <div
+              role="button"
+              tabIndex={0}
+              aria-label="التقديم عبر منصة منارتك غير متاح حاليًا"
+              onKeyDown={function (event) {
+                if (event.key === 'Enter' || event.key === ' ') event.preventDefault();
+              }}
               className="flex items-center justify-between gap-3 bg-gradient-to-l from-[var(--mn-primary)] to-[var(--mn-hero-secondary)] rounded-2xl p-3 shadow-md shadow-[var(--mn-primary)]/20 transition-all hover:scale-[0.99] active:scale-95 group cursor-pointer mn-inverse "
               onClick={(e) => {
                 // Placeholder for future Manartak platform application flow

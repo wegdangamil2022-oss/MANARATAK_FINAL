@@ -42,8 +42,8 @@ export const FeaturedArticles: React.FC<FeaturedArticlesProps> = ({ onViewAllCli
               <div
                 key={article.id}
                 role="button" tabIndex={0} aria-label={article.title}
+                onKeyDown={function (event) {if (event.key === 'Enter' || event.key === ' ') {event.preventDefault(); onSelectArticle(article.id);}}}
                 onClick={() => onSelectArticle(article.id)}
-                onKeyDown={event => {if (event.key === 'Enter' || event.key === ' ') {event.preventDefault(); onSelectArticle(article.id);}}}
                 className="snap-start shrink-0 w-[160px] sm:w-[180px] group flex flex-col rounded-2xl bg-[var(--mn-surface)] border border-[var(--mn-border)] hover:border-[var(--mn-accent)]/40 hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden mn-panel "
               >
                 {/* Thumbnail Header */}

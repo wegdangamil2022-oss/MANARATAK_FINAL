@@ -161,6 +161,14 @@ export const MajorCard: React.FC<MajorCardProps> = ({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onKeyDown={function (event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onSelectMajor?.(major);
+        }
+      }}
       onClick={() => onSelectMajor && onSelectMajor(major)}
       className="group relative overflow-hidden bg-[var(--mn-surface)] rounded-[24px] sm:rounded-[28px] border border-[var(--mn-border-gold)] hover:border-[var(--mn-accent)] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(214,164,59,0.14)] transition-all duration-300 p-3 sm:p-4 text-right cursor-pointer select-none mn-panel "
       dir="rtl"
