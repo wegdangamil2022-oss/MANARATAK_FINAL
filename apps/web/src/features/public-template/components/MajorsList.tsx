@@ -20,11 +20,11 @@ export const MajorsList: React.FC<MajorsListProps> = ({
     <div className="w-full px-2 sm:px-4 py-3 space-y-3 pb-20 font-sans select-none" dir="rtl">
       <div className="flex items-center justify-between px-1">
         <div>
-          <h2 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5 font-['Cairo',sans-serif]">
+          <h2 className="text-xs sm:text-sm font-black text-[var(--mn-heading)] flex items-center gap-1.5 font-['Cairo',sans-serif]">
             <Layers className="w-4 h-4 text-[var(--mn-heading)]" />
             <span>دليل التخصصات الأكاديمية والمهنية</span>
           </h2>
-          <p className="text-[10px] sm:text-[11px] text-slate-500 font-bold font-['Cairo',sans-serif] mt-0.5">
+          <p className="text-[10px] sm:text-[11px] text-[var(--mn-text-muted)] font-bold font-['Cairo',sans-serif] mt-0.5">
             اكتشف أكثر التخصصات طلباً للتمويل والفرص المستقبلية
           </p>
         </div>

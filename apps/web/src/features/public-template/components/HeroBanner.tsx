@@ -10,9 +10,9 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ onExploreClick }) => {
   return (
     <div className="w-full my-2.5 px-0.5 sm:px-1">
       {/* Compact Proportional Hero Card Container */}
-      <div className="relative w-full overflow-hidden shadow-sm border border-[var(--mn-accent)]/25 rounded-2xl group bg-[var(--mn-primary)]">
+      <div className="relative w-full overflow-hidden shadow-sm border border-[var(--mn-accent)]/25 rounded-2xl group bg-[var(--mn-primary)] mn-inverse ">
         {/* Background Image: Scaled to a compact, well-proportioned height */}
-        <div className="relative h-44 sm:h-52 md:h-56 w-full overflow-hidden bg-slate-950">
+        <div className="relative h-44 sm:h-52 md:h-56 w-full overflow-hidden bg-[var(--mn-primary)] mn-inverse ">
           <img
             src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
             alt="طالب متخرج في الحرم الجامعي"
@@ -22,7 +22,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ onExploreClick }) => {
           />
 
           {/* Vignette Gradient: Soft shadow on text side, leaves student visible */}
-          <div className="absolute inset-0 bg-gradient-to-l from-[var(--mn-primary)]/95 via-[var(--mn-secondary)]/70 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-l from-[var(--mn-primary)]/95 via-[var(--mn-hero-secondary)]/70 to-transparent pointer-events-none mn-inverse " />
 
           {/* Content Layer: Compact layout */}
           <div className="absolute inset-0 flex flex-col justify-center items-start p-3.5 sm:p-5 md:p-6 z-10 rtl:items-start ltr:items-end">
@@ -37,7 +37,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ onExploreClick }) => {
               </h2>
 
               {/* Compact Subtitle */}
-              <p className="text-[10px] sm:text-[11px] text-slate-200 font-medium leading-tight mb-2 drop-shadow-xs font-['Cairo',sans-serif] line-clamp-2">
+              <p className="text-[10px] sm:text-[11px] text-[var(--mn-on-dark-muted)] font-medium leading-tight mb-2 drop-shadow-xs font-['Cairo',sans-serif] line-clamp-2">
                 اكتشف آلاف المنح والفرص التعليمية من أفضل جامعات العالم
               </p>
 
@@ -45,10 +45,10 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ onExploreClick }) => {
               <button
                 id="btn-hero-explore"
                 onClick={onExploreClick}
-                className="w-auto px-3.5 py-1.5 sm:py-2 rounded-lg bg-[var(--mn-accent)] hover:bg-[#b58f38] text-slate-950 font-bold text-[11px] sm:text-xs shadow-sm hover:shadow-[var(--mn-accent)]/30 active:scale-95 transition-all flex items-center justify-center gap-1 cursor-pointer font-['Cairo',sans-serif]"
+                className="w-auto px-3.5 py-1.5 sm:py-2 rounded-lg bg-[var(--mn-accent)] hover:bg-[var(--mn-accent)] text-[var(--mn-on-accent)] font-bold text-[11px] sm:text-xs shadow-sm hover:shadow-[var(--mn-accent)]/30 active:scale-95 transition-all flex items-center justify-center gap-1 cursor-pointer font-['Cairo',sans-serif] mn-gold hover:mn-gold "
               >
                 <span>اكتشف الفرص</span>
-                <ArrowLeft className="w-3 h-3 text-slate-950" />
+                <ArrowLeft className="w-3 h-3 text-[var(--mn-heading)]" />
               </button>
             </div>
           </div>

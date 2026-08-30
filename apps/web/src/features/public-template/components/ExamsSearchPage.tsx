@@ -1,20 +1,27 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, Award, Search, X } from 'lucide-react';
+import { ChevronLeft, Award, Search, X, Clock, ShieldCheck, Languages } from 'lucide-react';
 import { Exam } from '../types';
 import { MOCK_EXAMS } from '../data/mockData';
+import { FavoriteButton } from './FavoriteButton';
 
 interface ExamsSearchPageProps {
   exams?: Exam[];
   onBack?: () => void;
   onSelectExam?: (exam: Exam) => void;
+  initialQuery?: string;
+  favoriteIds?: string[];
+  onToggleFavorite?: (id: string) => void;
 }
 
 export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
   exams = MOCK_EXAMS,
   onBack,
   onSelectExam,
+  initialQuery = '',
+  favoriteIds = [],
+  onToggleFavorite,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [selectedCategory, setSelectedCategory] = useState('الكل');
 
   // Derive categories
@@ -24,15 +31,39 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
     return ['الكل', ...Array.from(cats)];
   }, [exams]);
 
+  const filteredExams = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const priority: Record<string, number> = { ielts: 0, hsk: 1 };
+    return exams
+      .filter((exam) => {
+        const searchable = [
+          exam.name,
+          exam.nameEn,
+          exam.description,
+          exam.providerName || '',
+          exam.testCode || '',
+          exam.scoreRange || '',
+          exam.language || '',
+          ...exam.tags,
+        ]
+          .join(' ')
+          .toLowerCase();
+        const matchesQuery = !q || searchable.includes(q);
+        const matchesCategory = selectedCategory === 'الكل' || exam.category === selectedCategory;
+        return matchesQuery && matchesCategory;
+      })
+      .sort((a, b) => (priority[a.id] ?? 99) - (priority[b.id] ?? 99));
+  }, [exams, searchQuery, selectedCategory]);
+
   return (
     <div
-      className="min-h-screen bg-[var(--mn-page)] text-slate-900 pb-24 font-sans select-none"
+      className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-sans select-none mn-panel "
       dir="rtl"
     >
       {/* ========================================================================= */}
       {/* HERO SECTION - ELEGANT INTERNATIONAL EXAMS THEME */}
       {/* ========================================================================= */}
-      <div className="relative mn-search-hero text-white px-3 sm:px-4 pt-4 pb-12 sm:pb-14 overflow-hidden shadow-xs border-b border-[var(--mn-accent)]/20">
+      <div className="relative mn-search-hero text-white px-3 sm:px-4 pt-4 pb-12 sm:pb-14 overflow-hidden shadow-xs border-b border-[var(--mn-accent)]/20 mn-inverse ">
         {/* Animated Background Elements - Creative Concept: Floating Navigation & Academic Symbols */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           {/* Background Decorative Gold Waves & Dot Patterns from Majors Page */}
@@ -147,7 +178,7 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
             <div className="absolute -inset-x-6 -inset-y-3 bg-[var(--mn-accent)]/10 blur-xl rounded-full" />
             <h1 className="relative text-2xl sm:text-3xl font-black text-white font-['Cairo',sans-serif] tracking-tight leading-tight">
               دليل الاختبارات{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--mn-accent-soft)] to-[var(--mn-accent-soft)]">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--mn-accent-soft)] to-[var(--mn-accent-soft)] mn-gold ">
                 الدولية
               </span>
             </h1>
@@ -161,7 +192,7 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
           </div>
 
           {/* Subtitle / Beautiful Copywriting */}
-          <p className="text-[13px] sm:text-sm text-slate-200 font-medium font-['Cairo',sans-serif] leading-relaxed max-w-[90%] mx-auto drop-shadow-md">
+          <p className="text-[13px] sm:text-sm text-[var(--mn-on-dark-muted)] font-medium font-['Cairo',sans-serif] leading-relaxed max-w-[90%] mx-auto drop-shadow-md">
             بوابتك الموثوقة للقبول العالمي. استعد لاختبارات اللغة والقدرات العالمية، واكتشف المعايير
             التي تفتح لك أبواب أرقى الجامعات في العالم.
           </p>
@@ -173,10 +204,10 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
       {/* ========================================================================= */}
       <div className="max-w-3xl mx-auto px-4 -mt-6 relative z-20">
         {/* Search Bar Container */}
-        <div className="bg-[var(--mn-surface)] rounded-2xl shadow-lg border border-slate-200/60 p-2 sm:p-3 flex flex-col gap-3">
+        <div className="bg-[var(--mn-surface)] rounded-2xl shadow-lg border border-[var(--mn-border)] p-2 sm:p-3 flex flex-col gap-3 mn-panel ">
           {/* Search Input */}
-          <div className="relative flex items-center w-full bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:border-[var(--mn-accent)] focus-within:ring-1 focus-within:ring-[var(--mn-focus)] transition-all">
-            <div className="pl-3 pr-3 text-slate-400">
+          <div className="relative flex items-center w-full bg-[var(--mn-page)] border border-[var(--mn-border)] rounded-xl overflow-hidden focus-within:border-[var(--mn-accent)] focus-within:ring-1 focus-within:ring-[var(--mn-focus)] transition-all mn-panel ">
+            <div className="pl-3 pr-3 text-[var(--mn-text-muted)]">
               <Search className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <input
@@ -184,12 +215,12 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
               placeholder="ابحث عن اختبار (مثال: IELTS, TOEFL, SAT)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent py-2.5 sm:py-3 text-[13px] sm:text-sm text-slate-900 outline-none placeholder:text-slate-400 font-medium w-full"
+              className="flex-1 bg-transparent py-2.5 sm:py-3 text-[13px] sm:text-sm text-[var(--mn-heading)] outline-none placeholder:text-[var(--mn-text-muted)] font-medium w-full"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="pl-3 pr-2 text-slate-400 hover:text-slate-600 transition-colors"
+                className="pl-3 pr-2 text-[var(--mn-text-muted)] hover:text-[var(--mn-text-muted)] transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -204,8 +235,8 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
                 onClick={() => setSelectedCategory(cat)}
                 className={`px-4 py-1.5 rounded-full text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
                   selectedCategory === cat
-                    ? 'bg-[#002642] text-[var(--mn-accent-text)] shadow-md border border-[#002642]'
-                    : 'bg-[var(--mn-surface)] border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    ? 'bg-[var(--mn-primary)] text-[var(--mn-accent-text)] shadow-md border border-[var(--mn-border-brand)] mn-inverse '
+                    : 'bg-[var(--mn-surface)] border border-[var(--mn-border)] text-[var(--mn-text-muted)] hover:bg-[var(--mn-page)] mn-panel hover:mn-panel '
                 }`}
               >
                 {cat}
@@ -213,6 +244,93 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="max-w-3xl mx-auto px-4 pt-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {filteredExams.map((exam) => (
+            <article
+              key={exam.id}
+              onClick={() => onSelectExam?.(exam)}
+              className="min-h-[168px] bg-[var(--mn-surface)] border border-[var(--mn-border)] rounded-2xl p-4 text-right shadow-sm hover:border-[var(--mn-accent)]/55 hover:shadow-md active:scale-[0.99] transition-all cursor-pointer relative overflow-hidden mn-panel "
+            >
+              {onToggleFavorite && (
+                <FavoriteButton
+                  active={favoriteIds.includes(exam.id)}
+                  onToggle={(event) => {
+                    event.stopPropagation();
+                    onToggleFavorite(exam.id);
+                  }}
+                  className="absolute left-3 top-3 z-10"
+                />
+              )}
+              <div className="absolute -left-8 -top-8 w-24 h-24 rounded-full bg-[var(--mn-primary)]/5 pointer-events-none" />
+              <div className="relative flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-[var(--mn-primary)]/8 border border-[var(--mn-border-brand)]/20 flex items-center justify-center shrink-0">
+                    <Award className="w-[18px] h-[18px] text-[var(--mn-heading)]" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-[14px] font-black leading-5 text-[var(--mn-heading)]">{exam.name}</h3>
+                    <p className="text-[10px] font-black text-[var(--mn-accent-text)] mt-0.5">{exam.nameEn}</p>
+                    {exam.providerName && (
+                      <p className="text-[8.5px] font-semibold text-[var(--mn-text-muted)] mt-1 line-clamp-1">{exam.providerName}</p>
+                    )}
+                  </div>
+                </div>
+                <span className="px-2 py-1 rounded-full bg-[var(--mn-primary)]/8 text-[8.5px] font-black text-[var(--mn-heading)] whitespace-nowrap">
+                  {exam.category}
+                </span>
+              </div>
+
+              {(exam.scoreRange || exam.duration || exam.validity || exam.language) && (
+                <div className="relative grid grid-cols-2 gap-1.5 mt-3">
+                  <div className="rounded-lg border border-[var(--mn-border)] bg-[var(--mn-page)] px-2 py-1.5 flex items-center gap-1.5 mn-panel ">
+                    <Award className="w-3 h-3 text-[var(--mn-accent-text)] shrink-0" />
+                    <span className="text-[8.5px] font-black text-[var(--mn-text)] truncate">{exam.scoreRange || 'الدرجة حسب الاختبار'}</span>
+                  </div>
+                  <div className="rounded-lg border border-[var(--mn-border)] bg-[var(--mn-page)] px-2 py-1.5 flex items-center gap-1.5 mn-panel ">
+                    <Clock className="w-3 h-3 text-[var(--mn-heading)] shrink-0" />
+                    <span className="text-[8.5px] font-black text-[var(--mn-text)] truncate">{exam.duration || 'مدة متغيرة'}</span>
+                  </div>
+                  <div className="rounded-lg border border-[var(--mn-border)] bg-[var(--mn-page)] px-2 py-1.5 flex items-center gap-1.5 mn-panel ">
+                    <ShieldCheck className="w-3 h-3 text-[var(--mn-accent-text)] shrink-0" />
+                    <span className="text-[8.5px] font-black text-[var(--mn-text)] truncate">{exam.validity || 'حسب الجهة'}</span>
+                  </div>
+                  <div className="rounded-lg border border-[var(--mn-border)] bg-[var(--mn-page)] px-2 py-1.5 flex items-center gap-1.5 mn-panel ">
+                    <Languages className="w-3 h-3 text-[var(--mn-heading)] shrink-0" />
+                    <span className="text-[8.5px] font-black text-[var(--mn-text)] truncate">{exam.language || exam.category}</span>
+                  </div>
+                </div>
+              )}
+
+              <p className="relative text-[10px] font-semibold text-[var(--mn-text-muted)] leading-5 mt-2.5 line-clamp-2">{exam.description}</p>
+              {exam.feeSummary && (
+                <div className="relative mt-2 rounded-lg border border-[var(--mn-accent)]/15 bg-[var(--mn-accent)]/5 px-2 py-1.5 text-[8.5px] font-bold text-[var(--mn-text-muted)]">
+                  الرسوم: {exam.feeSummary}
+                </div>
+              )}
+              <div className="relative flex items-center justify-between gap-2 mt-2.5">
+                <div className="flex flex-wrap gap-1">
+                  {exam.tags.slice(0, 3).map((tag) => (
+                    <span key={tag} className="px-1.5 py-0.5 rounded-full bg-[var(--mn-page)] border border-[var(--mn-border)] text-[8px] font-bold text-[var(--mn-text-muted)] mn-panel ">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <span className="text-[9px] font-black text-[var(--mn-heading)] whitespace-nowrap flex items-center gap-0.5">
+                  عرض التفاصيل
+                  <ChevronLeft className="w-3 h-3" />
+                </span>
+              </div>
+            </article>
+          ))}
+        </div>
+        {filteredExams.length === 0 && (
+          <div className="bg-[var(--mn-surface)] border border-dashed border-[var(--mn-border)] rounded-2xl p-6 text-center text-xs font-bold text-[var(--mn-text-muted)] mn-panel ">
+            لا توجد اختبارات مطابقة لهذا البحث.
+          </div>
+        )}
       </div>
     </div>
   );

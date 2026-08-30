@@ -54,16 +54,16 @@ export const FeaturedScholarships: React.FC<FeaturedScholarshipsProps> = ({
   return (
     <section id="featured-scholarships-section" className="px-0.5 sm:px-1 py-3 w-full">
       {/* Standard Framed Container with top accent border only */}
-      <div className="relative rounded-3xl p-3.5 sm:p-4 bg-gradient-to-b from-[var(--mn-surface)] to-slate-50/80 border border-slate-200/90 shadow-sm border-t-2 border-t-[var(--mn-accent)]/40 overflow-hidden">
+      <div className="relative rounded-3xl p-3.5 sm:p-4 bg-gradient-to-b from-[var(--mn-surface)] to-[var(--mn-page)]/80 border border-[var(--mn-border)] shadow-sm border-t-2 border-t-[var(--mn-accent)]/40 overflow-hidden mn-panel ">
         {/* Content Inside the Framed Section */}
         <div className="relative z-10">
           {/* Centered Section Title */}
           <div className="text-center mb-4">
-            <h3 className="text-sm sm:text-base font-bold text-slate-900 inline-flex items-center justify-center gap-1.5 font-['Cairo',sans-serif]">
+            <h3 className="text-sm sm:text-base font-bold text-[var(--mn-heading)] inline-flex items-center justify-center gap-1.5 font-['Cairo',sans-serif]">
               <GraduationCap className="w-4 h-4 text-[var(--mn-heading)]" />
               <span>المنح الدراسية</span>
             </h3>
-            <p className="text-[10px] sm:text-xs text-slate-600 font-medium mt-1 max-w-xs mx-auto font-['Cairo',sans-serif]">
+            <p className="text-[10px] sm:text-xs text-[var(--mn-text-muted)] font-medium mt-1 max-w-xs mx-auto font-['Cairo',sans-serif]">
               تصفح أبرز المنح الدراسية الممولة واكتشف الفرص التي تساعدك على تحقيق حلمك الأكاديمي.
             </p>
           </div>
@@ -76,10 +76,10 @@ export const FeaturedScholarships: React.FC<FeaturedScholarshipsProps> = ({
                 <div
                   key={scholarship.id}
                   onClick={() => handleCardClick(scholarship.id)}
-                  className="group relative flex flex-col rounded-2xl overflow-hidden shadow-xs hover:shadow-md border border-slate-200 bg-slate-900 cursor-pointer transition-all active:scale-97 hover:border-[var(--mn-accent)]"
+                  className="group relative flex flex-col rounded-2xl overflow-hidden shadow-xs hover:shadow-md border border-[var(--mn-border)] bg-[var(--mn-primary)] cursor-pointer transition-all active:scale-97 hover:border-[var(--mn-accent)] mn-inverse "
                 >
                   {/* Image Container with Square (1:1) Proportions */}
-                  <div className="relative aspect-square w-full overflow-hidden bg-[var(--mn-primary)]">
+                  <div className="relative aspect-square w-full overflow-hidden bg-[var(--mn-primary)] mn-inverse ">
                     <img
                       src={scholarship.imageUrl}
                       alt={scholarship.title}
@@ -106,14 +106,14 @@ export const FeaturedScholarships: React.FC<FeaturedScholarshipsProps> = ({
                     </button>
 
                     {/* Dark Gradient Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[var(--mn-primary)] via-[var(--mn-primary)]/60 to-transparent pointer-events-none mn-inverse " />
 
                     {/* Card Title and Country */}
                     <div className="absolute inset-x-0 bottom-0 p-2 text-center text-white z-10">
                       <h4 className="font-bold text-[11px] sm:text-xs leading-tight text-white line-clamp-2 drop-shadow-xs mb-0.5 font-['Cairo',sans-serif]">
                         {scholarship.title}
                       </h4>
-                      <p className="text-[10px] font-semibold text-slate-300 flex items-center justify-center gap-1 font-['Cairo',sans-serif]">
+                      <p className="text-[10px] font-semibold text-[var(--mn-text-muted)] flex items-center justify-center gap-1 font-['Cairo',sans-serif]">
                         <span>{scholarship.country}</span>
                       </p>
                     </div>
@@ -128,7 +128,7 @@ export const FeaturedScholarships: React.FC<FeaturedScholarshipsProps> = ({
             <button
               id="btn-view-all-scholarships"
               onClick={onViewAllClick}
-              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-2.5 sm:py-3 bg-[var(--mn-surface)] hover:bg-[var(--mn-accent)]/10 text-[var(--mn-heading)] border border-[var(--mn-accent)]/50 rounded-full text-xs sm:text-sm font-bold transition-all shadow-[0_0_15px_rgba(200,162,74,0.3)] hover:shadow-[0_0_25px_rgba(200,162,74,0.5)] animate-pulse hover:animate-none active:scale-95 font-['Cairo',sans-serif]"
+              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-2.5 sm:py-3 bg-[var(--mn-surface)] hover:bg-[var(--mn-accent)]/10 text-[var(--mn-heading)] border border-[var(--mn-accent)]/50 rounded-full text-xs sm:text-sm font-bold transition-all shadow-[0_0_15px_rgba(214,164,59,0.3)] hover:shadow-[0_0_25px_rgba(214,164,59,0.5)] animate-pulse hover:animate-none active:scale-95 font-['Cairo',sans-serif] mn-panel "
             >
               <span>تصفح جميع المنح الدراسية</span>
               <ChevronLeft className="w-4 h-4 text-[var(--mn-heading)] transition-transform group-hover:-translate-x-1" />

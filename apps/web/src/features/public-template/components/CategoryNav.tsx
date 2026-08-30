@@ -195,7 +195,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
     {
       id: 'tools' as CategoryType,
       label: 'الأدوات',
-      sublabel: 'الذكية',
+      sublabel: 'الطلابية',
       icon: (
         <svg
           className="w-5 h-5 text-[var(--mn-accent-text)]"
@@ -217,7 +217,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
     <section id="categories-section" className="px-5 py-3 w-full">
       {/* Section Title */}
       <div className="flex items-center justify-between mb-3 px-1">
-        <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+        <h3 className="text-sm font-bold text-[var(--mn-heading)] flex items-center gap-1.5">
           <span>تصفح حسب الفئة</span>
         </h3>
         {selectedCategory !== 'all' && (
@@ -241,16 +241,16 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
               onClick={() => onSelectCategory(isActive ? 'all' : cat.id)}
               className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all active:scale-95 group cursor-pointer ${
                 isActive
-                  ? 'bg-[var(--mn-primary)] text-[var(--mn-accent-text)] shadow-sm ring-2 ring-[var(--mn-focus)]'
-                  : 'bg-[var(--mn-surface)] hover:bg-slate-50 border border-slate-200 shadow-2xs hover:border-[var(--mn-accent)]/50'
+                  ? 'bg-[var(--mn-primary)] text-[var(--mn-accent-text)] shadow-sm ring-2 ring-[var(--mn-focus)] mn-inverse '
+                  : 'bg-[var(--mn-surface)] hover:bg-[var(--mn-page)] border border-[var(--mn-border)] shadow-2xs hover:border-[var(--mn-accent)]/50 mn-panel hover:mn-panel '
               }`}
             >
               {/* Circular Icon Container */}
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center mb-1.5 transition-transform group-hover:scale-110 ${
                   isActive
-                    ? 'bg-[#002E52] border border-[var(--mn-accent)]'
-                    : 'bg-slate-50 border border-slate-100 group-hover:bg-[var(--mn-accent)]/10'
+                    ? 'bg-[var(--mn-primary)] border border-[var(--mn-accent)] mn-inverse '
+                    : 'bg-[var(--mn-page)] border border-[var(--mn-border)] group-hover:bg-[var(--mn-accent)]/10 mn-panel '
                 }`}
               >
                 {cat.icon}
@@ -259,7 +259,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
               {/* Label */}
               <span
                 className={`text-[11px] font-bold leading-tight ${
-                  isActive ? 'text-[var(--mn-accent-text)] font-black' : 'text-slate-700'
+                  isActive ? 'text-[var(--mn-accent-text)] font-black' : 'text-[var(--mn-text)]'
                 }`}
               >
                 {cat.label}

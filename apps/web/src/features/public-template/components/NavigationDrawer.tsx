@@ -1,4 +1,5 @@
 import React from 'react';
+import { useOverlayDialog } from '../useOverlayDialog';
 import {
   X,
   User,
@@ -39,14 +40,20 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   isDarkMode = false,
   onToggleDarkMode,
 }) => {
+  useOverlayDialog(isOpen, onClose, 'mn-navigation-dialog');
   if (!isOpen) return null;
 
   const menuItems = [
     {
+      id: 'account',
+      label: 'حسابي ومساحة الطالب',
+      icon: <User className="w-4 h-4 text-[var(--mn-accent-text)]" />,
+    },
+    {
       id: 'home',
       label: 'الرئيسية',
       icon: (
-        <GraduationCap className="w-4 h-4 text-[var(--mn-heading)] dark:text-[var(--mn-accent-text)]" />
+        <GraduationCap className="w-4 h-4 text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)]" />
       ),
     },
     {
@@ -56,13 +63,13 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
     },
     {
       id: 'ai-tools',
-      label: 'أدوات الذكاء الاصطناعي ⚡',
+      label: 'أدوات منارتك ⚡',
       icon: <Sparkles className="w-4 h-4 text-[var(--mn-accent-text)]" />,
     },
     {
       id: 'favorites',
-      label: 'المنح المفضلة والمحفوظة',
-      icon: <Heart className="w-4 h-4 text-red-500" />,
+      label: 'المفضلة والمحفوظات',
+      icon: <Heart className="w-4 h-4 text-[var(--mn-danger-text)]" />,
     },
     {
       id: 'countries',
@@ -73,40 +80,46 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
       id: 'universities',
       label: 'دليل الجامعات العالمية',
       icon: (
-        <Building2 className="w-4 h-4 text-[var(--mn-heading)] dark:text-[var(--mn-accent-text)]" />
+        <Building2 className="w-4 h-4 text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)]" />
       ),
     },
     {
       id: 'courses',
-      label: 'الدورات التأهيلية المجانية',
+      label: 'الدورات التدريبية',
       icon: (
-        <BookOpen className="w-4 h-4 text-[var(--mn-heading)] dark:text-[var(--mn-accent-text)]" />
+        <BookOpen className="w-4 h-4 text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)]" />
       ),
     },
     {
       id: 'majors',
-      label: 'دليل التخصصات والوظائف',
+      label: 'دليل التخصصات',
       icon: (
-        <Layers className="w-4 h-4 text-[var(--mn-heading)] dark:text-[var(--mn-accent-text)]" />
+        <Layers className="w-4 h-4 text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)]" />
       ),
     },
+    {id: 'scholarships', label: 'المنح الدراسية', icon: <GraduationCap className="w-4 h-4" />},
+    {id: 'exams', label: 'الاختبارات الدولية', icon: <ListChecks className="w-4 h-4" />},
+    {id: 'articles', label: 'المقالات والأدلة', icon: <BookOpen className="w-4 h-4" />},
+    {id: 'services', label: 'الخدمات الطلابية والعامة', icon: <User className="w-4 h-4" />},
+    {id: 'jobs', label: 'الوظائف والتدريب', icon: <Building2 className="w-4 h-4" />},
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 flex justify-end">
-      <div className="bg-[var(--mn-surface)] dark:bg-[var(--mn-surface)] max-w-xs w-full h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 text-right border-l border-slate-100 dark:border-[var(--mn-border)]">
+    <div onClick={event => {if (event.target === event.currentTarget) onClose();}} className="fixed inset-0 bg-black/70 backdrop-blur-xs z-[80] flex justify-end">
+      <div id="mn-navigation-dialog" role="dialog" aria-modal="true" aria-label="القائمة الرئيسية" tabIndex={-1} className="bg-[var(--mn-surface)] mn-dark:bg-[var(--mn-surface)] max-w-xs w-full h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 text-right border-l border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] mn-panel mn-dark:mn-panel ">
         {/* Drawer Header */}
-        <div className="bg-[var(--mn-primary)] dark:bg-[var(--mn-surface)] p-5 text-white border-b border-[var(--mn-accent)]/30 relative">
+        <div className="bg-[var(--mn-primary)] mn-dark:bg-[var(--mn-surface)] p-5 text-white border-b border-[var(--mn-accent)]/30 relative mn-inverse mn-dark:mn-panel ">
           <button
+            aria-label="إغلاق القائمة"
             onClick={onClose}
-            className="absolute top-4 left-4 w-7 h-7 rounded-full bg-[#002E52] dark:bg-[var(--mn-surface-elevated)] hover:bg-black/30 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            className="absolute top-4 left-4 w-7 h-7 rounded-full bg-[var(--mn-primary)] mn-dark:bg-[var(--mn-surface-elevated)] hover:bg-black/30 text-[var(--mn-text-muted)] hover:text-white flex items-center justify-center transition-colors cursor-pointer mn-inverse mn-dark:mn-panel "
           >
             <X className="w-4 h-4" />
           </button>
 
           {/* User Profile Avatar & Name */}
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-[#002E52] dark:bg-[var(--mn-surface-elevated)] border-2 border-[var(--mn-accent)] flex items-center justify-center text-[var(--mn-accent-text)] shadow-md">
+            <div className="w-12 h-12 rounded-full bg-[var(--mn-primary)] mn-dark:bg-[var(--mn-surface-elevated)] border-2 border-[var(--mn-accent)] flex items-center justify-center text-[var(--mn-accent-text)] shadow-md mn-inverse mn-dark:mn-panel ">
               <User className="w-6 h-6" />
             </div>
             {userProfile ? (
@@ -115,7 +128,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                 <p className="text-[11px] text-[var(--mn-accent-text)] font-bold">
                   {userProfile.email}
                 </p>
-                <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#002E52] dark:bg-[var(--mn-surface-elevated)] text-[10px] text-slate-200 border border-[var(--mn-accent)]/40">
+                <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--mn-primary)] mn-dark:bg-[var(--mn-surface-elevated)] text-[10px] text-[var(--mn-on-dark-muted)] border border-[var(--mn-accent)]/40 mn-inverse mn-dark:mn-panel ">
                   <span>المعدل: {userProfile.gpa}</span>
                 </div>
               </div>
@@ -127,7 +140,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                     onNavigate('auth');
                     onClose();
                   }}
-                  className="px-3 py-1 bg-[var(--mn-accent)] hover:bg-[#c99a32] text-[#041627] text-[11px] font-black rounded-lg transition-colors cursor-pointer"
+                  className="px-3 py-1 bg-[var(--mn-accent)] hover:bg-[var(--mn-accent)] text-[var(--mn-on-accent)] text-[11px] font-black rounded-lg transition-colors cursor-pointer mn-gold hover:mn-gold "
                 >
                   تسجيل الدخول / حساب جديد
                 </button>
@@ -145,22 +158,22 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                 onNavigate(item.id);
                 onClose();
               }}
-              className="w-full text-right p-3 rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-[var(--mn-primary)]/10 dark:hover:bg-[var(--mn-surface-muted)] hover:text-[var(--mn-heading)] dark:hover:text-[var(--mn-accent-text)] flex items-center justify-between transition-colors active:scale-98 cursor-pointer"
+              className="w-full text-right p-3 rounded-2xl text-xs font-bold text-[var(--mn-text)] mn-dark:text-[var(--mn-text)] hover:bg-[var(--mn-primary)]/10 mn-dark:hover:bg-[var(--mn-surface-muted)] hover:text-[var(--mn-heading)] mn-dark:hover:text-[var(--mn-accent-text)] flex items-center justify-between transition-colors active:scale-98 cursor-pointer mn-dark:hover:mn-panel "
             >
               <div className="flex items-center gap-2.5">
                 {item.icon}
                 <span>{item.label}</span>
               </div>
-              <span className="text-slate-400 dark:text-slate-500 text-[10px]">❯</span>
+              <span className="text-[var(--mn-text-muted)] mn-dark:text-[var(--mn-text-muted)] text-[10px]">❯</span>
             </button>
           ))}
 
-          <div className="pt-2 border-t border-slate-100 dark:border-[var(--mn-border)] my-2" />
+          <div className="pt-2 border-t border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] my-2" />
 
           {/* Dark Mode Toggle in Drawer */}
           {onToggleDarkMode && (
-            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[var(--mn-surface-elevated)] border border-slate-200 dark:border-[var(--mn-border)] text-xs flex items-center justify-between">
-              <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200 font-bold">
+            <div className="p-3 rounded-2xl bg-[var(--mn-page)] mn-dark:bg-[var(--mn-surface-elevated)] border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] text-xs flex items-center justify-between mn-panel mn-dark:mn-panel ">
+              <div className="flex items-center gap-2 text-[var(--mn-text)] mn-dark:text-[var(--mn-text)] font-bold">
                 {isDarkMode ? (
                   <Sun className="w-4 h-4 text-[var(--mn-accent-text)]" />
                 ) : (
@@ -170,7 +183,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
               </div>
               <button
                 onClick={onToggleDarkMode}
-                className="px-2.5 py-1 bg-[var(--mn-surface)] dark:bg-[var(--mn-surface)] border border-slate-200 dark:border-[var(--mn-border)] rounded-lg text-xs font-bold text-[var(--mn-heading)] dark:text-[var(--mn-accent-text)] cursor-pointer flex items-center gap-1"
+                className="px-2.5 py-1 bg-[var(--mn-surface)] mn-dark:bg-[var(--mn-surface)] border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] rounded-lg text-xs font-bold text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)] cursor-pointer flex items-center gap-1 mn-panel mn-dark:mn-panel "
               >
                 {isDarkMode ? '🌙 ليلي' : '☀️ نهاري'}
               </button>
@@ -178,14 +191,14 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
           )}
 
           {/* Language Toggle in Drawer */}
-          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[var(--mn-surface-elevated)] border border-slate-200 dark:border-[var(--mn-border)] text-xs flex items-center justify-between mt-2">
-            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200 font-bold">
-              <Globe className="w-4 h-4 text-[var(--mn-heading)] dark:text-[var(--mn-accent-text)]" />
+          <div className="p-3 rounded-2xl bg-[var(--mn-page)] mn-dark:bg-[var(--mn-surface-elevated)] border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] text-xs flex items-center justify-between mt-2 mn-panel mn-dark:mn-panel ">
+            <div className="flex items-center gap-2 text-[var(--mn-text)] mn-dark:text-[var(--mn-text)] font-bold">
+              <Globe className="w-4 h-4 text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)]" />
               <span>اللغة / Language</span>
             </div>
             <button
               onClick={onToggleLanguage}
-              className="px-2.5 py-1 bg-[var(--mn-surface)] dark:bg-[var(--mn-surface)] border border-slate-200 dark:border-[var(--mn-border)] rounded-lg text-xs font-bold text-[var(--mn-heading)] dark:text-slate-200 cursor-pointer"
+              className="px-2.5 py-1 bg-[var(--mn-surface)] mn-dark:bg-[var(--mn-surface)] border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] rounded-lg text-xs font-bold text-[var(--mn-heading)] mn-dark:text-[var(--mn-text)] cursor-pointer mn-panel mn-dark:mn-panel "
             >
               {language === 'ar' ? 'العربية 🇸🇦' : 'English 🇬🇧'}
             </button>
@@ -193,7 +206,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-3 bg-slate-50 dark:bg-[var(--mn-surface)] border-t border-slate-200 dark:border-[var(--mn-border)] text-center text-[10px] text-slate-400 dark:text-slate-400">
+        <div className="p-3 bg-[var(--mn-page)] mn-dark:bg-[var(--mn-surface)] border-t border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] text-center text-[10px] text-[var(--mn-text-muted)] mn-dark:text-[var(--mn-text-muted)] mn-panel mn-dark:mn-panel ">
           منصة منارتك للفرص التعليمية • تصميم الهاتف المحمول
         </div>
       </div>

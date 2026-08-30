@@ -18,6 +18,21 @@ export type DegreeLevel =
 
 export type FundingType = 'ممولة بالكامل' | 'ممولة جزئياً' | 'إعفاء من الرسوم' | 'راتب شهري وسكن';
 
+export type ScholarshipStatus = 'مفتوحة الآن' | 'تفتح قريبًا' | 'مغلقة';
+
+export interface ScholarshipUniversityRef {
+  id: string;
+  name: string;
+  nameEn: string;
+  city?: string;
+}
+
+export interface ScholarshipExamRef {
+  id: string;
+  name: string;
+  nameEn: string;
+}
+
 export interface Scholarship {
   id: string;
   title: string;
@@ -41,6 +56,24 @@ export interface Scholarship {
   applicationUrl: string;
   withoutIelts: boolean;
   matchScore?: number;
+  status?: ScholarshipStatus;
+  participatingUniversities?: ScholarshipUniversityRef[];
+  requiredExams?: ScholarshipExamRef[];
+  relatedArticles?: RelatedArticleRef[];
+}
+
+
+export interface CountryEntityRef {
+  id: string;
+  name: string;
+  nameEn?: string;
+  meta?: string;
+}
+
+export interface CountryOfficialLink {
+  label: string;
+  url: string;
+  note?: string;
 }
 
 export interface CountryDestination {
@@ -61,6 +94,28 @@ export interface CountryDestination {
   averageLivingCostUsd: string;
   languageOfStudy: string[];
   visaEase: string;
+
+  // Public country detail template fields. These mirror the Phase 07 country reference
+  // profile and cross-phase navigation contracts without pretending every country is enriched yet.
+  iso2Code?: string;
+  iso3Code?: string;
+  capitalCity?: string;
+  subregion?: string;
+  currencyCode?: string;
+  callingCode?: string;
+  officialLanguages?: string[];
+  timezones?: string[];
+  studySystemSummary?: string;
+  admissionHighlights?: string[];
+  visaHighlights?: string[];
+  costHighlights?: Array<{ label: string; value: string }>;
+  studentLifeHighlights?: string[];
+  featuredUniversities?: CountryEntityRef[];
+  featuredScholarships?: CountryEntityRef[];
+  featuredMajors?: CountryEntityRef[];
+  requiredExams?: CountryEntityRef[];
+  officialLinks?: CountryOfficialLink[];
+  relatedArticles?: RelatedArticleRef[];
 }
 
 export interface UniversityRanking {
@@ -93,6 +148,8 @@ export interface UniversityScholarship {
   type?: string;
   audience?: string;
   officialUrl: string;
+  /** Canonical scholarship identity inside MANARATAK when this university scholarship is mapped. */
+  platformScholarshipId?: string;
 }
 
 export interface UniversityLanguageRequirements {
@@ -100,6 +157,8 @@ export interface UniversityLanguageRequirements {
   languages: string[];
   acceptedTests: string[];
   officialUrl: string;
+  /** Optional canonical test links used for internal navigation without replacing source labels. */
+  acceptedTestLinks?: Array<{ label: string; examId: string }>;
 }
 
 export interface UniversityDocumentRequirements {
@@ -146,6 +205,8 @@ export interface UniversityStudyPrograms {
   degrees?: string[];
   faculties?: string[];
   topKeyMajors?: string[];
+  /** Canonical Major targets behind selected university program/major labels. */
+  majorLinks?: Array<{ label: string; majorId: string; degreeLabel?: string; programLabel?: string }>;
   teachingLanguages?: string[];
   studyModes?: string[];
   undergradDirectoryUrl?: string;
@@ -168,6 +229,7 @@ export interface University {
   type?: string; // e.g. جامعة، كلية جامعية، معهد
   ownership?: string; // e.g. حكومية، خاصة
   country: string;
+  continent?: string;
   city?: string;
   foundationYear?: number;
   countryFlag: string;
@@ -189,6 +251,94 @@ export interface University {
   dataTrust?: UniversityDataTrust;
   studyPrograms?: UniversityStudyPrograms;
   internationalAdmissions?: UniversityInternationalAdmissions;
+  relatedArticles?: RelatedArticleRef[];
+}
+
+
+export interface ImportedCourseEntityRef {
+  id?: string;
+  name: string;
+  meta?: string;
+}
+
+export interface ImportedCourse {
+  id: string;
+  title: string;
+  provider: string;
+  field: string;
+  language: string;
+  level: string;
+  duration: string;
+  studyFree: boolean;
+  freeCertificate: boolean;
+  certificateType: string;
+  topics: string[];
+  directCourseUrl: string;
+  relatedMajors?: ImportedCourseEntityRef[];
+  relatedUniversities?: ImportedCourseEntityRef[];
+  relatedScholarships?: ImportedCourseEntityRef[];
+  relatedCountries?: ImportedCourseEntityRef[];
+  relatedExams?: ImportedCourseEntityRef[];
+  relatedArticles?: RelatedArticleRef[];
+}
+
+export type ServiceAudience = 'student' | 'general';
+
+export type ServiceContextCategory =
+  | 'universities'
+  | 'scholarships'
+  | 'countries'
+  | 'majors'
+  | 'exams'
+  | 'articles';
+
+export interface ServicePackage {
+  name: string;
+  price: string;
+  description: string;
+}
+
+export interface ServiceFaq {
+  question: string;
+  answer: string;
+}
+
+export interface ServiceContextLink {
+  category: ServiceContextCategory;
+  label: string;
+  description: string;
+}
+
+/**
+ * Public-template service prototype.
+ *
+ * Important separation for Phase 20:
+ * - `contextualLinks` are discovery/navigation suggestions only.
+ * - `requestContextFields` belong to the student's individual request context.
+ * - Neither field asserts a canonical direct relation to a university/scholarship/country.
+ * Production direct-relation and availability contracts stay deferred to the canonical API/schema phase.
+ */
+export interface Service {
+  id: string;
+  slug: string;
+  title: string;
+  audience: ServiceAudience;
+  category: string;
+  badge: string;
+  shortDescription: string;
+  description: string;
+  priceLabel: string;
+  turnaround: string;
+  deliveryMode: string;
+  includes: string[];
+  excludes: string[];
+  requirements: string[];
+  packages?: ServicePackage[];
+  faqs: ServiceFaq[];
+  cancellationPolicy: string;
+  availabilityNote?: string;
+  requestContextFields: string[];
+  contextualLinks: ServiceContextLink[];
 }
 
 export interface Course {
@@ -283,7 +433,73 @@ export interface Major {
   similarMajors?: { name: string; difference: string }[];
   academicAlertPoints?: { num?: string; title: string; desc: string }[];
   academicAlert?: string;
+  relatedArticles?: RelatedArticleRef[];
 }
+
+
+export type ArticleEntityType = 'SCHOLARSHIP' | 'UNIVERSITY' | 'COUNTRY' | 'MAJOR' | 'EXAM' | 'COURSE';
+
+export interface ArticleEntityRef {
+  type: ArticleEntityType;
+  id?: string;
+  name: string;
+  nameEn?: string;
+  meta?: string;
+}
+
+export interface RelatedArticleRef {
+  id: string;
+  title: string;
+  typeLabel?: string;
+  category?: string;
+  meta?: string;
+}
+
+export interface ArticleSection {
+  title: string;
+  paragraphs?: string[];
+  bullets?: string[];
+}
+
+export interface ArticleOfficialLink {
+  label: string;
+  url: string;
+  note?: string;
+}
+
+export interface PublicArticle {
+  id: string;
+  slug: string;
+  titleAr: string;
+  titleEn: string;
+  contentType: 'STUDY_GUIDE' | 'ARTICLE' | 'NEWS' | 'CHECKLIST';
+  contentTypeLabelAr: string;
+  categoryAr: string;
+  author: string;
+  reviewer?: string;
+  updatedAt: string;
+  readingTime?: string;
+  excerptAr: string;
+  tags?: string[];
+  sections: ArticleSection[];
+  linkedEntities?: ArticleEntityRef[];
+  officialLinks?: ArticleOfficialLink[];
+}
+
+
+export type FavoriteKind =
+  | 'scholarship'
+  | 'university'
+  | 'major'
+  | 'country'
+  | 'course'
+  | 'exam'
+  | 'article'
+  | 'service'
+  | 'tool'
+  | 'career';
+
+export type FavoriteKey = `${FavoriteKind}:${string}`;
 
 export interface ApplicationMilestone {
   id: string;
@@ -330,6 +546,38 @@ export interface UserProfile {
   notificationsEnabled: boolean;
 }
 
+export interface ExamFact {
+  label: string;
+  value: string;
+}
+
+export interface ExamVariant {
+  name: string;
+  meta: string;
+  note?: string;
+}
+
+export interface ExamSectionDetail {
+  name: string;
+  questionCount?: string;
+  duration?: string;
+  score?: string;
+  meta?: string;
+}
+
+export interface ExamEntityRef {
+  id?: string;
+  name: string;
+  nameEn?: string;
+  meta?: string;
+}
+
+export interface ExamOfficialLink {
+  label: string;
+  url: string;
+  note?: string;
+}
+
 export interface Exam {
   id: string;
   name: string;
@@ -337,4 +585,121 @@ export interface Exam {
   category: string;
   description: string;
   tags: string[];
+
+  // Golden public-test fields. They align with the normalized InternationalTest
+  // contracts while keeping this standalone public-template snapshot mock-driven.
+  providerName?: string;
+  testCode?: string;
+  language?: string;
+  scoreRange?: string;
+  passingScore?: string;
+  validity?: string;
+  duration?: string;
+  questionCount?: string;
+  feeSummary?: string;
+  recognitionSummary?: string;
+  verificationLabel?: string;
+  lastVerifiedAt?: string;
+  status?: string;
+  keyFacts?: ExamFact[];
+  variants?: ExamVariant[];
+  sections?: ExamSectionDetail[];
+  studentUses?: string[];
+  scoreNotes?: string[];
+  deliveryModes?: string[];
+  registrationSteps?: string[];
+  registrationRequirements?: string[];
+  resultNotes?: string[];
+  retakeNotes?: string[];
+  testDayRules?: string[];
+  preparationTips?: string[];
+  importantWarnings?: string[];
+  relatedUniversities?: ExamEntityRef[];
+  relatedScholarships?: ExamEntityRef[];
+  relatedCountries?: ExamEntityRef[];
+  comparisonCards?: Array<{ title: string; text: string }>;
+  officialLinks?: ExamOfficialLink[];
+  relatedArticles?: RelatedArticleRef[];
+}
+
+export type StudentToolCategory =
+  | 'الكتابة والوثائق'
+  | 'الإرشاد والتوجيه'
+  | 'التخطيط الدراسي'
+  | 'الحاسبات الأكاديمية'
+  | 'القبول والجاهزية'
+  | 'البحث والمقارنة'
+  | 'التخطيط المالي'
+  | 'التحقق من الوثائق';
+
+export type StudentToolExecutionLabel = 'أداة ذكية' | 'حسابية' | 'بيانات ومقارنة' | 'هجينة';
+export type StudentToolAvailability = 'متاحة الآن' | 'قريبًا';
+
+export interface StudentToolContextLink {
+  category: CategoryType;
+  label: string;
+  description: string;
+}
+
+export interface StudentToolServiceSuggestion {
+  serviceId: string;
+  label: string;
+  note: string;
+}
+
+export interface StudentToolPreview {
+  id: string;
+  toolKey: string;
+  title: string;
+  titleEn: string;
+  shortDescription: string;
+  category: StudentToolCategory;
+  executionLabel: StudentToolExecutionLabel;
+  availability: StudentToolAvailability;
+  estimatedTime: string;
+  badge?: string;
+  purpose: string;
+  howItWorks: string[];
+  inputs: string[];
+  outputs: string[];
+  notes?: string[];
+  contextualLinks?: StudentToolContextLink[];
+  serviceSuggestions?: StudentToolServiceSuggestion[];
+}
+
+export type CareerOpportunityKind = 'وظيفة' | 'تدريب' | 'برنامج خريجين';
+export type CareerWorkMode = 'حضوري' | 'عن بعد';
+export type CareerExperienceLevel = 'طالب جامعي' | 'حديث التخرج' | 'مبتدئ';
+
+export interface CareerContextLink {
+  category: CategoryType;
+  label: string;
+  description: string;
+}
+
+export interface CareerOpportunityPreview {
+  id: string;
+  title: string;
+  titleEn: string;
+  employerName: string;
+  kind: CareerOpportunityKind;
+  subtype: string;
+  country: string;
+  countryFlag?: string;
+  city?: string;
+  workMode: CareerWorkMode;
+  industry: string;
+  employmentType: string;
+  experienceLevel: CareerExperienceLevel;
+  salaryLabel: string;
+  durationLabel?: string;
+  summary: string;
+  description: string;
+  responsibilities: string[];
+  requirements: string[];
+  targetSkills: string[];
+  benefits: string[];
+  applicationSteps: string[];
+  contextLinks?: CareerContextLink[];
+  suggestTools?: boolean;
 }

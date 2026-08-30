@@ -28,16 +28,16 @@ export const FeaturedCourses: React.FC<FeaturedCoursesProps> = ({
       className="px-0.5 sm:px-1 py-3 w-full font-['Cairo',sans-serif]"
     >
       {/* Standard Framed Container with top accent border only */}
-      <div className="relative rounded-3xl p-3.5 sm:p-4 bg-gradient-to-b from-[var(--mn-surface)] to-slate-50/80 border border-slate-200/90 shadow-sm border-t-2 border-t-[var(--mn-primary)]/40 overflow-hidden">
+      <div className="relative rounded-3xl p-3.5 sm:p-4 bg-gradient-to-b from-[var(--mn-surface)] to-[var(--mn-page)]/80 border border-[var(--mn-border)] shadow-sm border-t-2 border-t-[var(--mn-primary)]/40 overflow-hidden mn-panel ">
         {/* Content Inside the Framed Section */}
         <div className="relative z-10">
           {/* Centered Section Title */}
           <div className="text-center mb-4">
-            <h3 className="text-sm sm:text-base font-bold text-slate-900 inline-flex items-center justify-center gap-1.5">
+            <h3 className="text-sm sm:text-base font-bold text-[var(--mn-heading)] inline-flex items-center justify-center gap-1.5">
               <BookOpen className="w-4 h-4 text-[var(--mn-accent-text)]" />
               <span>الدورات التدريبية والتأهيلية</span>
             </h3>
-            <p className="text-[10px] sm:text-xs text-slate-600 font-medium mt-1 max-w-xs mx-auto font-['Cairo',sans-serif]">
+            <p className="text-[10px] sm:text-xs text-[var(--mn-text-muted)] font-medium mt-1 max-w-xs mx-auto font-['Cairo',sans-serif]">
               طور مهاراتك من خلال برامج تدريبية متخصصة ومقدمة من أفضل الأكاديميات والجامعات.
             </p>
           </div>
@@ -48,17 +48,17 @@ export const FeaturedCourses: React.FC<FeaturedCoursesProps> = ({
             <div className="absolute inset-[-100%] animate-button-orbit bg-[conic-gradient(from_0deg,var(--mn-primary),var(--mn-accent),var(--mn-primary),var(--mn-accent),var(--mn-primary))]" />
 
             {/* Inner Tabs Container */}
-            <div className="relative flex bg-slate-50 p-1 rounded-xl w-full">
+            <div className="relative flex bg-[var(--mn-page)] p-1 rounded-xl w-full mn-panel ">
               <button
                 onClick={() => setActiveTab('internal')}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold rounded-lg transition-all ${
                   activeTab === 'internal'
-                    ? 'bg-[var(--mn-surface)] text-[var(--mn-heading)] shadow-sm ring-1 ring-slate-200/50'
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                    ? 'bg-[var(--mn-surface)] text-[var(--mn-heading)] shadow-sm ring-1 ring-[var(--mn-border)] mn-panel '
+                    : 'text-[var(--mn-text-muted)] hover:text-[var(--mn-text)] hover:bg-[var(--mn-surface-muted)]/50'
                 }`}
               >
                 <Award
-                  className={`w-3.5 h-3.5 ${activeTab === 'internal' ? 'text-[var(--mn-accent-text)]' : 'text-slate-400'}`}
+                  className={`w-3.5 h-3.5 ${activeTab === 'internal' ? 'text-[var(--mn-accent-text)]' : 'text-[var(--mn-text-muted)]'}`}
                 />
                 <span>أكاديمية منارتك</span>
               </button>
@@ -66,12 +66,12 @@ export const FeaturedCourses: React.FC<FeaturedCoursesProps> = ({
                 onClick={() => setActiveTab('external')}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold rounded-lg transition-all ${
                   activeTab === 'external'
-                    ? 'bg-[var(--mn-surface)] text-[var(--mn-heading)] shadow-sm ring-1 ring-slate-200/50'
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                    ? 'bg-[var(--mn-surface)] text-[var(--mn-heading)] shadow-sm ring-1 ring-[var(--mn-border)] mn-panel '
+                    : 'text-[var(--mn-text-muted)] hover:text-[var(--mn-text)] hover:bg-[var(--mn-surface-muted)]/50'
                 }`}
               >
                 <Globe2
-                  className={`w-3.5 h-3.5 ${activeTab === 'external' ? 'text-blue-500' : 'text-slate-400'}`}
+                  className={`w-3.5 h-3.5 ${activeTab === 'external' ? 'text-[var(--mn-link)]' : 'text-[var(--mn-text-muted)]'}`}
                 />
                 <span>جامعات عالمية</span>
               </button>
@@ -84,14 +84,14 @@ export const FeaturedCourses: React.FC<FeaturedCoursesProps> = ({
               <div
                 key={course.id}
                 onClick={() => onSelectCourse && onSelectCourse(course)}
-                className={`group relative flex items-start gap-3 p-2.5 sm:p-3 rounded-2xl bg-[var(--mn-surface)] border ${
+                className={`group relative flex items-start gap-3 p-2.5 sm:p-3 rounded-2xl bg-[var(--mn-surface)] border  mn-panel ${
                   activeTab === 'internal'
                     ? 'border-[var(--mn-accent)]/30 hover:border-[var(--mn-accent)]'
-                    : 'border-slate-200 hover:border-blue-400'
+                    : 'border-[var(--mn-border)] hover:border-[var(--mn-border-brand)]'
                 } shadow-xs hover:shadow-md transition-all duration-300 cursor-pointer active:scale-[0.99]`}
               >
                 {/* Course Thumbnail */}
-                <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden shrink-0 bg-slate-900">
+                <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden shrink-0 bg-[var(--mn-primary)] mn-inverse ">
                   <img
                     src={course.imageUrl}
                     alt={course.title}
@@ -115,29 +115,29 @@ export const FeaturedCourses: React.FC<FeaturedCoursesProps> = ({
                           <CheckCircle2 className="w-2.5 h-2.5" /> حصري
                         </span>
                       ) : (
-                        <span className="inline-block px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded text-[9px] font-black">
+                        <span className="inline-block px-1.5 py-0.5 bg-[var(--mn-surface-muted)] text-[var(--mn-link)] border border-[var(--mn-border-brand)] rounded text-[9px] font-black mn-panel ">
                           شريك معتمد
                         </span>
                       )}
 
-                      <div className="flex items-center gap-0.5 text-amber-500 text-[9px] font-bold">
-                        <Star className="w-2.5 h-2.5 fill-amber-400" />
+                      <div className="flex items-center gap-0.5 text-[var(--mn-accent-text)] text-[9px] font-bold">
+                        <Star className="w-2.5 h-2.5 fill-[var(--mn-accent-soft)]" />
                         <span>{course.rating}</span>
                       </div>
                     </div>
 
-                    <h4 className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-[var(--mn-heading)] transition-colors line-clamp-2 leading-tight">
+                    <h4 className="font-bold text-xs sm:text-sm text-[var(--mn-heading)] group-hover:text-[var(--mn-heading)] transition-colors line-clamp-2 leading-tight">
                       {course.title}
                     </h4>
                   </div>
 
                   <div className="mt-1.5 sm:mt-2">
-                    <p className="text-[10px] sm:text-[11px] text-slate-500 font-semibold truncate flex items-center gap-1.5">
+                    <p className="text-[10px] sm:text-[11px] text-[var(--mn-text-muted)] font-semibold truncate flex items-center gap-1.5">
                       <span
                         className={
                           activeTab === 'internal'
                             ? 'text-[var(--mn-accent-text)]'
-                            : 'text-blue-600'
+                            : 'text-[var(--mn-link)]'
                         }
                       >
                         {course.provider}
@@ -149,7 +149,7 @@ export const FeaturedCourses: React.FC<FeaturedCoursesProps> = ({
             ))}
 
             {displayCourses.length === 0 && (
-              <div className="text-center py-6 text-sm text-slate-500">
+              <div className="text-center py-6 text-sm text-[var(--mn-text-muted)]">
                 لا توجد دورات حالياً في هذا القسم.
               </div>
             )}
@@ -160,7 +160,7 @@ export const FeaturedCourses: React.FC<FeaturedCoursesProps> = ({
             <button
               id="btn-view-all-courses"
               onClick={onViewAllClick}
-              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-2.5 sm:py-3 bg-[var(--mn-surface)] hover:bg-[var(--mn-accent)]/10 text-[var(--mn-heading)] border border-[var(--mn-accent)]/50 rounded-full text-xs sm:text-sm font-bold transition-all shadow-[0_0_15px_rgba(200,162,74,0.3)] hover:shadow-[0_0_25px_rgba(200,162,74,0.5)] animate-pulse hover:animate-none active:scale-95 font-['Cairo',sans-serif]"
+              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-2.5 sm:py-3 bg-[var(--mn-surface)] hover:bg-[var(--mn-accent)]/10 text-[var(--mn-heading)] border border-[var(--mn-accent)]/50 rounded-full text-xs sm:text-sm font-bold transition-all shadow-[0_0_15px_rgba(214,164,59,0.3)] hover:shadow-[0_0_25px_rgba(214,164,59,0.5)] animate-pulse hover:animate-none active:scale-95 font-['Cairo',sans-serif] mn-panel "
             >
               <span>تصفح جميع الدورات</span>
               <ChevronLeft className="w-4 h-4 text-[var(--mn-heading)] transition-transform group-hover:-translate-x-1" />

@@ -68,16 +68,16 @@ export const FeaturedExams: React.FC<FeaturedExamsProps> = ({ onViewAllClick }) 
       className="px-0.5 sm:px-1 py-3 w-full font-['Cairo',sans-serif]"
     >
       {/* Standard Framed Container with top accent border only */}
-      <div className="relative rounded-3xl p-3.5 sm:p-4 bg-gradient-to-b from-[var(--mn-surface)] to-slate-50/80 border border-slate-200/90 shadow-sm border-t-2 border-t-[var(--mn-accent)]/40 overflow-hidden">
+      <div className="relative rounded-3xl p-3.5 sm:p-4 bg-gradient-to-b from-[var(--mn-surface)] to-[var(--mn-page)]/80 border border-[var(--mn-border)] shadow-sm border-t-2 border-t-[var(--mn-accent)]/40 overflow-hidden mn-panel ">
         {/* Content Inside the Framed Section */}
         <div className="relative z-10">
           {/* Centered Section Title */}
           <div className="text-center mb-3">
-            <h3 className="text-sm sm:text-base font-bold text-slate-900 inline-flex items-center justify-center gap-1.5">
+            <h3 className="text-sm sm:text-base font-bold text-[var(--mn-heading)] inline-flex items-center justify-center gap-1.5">
               <FileSignature className="w-4 h-4 text-[var(--mn-accent-text)]" />
               <span>دليل الاختبارات الدولية</span>
             </h3>
-            <p className="text-[10px] sm:text-xs text-slate-600 font-medium mt-0.5">
+            <p className="text-[10px] sm:text-xs text-[var(--mn-text-muted)] font-medium mt-0.5">
               تعرف على متطلبات القبول اللغوية والأكاديمية والمهنية
             </p>
           </div>
@@ -95,8 +95,8 @@ export const FeaturedExams: React.FC<FeaturedExamsProps> = ({ onViewAllClick }) 
                     key={`set1-${idx}`}
                     className="flex flex-col items-center gap-2 w-16 sm:w-20 shrink-0 cursor-pointer group"
                   >
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[var(--mn-surface)] border border-slate-200 shadow-sm overflow-hidden p-[3px] transition-all group-hover:-translate-y-1 group-hover:border-[var(--mn-accent)] group-hover:shadow-md">
-                      <div className="w-full h-full rounded-xl overflow-hidden bg-[var(--mn-surface)] relative flex justify-center items-center p-1.5">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[var(--mn-surface)] border border-[var(--mn-border)] shadow-sm overflow-hidden p-[3px] transition-all group-hover:-translate-y-1 group-hover:border-[var(--mn-accent)] group-hover:shadow-md mn-panel ">
+                      <div className="w-full h-full rounded-xl overflow-hidden bg-[var(--mn-surface)] relative flex justify-center items-center p-1.5 mn-panel ">
                         <img
                           src={exam.image}
                           alt={exam.name}
@@ -104,7 +104,7 @@ export const FeaturedExams: React.FC<FeaturedExamsProps> = ({ onViewAllClick }) 
                         />
                       </div>
                     </div>
-                    <span className="text-[10px] sm:text-xs font-bold text-slate-700 text-center uppercase tracking-wider group-hover:text-[var(--mn-heading)] transition-colors line-clamp-1">
+                    <span className="text-[10px] sm:text-xs font-bold text-[var(--mn-text)] text-center uppercase tracking-wider group-hover:text-[var(--mn-heading)] transition-colors line-clamp-1">
                       {exam.name}
                     </span>
                   </div>
@@ -118,8 +118,8 @@ export const FeaturedExams: React.FC<FeaturedExamsProps> = ({ onViewAllClick }) 
                     key={`set2-${idx}`}
                     className="flex flex-col items-center gap-2 w-16 sm:w-20 shrink-0 cursor-pointer group"
                   >
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[var(--mn-surface)] border border-slate-200 shadow-sm overflow-hidden p-[3px] transition-all group-hover:-translate-y-1 group-hover:border-[var(--mn-accent)] group-hover:shadow-md">
-                      <div className="w-full h-full rounded-xl overflow-hidden bg-[var(--mn-surface)] relative flex justify-center items-center p-1.5">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[var(--mn-surface)] border border-[var(--mn-border)] shadow-sm overflow-hidden p-[3px] transition-all group-hover:-translate-y-1 group-hover:border-[var(--mn-accent)] group-hover:shadow-md mn-panel ">
+                      <div className="w-full h-full rounded-xl overflow-hidden bg-[var(--mn-surface)] relative flex justify-center items-center p-1.5 mn-panel ">
                         <img
                           src={exam.image}
                           alt={exam.name}
@@ -127,7 +127,7 @@ export const FeaturedExams: React.FC<FeaturedExamsProps> = ({ onViewAllClick }) 
                         />
                       </div>
                     </div>
-                    <span className="text-[10px] sm:text-xs font-bold text-slate-700 text-center uppercase tracking-wider group-hover:text-[var(--mn-heading)] transition-colors line-clamp-1">
+                    <span className="text-[10px] sm:text-xs font-bold text-[var(--mn-text)] text-center uppercase tracking-wider group-hover:text-[var(--mn-heading)] transition-colors line-clamp-1">
                       {exam.name}
                     </span>
                   </div>
@@ -141,7 +141,7 @@ export const FeaturedExams: React.FC<FeaturedExamsProps> = ({ onViewAllClick }) 
             <button
               id="btn-view-all-exams"
               onClick={onViewAllClick}
-              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-2.5 sm:py-3 bg-[var(--mn-surface)] hover:bg-[var(--mn-accent)]/10 text-[var(--mn-heading)] border border-[var(--mn-accent)]/50 rounded-full text-xs sm:text-sm font-bold transition-all shadow-[0_0_15px_rgba(200,162,74,0.3)] hover:shadow-[0_0_25px_rgba(200,162,74,0.5)] animate-pulse hover:animate-none active:scale-95 font-['Cairo',sans-serif]"
+              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-2.5 sm:py-3 bg-[var(--mn-surface)] hover:bg-[var(--mn-accent)]/10 text-[var(--mn-heading)] border border-[var(--mn-accent)]/50 rounded-full text-xs sm:text-sm font-bold transition-all shadow-[0_0_15px_rgba(214,164,59,0.3)] hover:shadow-[0_0_25px_rgba(214,164,59,0.5)] animate-pulse hover:animate-none active:scale-95 font-['Cairo',sans-serif] mn-panel "
             >
               <span>تصفح جميع الاختبارات الدولية</span>
               <ChevronLeft className="w-4 h-4 text-[var(--mn-heading)] transition-transform group-hover:-translate-x-1" />

@@ -1,4 +1,25 @@
 @import 'tailwindcss';
+@source './';
+
+/* UPDATE_29: keep all header actions inside a 390px (and smaller) viewport. */
+@media (max-width: 639px) {
+  #manaratak-header .mn-header-row { min-width: 0; gap: 6px; }
+  #manaratak-header .mn-header-brand { min-width: 0; flex: 1; gap: 6px; }
+  #manaratak-header .mn-header-brand > button { width: 40px; height: 40px; }
+  #manaratak-header .mn-header-brand > div { min-width: 0; }
+  #manaratak-header .mn-header-brand span:first-child { font-size: 11px; letter-spacing: .3px; }
+  #manaratak-header .mn-header-brand span:last-child { font-size: 8px; overflow: hidden; text-overflow: ellipsis; }
+  #manaratak-header .mn-header-actions { flex-shrink: 0; gap: 3px; }
+  #manaratak-header .mn-header-actions > button { width: 36px; min-width: 36px; height: 38px; padding-inline: 0; justify-content: center; }
+  #btn-single-language > svg { display: none; }
+}
+@media (max-width: 359px) {
+  #manaratak-header .mn-header-brand > div { display: none; }
+}
+
+/* Match the persisted manual switch. A public-only variant avoids conflicts
+   with a second Tailwind entrypoint using the default OS-based dark variant. */
+@custom-variant mn-dark (&:where(.dark, .dark *));
 
 @layer base {
   html,
@@ -90,7 +111,7 @@
 }
 
 .gold-gradient-bg {
-  background: linear-gradient(135deg, #e5c868 0%, #f2cd78 50%, #b88d22 100%);
+  background: linear-gradient(135deg, #d6a43b 0%, #f2cd78 50%, #d6a43b 100%);
 }
 
 .gold-gradient-text {
@@ -244,20 +265,48 @@
    Values change by theme; components consume roles, not legacy colors.
    ======================================================== */
 .manaratak-public {
+  color-scheme: light;
+  --mn-success-soft: #e3f2eb;
+  --mn-success-text: #17613f;
+  --mn-success-solid: #17613f;
+  --mn-success-border: #a3cbb8;
+  --mn-danger-soft: #fbe9e9;
+  --mn-danger-text: #a52231;
+  --mn-danger-solid: #a52231;
+  --mn-danger-border: #e7b0b6;
+  --mn-warning-soft: #fbefcf;
+  --mn-warning-text: #785315;
+  --mn-warning-solid: #785315;
+  --mn-warning-border: #d6a43b;
+  --mn-info-soft: #ddeff2;
+  --mn-info-text: #0e6470;
+  --mn-info-solid: #0e6470;
+  --mn-info-border: #8fbec6;
+  --mn-link: #0a626b;
+  --mn-digital-text: #0a626b;
+  --mn-hero-secondary: #095661;
+  --mn-gold-surface: #fbefcf;
+  --mn-border-gold: rgb(214 164 59 / 35%);
+  --mn-on-dark-muted: #ddeff2;
+  --mn-shadow-ink: #142b5f;
   --mn-page: #faf7f0;
   --mn-surface: #ffffff;
   --mn-surface-elevated: #ffffff;
   --mn-surface-muted: #ddeff2;
-  --mn-heading: #142b5f;
-  --mn-text: #203442;
-  --mn-text-muted: #536b75;
+  --mn-theme-heading: #142b5f;
+  --mn-heading: var(--mn-theme-heading);
+  --mn-theme-text: #203442;
+  --mn-text: var(--mn-theme-text);
+  --mn-theme-text-muted: #536b75;
+  --mn-text-muted: var(--mn-theme-text-muted);
   --mn-primary: #142b5f;
   --mn-primary-hover: #0e7c86;
   --mn-secondary: #0e7c86;
   --mn-digital: #21a7b4;
   --mn-accent: #d6a43b;
   --mn-accent-soft: #f2cd78;
-  --mn-accent-text: #785315;
+  --mn-theme-accent-text: #785315;
+  --mn-accent-text: var(--mn-theme-accent-text);
   --mn-border: rgb(32 52 66 / 14%);
   --mn-border-brand: rgb(14 124 134 / 28%);
   --mn-focus: rgb(214 164 59 / 42%);
@@ -266,75 +315,48 @@
   --mn-shadow-card: 0 6px 22px rgb(20 43 95 / 6%);
   --mn-shadow-hover: 0 9px 26px rgb(20 43 95 / 10%);
 
-  --color-slate-50: #faf7f0;
-  --color-slate-100: #eef3f1;
-  --color-slate-200: #ddeff2;
-  --color-slate-300: #b8cdd2;
-  --color-slate-400: #708992;
-  --color-slate-500: #536b75;
-  --color-slate-600: #405966;
-  --color-slate-700: #304956;
-  --color-slate-800: #203442;
-  --color-slate-900: #142b5f;
-  --color-slate-950: #0d1d3f;
-  --color-stone-50: #faf7f0;
-  --color-stone-100: #eef3f1;
-  --color-stone-200: #ddeff2;
-  --color-stone-300: #b8cdd2;
-  --color-stone-400: #708992;
-  --color-stone-500: #536b75;
-  --color-stone-600: #405966;
-  --color-stone-700: #304956;
-  --color-stone-800: #203442;
-  --color-stone-900: #142b5f;
-  --color-gray-50: #faf7f0;
-  --color-gray-100: #eef3f1;
-  --color-gray-200: #ddeff2;
-  --color-gray-300: #b8cdd2;
-  --color-gray-400: #708992;
-  --color-gray-500: #536b75;
-  --color-gray-600: #405966;
-  --color-gray-700: #304956;
-  --color-gray-800: #203442;
-  --color-gray-900: #142b5f;
-  --color-blue-50: #edf7f8;
-  --color-blue-100: #ddeff2;
-  --color-blue-200: #b9dfe3;
-  --color-blue-300: #83cbd2;
-  --color-blue-400: #21a7b4;
-  --color-blue-500: #15949f;
-  --color-blue-600: #0e7c86;
-  --color-blue-700: #0a626b;
-  --color-blue-800: #142b5f;
-  --color-blue-900: #0d1d3f;
-  --color-amber-50: #fff9ea;
-  --color-amber-100: #fbefc9;
-  --color-amber-200: #f2cd78;
-  --color-amber-300: #e6bb5b;
-  --color-amber-400: #d6a43b;
-  --color-amber-500: #c38e27;
-  --color-amber-600: #9e6e1b;
-  --color-amber-700: #7b5318;
 
   background-color: var(--mn-page);
   color: var(--mn-text);
 }
 
 .dark .manaratak-public {
+  color-scheme: dark;
+  --mn-success-soft: #153b33;
+  --mn-success-text: #a9e3c9;
+  --mn-success-border: #397660;
+  --mn-danger-soft: #482734;
+  --mn-danger-text: #ffc2ca;
+  --mn-danger-border: #a46d7c;
+  --mn-warning-soft: #343529;
+  --mn-warning-text: #f2cd78;
+  --mn-warning-border: #887344;
+  --mn-info-soft: #193b61;
+  --mn-info-text: #a7dee3;
+  --mn-info-border: #497c91;
+  --mn-link: #83cbd2;
+  --mn-digital-text: #83cbd2;
+  --mn-gold-surface: #343529;
+  --mn-border-gold: rgb(242 205 120 / 38%);
+  --mn-shadow-ink: #000000;
   --mn-page: #09152f;
   --mn-surface: #10264a;
   --mn-surface-elevated: #153258;
   --mn-surface-muted: #193b61;
-  --mn-heading: #edf5f5;
-  --mn-text: #edf5f5;
-  --mn-text-muted: #c7d9dd;
-  --mn-primary: #21a7b4;
-  --mn-primary-hover: #31bac6;
-  --mn-secondary: #83cbd2;
+  --mn-theme-heading: #edf5f5;
+  --mn-heading: var(--mn-theme-heading);
+  --mn-theme-text: #edf5f5;
+  --mn-text: var(--mn-theme-text);
+  --mn-theme-text-muted: #c7d9dd;
+  --mn-text-muted: var(--mn-theme-text-muted);
+  --mn-primary: #142b5f;
+  --mn-primary-hover: #0e7c86;
+  --mn-secondary: #0e7c86;
   --mn-digital: #21a7b4;
   --mn-accent: #d6a43b;
   --mn-accent-soft: #f2cd78;
-  --mn-accent-text: #f2cd78;
+  --mn-theme-accent-text: #f2cd78;
+  --mn-accent-text: var(--mn-theme-accent-text);
   --mn-border: rgb(221 239 242 / 16%);
   --mn-border-brand: rgb(33 167 180 / 34%);
   --mn-focus: rgb(242 205 120 / 46%);
@@ -343,37 +365,6 @@
   --mn-shadow-card: 0 6px 22px rgb(0 0 0 / 18%);
   --mn-shadow-hover: 0 9px 26px rgb(0 0 0 / 24%);
 
-  --color-slate-50: #10264a;
-  --color-slate-100: #153258;
-  --color-slate-200: #193b61;
-  --color-slate-300: #c7d9dd;
-  --color-slate-400: #a9c2c8;
-  --color-slate-500: #8caab2;
-  --color-slate-600: #c7d9dd;
-  --color-slate-700: #d8e7e8;
-  --color-slate-800: #edf5f5;
-  --color-slate-900: #f6fbfb;
-  --color-slate-950: #ffffff;
-  --color-stone-50: #10264a;
-  --color-stone-100: #153258;
-  --color-stone-200: #193b61;
-  --color-stone-300: #c7d9dd;
-  --color-stone-400: #a9c2c8;
-  --color-stone-500: #8caab2;
-  --color-stone-600: #c7d9dd;
-  --color-stone-700: #d8e7e8;
-  --color-stone-800: #edf5f5;
-  --color-stone-900: #f6fbfb;
-  --color-gray-50: #10264a;
-  --color-gray-100: #153258;
-  --color-gray-200: #193b61;
-  --color-gray-300: #c7d9dd;
-  --color-gray-400: #a9c2c8;
-  --color-gray-500: #8caab2;
-  --color-gray-600: #c7d9dd;
-  --color-gray-700: #d8e7e8;
-  --color-gray-800: #edf5f5;
-  --color-gray-900: #f6fbfb;
 
   background-color: var(--mn-page);
   color: var(--mn-text);
@@ -387,7 +378,7 @@
 }
 
 .manaratak-public .mn-search-hero {
-  background: linear-gradient(110deg, #142b5f 0%, #142b5f 42%, #0e7c86 82%, #21a7b4 100%);
+  background: linear-gradient(110deg, #142b5f 0%, #142b5f 42%, var(--mn-hero-secondary) 82%, var(--mn-hero-secondary) 100%);
 }
 
 .manaratak-public .mn-card-shadow {
@@ -429,3 +420,30 @@
     box-shadow: 0 0 0 4px rgb(214 164 59 / 8%);
   }
 }
+
+/* Color-only local contexts: nested cards reset inverse hero text safely. */
+@utility mn-panel {
+  --mn-heading: var(--mn-theme-heading);
+  --mn-text: var(--mn-theme-text);
+  --mn-text-muted: var(--mn-theme-text-muted);
+  --mn-accent-text: var(--mn-theme-accent-text);
+  color: var(--mn-text);
+}
+@utility mn-inverse {
+  --mn-heading: #ffffff;
+  --mn-text: #ffffff;
+  --mn-text-muted: #ddeff2;
+  --mn-accent-text: #f2cd78;
+  color: var(--mn-on-primary);
+}
+@utility mn-gold {
+  --mn-heading: #142b5f;
+  --mn-text: #142b5f;
+  --mn-text-muted: #203442;
+  --mn-accent-text: #142b5f;
+  color: var(--mn-on-accent);
+}
+.manaratak-public ::-webkit-scrollbar-track { background: var(--mn-surface-muted); }
+.manaratak-public .text-brand-primary { color: var(--mn-heading); }
+.manaratak-public .text-accent-gold { color: var(--mn-accent-text); }
+.manaratak-public ::placeholder { color: var(--mn-text-muted); opacity: 1; }

@@ -4,19 +4,15 @@ import {
   Clock,
   GraduationCap,
   School,
-  Activity,
   Cpu,
-  Zap,
   Microscope,
   BookOpen,
   Scale,
   Compass,
-  Binary,
   Atom,
   Stethoscope,
   HeartPulse,
   Brain,
-  PencilRuler,
   Briefcase,
 } from 'lucide-react';
 import { Major } from '../types';
@@ -127,30 +123,46 @@ export const MajorCard: React.FC<MajorCardProps> = ({
     return <BookOpen className={iconClass} />;
   };
 
-  // Primary degree display
+  // Primary degree display: prefer canonical data, then infer from the catalog code.
+  const code = (major.code || '').toUpperCase();
+  const inferredDegree = code.startsWith('MAS-')
+    ? 'ماجستير'
+    : code.startsWith('DOC-')
+      ? 'دكتوراه'
+      : code.startsWith('FEL-')
+        ? 'زمالة أبحاث'
+        : code.startsWith('MJR-')
+          ? 'بكالوريوس'
+          : 'غير محدد';
   const primaryDegree =
-    major.degreeLevels && major.degreeLevels.length > 0 ? major.degreeLevels[0] : 'بكالوريوس';
+    major.degreeLevels && major.degreeLevels.length > 0 ? major.degreeLevels[0] : inferredDegree;
 
-  // Extract clean number/range of years (e.g., "5-6 سنوات" or "4 سنوات" or "3 سنوات")
+  // Keep the duration badge compact without inventing a duration for postgraduate/fellowship records.
   const formatDurationYears = (dur?: string) => {
-    if (!dur) return '5-6 سنوات';
-    // Match patterns like "5-6", "4-5", "4", "3", "6"
-    const match = dur.match(/(\d+(?:\s*-\s*\d+)?)/);
-    if (match) {
-      return `${match[1].replace(/\s+/g, '')} سنوات`;
-    }
-    return '4-5 سنوات';
+    if (!dur?.trim()) return 'حسب البرنامج';
+
+    const normalized = dur.replace(/[–—]/g, '-');
+    const numericRange = normalized.match(/(\d+)\s*(?:-|إلى|الى)\s*(\d+)\s*(?:سنوات|سنة)?/);
+    if (numericRange) return `${numericRange[1]}-${numericRange[2]} سنوات`;
+
+    if (/سنة\s*(?:-|إلى|الى)\s*سنتين/.test(normalized)) return '1-2 سنة';
+
+    const singleYear = normalized.match(/(\d+)\s*(?:سنوات|سنة)/);
+    if (singleYear) return `${singleYear[1]} ${singleYear[1] === '1' ? 'سنة' : 'سنوات'}`;
+
+    return 'حسب البرنامج';
   };
 
   const durationText = formatDurationYears(major.duration);
 
-  // Faculty category display
-  const facultyCategory = major.category || 'كلية الطب والعلوم الأساسية';
+  // Faculty/field display without fabricating a medical faculty for records that lack a category.
+  const facultyCategory =
+    major.category || major.academicField || major.professionalOrResearchField || 'غير مصنف';
 
   return (
     <div
       onClick={() => onSelectMajor && onSelectMajor(major)}
-      className="group relative overflow-hidden bg-[var(--mn-surface)] rounded-[24px] sm:rounded-[28px] border border-[#F2E8D5]/90 hover:border-[var(--mn-accent)] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(200,162,74,0.14)] transition-all duration-300 p-3 sm:p-4 text-right cursor-pointer select-none"
+      className="group relative overflow-hidden bg-[var(--mn-surface)] rounded-[24px] sm:rounded-[28px] border border-[var(--mn-border-gold)] hover:border-[var(--mn-accent)] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(214,164,59,0.14)] transition-all duration-300 p-3 sm:p-4 text-right cursor-pointer select-none mn-panel "
       dir="rtl"
     >
       {/* Top-Right Metallic Gold Corner Ribbon */}
@@ -162,14 +174,14 @@ export const MajorCard: React.FC<MajorCardProps> = ({
           />
           <defs>
             <linearGradient id="goldRibbonGrad" x1="1" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#DFBA60" />
+              <stop offset="0%" stopColor="var(--mn-accent-soft)" />
               <stop offset="50%" stopColor="var(--mn-accent)" />
-              <stop offset="100%" stopColor="#9E7422" />
+              <stop offset="100%" stopColor="var(--mn-accent)" />
             </linearGradient>
           </defs>
         </svg>
         {/* 4-petal flower icon in gold corner */}
-        <div className="absolute top-1.5 right-1.5 text-white/90 drop-shadow-xs">
+        <div className="absolute top-1.5 right-1.5 text-white drop-shadow-xs">
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2C12 6.5 8 10 3 12C8 14 12 17.5 12 22C12 17.5 16 14 21 12C16 10 12 6.5 12 2Z" />
             <circle cx="12" cy="12" r="1.5" fill="var(--mn-accent)" />
@@ -190,7 +202,7 @@ export const MajorCard: React.FC<MajorCardProps> = ({
             {/* Inner delicate track */}
             <div className="absolute inset-2 sm:inset-2.5 rounded-full border border-[var(--mn-border-brand)]/20" />
             {/* Tiny green dot on orbit */}
-            <div className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-1.5 h-1.5 rounded-full bg-[var(--mn-primary)] shadow-[0_0_5px_rgba(15,75,58,0.6)]" />
+            <div className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-1.5 h-1.5 rounded-full bg-[var(--mn-primary)] shadow-[0_0_5px_rgba(20,43,95,0.6)] mn-inverse " />
 
             {/* Central Specialty Icon */}
             <div className="relative z-10 flex items-center justify-center transition-transform duration-300 group-hover:scale-108">
@@ -206,7 +218,7 @@ export const MajorCard: React.FC<MajorCardProps> = ({
                 {major.name}
               </h3>
               {major.nameEn && (
-                <p className="text-[9px] sm:text-[10px] font-semibold text-slate-400 font-sans tracking-wide truncate">
+                <p className="text-[9px] sm:text-[10px] font-semibold text-[var(--mn-text-muted)] font-sans tracking-wide truncate">
                   {major.nameEn}
                 </p>
               )}
@@ -214,7 +226,7 @@ export const MajorCard: React.FC<MajorCardProps> = ({
 
             {/* Top Pill: Faculty / College (Golden text & Golden border/box) */}
             <div className="flex items-center">
-              <span className="inline-flex items-center gap-1.5 bg-[#FFF9ED] text-[#8C6B1C] border border-[#F2E8D5] rounded-lg sm:rounded-xl px-2 py-0.5 text-[10px] font-bold font-['Cairo',sans-serif] leading-tight">
+              <span className="inline-flex items-center gap-1.5 bg-[var(--mn-surface)] text-[var(--mn-accent-text)] border border-[var(--mn-border-gold)] rounded-lg sm:rounded-xl px-2 py-0.5 text-[10px] font-bold font-['Cairo',sans-serif] leading-tight mn-panel ">
                 <School className="w-3 h-3 text-[var(--mn-accent-text)] shrink-0" />
                 <span className="truncate">{facultyCategory}</span>
               </span>
@@ -223,14 +235,14 @@ export const MajorCard: React.FC<MajorCardProps> = ({
             {/* Bottom Row Pills: Degree & Duration */}
             <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
               {/* Blue Degree Pill */}
-              <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200/70 rounded-lg sm:rounded-xl px-1.5 sm:px-2 py-0.5 text-[8.5px] sm:text-[9.5px] font-bold font-['Cairo',sans-serif] shrink-0">
-                <GraduationCap className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-600 shrink-0" />
+              <span className="inline-flex items-center gap-1 bg-[var(--mn-surface-muted)] text-[var(--mn-link)] border border-[var(--mn-border-brand)] rounded-lg sm:rounded-xl px-1.5 sm:px-2 py-0.5 text-[8.5px] sm:text-[9.5px] font-bold font-['Cairo',sans-serif] shrink-0 mn-panel ">
+                <GraduationCap className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[var(--mn-link)] shrink-0" />
                 <span>{primaryDegree}</span>
               </span>
 
               {/* Slate/Neutral Duration Pill */}
-              <span className="inline-flex items-center gap-1 bg-slate-50 text-slate-700 border border-slate-200/80 rounded-lg sm:rounded-xl px-1.5 sm:px-2 py-0.5 text-[8.5px] sm:text-[9.5px] font-bold font-['Cairo',sans-serif] shrink-0">
-                <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-slate-500 shrink-0" />
+              <span className="inline-flex items-center gap-1 bg-[var(--mn-page)] text-[var(--mn-text)] border border-[var(--mn-border)] rounded-lg sm:rounded-xl px-1.5 sm:px-2 py-0.5 text-[8.5px] sm:text-[9.5px] font-bold font-['Cairo',sans-serif] shrink-0 mn-panel ">
+                <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[var(--mn-text-muted)] shrink-0" />
                 <span>{durationText}</span>
               </span>
             </div>
@@ -246,13 +258,13 @@ export const MajorCard: React.FC<MajorCardProps> = ({
               e.stopPropagation();
               if (onToggleFavorite) onToggleFavorite(major.id);
             }}
-            className="p-1.5 sm:p-2 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-500 transition-all active:scale-90 cursor-pointer"
+            className="p-1.5 sm:p-2 rounded-full hover:bg-[var(--mn-danger-soft)] text-[var(--mn-text-muted)] hover:text-[var(--mn-danger-text)] transition-all active:scale-90 cursor-pointer"
             title="أضف إلى المفضلة"
             aria-label="أضف إلى المفضلة"
           >
             <Heart
               className={`w-5 h-5 sm:w-5.5 sm:h-5.5 transition-colors stroke-[2] ${
-                isFavorited ? 'fill-red-500 text-red-500' : 'text-slate-400 hover:text-red-500'
+                isFavorited ? 'fill-red-500 text-[var(--mn-danger-text)]' : 'text-[var(--mn-text-muted)] hover:text-[var(--mn-danger-text)]'
               }`}
             />
           </button>
@@ -264,7 +276,7 @@ export const MajorCard: React.FC<MajorCardProps> = ({
               e.stopPropagation();
               if (onSelectMajor) onSelectMajor(major);
             }}
-            className="inline-flex items-center justify-center px-3 sm:px-4 py-1.5 bg-[var(--mn-primary)] text-white border border-[var(--mn-border-brand)] hover:bg-[var(--mn-primary)] rounded-full text-[10px] font-black shadow-[0_2px_8px_rgba(15,75,58,0.25)] hover:shadow-[0_4px_12px_rgba(15,75,58,0.35)] transition-all cursor-pointer font-['Cairo',sans-serif] active:scale-95 whitespace-nowrap"
+            className="inline-flex items-center justify-center px-3 sm:px-4 py-1.5 bg-[var(--mn-primary)] text-white border border-[var(--mn-border-brand)] hover:bg-[var(--mn-primary)] rounded-full text-[10px] font-black shadow-[0_2px_8px_rgba(20,43,95,0.25)] hover:shadow-[0_4px_12px_rgba(20,43,95,0.35)] transition-all cursor-pointer font-['Cairo',sans-serif] active:scale-95 whitespace-nowrap mn-inverse hover:mn-inverse "
           >
             التفاصيل
           </button>

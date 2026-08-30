@@ -110,7 +110,7 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
   return (
     <div id="learner-progress-tracker" className="w-full px-5 py-3 space-y-4 pb-24 text-right">
       {/* Professional Polish Progress Card */}
-      <div className="bg-[var(--mn-surface)] p-5 rounded-3xl border border-slate-100 shadow-sm space-y-3">
+      <div className="bg-[var(--mn-surface)] p-5 rounded-3xl border border-[var(--mn-border)] shadow-sm space-y-3 mn-panel ">
         <div className="flex justify-between items-center">
           <span className="text-[var(--mn-heading)] text-sm font-bold flex items-center gap-1.5">
             <Trophy className="w-4 h-4 text-[var(--mn-accent-text)]" />
@@ -122,14 +122,14 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
         </div>
 
         {/* Progress bar using var(--mn-accent-soft) and slate-100 */}
-        <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+        <div className="w-full bg-[var(--mn-surface-muted)] h-2.5 rounded-full overflow-hidden mn-panel ">
           <div
-            className="bg-[var(--mn-accent)] h-full rounded-full transition-all duration-500"
+            className="bg-[var(--mn-accent)] h-full rounded-full transition-all duration-500 mn-gold "
             style={{ width: `${overallPercentage}%` }}
           />
         </div>
 
-        <p className="text-xs text-slate-500 font-medium">
+        <p className="text-xs text-[var(--mn-text-muted)] font-medium">
           {completedChecklistItems} من {totalChecklistItems} مهام أكاديمية مكتملة بنجاح
         </p>
       </div>
@@ -141,20 +141,20 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
             <BellRing className="w-4 h-4 text-[var(--mn-heading)]" />
           </div>
           <div>
-            <div className="text-xs font-bold text-slate-800">نظام التنبيهات الفورية مفعّل</div>
-            <div className="text-[11px] text-slate-600">
+            <div className="text-xs font-bold text-[var(--mn-heading)]">نظام التنبيهات الفورية مفعّل</div>
+            <div className="text-[11px] text-[var(--mn-text-muted)]">
               تصلك إشعارات فورية بكل منحة جديدة أو اقتراب موعد نهائي
             </div>
           </div>
         </div>
-        <span className="px-2.5 py-1 rounded-full bg-[var(--mn-primary)] text-[var(--mn-accent-text)] font-bold text-[10px] shrink-0 shadow-2xs">
+        <span className="px-2.5 py-1 rounded-full bg-[var(--mn-primary)] text-[var(--mn-accent-text)] font-bold text-[10px] shrink-0 shadow-2xs mn-inverse ">
           مباشر
         </span>
       </div>
 
       {/* Tracked Scholarships Section Header */}
       <div className="flex items-center justify-between pt-1">
-        <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1">
+        <h3 className="text-xs font-bold text-[var(--mn-heading)] flex items-center gap-1">
           <span>ملفات التقديم المتابعة</span>
           <span className="px-1.5 py-0.5 rounded-full bg-[var(--mn-primary)]/10 text-[var(--mn-heading)] text-[10px] font-bold">
             {milestones.length}
@@ -163,7 +163,7 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
 
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--mn-primary)] hover:bg-[var(--mn-primary-hover)] text-[var(--mn-accent-text)] text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--mn-primary)] hover:bg-[var(--mn-primary-hover)] text-[var(--mn-accent-text)] text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer mn-inverse hover:mn-inverse "
         >
           <Plus className="w-3.5 h-3.5" />
           <span>إضافة منحة</span>
@@ -181,8 +181,8 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
               onClick={() => setSelectedMilestoneId(m.id)}
               className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 border active:scale-95 cursor-pointer ${
                 isSelected
-                  ? 'bg-[var(--mn-primary)] text-[var(--mn-accent-text)] border-[var(--mn-border-brand)] shadow-xs'
-                  : 'bg-[var(--mn-surface)] text-slate-700 border-slate-200 hover:border-[var(--mn-accent)]'
+                  ? 'bg-[var(--mn-primary)] text-[var(--mn-accent-text)] border-[var(--mn-border-brand)] shadow-xs mn-inverse '
+                  : 'bg-[var(--mn-surface)] text-[var(--mn-text)] border-[var(--mn-border)] hover:border-[var(--mn-accent)] mn-panel '
               }`}
             >
               <span>{m.country}</span>
@@ -190,8 +190,8 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
               <span
                 className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${
                   isSelected
-                    ? 'bg-[var(--mn-accent)] text-slate-950'
-                    : 'bg-slate-100 text-slate-600'
+                    ? 'bg-[var(--mn-accent)] text-[var(--mn-on-accent)] mn-gold '
+                    : 'bg-[var(--mn-surface-muted)] text-[var(--mn-text-muted)] mn-panel '
                 }`}
               >
                 {m.progress}%
@@ -203,18 +203,18 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
 
       {/* Selected Application Detailed Pipeline */}
       {activeMilestone && (
-        <div className="bg-[var(--mn-surface)] rounded-3xl p-5 border border-slate-100 shadow-sm space-y-4">
+        <div className="bg-[var(--mn-surface)] rounded-3xl p-5 border border-[var(--mn-border)] shadow-sm space-y-4 mn-panel ">
           {/* Top Bar of Active Milestone */}
-          <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="flex items-start justify-between gap-2 border-b border-[var(--mn-border)] pb-3">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-black text-slate-900">
+                <span className="text-sm font-black text-[var(--mn-heading)]">
                   {activeMilestone.scholarshipTitle}
                 </span>
-                <span className="text-xs text-slate-500">{activeMilestone.country}</span>
+                <span className="text-xs text-[var(--mn-text-muted)]">{activeMilestone.country}</span>
               </div>
-              <div className="flex items-center gap-3 text-[11px] text-slate-500 font-semibold mt-1">
-                <span className="flex items-center gap-1 text-red-600 font-bold">
+              <div className="flex items-center gap-3 text-[11px] text-[var(--mn-text-muted)] font-semibold mt-1">
+                <span className="flex items-center gap-1 text-[var(--mn-danger-text)] font-bold">
                   <Calendar className="w-3.5 h-3.5" />
                   الموعد: {activeMilestone.deadline}
                 </span>
@@ -228,7 +228,7 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
             {/* Delete tracker button */}
             <button
               onClick={() => onDeleteMilestone(activeMilestone.id)}
-              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 text-[var(--mn-text-muted)] hover:text-[var(--mn-danger-text)] hover:bg-[var(--mn-danger-soft)] rounded-lg transition-colors cursor-pointer"
               title="إزالة من قائمة المتابعة"
             >
               <Trash2 className="w-4 h-4" />
@@ -237,14 +237,14 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
 
           {/* Quick AI Shortcuts */}
           <div className="p-3 rounded-2xl bg-[var(--mn-accent)]/10 border border-[var(--mn-accent)]/30 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-xs text-slate-800 font-bold">
+            <div className="flex items-center gap-1.5 text-xs text-[var(--mn-heading)] font-bold">
               <Sparkles className="w-4 h-4 text-[var(--mn-accent-text)]" />
               <span>مساعدة الذكاء الاصطناعي</span>
             </div>
             {onOpenAiLetterForScholarship && (
               <button
                 onClick={() => onOpenAiLetterForScholarship(activeMilestone.scholarshipTitle)}
-                className="px-3 py-1 bg-[var(--mn-primary)] text-[var(--mn-accent-text)] rounded-xl text-[10px] font-bold hover:bg-[var(--mn-primary-hover)] active:scale-95 transition-all cursor-pointer"
+                className="px-3 py-1 bg-[var(--mn-primary)] text-[var(--mn-accent-text)] rounded-xl text-[10px] font-bold hover:bg-[var(--mn-primary-hover)] active:scale-95 transition-all cursor-pointer mn-inverse hover:mn-inverse "
               >
                 توليد خطاب دافع AI
               </button>
@@ -253,9 +253,9 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
 
           {/* Checklist of Application Requirements */}
           <div>
-            <h4 className="text-xs font-bold text-slate-800 mb-2.5 flex items-center justify-between">
+            <h4 className="text-xs font-bold text-[var(--mn-heading)] mb-2.5 flex items-center justify-between">
               <span>قائمة المهام والملفات (Checklist)</span>
-              <span className="text-[10px] text-slate-400 font-normal">اضغط للتحديث</span>
+              <span className="text-[10px] text-[var(--mn-text-muted)] font-normal">اضغط للتحديث</span>
             </h4>
 
             <div className="space-y-2">
@@ -265,17 +265,17 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
                   onClick={() => handleToggleTask(activeMilestone.id, task.id)}
                   className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all active:scale-98 ${
                     task.completed
-                      ? 'bg-[var(--mn-primary)]/5 border-[var(--mn-border-brand)]/30 text-slate-900 font-semibold'
-                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100/70'
+                      ? 'bg-[var(--mn-primary)]/5 border-[var(--mn-border-brand)]/30 text-[var(--mn-heading)] font-semibold'
+                      : 'bg-[var(--mn-page)] border-[var(--mn-border)] text-[var(--mn-text)] hover:bg-[var(--mn-surface-muted)]/70 mn-panel '
                   }`}
                 >
                   <div className="flex items-center gap-2.5 text-xs">
                     {task.completed ? (
                       <CheckCircle2 className="w-4 h-4 text-[var(--mn-heading)] fill-[var(--mn-primary)]/20 shrink-0" />
                     ) : (
-                      <Circle className="w-4 h-4 text-slate-400 shrink-0" />
+                      <Circle className="w-4 h-4 text-[var(--mn-text-muted)] shrink-0" />
                     )}
-                    <span className={task.completed ? 'line-through text-slate-400' : ''}>
+                    <span className={task.completed ? 'line-through text-[var(--mn-text-muted)]' : ''}>
                       {task.task}
                     </span>
                   </div>
@@ -291,12 +291,12 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
           </div>
 
           {/* Personal Notes Box */}
-          <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs">
-            <div className="font-bold text-slate-700 mb-1 flex items-center gap-1">
-              <FileText className="w-3.5 h-3.5 text-slate-500" />
+          <div className="p-3 bg-[var(--mn-page)] rounded-2xl border border-[var(--mn-border)] text-xs mn-panel ">
+            <div className="font-bold text-[var(--mn-text)] mb-1 flex items-center gap-1">
+              <FileText className="w-3.5 h-3.5 text-[var(--mn-text-muted)]" />
               <span>ملاحظاتك الخاصة:</span>
             </div>
-            <p className="text-slate-600 text-[11px] leading-relaxed">
+            <p className="text-[var(--mn-text-muted)] text-[11px] leading-relaxed">
               {activeMilestone.notes || 'لا توجد ملاحظات مضافة بعد.'}
             </p>
           </div>
@@ -304,30 +304,30 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
       )}
 
       {/* Learner Enrolled Courses Section */}
-      <div className="bg-[var(--mn-surface)] rounded-3xl p-5 border border-slate-100 shadow-sm space-y-3">
+      <div className="bg-[var(--mn-surface)] rounded-3xl p-5 border border-[var(--mn-border)] shadow-sm space-y-3 mn-panel ">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+          <h3 className="text-xs font-bold text-[var(--mn-heading)] flex items-center gap-1.5">
             <BookOpen className="w-4 h-4 text-[var(--mn-heading)]" />
             <span>الدورات التأهيلية المسجلة</span>
           </h3>
-          <span className="text-[10px] text-slate-400">منارة التعلم</span>
+          <span className="text-[10px] text-[var(--mn-text-muted)]">منارة التعلم</span>
         </div>
 
         <div className="space-y-2.5">
           {courses.map((course) => (
             <div
               key={course.id}
-              className="p-3 rounded-2xl border border-slate-100 bg-slate-50/70 hover:bg-slate-50 transition-colors flex items-center justify-between gap-3"
+              className="p-3 rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-page)]/70 hover:bg-[var(--mn-page)] transition-colors flex items-center justify-between gap-3 hover:mn-panel "
             >
               <div className="flex items-center gap-3">
                 <img
                   src={course.imageUrl}
                   alt={course.title}
-                  className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0"
+                  className="w-10 h-10 rounded-xl object-cover border border-[var(--mn-border)] shrink-0"
                 />
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900 line-clamp-1">{course.title}</h4>
-                  <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
+                  <h4 className="text-xs font-bold text-[var(--mn-heading)] line-clamp-1">{course.title}</h4>
+                  <div className="flex items-center gap-2 text-[10px] text-[var(--mn-text-muted)] mt-0.5">
                     <span>{course.provider}</span>
                     <span>•</span>
                     <span>{course.duration}</span>
@@ -340,9 +340,9 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
                 <div className="text-[11px] font-bold text-[var(--mn-heading)] mb-1">
                   {course.progressPercent || 0}%
                 </div>
-                <div className="w-14 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                <div className="w-14 h-1.5 bg-[var(--mn-surface-muted)] rounded-full overflow-hidden mn-panel ">
                   <div
-                    className="h-full bg-[var(--mn-primary)] rounded-full"
+                    className="h-full bg-[var(--mn-primary)] rounded-full mn-inverse "
                     style={{ width: `${course.progressPercent || 0}%` }}
                   />
                 </div>
@@ -355,27 +355,27 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
       {/* Add New Milestone Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-[var(--mn-surface)] rounded-3xl p-5 max-w-sm w-full shadow-2xl border border-[var(--mn-accent)]/30 space-y-4 animate-in fade-in zoom-in-95 duration-150 text-right">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <h3 className="text-sm font-extrabold text-slate-900">
+          <div className="bg-[var(--mn-surface)] rounded-3xl p-5 max-w-sm w-full shadow-2xl border border-[var(--mn-accent)]/30 space-y-4 animate-in fade-in zoom-in-95 duration-150 text-right mn-panel ">
+            <div className="flex items-center justify-between border-b border-[var(--mn-border)] pb-2">
+              <h3 className="text-sm font-extrabold text-[var(--mn-heading)]">
                 إضافة منحة جديدة لنظام المتابعة
               </h3>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="text-slate-400 hover:text-slate-700 text-sm font-bold cursor-pointer"
+                className="text-[var(--mn-text-muted)] hover:text-[var(--mn-text)] text-sm font-bold cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-[var(--mn-text)] mb-1">
                 اختر المنحة الدراسية:
               </label>
               <select
                 value={newScholarshipId}
                 onChange={(e) => setNewScholarshipId(e.target.value)}
-                className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden focus:border-[var(--mn-border-brand)]"
+                className="w-full py-2.5 px-3 bg-[var(--mn-page)] border border-[var(--mn-border)] rounded-xl text-xs font-semibold text-[var(--mn-heading)] focus:outline-hidden focus:border-[var(--mn-border-brand)] mn-panel "
               >
                 {allScholarships.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -386,7 +386,7 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-[var(--mn-text)] mb-1">
                 ملاحظات أو أهداف خاصة:
               </label>
               <textarea
@@ -394,20 +394,20 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
                 onChange={(e) => setNewNotes(e.target.value)}
                 rows={2}
                 placeholder="مثلاً: التركيز على برنامج ماجستير الذكاء الاصطناعي وتجهيز مقترح البحث..."
-                className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-hidden focus:border-[var(--mn-border-brand)]"
+                className="w-full py-2 px-3 bg-[var(--mn-page)] border border-[var(--mn-border)] rounded-xl text-xs text-[var(--mn-heading)] focus:outline-hidden focus:border-[var(--mn-border-brand)] mn-panel "
               />
             </div>
 
             <div className="flex items-center gap-2 pt-2">
               <button
                 onClick={handleAddNewTracker}
-                className="flex-1 py-2.5 bg-[var(--mn-primary)] text-[var(--mn-accent-text)] font-bold text-xs rounded-xl shadow-md hover:bg-[var(--mn-primary-hover)] active:scale-95 transition-all cursor-pointer"
+                className="flex-1 py-2.5 bg-[var(--mn-primary)] text-[var(--mn-accent-text)] font-bold text-xs rounded-xl shadow-md hover:bg-[var(--mn-primary-hover)] active:scale-95 transition-all cursor-pointer mn-inverse hover:mn-inverse "
               >
                 بدء المتابعة الآن
               </button>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="py-2.5 px-4 bg-slate-100 text-slate-600 font-bold text-xs rounded-xl hover:bg-slate-200 cursor-pointer"
+                className="py-2.5 px-4 bg-[var(--mn-surface-muted)] text-[var(--mn-text-muted)] font-bold text-xs rounded-xl hover:bg-[var(--mn-surface-muted)] cursor-pointer mn-panel hover:mn-panel "
               >
                 إلغاء
               </button>

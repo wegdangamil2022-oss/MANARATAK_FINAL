@@ -1,166 +1,111 @@
 import React, { useState } from 'react';
-import { Briefcase, GraduationCap, Building2, ArrowUpLeft, ChevronLeft } from 'lucide-react';
-
-const STUDENT_SERVICES = [
-  {
-    id: 's1',
-    title: 'التقديم الجامعي الشامل',
-    description:
-      'نتولى عملية التقديم بالكامل من اختيار الجامعة المناسبة لملفك وحتى الحصول على القبول النهائي.',
-    imageUrl:
-      'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80&w=200',
-    color: 'bg-blue-50/60 text-[var(--mn-heading)]',
-  },
-  {
-    id: 's2',
-    title: 'مراجعة وتدقيق الوثائق',
-    description:
-      'تدقيق احترافي لخطابات الدافع (Motivation Letter) والسيرة الذاتية (CV) لتضمن لفت انتباه لجان القبول.',
-    imageUrl:
-      'https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&q=80&w=200',
-    color: 'bg-amber-50 text-[var(--mn-accent-text)]',
-  },
-  {
-    id: 's3',
-    title: 'استشارات التأشيرة الدراسية',
-    description:
-      'توجيه خطوة بخطوة لتحضير متطلبات التأشيرة الدراسية للبلد الوجهة وتجاوز المقابلة بنجاح.',
-    imageUrl:
-      'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?auto=format&fit=crop&q=80&w=200',
-    color: 'bg-blue-50 text-blue-600',
-  },
-];
-
-const CORPORATE_SERVICES = [
-  {
-    id: 'c1',
-    title: 'بوابة المكاتب التعليمية (B2B)',
-    description:
-      'نظام سحابي متكامل لإدارة وكالات التعليم، ومتابعة ملفات الطلاب وحالة قبولهم مركزياً باحترافية.',
-    imageUrl:
-      'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=200',
-    color: 'bg-slate-50 text-slate-700',
-  },
-  {
-    id: 'c2',
-    title: 'عقد الشراكات الجامعية',
-    description:
-      'نربط الجامعات والمؤسسات التعليمية بوكلاء معتمدين لتوسيع قاعدة استقطاب الطلاب الدوليين.',
-    imageUrl:
-      'https://images.unsplash.com/photo-1556761175-5973dc0f32d7?auto=format&fit=crop&q=80&w=200',
-    color: 'bg-[var(--mn-primary)]/10 text-[var(--mn-heading)]',
-  },
-];
+import {
+  ArrowUpLeft,
+  Briefcase,
+  Building2,
+  ChevronLeft,
+  FileText,
+  GraduationCap,
+} from 'lucide-react';
+import { PUBLIC_SERVICES } from '../data/serviceData';
+import { Service } from '../types';
 
 interface FeaturedServicesProps {
   onViewAllClick?: () => void;
+  onSelectService?: (service: Service) => void;
 }
 
-export const FeaturedServices: React.FC<FeaturedServicesProps> = ({ onViewAllClick }) => {
-  const [activeTab, setActiveTab] = useState<'students' | 'corporate'>('students');
+export const FeaturedServices: React.FC<FeaturedServicesProps> = ({
+  onViewAllClick,
+  onSelectService,
+}) => {
+  const [activeTab, setActiveTab] = useState<'student' | 'general'>('student');
+  const services = PUBLIC_SERVICES.filter((service) => service.audience === activeTab);
 
   return (
     <section className="px-0.5 sm:px-1 py-3 w-full font-['Cairo',sans-serif]">
-      {/* Container */}
-      <div className="relative rounded-3xl p-4 sm:p-5 bg-gradient-to-b from-[var(--mn-surface)] to-slate-50/80 border border-slate-200/90 shadow-sm overflow-hidden border-t-2 border-t-[var(--mn-accent)]/40">
-        {/* Centered Header & Tabs */}
-        <div className="flex flex-col items-center gap-4 mb-5">
+      <div className="relative overflow-hidden rounded-3xl border border-[var(--mn-border)] border-t-2 border-t-[var(--mn-accent)]/40 bg-gradient-to-b from-[var(--mn-surface)] to-[var(--mn-page)]/80 p-4 shadow-sm sm:p-5 mn-panel ">
+        <div className="mb-5 flex flex-col items-center gap-4">
           <div className="text-center">
-            <h3 className="text-sm sm:text-base font-bold text-slate-900 inline-flex items-center justify-center gap-1.5">
-              <Briefcase className="w-4 h-4 text-[var(--mn-accent-text)]" />
-              <span>الخدمات المخصصة</span>
+            <h3 className="inline-flex items-center justify-center gap-1.5 text-sm font-bold text-[var(--mn-heading)] sm:text-base">
+              <Briefcase className="h-4 w-4 text-[var(--mn-accent-text)]" />
+              <span>خدمات منارتك</span>
             </h3>
-            <p className="text-[10px] sm:text-xs text-slate-600 font-medium mt-1 max-w-xs mx-auto">
-              حلول متكاملة مصممة خصيصاً لتلبية احتياجات الطلاب الأفراد والمؤسسات
+            <p className="mx-auto mt-1 max-w-xs text-[10px] font-medium text-[var(--mn-text-muted)] sm:text-xs">
+              خدمات طلابية ودعم عام مرتبطة برحلة الدراسة والتقديم
             </p>
           </div>
 
-          {/* Smart Tabs / Segmented Control with Orbiting Animated Border */}
-          <div className="relative p-[2px] rounded-[14px] overflow-hidden group w-full max-w-[320px] shrink-0">
-            {/* Spinning Gradient Background */}
-            <div className="absolute inset-[-100%] animate-button-orbit bg-[conic-gradient(from_0deg,var(--mn-primary),var(--mn-accent),var(--mn-primary),var(--mn-accent),var(--mn-primary))]" />
-
-            {/* Inner Tabs Container */}
-            <div className="relative flex bg-slate-50 p-1 rounded-xl w-full">
+          <div className="group relative w-full max-w-[320px] shrink-0 overflow-hidden rounded-[14px] p-[2px]">
+            <div className="animate-button-orbit absolute inset-[-100%] bg-[conic-gradient(from_0deg,var(--mn-primary),var(--mn-accent),var(--mn-primary),var(--mn-accent),var(--mn-primary))]" />
+            <div className="relative flex w-full rounded-xl bg-[var(--mn-page)] p-1 mn-panel ">
               <button
-                onClick={() => setActiveTab('students')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold rounded-lg transition-all ${
-                  activeTab === 'students'
-                    ? 'bg-[var(--mn-surface)] text-[var(--mn-heading)] shadow-sm ring-1 ring-slate-200/50'
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                type="button"
+                onClick={() => setActiveTab('student')}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-[10px] font-bold transition-all sm:py-2 sm:text-xs ${
+                  activeTab === 'student'
+                    ? 'bg-[var(--mn-surface)] text-[var(--mn-heading)] shadow-sm ring-1 ring-[var(--mn-border)] mn-panel '
+                    : 'text-[var(--mn-text-muted)] hover:bg-[var(--mn-surface-muted)]/50 hover:text-[var(--mn-text)]'
                 }`}
               >
-                <GraduationCap
-                  className={`w-3.5 h-3.5 ${activeTab === 'students' ? 'text-[var(--mn-accent-text)]' : 'text-slate-400'}`}
-                />
-                <span>خدمات الطلاب</span>
+                <GraduationCap className={`h-3.5 w-3.5 ${activeTab === 'student' ? 'text-[var(--mn-accent-text)]' : 'text-[var(--mn-text-muted)]'}`} />
+                <span>الخدمات الطلابية</span>
               </button>
               <button
-                onClick={() => setActiveTab('corporate')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold rounded-lg transition-all ${
-                  activeTab === 'corporate'
-                    ? 'bg-[var(--mn-surface)] text-[var(--mn-heading)] shadow-sm ring-1 ring-slate-200/50'
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                type="button"
+                onClick={() => setActiveTab('general')}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-[10px] font-bold transition-all sm:py-2 sm:text-xs ${
+                  activeTab === 'general'
+                    ? 'bg-[var(--mn-surface)] text-[var(--mn-heading)] shadow-sm ring-1 ring-[var(--mn-border)] mn-panel '
+                    : 'text-[var(--mn-text-muted)] hover:bg-[var(--mn-surface-muted)]/50 hover:text-[var(--mn-text)]'
                 }`}
               >
-                <Building2
-                  className={`w-3.5 h-3.5 ${activeTab === 'corporate' ? 'text-[var(--mn-accent-text)]' : 'text-slate-400'}`}
-                />
-                <span>الشركات والمكاتب</span>
+                <Building2 className={`h-3.5 w-3.5 ${activeTab === 'general' ? 'text-[var(--mn-accent-text)]' : 'text-[var(--mn-text-muted)]'}`} />
+                <span>العامة والدعم</span>
               </button>
             </div>
           </div>
         </div>
 
-        {/* Compact List Layout for Services */}
-        <div
-          key={activeTab}
-          className="mt-4 flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300"
-        >
-          {(activeTab === 'students' ? STUDENT_SERVICES : CORPORATE_SERVICES).map((service) => (
-            <div
+        <div key={activeTab} className="mt-4 flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          {services.map((service) => (
+            <button
+              type="button"
               key={service.id}
-              className="group bg-[var(--mn-surface)] border border-slate-100 hover:border-[var(--mn-accent)]/30 rounded-xl p-3 flex items-center gap-3 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden"
+              onClick={() => onSelectService?.(service)}
+              className="group relative flex w-full items-center gap-3 overflow-hidden rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-3 text-right shadow-sm transition-all hover:border-[var(--mn-accent)]/30 hover:shadow-md mn-panel "
             >
-              {/* Minimalist Image Box */}
-              <div
-                className={`shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden flex items-center justify-center ${service.color} transition-transform group-hover:scale-105`}
-              >
-                <img
-                  src={service.imageUrl}
-                  alt={service.title}
-                  className="w-full h-full object-cover mix-blend-multiply opacity-90 group-hover:opacity-100"
-                  referrerPolicy="no-referrer"
-                />
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[var(--mn-primary)]/10 text-[var(--mn-heading)] transition-transform group-hover:scale-105 sm:h-14 sm:w-14">
+                {activeTab === 'student' ? <GraduationCap className="h-6 w-6" /> : <FileText className="h-6 w-6" />}
               </div>
 
-              {/* Compact Content */}
-              <div className="flex-1 min-w-0">
-                <h4 className="font-bold text-xs sm:text-sm text-slate-800 group-hover:text-[var(--mn-heading)] transition-colors truncate">
+              <div className="min-w-0 flex-1">
+                <h4 className="truncate text-xs font-bold text-[var(--mn-heading)] transition-colors group-hover:text-[var(--mn-heading)] sm:text-sm">
                   {service.title}
                 </h4>
-                <p className="text-[10px] sm:text-[11px] text-slate-500 line-clamp-1 mt-0.5">
-                  {service.description}
-                </p>
+                <p className="mt-0.5 line-clamp-1 text-[10px] text-[var(--mn-text-muted)] sm:text-[11px]">{service.shortDescription}</p>
+                <span className="mt-1 inline-flex items-center gap-1 text-[8.5px] font-black text-[var(--mn-accent-text)]">
+                  عرض التفاصيل
+                  <ChevronLeft className="h-3 w-3" />
+                </span>
               </div>
 
-              {/* Action Icon */}
-              <div className="shrink-0 w-6 h-6 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-[var(--mn-primary)] transition-all">
-                <ArrowUpLeft className="w-3 h-3 text-slate-400 group-hover:text-white" />
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--mn-page)] transition-all group-hover:bg-[var(--mn-primary)] mn-panel group-hover:mn-inverse ">
+                <ArrowUpLeft className="h-3 w-3 text-[var(--mn-text-muted)] group-hover:text-white" />
               </div>
-            </div>
+            </button>
           ))}
         </div>
 
-        {/* View All Button */}
         {onViewAllClick && (
-          <div className="mt-5 flex justify-center w-full">
+          <div className="mt-5 flex w-full justify-center">
             <button
+              type="button"
               onClick={onViewAllClick}
-              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-2.5 sm:py-3 bg-[var(--mn-surface)] hover:bg-[var(--mn-accent)]/10 text-[var(--mn-heading)] border border-[var(--mn-accent)]/50 rounded-full text-xs sm:text-sm font-bold transition-all shadow-[0_0_15px_rgba(200,162,74,0.3)] hover:shadow-[0_0_25px_rgba(200,162,74,0.5)] animate-pulse hover:animate-none active:scale-95 font-['Cairo',sans-serif]"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-full border border-[var(--mn-accent)]/50 bg-[var(--mn-surface)] px-6 py-2.5 text-xs font-bold text-[var(--mn-heading)] shadow-[0_0_15px_rgba(214,164,59,0.3)] transition-all hover:bg-[var(--mn-accent)]/10 hover:shadow-[0_0_25px_rgba(214,164,59,0.5)] active:scale-95 sm:w-auto sm:px-8 sm:py-3 sm:text-sm mn-panel "
             >
               <span>تصفح جميع الخدمات</span>
-              <ChevronLeft className="w-4 h-4 text-[var(--mn-heading)] transition-transform group-hover:-translate-x-1" />
+              <ChevronLeft className="h-4 w-4 text-[var(--mn-heading)] transition-transform group-hover:-translate-x-1" />
             </button>
           </div>
         )}
