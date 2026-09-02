@@ -111,6 +111,8 @@ describe('Production Security Guardrails & Boot Validation', () => {
     const validProdEnv = {
       NODE_ENV: 'production',
       JWT_SECRET: 'production-jwt-secret-must-be-very-long-32-chars-at-least',
+      JWT_ISSUER: 'manaratak-production-api',
+      JWT_AUDIENCE: 'manaratak-production-browser',
       SESSION_SECRET: 'production-session-secret-must-be-very-long-32-chars',
       CSRF_SECRET: 'production-csrf-secret-must-be-very-long-32-chars-at-all',
       CORS_ORIGIN: 'https://app.manaratak.org',
@@ -119,6 +121,8 @@ describe('Production Security Guardrails & Boot Validation', () => {
       REDIS_URL: 'redis://redis.prod:6379',
       ADMIN_AUTH_MODE: 'strict',
       SECURE_COOKIE: 'true',
+      SECURITY_CSP_ENABLED: 'true',
+      TRUST_PROXY_HOPS: '1',
     };
 
     it('normal production composition selects a production-capable distributed limiter', () => {

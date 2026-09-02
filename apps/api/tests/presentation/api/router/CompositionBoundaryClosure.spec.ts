@@ -9,8 +9,9 @@ describe('WP1-B.2 Composition Boundary Closure Regression Tests', () => {
     expect(app).toBeDefined();
 
     // Verify core required endpoints respond
-    const csrfRes = await request(app).get('/api/v1/csrf-token');
-    expect(csrfRes.status).toBe(200);
+    const csrfRes = await request(app).get('/api/v1/auth/csrf-token');
+    expect(csrfRes.status).toBe(401);
+    expect(csrfRes.body.error.code).toBe('CSRF_SESSION_REQUIRED');
 
     const livenessRes = await request(app).get('/api/v1/monitoring/health/liveness');
     expect(livenessRes.status).toBe(200);

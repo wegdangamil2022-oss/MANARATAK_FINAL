@@ -23,11 +23,11 @@ describe('TR-WP11 public localized entity pages source contract', () => {
     const majorDetail = source('apps/web/src/features/majors/MajorDetail.tsx');
 
     expect(universityList).toContain('getLocalizedUniversities(');
-    expect(universityList).toContain('[language, notAvailable, searchParams]');
+    expect(universityList).toContain('[language, page, params, t]');
     expect(universityDetail).toContain('getLocalizedUniversityBySlug(slug, language)');
     expect(universityDetail).toContain('[emptyLabel, language, slug]');
     expect(majorList).toContain('getLocalizedMajors(');
-    expect(majorList).toContain('[language, notAvailable, searchParams]');
+    expect(majorList).toContain('[language, page, params, t]');
     expect(majorDetail).toContain('getLocalizedMajorBySlug(slug, language)');
     expect(majorDetail).toContain('[emptyLabel, language, slug]');
   });
@@ -38,9 +38,9 @@ describe('TR-WP11 public localized entity pages source contract', () => {
     const majorList = source('apps/web/src/features/majors/MajorList.tsx');
     const majorDetail = source('apps/web/src/features/majors/MajorDetail.tsx');
 
-    expect(universityList).toContain("localizePathname(`/universities/${university.slug}`, language)");
+    expect(universityList).toContain("localizePathname(`/universities/${item.slug}`, language)");
     expect(universityDetail).toContain("localizePathname('/universities', language)");
-    expect(majorList).toContain("localizePathname(`/majors/${major.slug}`, language)");
+    expect(majorList).toContain("localizePathname(`/majors/${item.slug}`, language)");
     expect(majorDetail).toContain("localizePathname('/majors', language)");
   });
 
