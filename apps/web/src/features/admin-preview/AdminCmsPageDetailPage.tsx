@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../i18n/I18nProvider';
+import { safeRichTextPreview } from '../../security/safeRichTextPreview';
 import { 
   Layout, ArrowLeft, ArrowRight, Edit, Save, CheckCircle2, 
   Archive, ExternalLink, Sparkles, Clock, ShieldAlert, Languages, Eye, X, FileText
@@ -107,10 +108,9 @@ export function AdminCmsPageDetailPage() {
 
         <div>
           <span className="text-xs text-gray-500 font-medium">محتوى الصفحة المنسق (Rich Body Payload):</span>
-          <div 
-            className="prose dark:prose-invert max-w-none text-xs text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 leading-relaxed mt-1"
-            dangerouslySetInnerHTML={{ __html: page.richBodyAr }}
-          />
+          <div className="whitespace-pre-wrap max-w-none text-xs text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 leading-relaxed mt-1">
+            {safeRichTextPreview(page.richBodyAr)}
+          </div>
         </div>
 
         <div className="border-t border-gray-100 dark:border-gray-800 pt-3 text-xs space-y-2">

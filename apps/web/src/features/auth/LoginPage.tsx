@@ -5,8 +5,7 @@ import { CsrfClientManager } from '@manaratak/shared';
 
 type AuthResponse = {
   data?: {
-    accessToken?: string;
-    refreshToken?: string;
+    authenticated?: boolean;
   };
   message?: string;
 };
@@ -19,7 +18,7 @@ type CurrentUserResponse = {
   };
 };
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '');
 
 const hasAdminPermission = (permissions: string[] = []): boolean =>
   permissions.some(
@@ -54,21 +53,20 @@ export function LoginPage() {
 
     try {
       const csrfClient = CsrfClientManager.getInstance(API_BASE_URL);
-      const loginResponse = await csrfClient.fetchWithCsrf('/api/v1/auth/login', {
+      const loginResponse = await csrfClient.fetchWithCsrf(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password }),
       });
       const loginPayload = (await loginResponse.json()) as AuthResponse;
 
-      const accessToken = loginPayload.data?.accessToken;
-      if (!loginResponse.ok || !accessToken) {
+      if (!loginResponse.ok || !loginPayload.data?.authenticated) {
         setMessage(loginPayload.message || 'تعذر تسجيل الدخول بهذه البيانات.');
         return;
       }
 
-      const meResponse = await csrfClient.fetchWithCsrf('/api/v1/auth/me', {
-        headers: { Authorization: `Bearer ${accessToken}` },
+      const meResponse = await csrfClient.fetchWithCsrf(`${API_BASE_URL}/auth/me`, {
+        credentials: 'include',
       });
 
       if (!meResponse.ok) {
@@ -82,12 +80,6 @@ export function LoginPage() {
         return;
       }
 
-      localStorage.setItem('manaratak_access_token', accessToken);
-      if (loginPayload.data?.refreshToken) {
-        localStorage.setItem('manaratak_refresh_token', loginPayload.data.refreshToken);
-      } else {
-        localStorage.removeItem('manaratak_refresh_token');
-      }
       localStorage.setItem(
         'manaratak_user_email',
         currentUser.data?.primaryEmail || email.trim(),

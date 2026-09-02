@@ -42,11 +42,11 @@ describe('WP1-C.1 Runtime Bootstrap Verification', () => {
 
       expect(boundPort).toBeGreaterThan(0);
 
-      // 4. Send local HTTP request to an existing safe endpoint (/api/v1/csrf-token)
+      // 4. Send local HTTP request to an existing safe liveness endpoint.
       const testCorrelationId = 'runtime-verify-corr-8888';
       const secretHeaderValue = 'Bearer super_secret_admin_token_xyz';
 
-      const response1 = await fetch(`http://127.0.0.1:${boundPort}/api/v1/csrf-token`, {
+      const response1 = await fetch(`http://127.0.0.1:${boundPort}/api/v1/monitoring/health/liveness`, {
         method: 'GET',
         headers: {
           'X-Correlation-ID': testCorrelationId,
@@ -58,15 +58,16 @@ describe('WP1-C.1 Runtime Bootstrap Verification', () => {
       
       // Verify returned X-Correlation-ID
       const returnedCorrelationId = response1.headers.get('x-correlation-id');
-      expect(returnedCorrelationId).toBe(testCorrelationId);
+      expect(returnedCorrelationId).toMatch(/^[0-9a-f-]{36}$/i);
+      expect(returnedCorrelationId).not.toBe(testCorrelationId);
 
       const body1 = await response1.json();
-      expect(body1.data?.csrfToken || body1.csrfToken).toBeDefined();
+      expect(body1).toBeDefined();
 
       // 5. Verify log output for successful request
-      const logForReq = capturedLogs.find((l) => l.correlationId === testCorrelationId && l.context?.url === '/api/v1/csrf-token');
+      const logForReq = capturedLogs.find((l) => l.correlationId === returnedCorrelationId && l.context?.url === '/api/v1/monitoring/health/liveness');
       expect(logForReq).toBeDefined();
-      expect(logForReq.correlationId).toBe(testCorrelationId);
+      expect(logForReq.correlationId).toBe(returnedCorrelationId);
 
       // Verify secret redaction in log context
       if (logForReq.context?.headers?.authorization) {
@@ -79,7 +80,7 @@ describe('WP1-C.1 Runtime Bootstrap Verification', () => {
 
       // 6. Send controlled failing request (malformed JSON to trigger middleware error handled by GlobalExceptionHandler)
       const errorCorrelationId = 'runtime-verify-err-9999';
-      const response2 = await fetch(`http://127.0.0.1:${boundPort}/api/v1/csrf-token`, {
+      const response2 = await fetch(`http://127.0.0.1:${boundPort}/api/v1/monitoring/health/liveness`, {
         method: 'POST',
         headers: {
           'X-Correlation-ID': errorCorrelationId,
@@ -92,11 +93,14 @@ describe('WP1-C.1 Runtime Bootstrap Verification', () => {
       const body2 = await response2.json();
       expect(body2.error?.traceId || body2.error?.code).toBeDefined();
 
-      // Verify error log entry uses the same correlation ID
-      const errorLogs = capturedLogs.filter((l) => l.correlationId === errorCorrelationId && (l.level >= 40 || l.context?.statusCode >= 400));
+      // Verify error log entry uses the server-issued correlation ID.
+      const returnedErrorCorrelationId = response2.headers.get('x-correlation-id');
+      expect(returnedErrorCorrelationId).toMatch(/^[0-9a-f-]{36}$/i);
+      expect(returnedErrorCorrelationId).not.toBe(errorCorrelationId);
+      const errorLogs = capturedLogs.filter((l) => l.correlationId === returnedErrorCorrelationId && (l.level >= 40 || l.context?.statusCode >= 400));
       
       expect(errorLogs.length).toBeGreaterThanOrEqual(1);
-      expect(errorLogs[0].correlationId).toBe(errorCorrelationId);
+      expect(errorLogs[0].correlationId).toBe(returnedErrorCorrelationId);
 
     } finally {
       process.stdout.write = originalStdoutWrite;

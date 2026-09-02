@@ -21,7 +21,7 @@ export function AdminScholarshipDetailPage() {
   const { dir } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const previewMode = localScholarshipPreviewEnabled();
-  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token')) || previewMode;
+  const adminSessionPresent = previewMode;
   const [scholarship, setScholarship] = useState<Scholarship | null>(null);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);

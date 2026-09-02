@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { ITokenProvider, UnauthorizedException } from '@manaratak/core';
+import { ISessionManager, ITokenProvider, UnauthorizedException } from '@manaratak/core';
+import { readAccessCookie } from '../security/HttpOnlyAuthCookies';
 
 // Extend Express Request
 declare global {
@@ -11,23 +12,26 @@ declare global {
 }
 
 export class AuthMiddleware {
-  constructor(private readonly tokenProvider: ITokenProvider) {}
+  constructor(
+    private readonly tokenProvider: ITokenProvider,
+    private readonly sessionManager?: ISessionManager,
+  ) {}
 
   public generate = () => {
     return async (req: Request, res: Response, next: NextFunction) => {
       try {
         const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-          throw new UnauthorizedException('Missing or invalid authorization header');
-        }
-
-        const token = authHeader.split(' ')[1];
+        const token = readAccessCookie(req) || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : '');
+        if (!token) throw new UnauthorizedException('Authentication required');
         const payload = await this.tokenProvider.verifyAccessToken(token);
+        if (payload.sessionId && this.sessionManager && !await this.sessionManager.isSessionActive(payload.userId, payload.sessionId)) {
+          throw new UnauthorizedException('Authentication required');
+        }
         
         req.authUserId = payload.userId;
         next();
-      } catch (error: any) {
-        res.status(401).json({ message: error.message || 'Unauthorized' });
+      } catch {
+        res.status(401).json({ message: 'Unauthorized' });
       }
     };
   }

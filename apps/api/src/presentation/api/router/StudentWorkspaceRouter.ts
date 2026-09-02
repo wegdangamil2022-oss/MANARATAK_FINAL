@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { ITokenProvider } from '@manaratak/core';
+import { ISessionManager, ITokenProvider } from '@manaratak/core';
 import { FinanceStudentUseCases, StudentWorkspaceUseCases } from '@manaratak/application';
 import { StudentSavedItemType } from '@manaratak/domain';
 import { AuthMiddleware } from '../../middleware/AuthMiddleware';
@@ -10,9 +10,10 @@ export class StudentWorkspaceRouter {
     studentWorkspaceUseCases: StudentWorkspaceUseCases;
     financeStudentUseCases: FinanceStudentUseCases;
     tokenProvider: ITokenProvider;
+    sessionManager?: ISessionManager;
   }): Router {
     const router = Router();
-    const { studentWorkspaceUseCases, financeStudentUseCases, tokenProvider } = cradle;
+    const { studentWorkspaceUseCases, financeStudentUseCases, tokenProvider, sessionManager } = cradle;
 
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
@@ -81,7 +82,7 @@ export class StudentWorkspaceRouter {
       icon: z.string().trim().max(40).nullable().optional(),
     }).strict();
 
-    router.use(new AuthMiddleware(tokenProvider).generate());
+    router.use(new AuthMiddleware(tokenProvider, sessionManager).generate());
     const ownStudent = (req: Request): string => {
       if (!req.authUserId) throw new Error('STUDENT_AUTHENTICATION_REQUIRED');
       return req.authUserId;

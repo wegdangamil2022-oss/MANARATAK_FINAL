@@ -1,5 +1,28 @@
 import { Router } from 'express';
 import { ManageSearchUseCase } from '@manaratak/application';
+import { z } from 'zod';
+
+const searchScalar = z.union([z.string().max(500), z.number().finite(), z.boolean(), z.null()]);
+const searchRequestSchema = z.object({
+  scope: z.string().trim().min(1).max(80).regex(/^[a-zA-Z0-9:_-]+$/),
+  criteria: z.object({
+    query: z.string().trim().max(200).optional(),
+    filters: z.array(z.object({
+      field: z.string().trim().min(1).max(80).regex(/^[a-zA-Z0-9._-]+$/),
+      operator: z.string().trim().min(1).max(40).regex(/^[A-Z_]+$/),
+      value: z.union([searchScalar, z.array(searchScalar).max(50)]),
+    }).strict()).max(20).optional(),
+    logicalOperator: z.enum(['AND', 'OR']).optional(),
+  }).strict(),
+  pagination: z.object({
+    page: z.coerce.number().int().min(1).max(10_000),
+    limit: z.coerce.number().int().min(1).max(100),
+  }).strict(),
+  sorting: z.object({
+    field: z.string().trim().min(1).max(80).regex(/^[a-zA-Z0-9._-]+$/),
+    direction: z.enum(['ASC', 'DESC']),
+  }).strict().optional(),
+}).strict();
 
 export class SearchRouter {
   public static create({ manageSearchUseCase  }: { manageSearchUseCase: ManageSearchUseCase }): Router {
@@ -7,16 +30,7 @@ export class SearchRouter {
 
     router.post('/', async (req, res, next) => {
       try {
-        const dto = req.body;
-        if (!dto.scope) {
-          return res.status(400).json({ error: 'Search scope is required' });
-        }
-        if (!dto.criteria) {
-          return res.status(400).json({ error: 'Search criteria is required' });
-        }
-        if (!dto.pagination) {
-          return res.status(400).json({ error: 'Search pagination parameters are required' });
-        }
+        const dto = searchRequestSchema.parse(req.body);
 
         const result = await manageSearchUseCase.executeSearch({
           scope: dto.scope,
@@ -51,14 +65,15 @@ export class SearchRouter {
         };
 
         res.status(200).json(payload);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        if (error instanceof z.ZodError) return res.status(400).json({ error: 'SEARCH_REQUEST_INVALID' });
         next(error);
       }
     });
 
     router.get('/history/:reference', async (req, res, next) => {
       try {
-        const reference = req.params.reference;
+        const reference = z.string().trim().min(1).max(120).regex(/^[a-zA-Z0-9_-]+$/).parse(req.params.reference);
         const results = await manageSearchUseCase.getSearchRequestHistory(reference);
 
         const payload = results.map(request => ({
@@ -89,7 +104,8 @@ export class SearchRouter {
         }));
 
         res.status(200).json(payload);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        if (error instanceof z.ZodError) return res.status(400).json({ error: 'SEARCH_REFERENCE_INVALID' });
         next(error);
       }
     });

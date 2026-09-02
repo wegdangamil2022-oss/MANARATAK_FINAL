@@ -78,7 +78,7 @@ describe('AuthService and Package Helpers', () => {
         .createHash('sha256')
         .update(rawRefreshToken)
         .digest('hex');
-      expect(userSessions.has(expectedHashed)).toBe(true);
+      expect(Array.from(userSessions.values())).toContain(expectedHashed);
 
       // isValidSession should work with raw token input
       const isValid = await sessionManager.isValidSession(userId, rawRefreshToken);
@@ -95,6 +95,15 @@ describe('AuthService and Package Helpers', () => {
 
       await sessionManager.revokeSession(userId, rawRefreshToken);
       expect(await sessionManager.isValidSession(userId, rawRefreshToken)).toBe(false);
+    });
+
+    it('tracks the access token session identifier and invalidates it on logout', async () => {
+      const sessionManager = new InMemorySessionManager();
+      await sessionManager.createSession('user-123', 'refresh-token', 'session-123');
+      expect(await sessionManager.isSessionActive('user-123', 'session-123')).toBe(true);
+
+      await sessionManager.revokeSession('user-123', 'refresh-token');
+      expect(await sessionManager.isSessionActive('user-123', 'session-123')).toBe(false);
     });
   });
 

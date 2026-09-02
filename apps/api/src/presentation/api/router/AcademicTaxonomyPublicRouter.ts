@@ -55,7 +55,7 @@ export class AcademicTaxonomyPublicRouter {
 
     router.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       if (err instanceof z.ZodError) return res.status(400).json(toApiValidationErrorPayload(err));
-      res.status(400).json({ error: err.message || 'An error occurred' });
+      res.status(500).json({ error: 'ACADEMIC_TAXONOMY_REQUEST_FAILED' });
     });
     return router;
   }

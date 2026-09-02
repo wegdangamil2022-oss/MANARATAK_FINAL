@@ -39,7 +39,10 @@ export class ServicePublicRouter {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ error: 'Validation Error', details: err.issues });
       }
-      res.status(err.message === 'Service not found' ? 404 : 400).json({ error: err.message || 'An error occurred' });
+      if (err instanceof Error && err.message === 'Service not found') {
+        return res.status(404).json({ error: 'Not found' });
+      }
+      res.status(500).json({ error: 'SERVICE_REQUEST_FAILED' });
     });
 
     return router;

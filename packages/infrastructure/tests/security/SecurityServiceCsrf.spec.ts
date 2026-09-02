@@ -37,6 +37,11 @@ describe('SecurityService CSRF Protection', () => {
     expect(securityService.validateCsrfToken(undefined as any, sessionSecret)).toBe(false);
   });
 
+  it('never falls back to a process-wide CSRF secret', () => {
+    expect(() => securityService.generateCsrfToken('')).toThrow('CSRF_SESSION_SECRET_REQUIRED');
+    expect(securityService.validateCsrfToken('1.a.b', '')).toBe(false);
+  });
+
   it('rejects malformed tokens', () => {
     expect(securityService.validateCsrfToken('not-a-valid-token', sessionSecret)).toBe(false);
     expect(securityService.validateCsrfToken('part1.part2', sessionSecret)).toBe(false);

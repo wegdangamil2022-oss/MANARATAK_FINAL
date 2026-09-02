@@ -38,6 +38,18 @@ describe('PrismaCredentialVerifier', () => {
     expect(result).toBe(true);
   });
 
+  it('accepts an activated identity while preserving the active account check', async () => {
+    const passwordHash = await PasswordHasher.hash('supersecretpassword');
+    mockPrisma.identityRecord.findUnique.mockResolvedValue({
+      id: 'user-123',
+      status: 'ACTIVE',
+      account: { accessState: 'Active' },
+      credentials: [{ type: 'password', passwordHash, disabled: false }],
+    });
+
+    await expect(verifier.verify('user-123', 'supersecretpassword')).resolves.toBe(true);
+  });
+
   it('should reject incorrect password', async () => {
     const plainPassword = 'supersecretpassword';
     const passwordHash = await PasswordHasher.hash(plainPassword);

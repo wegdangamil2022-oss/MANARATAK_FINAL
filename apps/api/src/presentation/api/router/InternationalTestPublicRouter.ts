@@ -30,7 +30,7 @@ export class InternationalTestPublicRouter {
     router.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
       if (err instanceof z.ZodError) return res.status(400).json(toApiValidationErrorPayload(err));
       const message = err instanceof Error ? err.message : String(err);
-      if (message.includes('not found')) return res.status(404).json({ error: message });
+      if (message.includes('not found')) return res.status(404).json({ error: 'Not found' });
       next(err);
     });
     return router;

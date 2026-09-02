@@ -156,7 +156,7 @@ function DetailBadge({ count, sourceType, hasDetails }: { count?: number; source
 
 export function AdminMajorsPreviewPage() {
   const [searchParams] = useSearchParams();
-  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token')) || import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
+  const adminSessionPresent = import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
   const [majors, setMajors] = useState<MajorListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

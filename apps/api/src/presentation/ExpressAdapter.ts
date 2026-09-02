@@ -11,9 +11,8 @@ export class ExpressAdapter {
           return res.status(response.statusCode).json(response.body);
         }
         return res.status(200).json(response);
-      } catch (error: any) {
-        console.error('[ExpressAdapter] Uncaught error:', error);
-        return res.status(500).json({ message: 'An unexpected error occurred', error: error.message });
+      } catch {
+        return res.status(500).json({ message: 'An unexpected error occurred' });
       }
     };
   }

@@ -30,7 +30,7 @@ export class PrismaCredentialVerifier implements ICredentialVerifier {
       }
 
       // 2. Disabled/inactive identity or account rejection
-      if (identity.status !== LifeStatus.PROVISIONED || !identity.account || identity.account.accessState !== AccountAccessState.ACTIVE) {
+      if (![LifeStatus.PROVISIONED, LifeStatus.ACTIVE].includes(identity.status) || !identity.account || identity.account.accessState !== AccountAccessState.ACTIVE) {
         return false; // Rejects disabled/inactive principal
       }
 

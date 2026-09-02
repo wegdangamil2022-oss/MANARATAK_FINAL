@@ -280,7 +280,20 @@ describe('AssetPlatformRouter', () => {
   });
 
   describe('Route Security Guards', () => {
-    it('rejects unauthenticated requests in strict mode with 401', async () => {
+    const mutations = [
+      ['post', '/admin/assets/upload-locator'],
+      ['post', '/admin/assets/register-quarantined'],
+      ['post', '/admin/assets/ast_01/validate'],
+      ['post', '/admin/assets/ast_01/malware-failed'],
+      ['post', '/admin/assets/ast_01/sanitize'],
+      ['post', '/admin/assets/ast_01/activate'],
+      ['post', '/admin/assets/ast_01/archive'],
+      ['delete', '/admin/assets/ast_01'],
+      ['post', '/admin/assets/ast_01/restore'],
+      ['delete', '/admin/assets/ast_01/purge'],
+    ] as const;
+
+    it.each(mutations)('%s %s rejects unauthenticated requests before reaching the router', async (method, path) => {
       const app = express();
       app.use(express.json());
       app.use('/admin/assets', SecurityMiddlewareFactory.createAdminGuard({ mode: 'strict' }));
@@ -290,9 +303,29 @@ describe('AssetPlatformRouter', () => {
         processAssetLifecycleUseCase: createMockProcessLifecycleUseCase() as any
       }));
 
-      const res = await request(app).post('/admin/assets/upload-locator').send({});
+      const res = await (request(app) as any)[method](path).send({});
       expect(res.status).toBe(401);
       expect(res.body.error.code).toBe('ADMIN_AUTH_REQUIRED');
+    });
+
+    it.each(mutations)('%s %s requires admin:assets:manage', async (method, path) => {
+      const app = express();
+      app.use(express.json());
+      app.use('/admin/assets', SecurityMiddlewareFactory.createAdminGuard({
+        mode: 'strict',
+        tokenProvider: { verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'owner-01' }) } as any,
+      }));
+      app.use('/admin/assets', SecurityMiddlewareFactory.createAdminPermissionGuard('admin:assets:manage', {
+        evaluatePermission: vi.fn().mockResolvedValue({ isGranted: false }),
+      } as any));
+      app.use('/admin/assets', AssetPlatformRouter.create({
+        ingestAssetUseCase: createMockIngestUseCase() as any,
+        processAssetLifecycleUseCase: createMockProcessLifecycleUseCase() as any,
+      }));
+
+      const res = await (request(app) as any)[method](path).set('Authorization', 'Bearer signed-token').send({});
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('ADMIN_PERMISSION_DENIED');
     });
 
     it('rejects requests when unauthenticated with 401', async () => {

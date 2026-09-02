@@ -11,6 +11,7 @@
     "build:cached": "turbo run build",
     "start": "npm run start -w @manaratak/api",
     "lint": "eslint .",
+    "security:secrets": "node scripts/security/scan-secrets.mjs",
     "quality:source": "node scripts/quality/verify-source-quality.mjs",
     "quality:source:baseline": "node scripts/quality/verify-source-quality.mjs --write-baseline",
     "w0:verify": "node scripts/verify-w0-source.mjs",

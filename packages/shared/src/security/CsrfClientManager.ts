@@ -52,12 +52,13 @@ export class CsrfClientManager {
     this.tokenFetchPromise = (async () => {
       try {
         const fetchFn = typeof window !== 'undefined' && window.fetch ? window.fetch.bind(window) : fetch;
-        const endpoint = `${this.apiBaseUrl.replace(/\/+$/, '')}/csrf-token`;
+        const endpoint = `${this.apiBaseUrl.replace(/\/+$/, '')}/auth/csrf-token`;
         const res = await fetchFn(endpoint, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
           },
+          credentials: 'include',
         });
 
         if (!res.ok) {
@@ -150,6 +151,7 @@ export class CsrfClientManager {
     const response = await fetchFn(input, {
       ...init,
       headers: initialHeaders,
+      credentials: init?.credentials ?? 'include',
     });
 
     // If a state-mutating request failed with 403 CSRF error, attempt 1 refresh & retry
@@ -173,6 +175,7 @@ export class CsrfClientManager {
           return fetchFn(input, {
             ...init,
             headers: retryHeaders,
+            credentials: init?.credentials ?? 'include',
           });
         }
       }

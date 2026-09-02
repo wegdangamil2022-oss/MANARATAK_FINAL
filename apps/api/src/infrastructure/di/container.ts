@@ -8537,7 +8537,12 @@ export function registerDependencies(
       }
       const accessTokenTtl = Number(readConfig<number | string>('ACCESS_TOKEN_TTL_SECONDS') ?? 3600);
       const refreshTokenTtl = Number(readConfig<number | string>('SESSION_TTL_SECONDS') ?? 604800);
-      return new JwtTokenProvider(jwtSecret, { accessTokenTtl, refreshTokenTtl });
+      return new JwtTokenProvider(jwtSecret, {
+        accessTokenTtl,
+        refreshTokenTtl,
+        issuer: readConfig<string>('JWT_ISSUER') || 'manaratak-api',
+        audience: readConfig<string>('JWT_AUDIENCE') || 'manaratak-browser',
+      });
     }).singleton(),
     sessionManager: asFunction(({ prisma }) => {
       const ttl = Number(readConfig<number | string>('SESSION_TTL_SECONDS') ?? 604800);

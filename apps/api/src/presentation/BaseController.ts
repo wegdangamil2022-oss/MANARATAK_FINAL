@@ -6,9 +6,7 @@ export abstract class BaseController {
   public async execute(req: express.Request, res: express.Response): Promise<void> {
     try {
       await this.executeImpl(req, res);
-    } catch (error) {
-      console.log("[BaseController]: Uncaught controller error");
-      console.log(error);
+    } catch {
       this.fail(res, 'An unexpected error occurred');
     }
   }
@@ -58,10 +56,9 @@ export abstract class BaseController {
     return BaseController.jsonResponse(res, 429, message ? message : 'Too many requests');
   }
 
-  public fail(res: express.Response, error: Error | string) {
-    console.log(error);
+  public fail(res: express.Response, _error: Error | string) {
     return res.status(500).json({
-      message: error.toString()
+      message: 'An unexpected error occurred'
     });
   }
 }

@@ -8,7 +8,10 @@ import {
 } from '../entities/CmsContent';
 
 const RAW_ASSET_PATTERN = /^(?:https?:\/\/|data:|file:|[a-zA-Z]:\\|\/)/i;
-const UNSAFE_MARKUP_PATTERN = /<\/?(?:script|style|iframe|object|embed|form|input|button|link|meta)\b|\son\w+\s*=|(?:javascript|data|vbscript):/i;
+const CMS_BODY_MAX_LENGTH = 250_000;
+const HTML_TOKEN_PATTERN = /<[^>]*>/g;
+const ALLOWED_SIMPLE_TAG_PATTERN = /^<\/?(?:p|br|strong|em|b|i|u|ul|ol|li|blockquote|h2|h3|h4)\s*\/?>$/i;
+const ALLOWED_ANCHOR_PATTERN = /^<a\s+href=(['"])https:\/\/[^'"<>&\s]+\1(?:\s+target=(['"])_blank\2)?(?:\s+rel=(['"])(?:noopener(?:\s+noreferrer)?|noreferrer(?:\s+noopener)?)\3)?\s*>$|^<\/a\s*>$/i;
 
 export class CmsPublishingPolicy {
   public static assertAssetHandle(assetId?: string | null): void {
@@ -24,14 +27,22 @@ export class CmsPublishingPolicy {
   }
 
   public static assertSafeRichText(body: string): void {
-    if (UNSAFE_MARKUP_PATTERN.test(body)) throw new Error('CMS_UNSAFE_RICH_TEXT');
+    if (body.length > CMS_BODY_MAX_LENGTH || body.includes('\u0000')) throw new Error('CMS_UNSAFE_RICH_TEXT');
+    const tokens = body.match(HTML_TOKEN_PATTERN) || [];
+    const withoutTokens = body.replace(HTML_TOKEN_PATTERN, '');
+    if (withoutTokens.includes('<') || withoutTokens.includes('>')) throw new Error('CMS_UNSAFE_RICH_TEXT');
+    for (const token of tokens) {
+      if (!ALLOWED_SIMPLE_TAG_PATTERN.test(token) && !ALLOWED_ANCHOR_PATTERN.test(token)) {
+        throw new Error('CMS_UNSAFE_RICH_TEXT');
+      }
+    }
   }
 
   public static assertSafeNavigationTarget(targetType: string, targetValue: string): void {
     if (targetType === 'EXTERNAL_URL') {
       let url: URL;
       try { url = new URL(targetValue); } catch { throw new Error('CMS_NAVIGATION_URL_INVALID'); }
-      if (!['https:', 'http:'].includes(url.protocol)) throw new Error('CMS_NAVIGATION_URL_UNSAFE');
+      if (url.protocol !== 'https:' || url.username || url.password) throw new Error('CMS_NAVIGATION_URL_UNSAFE');
       return;
     }
     if (targetValue.startsWith('//') || /^(?:javascript|data|file):/i.test(targetValue)) {
@@ -68,9 +79,11 @@ export class CmsPublishingPolicy {
   }
 
   public static assertRedirect(sourcePath: string, destinationPath: string): void {
-    if (!sourcePath.startsWith('/') || !destinationPath.startsWith('/')) throw new Error('CMS_REDIRECT_PATH_INVALID');
+    const paths = [sourcePath, destinationPath];
+    if (paths.some((value) => !value.startsWith('/') || value.startsWith('//') || /[\\\u0000-\u001f]/.test(value) || /%(?:2f|5c)/i.test(value))) {
+      throw new Error('CMS_REDIRECT_PATH_INVALID');
+    }
     if (sourcePath === destinationPath) throw new Error('CMS_REDIRECT_LOOP');
-    if (sourcePath.startsWith('//') || destinationPath.startsWith('//')) throw new Error('CMS_REDIRECT_OPEN_TARGET');
   }
 
 

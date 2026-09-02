@@ -98,11 +98,20 @@ export * from './logging/ErrorLogger';
 export class DefaultErrorSerializer {
   constructor(..._args: any[]) {}
   serialize(err: any, traceId: string = 'demo-trace-id') {
+    const safeMessages: Record<string, string> = {
+      VALIDATION_ERROR: 'The request is invalid.',
+      UNAUTHORIZED: 'Authentication is required.',
+      FORBIDDEN: 'Access is denied.',
+      NOT_FOUND: 'The requested resource was not found.',
+      CONFLICT: 'The request conflicts with the current resource state.',
+      INFRASTRUCTURE_ERROR: 'A required service is temporarily unavailable.',
+      UNEXPECTED_ERROR: 'An unexpected error occurred.',
+    };
+    const code = typeof err?.code === 'string' && safeMessages[err.code] ? err.code : 'UNEXPECTED_ERROR';
     return {
-      code: err?.code || 'INTERNAL_SERVER_ERROR',
-      message: err?.message || 'An unexpected error occurred',
+      code,
+      message: safeMessages[code],
       traceId,
-      details: err?.details,
     };
   }
   [key: string]: any;

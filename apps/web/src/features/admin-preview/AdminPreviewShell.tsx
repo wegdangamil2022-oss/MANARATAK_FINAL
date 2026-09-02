@@ -84,8 +84,6 @@ export function AdminPreviewShell() {
       <div className="mt-12 text-center">
         <button 
           onClick={() => {
-            localStorage.removeItem('manaratak_access_token');
-            localStorage.removeItem('manaratak_refresh_token');
             localStorage.removeItem('manaratak_admin_access');
             localStorage.removeItem('manaratak_demo_email');
             window.location.href = '/login';

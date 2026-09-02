@@ -12,6 +12,11 @@ import {
 
 export type RuntimeEnvironment = Readonly<Record<string, string | undefined>>;
 
+type RuntimeCapability = {
+  readonly capabilityStatus?: string;
+  readonly isProductionReady?: boolean;
+};
+
 type RedisClientFactoryFn = typeof RedisClientFactory.createClient;
 
 export function isDatabaseRequiredForRuntime(env: RuntimeEnvironment): boolean {
@@ -27,6 +32,27 @@ export function createAssetStorageGatewayForRuntime(env: RuntimeEnvironment): IA
     env.MANARATAK_LOCAL_ASSET_ROOT || undefined,
     false,
   );
+}
+
+export function assertAssetSecurityProvidersForRuntime(
+  env: RuntimeEnvironment,
+  providers: {
+    storage: RuntimeCapability;
+    malwareScanner: RuntimeCapability;
+    sanitizer: RuntimeCapability;
+  },
+): void {
+  if (env.NODE_ENV !== 'production' && env.NODE_ENV !== 'staging') return;
+
+  const unavailable = Object.entries(providers)
+    .filter(([, provider]) => provider?.isProductionReady !== true
+      && provider?.capabilityStatus !== 'PRODUCTION_CAPABLE'
+      && provider?.capabilityStatus !== 'AVAILABLE')
+    .map(([name]) => name);
+
+  if (unavailable.length > 0) {
+    throw new Error(`Production asset security providers are unavailable: ${unavailable.join(', ')}`);
+  }
 }
 
 

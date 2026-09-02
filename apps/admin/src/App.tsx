@@ -49,9 +49,14 @@ function AdminLayout() {
     };
   }, [localReadOnly]);
 
-  const lockAdmin = () => {
-    clearAdminSession();
-    setAdminAccess('unauthorized');
+  const lockAdmin = async () => {
+    try {
+      await adminApiClient.request('/auth/logout', { method: 'POST' });
+    } finally {
+      adminApiClient.clearSecuritySession();
+      clearAdminSession();
+      setAdminAccess('unauthorized');
+    }
   };
 
   return (
@@ -83,7 +88,7 @@ function AdminLayout() {
               <a href="/settings" className="text-sm font-medium hover:text-black">{t('admin_nav_settings')}</a>
               <a href="/academic-taxonomy" className="text-sm font-medium hover:text-black">{t('admin_nav_academic_taxonomy')}</a>
               <button onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')} className="text-sm font-medium text-blue-600 hover:text-blue-800">{t('admin_lang_switch')}</button>
-              <button onClick={lockAdmin} className="text-sm font-medium text-red-600 hover:text-red-800">{t('lock')}</button>
+              <button onClick={() => void lockAdmin()} className="text-sm font-medium text-red-600 hover:text-red-800">{t('lock')}</button>
             </nav>
           )}
         </header>
@@ -161,18 +166,12 @@ function AdminAccessGate({ onUnlock }: { onUnlock: () => void }) {
     setLoading(true);
     try {
       const response = await adminApiClient.request<{
-        data?: { accessToken?: string; refreshToken?: string };
+        data?: { authenticated?: boolean };
       }>('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email: email.trim(), password }),
       });
-      const accessToken = response.data?.accessToken;
-      if (!accessToken) throw new Error('Authentication response did not include an access token.');
-
-      localStorage.setItem('manaratak_access_token', accessToken);
-      if (response.data?.refreshToken) {
-        localStorage.setItem('manaratak_refresh_token', response.data.refreshToken);
-      }
+      if (!response.data?.authenticated) throw new Error('Authentication did not establish a session.');
 
       if (!(await verifyAdminSession())) {
         clearAdminSession();
@@ -224,15 +223,12 @@ function AdminAccessGate({ onUnlock }: { onUnlock: () => void }) {
 }
 
 function clearAdminSession() {
-  localStorage.removeItem('manaratak_access_token');
-  localStorage.removeItem('manaratak_refresh_token');
   localStorage.removeItem('manaratak_admin_access');
   localStorage.removeItem('manaratak_admin_bearer');
   localStorage.removeItem('manaratak_admin_bearer_token');
 }
 
 async function verifyAdminSession(): Promise<boolean> {
-  if (!localStorage.getItem('manaratak_access_token')) return false;
   try {
     const response = await adminApiClient.request<{
       data?: { effectivePermissions?: string[] };

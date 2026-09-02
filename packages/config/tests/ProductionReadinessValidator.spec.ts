@@ -6,6 +6,8 @@ const productionEnv = {
   DATABASE_URL: 'postgresql://manaratak:strong-db-secret@db.manaratak.internal:5432/manaratak?schema=public',
   REDIS_URL: 'redis://:strong-redis-secret@redis.manaratak.internal:6379',
   JWT_SECRET: 'production-jwt-secret-with-safe-entropy-123456',
+  JWT_ISSUER: 'manaratak-production-api',
+  JWT_AUDIENCE: 'manaratak-production-browser',
   SESSION_SECRET: 'production-session-secret-with-safe-entropy-123456',
   OTEL_SERVICE_NAME: 'manaratak-api',
   CORS_ORIGIN: 'https://www.manaratak.com',
@@ -14,6 +16,7 @@ const productionEnv = {
   SECURE_COOKIE: 'true',
   SECURITY_CSP_ENABLED: 'true',
   SECURITY_RATE_LIMIT_MAX: '100',
+  TRUST_PROXY_HOPS: '1',
   LOG_LEVEL: 'info'
 };
 
@@ -67,7 +70,7 @@ describe('ProductionReadinessValidator', () => {
     ]));
   });
 
-  it('reports warnings for production security controls without blocking if core secrets are valid', () => {
+  it('blocks production when CSP is disabled and reports remaining warnings', () => {
     const report = ProductionReadinessValidator.validate({
       ...productionEnv,
       SECURITY_CSP_ENABLED: 'false',
@@ -75,12 +78,25 @@ describe('ProductionReadinessValidator', () => {
       LOG_LEVEL: 'debug'
     });
 
-    expect(report.ready).toBe(true);
-    expect(report.warningCount).toBe(3);
+    expect(report.ready).toBe(false);
+    expect(report.warningCount).toBe(2);
     expect(report.findings.map(finding => finding.id)).toEqual(expect.arrayContaining([
       'security.csp_disabled',
       'security.rate_limit_not_baselined',
       'observability.verbose_logging'
+    ]));
+  });
+
+  it('blocks production when JWT claims or trusted proxy bounds are missing', () => {
+    const report = ProductionReadinessValidator.validate({
+      ...productionEnv,
+      JWT_ISSUER: undefined,
+      TRUST_PROXY_HOPS: undefined,
+    });
+    expect(report.ready).toBe(false);
+    expect(report.findings.map((finding) => finding.id)).toEqual(expect.arrayContaining([
+      'auth.jwt_claims_unconfigured',
+      'security.trust_proxy_unconfigured',
     ]));
   });
 

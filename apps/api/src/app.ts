@@ -2,7 +2,7 @@ import * as awilix from 'awilix';
 import express, { Router, Express, Request, Response } from 'express';
 import * as path from 'path';
 import { container, registerDependencies } from './infrastructure/di/container.js';
-import { createRateLimiterForRuntime, isDatabaseRequiredForRuntime } from './infrastructure/di/RuntimeDependencyPolicy.js';
+import { assertAssetSecurityProvidersForRuntime, createRateLimiterForRuntime, isDatabaseRequiredForRuntime } from './infrastructure/di/RuntimeDependencyPolicy.js';
 import { 
   PrismaConnection,
   AsyncLogContext,
@@ -21,7 +21,7 @@ import {
   RedisHealthChecker
 } from '@manaratak/infrastructure';
 import { ConfigurationRegistry, EnvironmentLoader, EnvironmentConfigurationProvider, ProductionReadinessValidator, ZodEnvironmentValidator } from '@manaratak/config';
-import { IConfigurationService, ILogger, IValidationService, ISecurityService, IMonitoringService, IRateLimiter, ITokenProvider, HealthStatus } from '@manaratak/core';
+import { IConfigurationService, ILogger, IValidationService, ISecurityService, IMonitoringService, IRateLimiter, ITokenProvider, ISessionManager, HealthStatus } from '@manaratak/core';
 
 class AppSecurityService extends SecurityService implements ISecurityService {}
 
@@ -130,9 +130,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
 
       // Bootstrap Security
       const rateLimiter = options?.rateLimiter || createRateLimiterForRuntime(currentEnv, logger);
-      const securityService = options?.securityService || new AppSecurityService(rateLimiter, {
-        defaultSecret: config.getOptional<string>('CSRF_SECRET') || currentEnv.CSRF_SECRET,
-      });
+      const securityService = options?.securityService || new AppSecurityService(rateLimiter);
 
       // Assert Production Security Guardrails
       SecurityValidator.assertProductionSecurity(currentEnv, securityService, rateLimiter);
@@ -140,6 +138,8 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     // Bootstrap API
     const apiRouter = new ApiRouter();
     const app = express();
+    const trustProxyHops = Number(config.getOptional<string>('TRUST_PROXY_HOPS') || currentEnv.TRUST_PROXY_HOPS || 0);
+    if (Number.isInteger(trustProxyHops) && trustProxyHops > 0) app.set('trust proxy', trustProxyHops);
 
     // Security Configuration
     const cspEnabled = config.getOptional<string>('SECURITY_CSP_ENABLED') === 'true';
@@ -161,7 +161,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     app.use(loggingMiddleware.generate());
 
     app.use(SecurityMiddlewareFactory.createRateLimiter(securityService, { limit: rateLimitMax, windowMs: rateLimitWindow }));
-    app.use(express.json());
+    app.use(express.json({ limit: '256kb', strict: true }));
     app.use(SecurityMiddlewareFactory.createCsrfGuard(securityService));
 
     // Monitoring Middleware
@@ -173,6 +173,14 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     container.register({ 
       monitoringService: awilix.asValue(monitoringService),
       securityService: awilix.asValue(securityService)
+    });
+
+    // Production-like runtimes must never start with the deliberately unavailable
+    // local/no-op asset security composition. This check happens before any DB connect.
+    assertAssetSecurityProvidersForRuntime(currentEnv, {
+      storage: container.resolve<any>('assetStorageGateway'),
+      malwareScanner: container.resolve<any>('assetMalwareScannerGateway'),
+      sanitizer: container.resolve<any>('assetSanitizationGateway'),
     });
 
     // Establish Database Connection if available
@@ -276,20 +284,6 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     // Define API v1 Router
     const v1Router = Router();
 
-    // CSRF Token endpoint for clients
-    v1Router.get('/csrf-token', (req: Request, res: Response) => {
-      const sessionSecret = (req.headers['x-session-secret'] as string) 
-        || (req as any).session?.secret 
-        || config.getOptional<string>('SESSION_SECRET') 
-        || currentEnv.SESSION_SECRET
-        || '';
-      const token = securityService.generateCsrfToken(sessionSecret);
-      res.setHeader('X-CSRF-Token', token);
-      res.status(200).json(new ResponseFormatter('v1').success({
-        csrfToken: token
-      }));
-    });
-
     // Register versioned routes
 
     const lazyRouter = (name: string) => {
@@ -312,19 +306,23 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
 
     // Admin Security Middleware
     const adminTokenProvider = container.resolve<ITokenProvider>('tokenProvider');
+    const adminSessionManager = container.resolve<ISessionManager>('sessionManager');
+    const adminIdentityRepository = container.resolve<any>('identityRepository');
     v1Router.use('/admin', SecurityMiddlewareFactory.createAdminGuard({
       mode: adminAuthMode,
       tokenProvider: adminTokenProvider,
+      sessionManager: adminSessionManager,
+      identityRepository: adminIdentityRepository,
     }));
     v1Router.use('/admin', new MutationAuditMiddleware(auditRecordRepository, 'ADMIN').generate());
     const requireAdminPermission = SecurityMiddlewareFactory.createAdminPermissionGuard;
 
     // Core Admin Domain Routers (Identity & Audit)
     v1Router.use('/admin/identities', requireAdminPermission('admin:identities:manage'), container.resolve<Router>('identityRouter'));
-    v1Router.use('/identities', SecurityMiddlewareFactory.createAdminGuard({ mode: adminAuthMode, tokenProvider: adminTokenProvider }), new MutationAuditMiddleware(auditRecordRepository, 'IDENTITY').generate(), requireAdminPermission('admin:identities:manage'), container.resolve<Router>('identityRouter'));
+    v1Router.use('/identities', SecurityMiddlewareFactory.createAdminGuard({ mode: adminAuthMode, tokenProvider: adminTokenProvider, sessionManager: adminSessionManager, identityRepository: adminIdentityRepository }), new MutationAuditMiddleware(auditRecordRepository, 'IDENTITY').generate(), requireAdminPermission('admin:identities:manage'), container.resolve<Router>('identityRouter'));
 
     v1Router.use('/admin/audit', requireAdminPermission('admin:audit:manage'), container.resolve<Router>('auditRouter'));
-    v1Router.use('/audit', SecurityMiddlewareFactory.createAdminGuard({ mode: adminAuthMode, tokenProvider: adminTokenProvider }), requireAdminPermission('admin:audit:manage'), container.resolve<Router>('auditRouter'));
+    v1Router.use('/audit', SecurityMiddlewareFactory.createAdminGuard({ mode: adminAuthMode, tokenProvider: adminTokenProvider, sessionManager: adminSessionManager, identityRepository: adminIdentityRepository }), requireAdminPermission('admin:audit:manage'), container.resolve<Router>('auditRouter'));
 
     // 2. Active Phase 2-10 Domain Routers (Eager) - Phase 6-10 Roadmap Scope
     // Phase 6: Import Foundation & Assets

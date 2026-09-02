@@ -42,11 +42,17 @@ describe('Phase 16 CMS publishing policy', () => {
       'CMS_UNSAFE_RICH_TEXT',
     );
     expect(() => CmsPublishingPolicy.assertSafeRichText('<p>محتوى عربي آمن</p>')).not.toThrow();
+    expect(() => CmsPublishingPolicy.assertSafeRichText('<img src=x onerror=alert(1)>')).toThrow('CMS_UNSAFE_RICH_TEXT');
+    expect(() => CmsPublishingPolicy.assertSafeRichText('<a href="javascript&#58;alert(1)">x</a>')).toThrow('CMS_UNSAFE_RICH_TEXT');
+    expect(() => CmsPublishingPolicy.assertSafeRichText('<a href="https://example.org/path" target="_blank" rel="noopener noreferrer">آمن</a>')).not.toThrow();
   });
 
   it('blocks unsafe navigation targets and redirect loops', () => {
     expect(() => CmsPublishingPolicy.assertNavigationTarget('EXTERNAL_URL', 'javascript:alert(1)')).toThrow();
+    expect(() => CmsPublishingPolicy.assertNavigationTarget('EXTERNAL_URL', 'http://example.org')).toThrow();
     expect(() => CmsPublishingPolicy.assertRedirect('/ar/old', '/ar/old')).toThrow('CMS_REDIRECT_LOOP');
+    expect(() => CmsPublishingPolicy.assertRedirect('/from', '//evil.example')).toThrow();
+    expect(() => CmsPublishingPolicy.assertRedirect('/from', '/%2f%2fevil.example')).toThrow();
   });
 });
 

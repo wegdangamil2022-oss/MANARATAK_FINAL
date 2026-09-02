@@ -10,13 +10,15 @@ async function bootstrap() {
   const rawPort = config.getOptional<string | number>('PORT');
   const PORT = rawPort ? Number(rawPort) : 3000;
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Bootstrap] Server successfully started on port ${PORT}`);
   });
+  server.requestTimeout = 30_000;
+  server.headersTimeout = 15_000;
+  server.keepAliveTimeout = 5_000;
 }
 
-bootstrap().catch(err => {
-  console.error('[Bootstrap] Fatal error during API startup', err);
+bootstrap().catch(() => {
+  console.error('[Bootstrap] Fatal error during API startup. Review restricted service logs.');
   process.exit(1);
 });
-

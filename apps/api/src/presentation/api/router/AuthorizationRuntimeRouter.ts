@@ -11,10 +11,10 @@ export class AuthorizationRuntimeRouter {
       try {
         const decision = await evaluateAccessUseCase.execute(req.body);
         res.status(200).json(responseFormatter.success(decision));
-      } catch (error: any) {
+      } catch {
         res.status(400).json(responseFormatter.error({
           code: 'EVALUATION_ERROR',
-          message: error.message || 'Failed to evaluate access'
+          message: 'Access evaluation request is invalid'
         }));
       }
     });

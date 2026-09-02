@@ -312,8 +312,7 @@ const RootLayout = () => {
   }
 
   const userEmail = localStorage.getItem('manaratak_user_email');
-  const token = localStorage.getItem('manaratak_access_token');
-  const isLoggedIn = !!userEmail || !!token;
+  const isLoggedIn = !!userEmail;
 
   if (isAdminPath && !isLocalAdminReadOnly) {
     return <CanonicalAdminRedirect legacyPath={location.pathname} />;
@@ -354,14 +353,18 @@ const RootLayout = () => {
     ['/admin/settings', t('local_admin_nav_settings')],
   ] as const;
 
-  const handleLogout = () => {
-    localStorage.removeItem('manaratak_demo_email');
-    localStorage.removeItem('manaratak_user_email');
-    localStorage.removeItem('manaratak_user_name');
-    localStorage.removeItem('manaratak_access_token');
-    localStorage.removeItem('manaratak_refresh_token');
-    localStorage.removeItem('manaratak_admin_access');
-    window.location.href = localizePathname('/', language);
+  const handleLogout = async () => {
+    const csrfClient = CsrfClientManager.getInstance();
+    try {
+      await csrfClient.fetchWithCsrf('/api/v1/auth/logout', { method: 'POST' });
+    } finally {
+      csrfClient.clearToken();
+      localStorage.removeItem('manaratak_demo_email');
+      localStorage.removeItem('manaratak_user_email');
+      localStorage.removeItem('manaratak_user_name');
+      localStorage.removeItem('manaratak_admin_access');
+      window.location.href = localizePathname('/', language);
+    }
   };
 
   const getWorkspaceUrl = () => {
@@ -417,7 +420,7 @@ const RootLayout = () => {
                       {t('nav_account')}
                     </Link>
                     <button
-                      onClick={handleLogout}
+                      onClick={() => void handleLogout()}
                       className="bg-rose-50 text-rose-700 border border-rose-100 hover:bg-rose-100 font-bold text-xs md:text-sm rounded-lg md:rounded-xl px-2.5 py-1.5 md:px-4 md:py-2 flex items-center justify-center transition-all min-h-[40px] cursor-pointer"
                     >
                       {t('nav_logout')}
@@ -909,18 +912,9 @@ function AdminAccessBridgePage() {
   useEffect(() => {
     let active = true;
     async function checkAdminAuth() {
-      const token = localStorage.getItem('manaratak_access_token');
-      if (!token) {
-        if (active) {
-          setIsAuthorized(false);
-          setLoading(false);
-        }
-        return;
-      }
-
       try {
         const res = await CsrfClientManager.getInstance().fetchWithCsrf('/api/v1/auth/me', {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
         });
         if (res.ok) {
           const result = await res.json();

@@ -14,17 +14,15 @@ dotenv.config();
  * administrative accounts in development, test, and remediation environments.
  * 
  * Security:
- * - Prohibited in PRODUCTION/STAGING environments (unless explicitly permitted
- *   by ALLOW_PRODUCTION_ADMIN_BOOTSTRAP=true with secure credentials).
+ * - Unconditionally prohibited in PRODUCTION/STAGING environments.
  * - Suppresses logging of plaintext passwords, tokens, or credentials.
  * - Passwords are securely hashed using timing-safe scrypt KDF before database persistence.
  */
 async function main() {
-  const isProd = process.env.NODE_ENV === 'production';
-  const allowProdBootstrap = process.env.ALLOW_PRODUCTION_ADMIN_BOOTSTRAP === 'true';
+  const isProductionLike = process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging';
 
-  if (isProd && !allowProdBootstrap) {
-    console.error('[BOOTSTRAP ERROR] Safe Admin Bootstrap is strictly prohibited in production environments.');
+  if (isProductionLike) {
+    console.error('[BOOTSTRAP ERROR] Administrative bootstrap is disabled in production and staging.');
     process.exit(1);
   }
 
@@ -58,7 +56,7 @@ async function main() {
     },
   });
 
-  console.log(`[BOOTSTRAP] Initiating idempotent admin bootstrap for ID: "${bootstrapId}"...`);
+  console.log('[BOOTSTRAP] Initiating idempotent administrative bootstrap.');
 
   try {
     // Hash password securely via timing-safe scrypt
@@ -88,7 +86,7 @@ async function main() {
     });
 
     if (existingIdentity) {
-      console.log(`[BOOTSTRAP] Identity "${targetIdentityId}" already exists. Synchronizing credentials, user profile, and status...`);
+      console.log('[BOOTSTRAP] Existing identity found. Synchronizing credentials, profile, and status.');
 
       // Idempotently update life status
       await prisma.identityRecord.update({
@@ -183,9 +181,9 @@ async function main() {
         });
       }
 
-      console.log(`[BOOTSTRAP SUCCESS] Successfully updated and verified administrative account for ID: "${targetIdentityId}" (${bootstrapEmail}).`);
+      console.log('[BOOTSTRAP SUCCESS] Administrative account updated and verified.');
     } else {
-      console.log(`[BOOTSTRAP] No existing identity found. Provisioning fresh admin profile for ID: "${targetIdentityId}"...`);
+      console.log('[BOOTSTRAP] No existing identity found. Provisioning a new administrative profile.');
 
       // Create new identity, user profile, account, and credential record atomically
       await prisma.identityRecord.create({
@@ -244,22 +242,20 @@ async function main() {
         },
       });
 
-      console.log(`[BOOTSTRAP SUCCESS] Successfully provisioned fresh administrative account for ID: "${targetIdentityId}" (${bootstrapEmail}).`);
+      console.log('[BOOTSTRAP SUCCESS] Administrative account provisioned.');
     }
   } catch (error: any) {
     console.error('[BOOTSTRAP FAILURE] An error occurred during administrative bootstrap:');
     if (error?.message && error.message.includes('Can\'t reach database server')) {
       console.error('>> Database server is unreachable. Verify your DATABASE_URL configuration.');
-    } else {
-      console.error(error);
-    }
+    } else console.error('>> Bootstrap failed. Consult restricted server logs using the request correlation context.');
     process.exit(1);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-main().catch((err) => {
-  console.error('[BOOTSTRAP FATAL ERROR]', err);
+main().catch(() => {
+  console.error('[BOOTSTRAP FATAL ERROR] Administrative bootstrap terminated safely.');
   process.exit(1);
 });

@@ -72,8 +72,10 @@ export class CmsPublicRouter {
     router.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
       if (err instanceof z.ZodError)
         return res.status(400).json({ error: 'CMS_VALIDATION_ERROR', details: err.issues });
-      const message = err instanceof Error ? err.message : 'CMS_REQUEST_FAILED';
-      return res.status(message === 'CMS_CONTENT_NOT_FOUND' ? 404 : 400).json({ error: message });
+      if (err instanceof Error && err.message === 'CMS_CONTENT_NOT_FOUND') {
+        return res.status(404).json({ error: 'CMS_CONTENT_NOT_FOUND' });
+      }
+      return res.status(500).json({ error: 'CMS_REQUEST_FAILED' });
     });
     return router;
   }

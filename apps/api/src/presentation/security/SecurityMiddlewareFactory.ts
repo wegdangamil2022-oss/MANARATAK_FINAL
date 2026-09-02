@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
-import { ISecurityService } from '@manaratak/core';
-import { ConfigurationRegistry } from '@manaratak/config';
-import { AuthorizationEvaluatorService } from '@manaratak/domain';
+import { ISecurityService, ISessionManager } from '@manaratak/core';
+import { AccountAccessState, AuthorizationEvaluatorService, IIdentityRepository, LifeStatus } from '@manaratak/domain';
 import { ITokenProvider } from '@manaratak/core';
 import { container } from '../../infrastructure/di/container';
+import { readAccessCookie, readRefreshCookie } from './HttpOnlyAuthCookies';
 
 export interface CorsOptions {
   allowedOrigins: string[];
@@ -21,7 +21,6 @@ export interface RateLimitOptions {
 }
 
 export interface CsrfGuardOptions {
-  getSessionSecret?: (req: Request) => string;
   headerName?: string;
   exemptPaths?: string[];
   exemptBearerAuth?: boolean;
@@ -30,6 +29,8 @@ export interface CsrfGuardOptions {
 export interface AdminGuardOptions {
   mode: 'strict';
   tokenProvider?: ITokenProvider;
+  sessionManager?: ISessionManager;
+  identityRepository?: IIdentityRepository;
   authEvaluatorService?: AuthorizationEvaluatorService;
 }
 
@@ -73,7 +74,7 @@ export class SecurityMiddlewareFactory {
     return cors({
       origin: options.allowedOrigins.includes('*') ? '*' : options.allowedOrigins,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-CSRF-Token', 'x-csrf-token', 'X-Session-Secret', 'x-session-secret'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-CSRF-Token', 'x-csrf-token'],
       credentials: true,
       maxAge: 86400
     });
@@ -107,16 +108,6 @@ export class SecurityMiddlewareFactory {
 
   public static createCsrfGuard(securityService: ISecurityService, options: CsrfGuardOptions = {}) {
     const headerName = options.headerName || 'x-csrf-token';
-    const getSessionSecret = options.getSessionSecret || ((req: Request) => {
-      const configSecret = ConfigurationRegistry.isInitialized()
-        ? ConfigurationRegistry.getOptionalInstance()?.getOptional<string>('SESSION_SECRET')
-        : undefined;
-      return (req.headers['x-session-secret'] as string)
-        || (req as any).session?.secret
-        || configSecret
-        || process.env.SESSION_SECRET
-        || '';
-    });
     const exemptPaths = options.exemptPaths || [];
     const exemptBearerAuth = options.exemptBearerAuth ?? false;
 
@@ -141,16 +132,17 @@ export class SecurityMiddlewareFactory {
         return;
       }
 
-      // Extract CSRF token from header (e.g. X-CSRF-Token or x-csrf-token) or body/query fallback
-      const token = (
-        req.get(headerName) ||
-        req.get('x-csrf-token') ||
-        req.get('csrf-token') ||
-        req.body?._csrf ||
-        req.query?._csrf
-      ) as string | undefined;
+      const sessionSecret = readRefreshCookie(req);
+      // Cookie-authenticated writes must provide a header token. Request bodies and query strings
+      // are intentionally not accepted: they are easier to leak through logs and redirects.
+      const token = req.get(headerName) || req.get('x-csrf-token');
 
-      const sessionSecret = getSessionSecret(req);
+      // Requests authenticated with an Authorization bearer token remain supported for API clients.
+      // CSRF is a browser-cookie concern; no cookie means no ambient browser credential to protect.
+      if (!sessionSecret) {
+        next();
+        return;
+      }
 
       if (!token || !securityService.validateCsrfToken(token, sessionSecret)) {
         res.status(403).json({
@@ -183,16 +175,16 @@ export class SecurityMiddlewareFactory {
       let principalId: string | null = req.authUserId || null;
 
       if (!principalId) {
-        const receivedToken = extractBearerToken(req.headers.authorization);
+        const receivedToken = readAccessCookie(req) || extractBearerToken(req.headers.authorization);
         if (receivedToken && options.tokenProvider) {
           try {
             const provider = options.tokenProvider as ITokenProvider & {
-              verifyAccessTokenSync?: (token: string) => { userId?: string };
+              verifyAccessTokenSync?: (token: string) => { userId?: string; sessionId?: string };
             };
             const payload = provider.verifyAccessTokenSync
               ? provider.verifyAccessTokenSync(receivedToken)
               : await provider.verifyAccessToken(receivedToken);
-            if (payload?.userId) {
+            if (payload?.userId && (!payload.sessionId || !options.sessionManager || await options.sessionManager.isSessionActive(payload.userId, payload.sessionId))) {
               principalId = payload.userId;
             }
           } catch (e) {
@@ -214,6 +206,23 @@ export class SecurityMiddlewareFactory {
         return;
       }
 
+      if (options.identityRepository) {
+        try {
+          const identity = await options.identityRepository.findById(principalId);
+          if (!identity || ![LifeStatus.PROVISIONED, LifeStatus.ACTIVE].includes(identity.status) || identity.account.accessState !== AccountAccessState.ACTIVE) {
+            throw new Error('Inactive identity');
+          }
+        } catch {
+          res.status(401).json({
+            error: { code: 'ADMIN_SESSION_NOT_ACTIVE', message: 'Admin authentication is required.' },
+            meta: { timestamp: new Date().toISOString() },
+          });
+          return;
+        }
+      }
+
+      // A cookie-authenticated administrator must be tied to a current server session.
+      // Legacy bearer clients can remain usable until their access token expires.
       req.authUserId = principalId;
       assignAdminContext(res, {
         authMode: options.mode,

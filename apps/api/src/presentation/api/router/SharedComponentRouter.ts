@@ -9,8 +9,8 @@ export class SharedComponentRouter {
       try {
         const result = await manageSharedComponentsUseCase.createComponent(req.body);
         res.status(201).json(result);
-      } catch (error: any) {
-        res.status(400).json({ error: error.message });
+      } catch {
+        res.status(400).json({ error: 'SHARED_COMPONENT_REQUEST_INVALID' });
       }
     });
 
@@ -18,8 +18,8 @@ export class SharedComponentRouter {
       try {
         const result = await manageSharedComponentsUseCase.activateComponent(req.params.ref);
         res.json(result);
-      } catch (error: any) {
-        res.status(400).json({ error: error.message });
+      } catch {
+        res.status(400).json({ error: 'SHARED_COMPONENT_REQUEST_INVALID' });
       }
     });
 
@@ -27,8 +27,8 @@ export class SharedComponentRouter {
       try {
         const result = await manageSharedComponentsUseCase.publishVersion(req.body);
         res.status(201).json(result);
-      } catch (error: any) {
-        res.status(400).json({ error: error.message });
+      } catch {
+        res.status(400).json({ error: 'SHARED_COMPONENT_REQUEST_INVALID' });
       }
     });
 
@@ -36,8 +36,8 @@ export class SharedComponentRouter {
       try {
         const result = await manageSharedComponentsUseCase.deprecateComponent(req.params.ref);
         res.json(result);
-      } catch (error: any) {
-        res.status(400).json({ error: error.message });
+      } catch {
+        res.status(400).json({ error: 'SHARED_COMPONENT_REQUEST_INVALID' });
       }
     });
 
@@ -45,8 +45,8 @@ export class SharedComponentRouter {
       try {
         const result = await manageSharedComponentsUseCase.archiveComponent(req.params.ref);
         res.json(result);
-      } catch (error: any) {
-        res.status(400).json({ error: error.message });
+      } catch {
+        res.status(400).json({ error: 'SHARED_COMPONENT_REQUEST_INVALID' });
       }
     });
 

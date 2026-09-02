@@ -11,7 +11,7 @@ describe('CsrfClientManager', () => {
     vi.restoreAllMocks();
   });
 
-  it('retrieves CSRF token from canonical GET /api/v1/csrf-token endpoint', async () => {
+  it('retrieves CSRF token from the authenticated session endpoint', async () => {
     const manager = CsrfClientManager.getInstance('/api/v1');
     const mockToken = '1711111111111.abcdef1234567890.signaturehash';
 
@@ -27,8 +27,9 @@ describe('CsrfClientManager', () => {
     const token = await manager.getCsrfToken();
 
     expect(token).toBe(mockToken);
-    expect(globalFetchSpy).toHaveBeenCalledWith('/api/v1/csrf-token', expect.objectContaining({
+    expect(globalFetchSpy).toHaveBeenCalledWith('/api/v1/auth/csrf-token', expect.objectContaining({
       method: 'GET',
+      credentials: 'include',
     }));
   });
 
@@ -112,6 +113,9 @@ describe('CsrfClientManager', () => {
     });
 
     expect(res.status).toBe(200);
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/v1/protected-action', expect.objectContaining({
+      credentials: 'include',
+    }));
     const body = await res.json();
     expect(body).toEqual({ success: true });
   });

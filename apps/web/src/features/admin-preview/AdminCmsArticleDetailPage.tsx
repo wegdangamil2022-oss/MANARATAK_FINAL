@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../i18n/I18nProvider';
+import { safeRichTextPreview } from '../../security/safeRichTextPreview';
 import { 
   FileText, ArrowLeft, ArrowRight, Edit, Save, CheckCircle2, 
   Archive, ExternalLink, Sparkles, AlertCircle, Clock, ShieldAlert, 
@@ -298,10 +299,9 @@ export function AdminCmsArticleDetailPage() {
               <span className="text-xs text-gray-400 font-mono">HTML / RichText Payload</span>
             </div>
 
-            <div 
-              className="prose dark:prose-invert max-w-none text-xs text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-200 dark:border-gray-700 min-h-[160px] leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: article.richBodyAr }}
-            />
+            <div className="whitespace-pre-wrap max-w-none text-xs text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-200 dark:border-gray-700 min-h-[160px] leading-relaxed">
+              {safeRichTextPreview(article.richBodyAr)}
+            </div>
           </div>
 
           {/* SEO Metadata Section */}

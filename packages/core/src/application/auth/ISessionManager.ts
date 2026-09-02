@@ -1,6 +1,7 @@
 export interface ISessionManager {
-  createSession(userId: string, refreshToken: string): Promise<void>;
+  createSession(userId: string, refreshToken: string, sessionId?: string): Promise<void>;
   revokeSession(userId: string, refreshToken: string): Promise<void>;
   revokeAllSessions(userId: string): Promise<void>;
   isValidSession(userId: string, refreshToken: string): Promise<boolean>;
+  isSessionActive(userId: string, sessionId: string): Promise<boolean>;
 }

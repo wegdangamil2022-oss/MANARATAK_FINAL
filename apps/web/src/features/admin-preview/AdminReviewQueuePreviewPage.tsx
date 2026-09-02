@@ -51,7 +51,7 @@ interface PendingWorkItem {
 
 export function AdminReviewQueuePreviewPage() {
   const { t, dir, language } = useTranslation();
-  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token')) || import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
+  const adminSessionPresent = import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
 
   // Filters state
   const [selectedDomain, setSelectedDomain] = useState<string>('all');

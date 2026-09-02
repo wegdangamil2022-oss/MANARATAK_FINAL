@@ -62,11 +62,7 @@ export class AuditHelper {
         req.body?.identityId ||
         'N/A';
 
-      const source =
-        (req.headers['x-forwarded-for'] as string) ||
-        req.socket?.remoteAddress ||
-        req.ip ||
-        'api-router';
+      const source = req.ip || req.socket?.remoteAddress || 'api-router';
 
       const correlationId =
         (req.headers['x-correlation-id'] as string) ||
@@ -83,9 +79,12 @@ export class AuditHelper {
       };
 
       if (params.error) {
+        const rawCode = typeof params.error === 'object' && typeof params.error.code === 'string'
+          ? params.error.code
+          : 'MUTATION_ERROR';
         safeMetadata.error = {
-          message: typeof params.error === 'string' ? params.error : params.error.message || 'Mutation failed',
-          code: params.error.code || 'MUTATION_ERROR'
+          message: 'Mutation failed',
+          code: /^[A-Z0-9_:-]{1,80}$/.test(rawCode) ? rawCode : 'MUTATION_ERROR'
         };
       }
 
@@ -107,7 +106,7 @@ export class AuditHelper {
       await repo.save(record);
     } catch (err) {
       // Safe non-blocking best-effort audit logging: do not throw error to avoid disrupting primary operation
-      console.error('Audit recording error:', err);
+      console.error('Audit recording failed.');
       if (options.reliability === 'REQUIRED') throw err;
     }
   }

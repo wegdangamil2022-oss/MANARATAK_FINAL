@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  assertAssetSecurityProvidersForRuntime,
   createAssetStorageGatewayForRuntime,
   createImportRawSnapshotStoreForRuntime,
   createRateLimiterForRuntime,
@@ -19,6 +20,26 @@ describe('RuntimeDependencyPolicy', () => {
     expect(() => createAssetStorageGatewayForRuntime({ NODE_ENV: 'development' })).not.toThrow();
     const productionGateway = createAssetStorageGatewayForRuntime({ NODE_ENV: 'production' }) as any;
     expect(productionGateway.capabilityStatus ?? productionGateway.status?.()).toBeDefined();
+  });
+
+  it('fails production and staging closed when mandatory asset security providers are unavailable', () => {
+    const unavailable = { capabilityStatus: 'UNAVAILABLE' };
+    const providers = { storage: unavailable, malwareScanner: unavailable, sanitizer: unavailable };
+
+    expect(() => assertAssetSecurityProvidersForRuntime({ NODE_ENV: 'production' }, providers))
+      .toThrow(/storage, malwareScanner, sanitizer/);
+    expect(() => assertAssetSecurityProvidersForRuntime({ NODE_ENV: 'staging' }, providers))
+      .toThrow(/Production asset security providers are unavailable/);
+    expect(() => assertAssetSecurityProvidersForRuntime({ NODE_ENV: 'development' }, providers))
+      .not.toThrow();
+  });
+
+  it('accepts only explicitly production-capable asset security providers', () => {
+    const ready = { capabilityStatus: 'PRODUCTION_CAPABLE' };
+    expect(() => assertAssetSecurityProvidersForRuntime(
+      { NODE_ENV: 'production' },
+      { storage: ready, malwareScanner: ready, sanitizer: ready },
+    )).not.toThrow();
   });
 
 

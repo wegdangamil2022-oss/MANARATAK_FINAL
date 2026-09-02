@@ -12,8 +12,8 @@ export class FileManagementRouter {
       try {
         const locator = await useCase.generateUploadLocator(req.body);
         res.status(200).json(responseFormatter.success({ locator }));
-      } catch (error: any) {
-        res.status(400).json(responseFormatter.error({ code: 'VALIDATION_ERROR', message: error.message }));
+      } catch {
+        res.status(400).json(responseFormatter.error({ code: 'VALIDATION_ERROR', message: 'File request is invalid' }));
       }
     });
 
@@ -21,8 +21,8 @@ export class FileManagementRouter {
       try {
         await useCase.registerFile(req.body);
         res.status(201).json(responseFormatter.success({ message: 'File registered successfully' }));
-      } catch (error: any) {
-        res.status(400).json(responseFormatter.error({ code: 'VALIDATION_ERROR', message: error.message }));
+      } catch {
+        res.status(400).json(responseFormatter.error({ code: 'VALIDATION_ERROR', message: 'File request is invalid' }));
       }
     });
 
@@ -30,8 +30,8 @@ export class FileManagementRouter {
       try {
         await useCase.activateFile({ fileId: req.params.fileId, ...req.body });
         res.status(200).json(responseFormatter.success({ message: 'File activated successfully' }));
-      } catch (error: any) {
-        res.status(400).json(responseFormatter.error({ code: 'VALIDATION_ERROR', message: error.message }));
+      } catch {
+        res.status(400).json(responseFormatter.error({ code: 'VALIDATION_ERROR', message: 'File request is invalid' }));
       }
     });
 
@@ -39,8 +39,8 @@ export class FileManagementRouter {
       try {
         await useCase.archiveFile({ fileId: req.params.fileId });
         res.status(200).json(responseFormatter.success({ message: 'File archived successfully' }));
-      } catch (error: any) {
-        res.status(400).json(responseFormatter.error({ code: 'VALIDATION_ERROR', message: error.message }));
+      } catch {
+        res.status(400).json(responseFormatter.error({ code: 'VALIDATION_ERROR', message: 'File request is invalid' }));
       }
     });
 
@@ -48,8 +48,8 @@ export class FileManagementRouter {
       try {
         await useCase.softDeleteFile({ fileId: req.params.fileId });
         res.status(200).json(responseFormatter.success({ message: 'File soft deleted successfully' }));
-      } catch (error: any) {
-        res.status(400).json(responseFormatter.error({ code: 'VALIDATION_ERROR', message: error.message }));
+      } catch {
+        res.status(400).json(responseFormatter.error({ code: 'VALIDATION_ERROR', message: 'File request is invalid' }));
       }
     });
 
@@ -57,8 +57,8 @@ export class FileManagementRouter {
       try {
         await useCase.restoreFile({ fileId: req.params.fileId });
         res.status(200).json(responseFormatter.success({ message: 'File restored successfully' }));
-      } catch (error: any) {
-        res.status(400).json(responseFormatter.error({ code: 'VALIDATION_ERROR', message: error.message }));
+      } catch {
+        res.status(400).json(responseFormatter.error({ code: 'VALIDATION_ERROR', message: 'File request is invalid' }));
       }
     });
 

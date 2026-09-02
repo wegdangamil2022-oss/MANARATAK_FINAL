@@ -1,5 +1,7 @@
 export interface TokenPayload {
   userId: string;
+  /** Server-side session identifier shared by the paired access/refresh tokens. */
+  sessionId?: string;
   [key: string]: any;
 }
 

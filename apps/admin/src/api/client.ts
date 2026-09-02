@@ -8,14 +8,16 @@ type ApiErrorPayload = {
 };
 
 export const adminApiClient = {
+  clearSecuritySession(): void {
+    csrfManager.clearToken();
+  },
+
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    const token = localStorage.getItem('manaratak_access_token');
     const headers = new Headers(options.headers);
     headers.set('Content-Type', 'application/json');
-    if (token) headers.set('Authorization', `Bearer ${token}`);
 
-    const response = await csrfManager.fetchWithCsrf(url, { ...options, headers });
+    const response = await csrfManager.fetchWithCsrf(url, { ...options, headers, credentials: 'include' });
     
     if (!response.ok) {
       let errorMessage = `API Error: ${response.statusText}`;

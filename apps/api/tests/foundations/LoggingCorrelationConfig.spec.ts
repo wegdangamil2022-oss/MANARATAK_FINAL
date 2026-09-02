@@ -65,7 +65,7 @@ describe('WP1-C Foundations — Logging, Correlation & Configuration', () => {
       expect(res2.final).toBe('req-beta-222');
     });
 
-    it('preserves valid incoming X-Correlation-ID header and echoes in response', async () => {
+    it('replaces a client-provided correlation identifier with a server UUID', async () => {
       const logContext = new AsyncLogContext();
       const mockRequestLogger = {
         logRequest: vi.fn(),
@@ -85,8 +85,9 @@ describe('WP1-C Foundations — Logging, Correlation & Configuration', () => {
         .set('X-Correlation-ID', incomingId);
 
       expect(response.status).toBe(200);
-      expect(response.headers['x-correlation-id']).toBe(incomingId);
-      expect(response.body.currentCorrelationId).toBe(incomingId);
+      expect(response.headers['x-correlation-id']).not.toBe(incomingId);
+      expect(response.headers['x-correlation-id']).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+      expect(response.body.currentCorrelationId).toBe(response.headers['x-correlation-id']);
     });
 
     it('generates secure UUID if no correlation header is supplied', async () => {
@@ -207,6 +208,8 @@ describe('WP1-C Foundations — Logging, Correlation & Configuration', () => {
 
       expect(res.status).toBe(500);
       expect(res.body.error.traceId).toBe('corr-error-handler-555');
+      expect(res.body.error.message).toBe('An unexpected error occurred.');
+      expect(JSON.stringify(res.body)).not.toContain('CRITICAL_FAILURE');
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('CRITICAL_FAILURE'),
         expect.any(Error),

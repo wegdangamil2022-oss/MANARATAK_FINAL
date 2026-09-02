@@ -166,7 +166,7 @@ function statusLabel(status: string): string {
 
 export function AdminInternationalTestsPreviewPage() {
   const { t } = useTranslation();
-  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token')) || import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
+  const adminSessionPresent = import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
 
   const [tests, setTests] = useState<TestItem[]>([]);
   const [allTests, setAllTests] = useState<TestItem[]>([]);

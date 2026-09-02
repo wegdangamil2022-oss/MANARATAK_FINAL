@@ -22,10 +22,10 @@ export class CertificatePublicRouter {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ error: 'Validation Error', details: err.issues });
       }
-      if (err.message === 'Certificate not found') {
-        return res.status(404).json({ error: err.message });
+      if (err instanceof Error && err.message === 'Certificate not found') {
+        return res.status(404).json({ error: 'Not found' });
       }
-      res.status(400).json({ error: err.message || 'An error occurred' });
+      res.status(500).json({ error: 'CERTIFICATE_VERIFICATION_FAILED' });
     });
 
     return router;

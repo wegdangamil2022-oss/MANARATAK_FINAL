@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from '../../i18n/I18nProvider';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Logo } from '../../components/Logo';
+import { CsrfClientManager } from '@manaratak/shared';
 import { 
   LayoutDashboard, 
   Clock,
@@ -42,14 +43,18 @@ export function AdminPreviewLayout() {
   const userEmail = localStorage.getItem('manaratak_user_email') || '';
   const userNameInitials = (userEmail || 'AD').substring(0, 2).toUpperCase();
 
-  const handleLogout = () => {
-    localStorage.removeItem('manaratak_access_token');
-    localStorage.removeItem('manaratak_refresh_token');
-    localStorage.removeItem('manaratak_admin_access');
-    localStorage.removeItem('manaratak_demo_email');
-    localStorage.removeItem('manaratak_user_email');
-    localStorage.removeItem('manaratak_user_name');
-    window.location.href = '/login';
+  const handleLogout = async () => {
+    const csrfClient = CsrfClientManager.getInstance();
+    try {
+      await csrfClient.fetchWithCsrf('/api/v1/auth/logout', { method: 'POST' });
+    } finally {
+      csrfClient.clearToken();
+      localStorage.removeItem('manaratak_admin_access');
+      localStorage.removeItem('manaratak_demo_email');
+      localStorage.removeItem('manaratak_user_email');
+      localStorage.removeItem('manaratak_user_name');
+      window.location.href = '/login';
+    }
   };
 
   // Structured sidebar navigation groups for elegant hierarchy

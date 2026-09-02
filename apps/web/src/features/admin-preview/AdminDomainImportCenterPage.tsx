@@ -185,7 +185,7 @@ export function AdminDomainImportCenterPage() {
   const { t, dir } = useTranslation();
   const navigate = useNavigate();
 
-  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token')) || import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
+  const adminSessionPresent = import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
   const currentDomain = DOMAIN_METADATA[domainKey || 'scholarships'] || DOMAIN_METADATA.scholarships;
   const [dbMajors, setDbMajors] = useState<any[]>([]);
   const [loadingMajors, setLoadingMajors] = useState(false);

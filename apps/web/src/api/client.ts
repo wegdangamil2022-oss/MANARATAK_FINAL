@@ -994,17 +994,13 @@ export async function apiFetch(
 }
 
 function getAdminHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
-  const token = localStorage.getItem('manaratak_access_token');
   return {
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...extraHeaders,
   };
 }
 
 function getStudentHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
-  const token = localStorage.getItem('manaratak_access_token');
   return {
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...extraHeaders,
   };
 }

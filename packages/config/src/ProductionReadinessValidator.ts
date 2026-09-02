@@ -91,6 +91,15 @@ export class ProductionReadinessValidator {
         recommendation: 'Set SECURE_COOKIE=true to ensure sessions are only transmitted over HTTPS.'
       });
     }
+    if (isProduction && (!this.isStableIdentifier(env.JWT_ISSUER) || !this.isStableIdentifier(env.JWT_AUDIENCE))) {
+      findings.push({
+        id: 'auth.jwt_claims_unconfigured',
+        severity: 'BLOCKER',
+        area: 'Authentication',
+        message: 'JWT issuer and audience must be explicitly configured in production.',
+        recommendation: 'Set stable deployment values for JWT_ISSUER and JWT_AUDIENCE.'
+      });
+    }
   }
 
   private static validateUrls(env: RuntimeEnv, findings: ProductionReadinessFinding[], isProduction: boolean): void {
@@ -140,10 +149,21 @@ export class ProductionReadinessValidator {
     if (env.SECURITY_CSP_ENABLED !== 'true') {
       findings.push({
         id: 'security.csp_disabled',
-        severity: 'WARNING',
+        severity: 'BLOCKER',
         area: 'HTTP Security',
         message: 'Content Security Policy is not explicitly enabled.',
         recommendation: 'Set SECURITY_CSP_ENABLED=true before public production launch.'
+      });
+    }
+
+    const trustProxyHops = Number(env.TRUST_PROXY_HOPS);
+    if (!Number.isInteger(trustProxyHops) || trustProxyHops < 1 || trustProxyHops > 3) {
+      findings.push({
+        id: 'security.trust_proxy_unconfigured',
+        severity: 'BLOCKER',
+        area: 'HTTP Security',
+        message: 'Trusted reverse-proxy hops are not explicitly bounded.',
+        recommendation: 'Set TRUST_PROXY_HOPS to the exact number of managed proxy hops (1-3).'
       });
     }
 
@@ -222,6 +242,10 @@ export class ProductionReadinessValidator {
     } catch {
       return false;
     }
+  }
+
+  private static isStableIdentifier(value: string | undefined): boolean {
+    return Boolean(value && value.length >= 3 && !/(?:change-me|placeholder|example)/i.test(value));
   }
 
   private static isLocalOrPlaceholderUrl(value: string): boolean {

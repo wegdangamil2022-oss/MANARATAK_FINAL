@@ -5,8 +5,6 @@ import { randomBytes, createHmac, timingSafeEqual } from 'node:crypto';
 export interface CsrfOptions {
   /** Maximum token age in milliseconds. Default: 24 hours (86400000 ms) */
   maxAgeMs?: number;
-  /** Fallback secret when sessionSecret is empty */
-  defaultSecret?: string;
 }
 
 export class SecurityService implements ISecurityService {
@@ -14,12 +12,10 @@ export class SecurityService implements ISecurityService {
   public readonly kind: 'real' | 'demo' = 'real';
   private rateLimiter: IRateLimiter;
   private csrfMaxAgeMs: number;
-  private csrfDefaultSecret: string;
 
   constructor(rateLimiter?: IRateLimiter, csrfOptions?: CsrfOptions) {
     this.rateLimiter = rateLimiter || new DefaultRateLimiter();
     this.csrfMaxAgeMs = csrfOptions?.maxAgeMs ?? 86400000; // 24 hours
-    this.csrfDefaultSecret = csrfOptions?.defaultSecret ?? 'manaratak-default-csrf-secret';
   }
 
   getRateLimiter(): IRateLimiter {
@@ -31,7 +27,8 @@ export class SecurityService implements ISecurityService {
    * Token format: `<timestamp>.<nonce>.<hmac-signature>`
    */
   generateCsrfToken(sessionSecret: string): string {
-    const secret = sessionSecret && sessionSecret.trim() ? sessionSecret : this.csrfDefaultSecret;
+    if (!sessionSecret || !sessionSecret.trim()) throw new Error('CSRF_SESSION_SECRET_REQUIRED');
+    const secret = sessionSecret;
     const timestamp = Date.now().toString();
     const nonce = randomBytes(16).toString('hex');
     const payload = `${timestamp}.${nonce}`;
@@ -72,7 +69,8 @@ export class SecurityService implements ISecurityService {
       return false;
     }
 
-    const secret = sessionSecret && sessionSecret.trim() ? sessionSecret : this.csrfDefaultSecret;
+    if (!sessionSecret || !sessionSecret.trim()) return false;
+    const secret = sessionSecret;
     const payload = `${timestampStr}.${nonce}`;
     const expectedSignature = createHmac('sha256', secret).update(payload).digest('hex');
 

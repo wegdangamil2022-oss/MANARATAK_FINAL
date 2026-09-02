@@ -44,7 +44,7 @@ export class AuthorizationAdminRouter {
         });
         res.status(400).json(responseFormatter.error({
           code: 'VALIDATION_ERROR',
-          message: error.message || 'Failed to create role'
+          message: 'Role request is invalid'
         }));
       }
     });
@@ -59,10 +59,10 @@ export class AuthorizationAdminRouter {
           }));
         }
         res.status(200).json(responseFormatter.success(role));
-      } catch (error: any) {
+      } catch {
         res.status(400).json(responseFormatter.error({
           code: 'VALIDATION_ERROR',
-          message: error.message || 'Failed to get role'
+          message: 'Role request is invalid'
         }));
       }
     });
@@ -82,7 +82,7 @@ export class AuthorizationAdminRouter {
         });
         res.status(400).json(responseFormatter.error({
           code: 'VALIDATION_ERROR',
-          message: error.message || 'Failed to assign role'
+          message: 'Role assignment request is invalid'
         }));
       }
     });

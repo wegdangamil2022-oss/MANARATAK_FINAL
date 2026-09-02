@@ -22,11 +22,9 @@ export function AdminAiGovernancePreviewPage() {
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const token = localStorage.getItem('manaratak_access_token');
-      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
       const [overviewResponse, providersResponse] = await Promise.all([
-        fetch('/api/v1/admin/ai/overview', { headers }),
-        fetch('/api/v1/admin/ai/provider-statuses', { headers }),
+        fetch('/api/v1/admin/ai/overview', { credentials: 'include' }),
+        fetch('/api/v1/admin/ai/provider-statuses', { credentials: 'include' }),
       ]);
       if (!overviewResponse.ok || !providersResponse.ok) throw new Error('تعذر تحميل مركز الذكاء الاصطناعي. تحقق من جلسة الإدارة وصلاحية admin:ai:manage.');
       const [nextOverview, nextProviders] = await Promise.all([overviewResponse.json(), providersResponse.json()]);

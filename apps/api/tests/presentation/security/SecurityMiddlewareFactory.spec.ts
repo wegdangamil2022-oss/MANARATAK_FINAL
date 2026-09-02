@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import express from 'express';
+import request from 'supertest';
 import { SecurityMiddlewareFactory } from '../../../src/presentation/security/SecurityMiddlewareFactory';
 import { DefaultRateLimiter, SecurityService } from '@manaratak/infrastructure';
 
@@ -23,6 +25,26 @@ function createResponse() {
 }
 
 import { AccessDecision } from '@manaratak/domain';
+
+describe('SecurityMiddlewareFactory production headers', () => {
+  it('emits the complete hardened header baseline when CSP is enabled', async () => {
+    const app = express();
+    app.use(SecurityMiddlewareFactory.createSecurityHeaders({ enabled: true }));
+    app.get('/headers', (_req, res) => res.status(204).end());
+
+    const response = await request(app).get('/headers');
+
+    expect(response.headers['strict-transport-security']).toContain('max-age=');
+    expect(response.headers['x-content-type-options']).toBe('nosniff');
+    expect(response.headers['content-security-policy']).toContain("default-src 'self'");
+    expect(response.headers['content-security-policy']).not.toContain("'unsafe-eval'");
+    expect(response.headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
+    expect(response.headers['x-frame-options']).toBe('DENY');
+    expect(response.headers['cross-origin-embedder-policy']).toBe('require-corp');
+    expect(response.headers['cross-origin-opener-policy']).toBe('same-origin');
+    expect(response.headers['cross-origin-resource-policy']).toBe('same-origin');
+  });
+});
 
 describe('SecurityMiddlewareFactory admin guard', () => {
   it('rejects unauthenticated requests in strict mode', async () => {
@@ -72,6 +94,27 @@ describe('SecurityMiddlewareFactory admin guard', () => {
       authMode: 'strict',
       principalId: 'owner-01',
     }));
+  });
+
+  it('rejects a valid token when the current administrator account is suspended', async () => {
+    const guard = SecurityMiddlewareFactory.createAdminGuard({
+      mode: 'strict',
+      tokenProvider: { verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'owner-01' }) } as any,
+      identityRepository: {
+        findById: vi.fn().mockResolvedValue({
+          status: 'ACTIVE',
+          account: { accessState: 'Suspended' },
+        }),
+      } as any,
+    });
+    const response = createResponse();
+    const next = vi.fn();
+
+    await guard({ headers: { authorization: 'Bearer signed-token' } } as any, response as any, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(response.statusCode).toBe(401);
+    expect((response.payload as any).error.code).toBe('ADMIN_SESSION_NOT_ACTIVE');
   });
 
   it('allows admin permission guard when permission is granted by evaluator', async () => {
@@ -290,12 +333,12 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
     }
   });
 
-  it('rejects state-mutating methods (POST, PUT, PATCH, DELETE) when CSRF token is missing with HTTP 403', async () => {
+  it('rejects cookie-authenticated mutations when the CSRF header is missing', async () => {
     const securityService = new SecurityService();
     const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService);
 
     for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
-      const req = createMockRequest(method);
+      const req = createMockRequest(method, { Cookie: `manaratak_refresh=${sessionSecret}` });
       const res = createResponse();
       const next = vi.fn();
 
@@ -327,7 +370,10 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
     ];
 
     for (const token of invalidTokens) {
-      const req = createMockRequest('POST', { 'X-CSRF-Token': token });
+      const req = createMockRequest('POST', {
+        Cookie: `manaratak_refresh=${sessionSecret}`,
+        'X-CSRF-Token': token,
+      });
       const res = createResponse();
       const next = vi.fn();
 
@@ -341,14 +387,15 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
 
   it('allows state-mutating requests when a valid CSRF token is provided in X-CSRF-Token header', async () => {
     const securityService = new SecurityService();
-    const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService, {
-      getSessionSecret: () => sessionSecret,
-    });
+    const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService);
 
     const validToken = securityService.generateCsrfToken(sessionSecret);
 
     for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
-      const req = createMockRequest(method, { 'X-CSRF-Token': validToken });
+      const req = createMockRequest(method, {
+        Cookie: `manaratak_refresh=${sessionSecret}`,
+        'X-CSRF-Token': validToken,
+      });
       const res = createResponse();
       const next = vi.fn();
 
@@ -380,6 +427,21 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
 
     expect(next).toHaveBeenCalled();
     expect(res.statusCode).toBe(200);
+  });
+
+  it('does not accept CSRF tokens from request bodies or query strings', async () => {
+    const securityService = new SecurityService();
+    const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService);
+    const validToken = securityService.generateCsrfToken(sessionSecret);
+    const req = createMockRequest('POST', { Cookie: `manaratak_refresh=${sessionSecret}` }, { _csrf: validToken });
+    req.query = { _csrf: validToken };
+    const res = createResponse();
+    const next = vi.fn();
+
+    await middleware(req, res as any, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(403);
   });
 
   it('allows state-mutating requests with Authorization Bearer header when exemptBearerAuth is true', async () => {

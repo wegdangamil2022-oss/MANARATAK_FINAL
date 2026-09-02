@@ -10,7 +10,7 @@ const degrees = [
 const degreeLabel = (value: string) => degrees.find(item => item[0] === value)?.[1] ?? value;
 
 export function AdminFacultiesPage() {
-  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token')) || import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
+  const adminSessionPresent = import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
   const [degree, setDegree] = useState('');
   const [search, setSearch] = useState('');
   const [facets, setFacets] = useState<CollegeFacet[]>([]);

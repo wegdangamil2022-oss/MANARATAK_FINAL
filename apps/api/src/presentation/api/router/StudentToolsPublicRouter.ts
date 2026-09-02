@@ -129,7 +129,8 @@ export class StudentToolsPublicRouter {
     router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
       if (error instanceof z.ZodError)
         return res.status(400).json({ error: 'TOOL_INPUT_INVALID', details: error.issues });
-      const code = error instanceof Error ? error.message : 'TOOL_EXECUTION_FAILED';
+      const rawCode = error instanceof Error ? error.message : 'TOOL_EXECUTION_FAILED';
+      const code = /^[A-Z][A-Z0-9_]{2,80}$/.test(rawCode) ? rawCode : 'TOOL_EXECUTION_FAILED';
       const status = code.includes('NOT_FOUND')
         ? 404
         : code.includes('AUTH_REQUIRED')

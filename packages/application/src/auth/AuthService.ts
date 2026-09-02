@@ -6,6 +6,7 @@ import {
   InvalidTokenException
 } from '@manaratak/core';
 import { ICredentialVerifier, DenyAllCredentialVerifier } from './ICredentialVerifier';
+import { randomUUID } from 'node:crypto';
 
 export * from './InMemorySessionManager';
 export * from './ICredentialVerifier';
@@ -26,13 +27,19 @@ export class AuthService implements IAuthService {
       throw new Error('Credential verification failed');
     }
 
-    const tokens = await this.tokenProvider.generateTokens({ userId });
-    await this.sessionManager.createSession(userId, tokens.refreshToken);
+    const sessionId = randomUUID();
+    const tokens = await this.tokenProvider.generateTokens({ userId, sessionId });
+    await this.sessionManager.createSession(userId, tokens.refreshToken, sessionId);
     return tokens;
   }
 
   public async logout(userId: string, refreshToken: string): Promise<void> {
     await this.sessionManager.revokeSession(userId, refreshToken);
+  }
+
+  public async logoutCurrentSession(refreshToken: string): Promise<void> {
+    const payload = await this.tokenProvider.verifyRefreshToken(refreshToken);
+    await this.sessionManager.revokeSession(payload.userId, refreshToken);
   }
 
   public async refreshTokens(refreshToken: string): Promise<AuthTokens> {
@@ -45,8 +52,9 @@ export class AuthService implements IAuthService {
 
     await this.sessionManager.revokeSession(payload.userId, refreshToken);
     
-    const newTokens = await this.tokenProvider.generateTokens({ userId: payload.userId });
-    await this.sessionManager.createSession(payload.userId, newTokens.refreshToken);
+    const sessionId = randomUUID();
+    const newTokens = await this.tokenProvider.generateTokens({ userId: payload.userId, sessionId });
+    await this.sessionManager.createSession(payload.userId, newTokens.refreshToken, sessionId);
     
     return newTokens;
   }

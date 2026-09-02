@@ -10,13 +10,9 @@ export class LoggingMiddleware {
 
   public generate = () => {
     return (req: Request, res: Response, next: NextFunction) => {
-      const incomingHeader = (req.headers['x-correlation-id'] || req.headers['x-request-id']) as string | undefined;
-      let correlationId: string;
-      if (typeof incomingHeader === 'string' && incomingHeader.trim() !== '' && /^[\w\-]{1,128}$/.test(incomingHeader.trim())) {
-        correlationId = incomingHeader.trim();
-      } else {
-        correlationId = crypto.randomUUID();
-      }
+      // Correlation identifiers are security/audit identifiers and must not be client-controlled.
+      const correlationId = crypto.randomUUID();
+      req.headers['x-correlation-id'] = correlationId;
 
       res.setHeader('X-Correlation-ID', correlationId);
       

@@ -36,10 +36,10 @@ export class CareerPublicRouter {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ error: 'Validation Error', details: err.issues });
       }
-      if (err.message?.includes('not found')) {
-        return res.status(404).json({ error: err.message });
+      if (err instanceof Error && err.message.includes('not found')) {
+        return res.status(404).json({ error: 'Not found' });
       }
-      res.status(400).json({ error: err.message || 'An error occurred' });
+      res.status(500).json({ error: 'CAREER_REQUEST_FAILED' });
     });
 
     return router;

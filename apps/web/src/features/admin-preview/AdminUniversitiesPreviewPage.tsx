@@ -13,7 +13,7 @@ import {
 import { ApiClient } from '../../api/client';
 
 export function AdminUniversitiesPreviewPage() {
-  const adminSessionPresent = Boolean(localStorage.getItem('manaratak_access_token')) || import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
+  const adminSessionPresent = import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
 
   const [universities, setUniversities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

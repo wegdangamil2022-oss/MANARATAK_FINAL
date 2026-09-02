@@ -1,16 +1,16 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { ITokenProvider } from '@manaratak/core';
+import { ISessionManager, ITokenProvider } from '@manaratak/core';
 import { CourseProgressUseCases, LearningPathUseCases } from '@manaratak/application';
 import { CourseProgressStatus } from '@manaratak/domain';
 import { AuthMiddleware } from '../../middleware/AuthMiddleware';
 
 export class CourseLearnerRouter {
-  public static create(cradle: { courseProgressUseCases: CourseProgressUseCases; learningPathUseCases: LearningPathUseCases; tokenProvider: ITokenProvider }): Router {
+  public static create(cradle: { courseProgressUseCases: CourseProgressUseCases; learningPathUseCases: LearningPathUseCases; tokenProvider: ITokenProvider; sessionManager?: ISessionManager }): Router {
     const router = Router();
-    const { courseProgressUseCases, learningPathUseCases, tokenProvider } = cradle;
+    const { courseProgressUseCases, learningPathUseCases, tokenProvider, sessionManager } = cradle;
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => Promise.resolve(fn(req, res, next)).catch(next);
-    router.use(new AuthMiddleware(tokenProvider).generate());
+    router.use(new AuthMiddleware(tokenProvider, sessionManager).generate());
     const student = (req: Request) => { if (!req.authUserId) throw new Error('STUDENT_AUTHENTICATION_REQUIRED'); return req.authUserId; };
     const context = (req: Request) => ({ actorId: student(req), actorType: 'IDENTITY', correlationId: (req.headers['x-correlation-id'] as string | undefined) || (req.headers['x-request-id'] as string | undefined), source: 'student-course-api' });
 

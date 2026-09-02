@@ -18,8 +18,8 @@ export class AuthorizationMiddleware {
         }
 
         next();
-      } catch (error: any) {
-        res.status(403).json({ message: error.message || 'Forbidden' });
+      } catch {
+        res.status(403).json({ message: 'Forbidden' });
       }
     };
   }
