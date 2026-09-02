@@ -65,7 +65,13 @@ if (command === 'memory') {
   if (!fs.existsSync(parserSource)) fatal('CourseMasterArtifactParser source not found.');
   // Bundle the production parser as Node-loadable ESM; this avoids relying on
   // workspace export maps while still rehearsing the exact parser implementation.
-  execFileSync(process.execPath, [path.join(repoRoot, 'node_modules/esbuild/bin/esbuild'), parserSource, '--bundle', '--platform=node', '--format=cjs', `--outfile=${parserModule}`], { stdio: 'inherit' });
+  const esbuildExecutable = path.join(repoRoot, 'node_modules/esbuild/bin/esbuild');
+  const esbuildArgs = [parserSource, '--bundle', '--platform=node', '--format=cjs', `--outfile=${parserModule}`];
+  // The npm package exposes a JavaScript shim on Windows and a native ELF
+  // executable on Linux/macOS, so only the Windows shim is launched via Node.
+  execFileSync(process.platform === 'win32' ? process.execPath : esbuildExecutable,
+    process.platform === 'win32' ? [esbuildExecutable, ...esbuildArgs] : esbuildArgs,
+    { stdio: 'inherit' });
   const { CourseMasterArtifactParser } = createRequire(import.meta.url)(parserModule);
   const parsed = await CourseMasterArtifactParser.parse({
     bytes: new Uint8Array(bytes),
