@@ -2,10 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildFinalReport,
+  declaresSupportedNodeEngine,
   normalizeBaseUrl,
   renderFinalMarkdown,
   validateMemoryResult,
 } from '../../scripts/wp-ic-10-runtime-lib.mjs';
+
+test('node engine gate accepts supported minimum versions without pinning Node 20', () => {
+  assert.equal(declaresSupportedNodeEngine('>=20'), true);
+  assert.equal(declaresSupportedNodeEngine('>=22.16.0 <23'), true);
+  assert.equal(declaresSupportedNodeEngine('>=18 <19'), false);
+  assert.equal(declaresSupportedNodeEngine(''), false);
+});
 
 test('normalizeBaseUrl requires HTTPS for non-local runtime targets', () => {
   assert.equal(normalizeBaseUrl('https://example.org/'), 'https://example.org');

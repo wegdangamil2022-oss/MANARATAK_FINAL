@@ -32,6 +32,11 @@ export function gate(name, pass, detail, extra = {}) {
   return { name, pass: Boolean(pass), detail: String(detail ?? ''), ...extra };
 }
 
+export function declaresSupportedNodeEngine(value) {
+  const minimumMajor = String(value ?? '').match(/>=\s*(\d+)/)?.[1];
+  return minimumMajor !== undefined && Number(minimumMajor) >= 20;
+}
+
 export function validateMemoryResult(input) {
   const failures = [];
   if (Number(input.rowsObserved) !== Number(input.rowsExpected)) failures.push('ROW_COUNT_MISMATCH');
@@ -136,7 +141,7 @@ export function securityAudit(repoRoot) {
   let pkg = {};
   try { pkg = JSON.parse(text.packageJson); } catch {}
   const scripts = pkg.scripts ?? {};
-  checks.push(gate('node-engine', String(pkg.engines?.node ?? '').includes('>=20'), 'Node 20+ is declared'));
+  checks.push(gate('node-engine', declaresSupportedNodeEngine(pkg.engines?.node), 'Node 20+ is declared'));
   for (const name of ['typecheck', 'lint', 'build', 'test:unit', 'test:database', 'e2e']) {
     checks.push(gate(`script:${name}`, typeof scripts[name] === 'string' && scripts[name].length > 0, `repository script ${name}`));
   }
