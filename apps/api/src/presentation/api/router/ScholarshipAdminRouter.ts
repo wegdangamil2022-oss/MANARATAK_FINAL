@@ -261,6 +261,42 @@ export class ScholarshipAdminRouter {
       displayOrder: z.number().int().optional(),
     });
 
+    const canonicalRelationshipsSchema = z.object({
+      countryReferenceId: z.string().min(1).nullable().optional(),
+      studyLanguageReferenceId: z.string().min(1).nullable().optional(),
+      benefits: z.array(benefitSchema.extend({
+        currencyReferenceId: z.string().min(1).nullable().optional(),
+        metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+      })).optional(),
+      degreeTargets: z.array(degreeTargetSchema.extend({
+        degreeLevelId: z.string().min(1).nullable().optional(),
+        metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+      })).optional(),
+      majorTargets: z.array(majorTargetSchema.extend({
+        majorId: z.string().min(1).nullable().optional(),
+        metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+      })).optional(),
+      eligibilityItems: z.array(eligibilityItemSchema.extend({
+        countryReferenceId: z.string().min(1).nullable().optional(),
+        degreeLevelId: z.string().min(1).nullable().optional(),
+        majorId: z.string().min(1).nullable().optional(),
+        internationalTestId: z.string().min(1).nullable().optional(),
+        metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+      })).optional(),
+      requiredDocumentItems: z.array(requiredDocumentSchema.extend({
+        internationalTestId: z.string().min(1).nullable().optional(),
+        metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+      })).optional(),
+      universityLinks: z.array(z.object({
+        linkKey: z.string().min(1),
+        universityId: z.string().min(1).nullable().optional(),
+        academicProgramId: z.string().min(1).nullable().optional(),
+        sourceLabel: nullableText,
+        relationshipTypeCode: z.string().min(1).optional(),
+        metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+      })).optional(),
+    }).strict();
+
     const updateBodySchema = z.object({
       displayName: z.string().min(1).optional(),
       providerName: nullableText,
@@ -717,6 +753,22 @@ export class ScholarshipAdminRouter {
         const scholarship = await adminScholarshipUseCases.updateScholarship(
           req.params.id,
           updates as UpdateScholarshipDto,
+          mutationContext(req),
+        );
+        res.json(scholarship);
+      }),
+    );
+
+
+    // PUT /admin/scholarships/:id/canonical-relationships
+    // P9/P23 authoring writes canonical IDs through the Scholarship owner Application API.
+    router.put(
+      '/:id/canonical-relationships',
+      asyncHandler(async (req: Request, res: Response) => {
+        const input = canonicalRelationshipsSchema.parse(req.body);
+        const scholarship = await adminScholarshipUseCases.replaceCanonicalRelationships(
+          req.params.id,
+          input,
           mutationContext(req),
         );
         res.json(scholarship);

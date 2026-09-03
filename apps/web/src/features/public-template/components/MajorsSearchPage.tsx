@@ -9,7 +9,6 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { Major, DegreeLevel } from '../types';
-import { MOCK_MAJORS } from '../data/mockData';
 import { MajorCard } from './MajorCard';
 
 interface MajorsSearchPageProps {
@@ -35,7 +34,7 @@ const getMajorDegreeLevels = (major: Major): DegreeLevel[] => {
 };
 
 export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
-  majors = MOCK_MAJORS,
+  majors = [],
   onBack,
   onSelectMajor,
   favoriteIds = [],

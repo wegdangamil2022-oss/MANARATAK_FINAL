@@ -22,6 +22,8 @@ describe('AdminUniversityUseCases', () => {
       updateImportLink: vi.fn(),
       listByStatus: vi.fn(),
       list: vi.fn(),
+      upsertAcademicProgram: vi.fn(),
+      archiveAcademicProgram: vi.fn(),
     };
     useCases = new AdminUniversityUseCases(mockRepo);
   });
@@ -98,4 +100,48 @@ describe('AdminUniversityUseCases', () => {
 
     await expect(useCases.publish('uni-1')).rejects.toThrow('Only READY_TO_PUBLISH');
   });
+  it('updates an AcademicProgram through the owner repository without replacing its canonical ID', async () => {
+    mockRepo.findById = vi.fn().mockResolvedValue({
+      id: 'uni-1', publicId: 'INS-QAT-0001', status: UniversityStatus.READY_TO_REVIEW,
+      completenessStatus: UniversityImportCompletenessState.COMPLETE,
+    });
+    mockRepo.upsertAcademicProgram = vi.fn().mockResolvedValue({ id: 'uni-1' } as any);
+
+    await useCases.upsertAcademicProgram('uni-1', 'program-1', {
+      sourceReferenceId: 'source-program-1', sourceProgramName: 'Computer Science',
+      degreeLevelId: 'degree-bachelor', majorId: 'major-cs', majorMappingState: 'CANONICALLY_MAPPED',
+      campusIds: ['campus-1'], admissionRequirements: [{ internationalTestId: 'test-ielts', minimumScore: 6.5 }],
+    });
+
+    expect(mockRepo.upsertAcademicProgram).toHaveBeenCalledWith('uni-1', 'program-1', expect.objectContaining({
+      degreeLevelId: 'degree-bachelor', majorId: 'major-cs',
+    }));
+  });
+
+  it('archives an AcademicProgram instead of hard-deleting its canonical identity', async () => {
+    mockRepo.findById = vi.fn().mockResolvedValue({
+      id: 'uni-1', status: UniversityStatus.READY_TO_REVIEW, completenessStatus: UniversityImportCompletenessState.COMPLETE,
+    });
+    mockRepo.archiveAcademicProgram = vi.fn().mockResolvedValue({ id: 'uni-1' } as any);
+
+    await useCases.archiveAcademicProgram('uni-1', 'program-1');
+
+    expect(mockRepo.archiveAcademicProgram).toHaveBeenCalledWith('uni-1', 'program-1');
+  });
+
+  it('blocks canonical relationship changes while the University is published', async () => {
+    mockRepo.findById = vi.fn().mockResolvedValue({
+      id: 'uni-1', status: UniversityStatus.PUBLISHED, completenessStatus: UniversityImportCompletenessState.COMPLETE,
+      countryReferenceId: 'country-old',
+    });
+
+    await expect(useCases.updateUniversity('uni-1', { countryReferenceId: 'country-new' }))
+      .rejects.toThrow('UNIVERSITY_PUBLISHED_STRUCTURE_IMMUTABLE');
+    await expect(useCases.upsertAcademicProgram('uni-1', 'program-1', {
+      sourceProgramName: 'Computer Science', degreeLevelId: 'degree-bachelor', majorMappingState: 'UNMAPPED',
+    })).rejects.toThrow('UNIVERSITY_PUBLISHED_STRUCTURE_IMMUTABLE');
+    expect(mockRepo.update).not.toHaveBeenCalled();
+    expect(mockRepo.upsertAcademicProgram).not.toHaveBeenCalled();
+  });
+
 });

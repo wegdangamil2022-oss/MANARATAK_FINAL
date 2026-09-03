@@ -24,6 +24,7 @@ export class PrismaScholarshipCanonicalLookupGateway
       case 'DEGREE_LEVEL': return this.findDegreeLevel(request);
       case 'MAJOR': return this.findMajor(request);
       case 'INTERNATIONAL_TEST': return this.findInternationalTest(request);
+      default: throw new Error(`SCHOLARSHIP_CANONICAL_TARGET_UNSUPPORTED:${String(target)}`);
     }
   }
 
@@ -31,14 +32,14 @@ export class PrismaScholarshipCanonicalLookupGateway
     request: ScholarshipCanonicalResolutionRequest,
   ): Promise<ScholarshipCanonicalCandidate[]> {
     if (!request.canonicalId) return [];
-    const record = await this.prisma.university.findUnique({
-      where: { publicId: request.canonicalId },
-      select: { id: true, publicId: true, canonicalName: true, displayName: true },
+    const record = await this.prisma.university.findFirst({
+      where: { OR: [{ id: request.canonicalId }, { publicId: request.canonicalId }] },
+      select: { id: true, publicId: true, canonicalName: true, displayName: true, status: true },
     });
     return record ? [{
       target: 'UNIVERSITY', id: record.id, publicId: record.publicId,
-      canonicalName: record.canonicalName, displayName: record.displayName,
-      method: 'EXACT_PUBLIC_ID',
+      canonicalName: record.canonicalName, displayName: record.displayName, lifecycle: record.status,
+      method: record.id === request.canonicalId ? 'EXACT_CANONICAL_ID' : 'EXACT_PUBLIC_ID',
     }] : [];
   }
 
@@ -48,13 +49,13 @@ export class PrismaScholarshipCanonicalLookupGateway
     if (!request.canonicalId) return [];
     const record = await this.prisma.universityAcademicProgram.findUnique({
       where: { id: request.canonicalId },
-      select: { id: true, sourceProgramName: true, normalizedName: true },
+      select: { id: true, universityId: true, sourceProgramName: true, normalizedName: true, status: true },
     });
     return record ? [{
       target: 'ACADEMIC_PROGRAM',
       id: record.id,
       canonicalName: record.normalizedName || record.sourceProgramName,
-      displayName: record.sourceProgramName,
+      displayName: record.sourceProgramName, ownerId: record.universityId, lifecycle: record.status,
       method: 'EXACT_CANONICAL_ID',
     }] : [];
   }
@@ -64,7 +65,7 @@ export class PrismaScholarshipCanonicalLookupGateway
   ): Promise<ScholarshipCanonicalCandidate[]> {
     if (request.canonicalId) {
       const record = await this.prisma.referenceCountry.findUnique({ where: { id: request.canonicalId } });
-      return record ? [this.referenceCandidate('COUNTRY', record.id, record.iso2Code, record.name, 'EXACT_CANONICAL_ID')] : [];
+      return record ? [this.referenceCandidate('COUNTRY', record.id, record.iso2Code, record.name, 'EXACT_CANONICAL_ID', record.isActive === false ? 'INACTIVE' : 'ACTIVE')] : [];
     }
     if (request.standardCode) {
       const expected = request.standardCode.toUpperCase();
@@ -89,7 +90,7 @@ export class PrismaScholarshipCanonicalLookupGateway
   ): Promise<ScholarshipCanonicalCandidate[]> {
     if (request.canonicalId) {
       const record = await this.prisma.referenceLanguage.findUnique({ where: { id: request.canonicalId } });
-      return record ? [this.referenceCandidate('LANGUAGE', record.id, record.isoCode, record.name, 'EXACT_CANONICAL_ID')] : [];
+      return record ? [this.referenceCandidate('LANGUAGE', record.id, record.isoCode, record.name, 'EXACT_CANONICAL_ID', record.isActive === false ? 'INACTIVE' : 'ACTIVE')] : [];
     }
     if (request.standardCode) {
       const records = await this.prisma.referenceLanguage.findMany({
@@ -113,7 +114,7 @@ export class PrismaScholarshipCanonicalLookupGateway
   ): Promise<ScholarshipCanonicalCandidate[]> {
     if (request.canonicalId) {
       const record = await this.prisma.referenceCurrency.findUnique({ where: { id: request.canonicalId } });
-      return record ? [this.referenceCandidate('CURRENCY', record.id, record.isoCode, record.name, 'EXACT_CANONICAL_ID')] : [];
+      return record ? [this.referenceCandidate('CURRENCY', record.id, record.isoCode, record.name, 'EXACT_CANONICAL_ID', record.isActive === false ? 'INACTIVE' : 'ACTIVE')] : [];
     }
     if (request.standardCode) {
       const records = await this.prisma.referenceCurrency.findMany({
@@ -136,7 +137,7 @@ export class PrismaScholarshipCanonicalLookupGateway
   ): Promise<ScholarshipCanonicalCandidate[]> {
     if (request.canonicalId) {
       const record = await this.prisma.degreeLevel.findUnique({ where: { id: request.canonicalId } });
-      return record ? [this.degreeCandidate(record, 'EXACT_CANONICAL_ID')] : [];
+      return record ? [{ ...this.degreeCandidate(record, 'EXACT_CANONICAL_ID'), lifecycle: record.status }] : [];
     }
     if (request.standardCode) {
       const record = await this.prisma.degreeLevel.findUnique({ where: { canonicalCode: request.standardCode } });
@@ -160,14 +161,14 @@ export class PrismaScholarshipCanonicalLookupGateway
     request: ScholarshipCanonicalResolutionRequest,
   ): Promise<ScholarshipCanonicalCandidate[]> {
     if (request.canonicalId) {
-      const record = await this.prisma.major.findUnique({
-        where: { publicId: request.canonicalId },
-        select: { id: true, publicId: true, canonicalName: true, displayName: true },
+      const record = await this.prisma.major.findFirst({
+        where: { OR: [{ id: request.canonicalId }, { publicId: request.canonicalId }] },
+        select: { id: true, publicId: true, canonicalName: true, displayName: true, status: true },
       });
       return record ? [{
         target: 'MAJOR', id: record.id, publicId: record.publicId,
-        canonicalName: record.canonicalName, displayName: record.displayName,
-        method: 'EXACT_PUBLIC_ID',
+        canonicalName: record.canonicalName, displayName: record.displayName, lifecycle: record.status,
+        method: record.id === request.canonicalId ? 'EXACT_CANONICAL_ID' : 'EXACT_PUBLIC_ID',
       }] : [];
     }
     if (!request.rawValue) return [];
@@ -203,14 +204,14 @@ export class PrismaScholarshipCanonicalLookupGateway
     request: ScholarshipCanonicalResolutionRequest,
   ): Promise<ScholarshipCanonicalCandidate[]> {
     if (request.canonicalId) {
-      const record = await this.prisma.internationalTest.findUnique({
-        where: { publicId: request.canonicalId },
-        select: { id: true, publicId: true, canonicalName: true, displayName: true, abbreviation: true },
+      const record = await this.prisma.internationalTest.findFirst({
+        where: { OR: [{ id: request.canonicalId }, { publicId: request.canonicalId }] },
+        select: { id: true, publicId: true, canonicalName: true, displayName: true, abbreviation: true, status: true },
       });
       return record ? [{
         target: 'INTERNATIONAL_TEST', id: record.id, publicId: record.publicId,
-        canonicalName: record.canonicalName, displayName: record.displayName,
-        method: 'EXACT_PUBLIC_ID',
+        canonicalName: record.canonicalName, displayName: record.displayName, lifecycle: record.status,
+        method: record.id === request.canonicalId ? 'EXACT_CANONICAL_ID' : 'EXACT_PUBLIC_ID',
       }] : [];
     }
     if (!request.rawValue) return [];
@@ -238,8 +239,9 @@ export class PrismaScholarshipCanonicalLookupGateway
     standardCode: string,
     canonicalName: string,
     method: 'EXACT_CANONICAL_ID' | 'EXACT_STANDARD_CODE' | 'EXACT_CANONICAL_NAME',
+    lifecycle?: string,
   ): ScholarshipCanonicalCandidate {
-    return { target, id, standardCode, canonicalName, displayName: canonicalName, method };
+    return { target, id, standardCode, canonicalName, displayName: canonicalName, lifecycle, method };
   }
 
   private degreeCandidate(

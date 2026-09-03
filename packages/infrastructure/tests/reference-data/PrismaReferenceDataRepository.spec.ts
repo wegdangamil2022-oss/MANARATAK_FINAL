@@ -455,6 +455,12 @@ describe('PrismaReferenceDataRepository', () => {
   });
 
   describe('Cities', () => {
+    beforeEach(() => {
+      mockPrisma.referenceCountry.findUnique.mockImplementation(async ({ where }: any) => {
+        const iso2Code = where?.iso2Code ?? (where?.id === 'country-eg' ? 'EG' : undefined);
+        return iso2Code ? { id: `country-${String(iso2Code).toLowerCase()}`, iso2Code } : null;
+      });
+    });
     it('listCities builds bounded filters and maps the administrative region relation', async () => {
       mockPrisma.referenceCity.findMany.mockResolvedValue([
         {
@@ -633,6 +639,7 @@ describe('PrismaReferenceDataRepository', () => {
 
     it('uses database upsert on the unique canonical key for a new W3 city identity', async () => {
       const input: UpsertReferenceCityDto = {
+        countryReferenceId: 'country-eg',
         countryIso2Code: 'EG',
         name: 'Aswan',
         region: 'Aswan Governorate',
@@ -662,6 +669,7 @@ describe('PrismaReferenceDataRepository', () => {
       expect(call.where.canonicalIdentityKey).toMatch(/^[a-f0-9]{64}$/);
       expect(call.create).toMatchObject({
         canonicalIdentityKey: call.where.canonicalIdentityKey,
+        countryReferenceId: 'country-eg',
         countryIso2Code: 'EG',
         name: 'Aswan',
         region: 'Aswan Governorate',

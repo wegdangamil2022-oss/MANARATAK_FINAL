@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft, Award, Search, X, Clock, ShieldCheck, Languages } from 'lucide-react';
 import { Exam } from '../types';
-import { MOCK_EXAMS } from '../data/mockData';
 import { FavoriteButton } from './FavoriteButton';
 
 interface ExamsSearchPageProps {
@@ -14,7 +13,7 @@ interface ExamsSearchPageProps {
 }
 
 export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
-  exams = MOCK_EXAMS,
+  exams = [],
   onBack,
   onSelectExam,
   initialQuery = '',

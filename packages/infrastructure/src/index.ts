@@ -158,3 +158,8 @@ export * from './translation-import';
 export * from './courses/PrismaCourseEnrollmentPolicyRepository';
 export * from './courses/PrismaCourseFinancialClearanceGateway';
 export * from './courses/PrismaLearningPathRepository';
+
+export * from './services-platform';
+
+export * from './career-alumni';
+export * from './students/StudentSavedItemHydrationGateways';

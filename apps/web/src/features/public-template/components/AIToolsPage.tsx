@@ -20,11 +20,11 @@ import {
   StudentToolExecutionLabel,
   StudentToolPreview,
 } from '../types';
-import { STUDENT_TOOL_CATEGORIES, STUDENT_TOOLS_PREVIEW } from '../data/studentToolsData';
 import { FavoriteButton } from './FavoriteButton';
 
 interface AIToolsPageProps {
   detailId?: string;
+  tools: StudentToolPreview[];
   onDetailChange?: (id: string) => void;
   onBack?: () => void;
   onNavigateCategory?: (category: CategoryType) => void;
@@ -301,6 +301,7 @@ const ToolDetailView: React.FC<{
 
 export const AIToolsPage: React.FC<AIToolsPageProps> = ({
   detailId, onDetailChange,
+  tools,
   onBack,
   onNavigateCategory,
   onOpenService,
@@ -313,15 +314,17 @@ export const AIToolsPage: React.FC<AIToolsPageProps> = ({
   const [selectedAvailability, setSelectedAvailability] = useState<'الكل' | StudentToolAvailability>('الكل');
   const [selectedType, setSelectedType] = useState<'الكل' | StudentToolExecutionLabel>('الكل');
   const [localDetail, setLocalDetail] = useState<StudentToolPreview | null>(() =>
-    initialSelectedId ? STUDENT_TOOLS_PREVIEW.find((item) => item.id === initialSelectedId) || null : null,
+    initialSelectedId ? tools.find((item) => item.id === initialSelectedId) || null : null,
   );
-  const selectedTool = detailId !== undefined ? (STUDENT_TOOLS_PREVIEW.find(item => item.id === detailId) || (STUDENT_TOOLS_PREVIEW.find(item => item.id === initialSelectedId)) || null) : localDetail;
+  const selectedTool = detailId !== undefined ? (tools.find(item => item.id === detailId) || (tools.find(item => item.id === initialSelectedId)) || null) : localDetail;
   const setSelectedTool = (value: StudentToolPreview | null) => onDetailChange ? onDetailChange(value?.id || '') : setLocalDetail(value);
 
 
+  const toolCategories = useMemo(() => Array.from(new Set(tools.map((tool) => tool.category))), [tools]);
+
   const filteredTools = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return STUDENT_TOOLS_PREVIEW.filter((tool) => {
+    return tools.filter((tool) => {
       const searchable = [
         tool.title,
         tool.titleEn,
@@ -342,7 +345,7 @@ export const AIToolsPage: React.FC<AIToolsPageProps> = ({
         (selectedType === 'الكل' || tool.executionLabel === selectedType)
       );
     });
-  }, [searchQuery, selectedCategory, selectedAvailability, selectedType]);
+  }, [tools, searchQuery, selectedCategory, selectedAvailability, selectedType]);
 
   const resetFilters = () => {
     setSearchQuery('');
@@ -463,7 +466,7 @@ export const AIToolsPage: React.FC<AIToolsPageProps> = ({
               <ChevronDown className="w-3.5 h-3.5 text-[var(--mn-text-muted)] mt-1" />
               <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value as 'الكل' | StudentToolCategory)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" title="اختر مجال الأداة">
                 <option value="الكل">كل المجالات</option>
-                {STUDENT_TOOL_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+                {toolCategories.map((category) => <option key={category} value={category}>{category}</option>)}
               </select>
             </div>
 
@@ -496,7 +499,7 @@ export const AIToolsPage: React.FC<AIToolsPageProps> = ({
         <div className="flex items-center justify-between px-1">
           <div>
             <span className="text-xs sm:text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">الأدوات المتاحة ({filteredTools.length})</span>
-            <p className="mt-0.5 text-[9px] sm:text-[10px] text-[var(--mn-text-muted)] font-medium">نسخة تجريبية: بطاقتان فقط لاختبار الشكل والربط.</p>
+            <p className="mt-0.5 text-[9px] sm:text-[10px] text-[var(--mn-text-muted)] font-medium">البيانات المعروضة تأتي من كتالوج الأدوات المنشور في منارتك.</p>
           </div>
           <span className="text-[9px] sm:text-[10px] text-[var(--mn-accent-text)] font-bold font-['Cairo',sans-serif]">Phase 18</span>
         </div>
@@ -505,9 +508,9 @@ export const AIToolsPage: React.FC<AIToolsPageProps> = ({
           {filteredTools.length === 0 ? (
             <div className="bg-[var(--mn-surface)] border border-[var(--mn-border)] rounded-3xl p-8 text-center flex flex-col items-center justify-center gap-2 shadow-2xs mn-panel ">
               <div className="w-12 h-12 rounded-full bg-[var(--mn-surface-muted)] flex items-center justify-center text-[var(--mn-text-muted)] mn-panel "><Search className="w-6 h-6" /></div>
-              <h3 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">لا توجد أداة مطابقة في النموذج التجريبي</h3>
-              <p className="text-xs text-[var(--mn-text-muted)] max-w-xs font-['Cairo',sans-serif]">الفلاتر مبنية على كتالوج Phase 18 الكامل، بينما هذه النسخة تعرض بطاقتين فقط للتجربة.</p>
-              <button onClick={resetFilters} className="mt-2 px-4 py-1.5 bg-[var(--mn-primary)] text-white rounded-xl text-xs font-bold cursor-pointer font-['Cairo',sans-serif] mn-inverse ">إلغاء التصفية وعرض النموذج</button>
+              <h3 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">لا توجد أداة مطابقة</h3>
+              <p className="text-xs text-[var(--mn-text-muted)] max-w-xs font-['Cairo',sans-serif]">غيّر الفلاتر أو أعد البحث في كتالوج الأدوات المنشور.</p>
+              <button onClick={resetFilters} className="mt-2 px-4 py-1.5 bg-[var(--mn-primary)] text-white rounded-xl text-xs font-bold cursor-pointer font-['Cairo',sans-serif] mn-inverse ">إلغاء التصفية</button>
             </div>
           ) : (
             filteredTools.map((tool) => (

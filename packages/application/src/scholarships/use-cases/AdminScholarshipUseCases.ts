@@ -12,12 +12,30 @@ import {
   ScholarshipDeduplicationService,
   ScholarshipNamingService,
   ScholarshipRepositoryUpdateDto,
+  ScholarshipBenefitDto,
+  ScholarshipDegreeTargetDto,
+  ScholarshipMajorTargetDto,
+  ScholarshipEligibilityItemDto,
+  ScholarshipRequiredDocumentDto,
+  ScholarshipUniversityLinkDto,
 } from '@manaratak/domain';
+import type { IScholarshipCanonicalLookupGateway, ScholarshipCanonicalLookupTarget } from '../resolution';
 import { AtomicDomainMutationCoordinator, AtomicMutationRequestContext } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
 
 type AdminScholarshipRepository = IScholarshipRepository & {
   getAdminSummary?: () => Promise<Record<string, number>>;
 };
+export interface ScholarshipCanonicalAuthoringInput {
+  countryReferenceId?: string | null;
+  studyLanguageReferenceId?: string | null;
+  benefits?: ScholarshipBenefitDto[];
+  degreeTargets?: ScholarshipDegreeTargetDto[];
+  majorTargets?: ScholarshipMajorTargetDto[];
+  eligibilityItems?: ScholarshipEligibilityItemDto[];
+  requiredDocumentItems?: ScholarshipRequiredDocumentDto[];
+  universityLinks?: ScholarshipUniversityLinkDto[];
+}
+
 type AdminScholarshipFilters = ScholarshipFilters & {
   fundingCoverage?: string; sponsorName?: string; verificationStatus?: string;
   translationState?: 'NEEDS_TRANSLATION' | 'TRANSLATED'; deadlineFrom?: Date; deadlineTo?: Date;
@@ -25,7 +43,11 @@ type AdminScholarshipFilters = ScholarshipFilters & {
 };
 
 export class AdminScholarshipUseCases {
-  constructor(private readonly repository: AdminScholarshipRepository, private readonly atomicMutations?: AtomicDomainMutationCoordinator) {}
+  constructor(
+    private readonly repository: AdminScholarshipRepository,
+    private readonly atomicMutations?: AtomicDomainMutationCoordinator,
+    private readonly canonicalLookup?: IScholarshipCanonicalLookupGateway,
+  ) {}
 
   public async listScholarships(filters: AdminScholarshipFilters): Promise<PaginatedResult<ScholarshipDto>> {
     return this.repository.list(filters);
@@ -200,6 +222,88 @@ export class AdminScholarshipUseCases {
     });
   }
 
+
+  public async replaceCanonicalRelationships(
+    id: string,
+    input: ScholarshipCanonicalAuthoringInput,
+    context?: AtomicMutationRequestContext,
+  ): Promise<ScholarshipDto> {
+    const existing = await this.getScholarship(id);
+    if (existing.publicationStatus === ScholarshipPublicationStatus.PUBLISHED) {
+      throw new Error('SCHOLARSHIP_PUBLISHED_STRUCTURE_IMMUTABLE');
+    }
+    if (!this.canonicalLookup) throw new Error('SCHOLARSHIP_CANONICAL_LOOKUP_NOT_CONFIGURED');
+
+    await this.assertCanonicalReference('COUNTRY', input.countryReferenceId);
+    await this.assertCanonicalReference('LANGUAGE', input.studyLanguageReferenceId);
+
+    const benefits = input.benefits === undefined ? undefined : await Promise.all(input.benefits.map(async item => {
+      await this.assertCanonicalReference('CURRENCY', item.currencyReferenceId);
+      return { ...item };
+    }));
+    const degreeTargets = input.degreeTargets === undefined ? undefined : await Promise.all(input.degreeTargets.map(async item => {
+      await this.assertCanonicalReference('DEGREE_LEVEL', item.degreeLevelId);
+      return { ...item, resolutionStatus: item.degreeLevelId ? 'RESOLVED' : 'UNRESOLVED' };
+    }));
+    const majorTargets = input.majorTargets === undefined ? undefined : await Promise.all(input.majorTargets.map(async item => {
+      await this.assertCanonicalReference('MAJOR', item.majorId);
+      return { ...item, resolutionStatus: item.majorId ? 'RESOLVED' : 'UNRESOLVED' };
+    }));
+    const eligibilityItems = input.eligibilityItems === undefined ? undefined : await Promise.all(input.eligibilityItems.map(async item => {
+      await this.assertCanonicalReference('COUNTRY', item.countryReferenceId);
+      await this.assertCanonicalReference('DEGREE_LEVEL', item.degreeLevelId);
+      await this.assertCanonicalReference('MAJOR', item.majorId);
+      await this.assertCanonicalReference('INTERNATIONAL_TEST', item.internationalTestId);
+      const hasCanonicalRelationship = Boolean(item.countryReferenceId || item.degreeLevelId || item.majorId || item.internationalTestId);
+      return { ...item, resolutionStatus: hasCanonicalRelationship ? 'RESOLVED' : 'UNRESOLVED' };
+    }));
+    const requiredDocumentItems = input.requiredDocumentItems === undefined ? undefined : await Promise.all(input.requiredDocumentItems.map(async item => {
+      await this.assertCanonicalReference('INTERNATIONAL_TEST', item.internationalTestId);
+      return { ...item, resolutionStatus: item.internationalTestId ? 'RESOLVED' : (item.sourceLabel ? 'UNRESOLVED' : 'NOT_APPLICABLE') };
+    }));
+    const universityLinks = input.universityLinks === undefined ? undefined : await Promise.all(input.universityLinks.map(async item => {
+      const university = await this.assertCanonicalReference('UNIVERSITY', item.universityId);
+      const program = await this.assertCanonicalReference('ACADEMIC_PROGRAM', item.academicProgramId);
+      if (program && university && program.ownerId && program.ownerId !== university.id) {
+        throw new Error(`SCHOLARSHIP_ACADEMIC_PROGRAM_UNIVERSITY_MISMATCH:${item.linkKey}`);
+      }
+      return { ...item, resolutionStatus: item.universityId ? 'RESOLVED' : 'UNRESOLVED' };
+    }));
+
+    const dataToUpdate: ScholarshipRepositoryUpdateDto = {
+      countryReferenceId: input.countryReferenceId,
+      studyLanguageReferenceId: input.studyLanguageReferenceId,
+      studyLanguageResolutionStatus: input.studyLanguageReferenceId ? 'RESOLVED' : 'UNRESOLVED',
+      benefits,
+      degreeTargets,
+      majorTargets,
+      eligibilityItems,
+      requiredDocumentItems,
+      universityLinks,
+    };
+    dataToUpdate.completenessStatus = this.catalogCompleteness(existing, dataToUpdate).state;
+
+    if (input.countryReferenceId !== undefined && input.countryReferenceId !== existing.countryReferenceId) {
+      const cleanedName = ScholarshipNamingService.clean(existing.canonicalName).cleanedScholarshipName;
+      dataToUpdate.canonicalDedupKey = ScholarshipDeduplicationService.buildKey({
+        cleanedScholarshipName: cleanedName,
+        providerName: existing.providerName,
+        year: existing.academicYear,
+        countryReferenceId: input.countryReferenceId,
+        countrySourceLabel: existing.countrySourceLabel,
+        officialSourceUrl: existing.officialSourceUrl,
+      }).duplicateKey;
+    }
+
+    return this.mutate('SCHOLARSHIP_CANONICAL_RELATIONSHIPS_REPLACED', id, context, async repository => {
+      if (dataToUpdate.canonicalDedupKey && dataToUpdate.canonicalDedupKey !== existing.canonicalDedupKey) {
+        const owner = await repository.findByDedupKey(dataToUpdate.canonicalDedupKey);
+        if (owner && owner.id !== existing.id) throw new Error('SCHOLARSHIP_CANONICAL_DEDUPE_COLLISION');
+      }
+      return repository.update(id, dataToUpdate);
+    });
+  }
+
   public async markReadyToReview(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const existing = await this.getScholarship(id);
     if (existing.completenessStatus === ScholarshipCompletenessState.INCOMPLETE) {
@@ -250,6 +354,19 @@ export class AdminScholarshipUseCases {
       workflowStatus: ScholarshipStatus.ARCHIVED,
       publicationStatus: ScholarshipPublicationStatus.ARCHIVED,
     }, context);
+  }
+
+
+  private async assertCanonicalReference(target: ScholarshipCanonicalLookupTarget, id: string | null | undefined) {
+    if (!id) return null;
+    if (!this.canonicalLookup) throw new Error('SCHOLARSHIP_CANONICAL_LOOKUP_NOT_CONFIGURED');
+    const candidates = await this.canonicalLookup.findCandidates(target, { target, canonicalId: id });
+    const candidate = candidates.find(item => item.id === id || item.publicId === id) ?? candidates[0];
+    if (!candidate) throw new Error(`SCHOLARSHIP_CANONICAL_REFERENCE_NOT_FOUND:${target}:${id}`);
+    if (candidate.lifecycle && /(?:DEPRECATED|ARCHIVED|SUPERSEDED|MERGED|REJECTED|INACTIVE|SUSPENDED)/u.test(candidate.lifecycle.toUpperCase())) {
+      throw new Error(`SCHOLARSHIP_CANONICAL_REFERENCE_NOT_ACTIVE:${target}:${id}:${candidate.lifecycle}`);
+    }
+    return candidate;
   }
 
   private assertPublicationReady(existing: ScholarshipDto): void {

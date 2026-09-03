@@ -145,7 +145,7 @@ export const ServicesDirectoryPage: React.FC<ServicesDirectoryPageProps> = ({
         <div className="mb-2 flex items-center justify-between px-1">
           <div>
             <h2 className="text-[13px] font-black text-[var(--mn-heading)]">الخدمات المتاحة</h2>
-            <p className="text-[9px] font-bold text-[var(--mn-text-muted)]">نسخة تجريبية لاختبار البطاقات والربط</p>
+            <p className="text-[9px] font-bold text-[var(--mn-text-muted)]">الخدمات المنشورة والمتاحة من كتالوج منارتك</p>
           </div>
           <span className="rounded-full border border-[var(--mn-accent)]/20 bg-[var(--mn-accent)]/10 px-2 py-1 text-[9px] font-black text-[var(--mn-accent-text)]">
             {filteredServices.length} خدمة

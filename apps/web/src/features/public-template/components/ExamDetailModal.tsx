@@ -28,7 +28,7 @@ interface ExamDetailModalProps {
   onClose: () => void;
   onOpenUniversity?: (universityId: string) => void;
   onOpenScholarship?: (scholarshipId: string) => void;
-  onOpenCountry?: (countryName: string) => void;
+  onOpenCountry?: (countryId: string) => void;
   onOpenArticle?: (articleId: string) => void;
   isFavorite?: boolean;
   onToggleFavorite?: (id: string) => void;
@@ -252,7 +252,7 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
 
         {(exam.relatedUniversities?.length || exam.relatedScholarships?.length || exam.relatedCountries?.length) && (
           <section>
-            <SectionTitle icon={<Globe2 className="h-4 w-4" />} title="ارتباطات منارتك" subtitle="روابط تجريبية مبنية على علاقات القبول والمنح والدول" />
+            <SectionTitle icon={<Globe2 className="h-4 w-4" />} title="ارتباطات منارتك" subtitle="روابط هوية مرتبطة بالقبول والمنح والدول عند توفرها" />
             {exam.relatedUniversities && exam.relatedUniversities.length > 0 && (
               <RelatedRow
                 title="جامعات وبرامج مرتبطة"
@@ -274,7 +274,7 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
                 title="دول مرتبطة بالاستخدام"
                 icon={<MapPin className="h-3.5 w-3.5" />}
                 items={exam.relatedCountries}
-                onSelect={(item) => onOpenCountry?.(item.name)}
+                onSelect={(item) => item.id && onOpenCountry?.(item.id)}
               />
             )}
           </section>

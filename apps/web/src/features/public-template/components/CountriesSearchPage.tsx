@@ -25,13 +25,13 @@ interface CountriesSearchPageProps {
   onDetailChange?: (id: string) => void;
   countries: CountryDestination[];
   onBack: () => void;
-  onSelectCountryScholarships?: (countryName: string) => void;
+  onSelectCountryScholarships?: (countryId: string) => void;
   onOpenUniversity?: (universityId: string) => void;
   onOpenScholarship?: (scholarshipId: string) => void;
   onOpenMajor?: (majorId: string) => void;
   onOpenExam?: (examId: string) => void;
   onOpenArticle?: (articleId: string) => void;
-  initialCountryName?: string;
+  initialCountryIdentity?: string;
   favoriteIds?: string[];
   onToggleFavorite?: (id: string) => void;
 }
@@ -166,7 +166,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
   onOpenMajor,
   onOpenExam,
   onOpenArticle,
-  initialCountryName,
+  initialCountryIdentity,
   favoriteIds = [],
   onToggleFavorite,
 }) => {
@@ -174,22 +174,23 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
   const [selectedContinent, setSelectedContinent] = useState('الكل');
   const [selectedCountryName, setSelectedCountryName] = useState('الكل');
   const [localDetail, setLocalDetail] = useState<CountryDestination | null>(null);
-  const activeCountryModal = detailId !== undefined ? (countries.find(item => item.id === detailId) || (countries.find(item => item.name === initialCountryName || item.nameEn.toLowerCase() === initialCountryName?.toLowerCase())) || null) : localDetail;
+  const activeCountryModal = detailId !== undefined ? (countries.find(item => item.id === detailId || item.publicId === detailId || item.slug === detailId || item.iso2Code === detailId.toUpperCase()) || null) : localDetail;
   const setActiveCountryModal = (value: CountryDestination | null) => onDetailChange ? onDetailChange(value?.id || '') : setLocalDetail(value);
 
 
   useEffect(() => {
-    if (detailId !== undefined || !initialCountryName) return;
-    const target = countries.find(
-      (country) =>
-        country.name === initialCountryName ||
-        country.nameEn.toLowerCase() === initialCountryName.toLowerCase(),
+    if (detailId !== undefined || !initialCountryIdentity) return;
+    const target = countries.find((country) =>
+      country.id === initialCountryIdentity ||
+      country.publicId === initialCountryIdentity ||
+      country.slug === initialCountryIdentity ||
+      country.iso2Code === initialCountryIdentity.toUpperCase(),
     );
     if (!target) return;
     setSelectedCountryName(target.name);
     setSearchQuery(target.name);
     setActiveCountryModal(target);
-  }, [countries, initialCountryName]);
+  }, [countries, detailId, initialCountryIdentity]);
 
   // Extract unique continents and countries
   const continents = useMemo(() => {
@@ -549,9 +550,10 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
           onOpenMajor={onOpenMajor}
           onOpenExam={onOpenExam}
           onOpenArticle={onOpenArticle}
-          onBrowseScholarships={(countryName) => {
+          onBrowseScholarships={() => {
+            const countryId = activeCountryModal.id;
             setActiveCountryModal(null);
-            onSelectCountryScholarships?.(countryName);
+            onSelectCountryScholarships?.(countryId);
           }}
         />
       )}

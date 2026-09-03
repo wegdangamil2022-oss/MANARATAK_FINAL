@@ -9,7 +9,7 @@ const client = () => ({
       .fn()
       .mockResolvedValue({ countryIso2Code: 'YE', administrativeRegionId: 'region-1' }),
   },
-  degreeLevel: { findUnique: vi.fn().mockResolvedValue({ id: 'degree-1' }) },
+  degreeLevel: { findUnique: vi.fn().mockResolvedValue({ id: 'degree-1', status: 'ACTIVE' }) },
   major: { findUnique: vi.fn().mockResolvedValue({ id: 'major-1' }) },
   majorLevelProfile: { findFirst: vi.fn().mockResolvedValue({ id: 'profile-1' }) },
   internationalTest: { findUnique: vi.fn().mockResolvedValue({ id: 'test-1' }) },
@@ -49,6 +49,10 @@ describe('UniversityCanonicalRelationshipValidator', () => {
   });
 
   it.each([
+    [
+      'UNIVERSITY_PROGRAM_DEGREE_LEVEL_NOT_ACTIVE',
+      (c: any) => c.degreeLevel.findUnique.mockResolvedValue({ id: 'degree-1', status: 'ARCHIVED' }),
+    ],
     [
       'UNIVERSITY_CAMPUS_CITY_COUNTRY_MISMATCH',
       (c: any) =>

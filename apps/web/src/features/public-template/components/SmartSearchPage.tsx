@@ -8,13 +8,13 @@ import {
   Sparkles,
   WandSparkles,
 } from 'lucide-react';
-import { CategoryType, Scholarship } from '../types';
-import { MOCK_UNIVERSITIES } from '../data/mockData';
+import { CategoryType, Scholarship, University } from '../types';
 
 interface SmartSearchPageProps {
   initialQuery: string;
   onQueryChange?: (query: string) => void;
   scholarships: Scholarship[];
+  universities: University[];
   onBack: () => void;
   onOpenNormalSearch: (query: string) => void;
   onOpenScholarship: (item: Scholarship) => void;
@@ -32,6 +32,7 @@ export const SmartSearchPage: React.FC<SmartSearchPageProps> = ({
   initialQuery,
   onQueryChange,
   scholarships,
+  universities,
   onBack,
   onOpenNormalSearch,
   onOpenScholarship,
@@ -69,7 +70,7 @@ export const SmartSearchPage: React.FC<SmartSearchPageProps> = ({
       .slice(0, 3)
       .map((entry) => entry.item);
 
-    const universityMatches = MOCK_UNIVERSITIES
+    const universityMatches = universities
       .map((item: any) => ({ item, score: score(item) }))
       .sort((a, b) => b.score - a.score)
       .filter((entry, index) => entry.score > 0 || index < 2)
@@ -84,7 +85,7 @@ export const SmartSearchPage: React.FC<SmartSearchPageProps> = ({
       scholarshipMatches,
       universityMatches,
     };
-  }, [submittedQuery, scholarships]);
+  }, [submittedQuery, scholarships, universities]);
 
   const hasQuery = submittedQuery.trim().length > 0;
 

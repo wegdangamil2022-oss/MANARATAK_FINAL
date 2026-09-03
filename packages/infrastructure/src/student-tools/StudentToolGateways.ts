@@ -4,6 +4,9 @@ import {
   IEnterpriseAIConsumerGateway,
   IScholarshipRecommendationGateway,
   IStudentToolRateLimitGateway,
+  IStudentContextGateway,
+  IReferenceResolver,
+  IDegreeLevelRepository,
   IStudentToolSaveGateway,
   IStudentWorkspaceRepository,
   IStudentToolDependencyHealthGateway,
@@ -77,6 +80,25 @@ export class Phase17StudentToolsAIConsumerGateway implements IEnterpriseAIConsum
   }
 }
 
+export class Phase15StudentContextGateway implements IStudentContextGateway {
+  constructor(private readonly repository: IStudentWorkspaceRepository) {}
+  async getMinimalContext(studentReference: string): ReturnType<IStudentContextGateway['getMinimalContext']> {
+    const workspace = await this.repository.findWorkspace(studentReference);
+    if (!workspace) return null;
+    const metadata = workspace.metadata ?? {};
+    const interests = Array.isArray(metadata.interests)
+      ? metadata.interests.filter((item): item is string => typeof item === 'string').slice(0, 20)
+      : undefined;
+    const preferred = workspace.preferredLanguage?.toLowerCase();
+    return {
+      preferredLocale: preferred === 'ar' || preferred === 'en' ? preferred : undefined,
+      educationalLevel: typeof metadata.educationalLevel === 'string' ? metadata.educationalLevel : undefined,
+      targetDegree: typeof metadata.targetDegree === 'string' ? metadata.targetDegree : undefined,
+      interests,
+    };
+  }
+}
+
 export class Phase15StudentToolSaveGateway implements IStudentToolSaveGateway {
   constructor(private readonly repository: IStudentWorkspaceRepository) {}
   async savePrivateResult(input: Parameters<IStudentToolSaveGateway['savePrivateResult']>[0]) {
@@ -139,72 +161,98 @@ export class CanonicalUniversityComparisonGateway implements IUniversityComparis
 }
 
 export class CanonicalScholarshipRecommendationGateway implements IScholarshipRecommendationGateway {
-  constructor(private readonly repository: IScholarshipRepository) {}
+  constructor(
+    private readonly repository: IScholarshipRepository,
+    private readonly references: IReferenceResolver,
+    private readonly degreeLevels: IDegreeLevelRepository,
+  ) {}
+
   async findPublishedCandidates(filters: {
     countries: string[];
     targetDegree?: string;
     fundingPreference?: string;
     studyLanguage?: string;
   }) {
-    // P3: P12 repository filters are canonical-id only. Student preference text is
-    // an orchestration concern here; it must not be converted into a persisted/domain relationship filter.
-    const pages = [await this.listAllPublished()];
-    const preferredCountries = new Set(filters.countries.map((value) => value.trim().toLowerCase()).filter(Boolean));
+    const countryIds = await this.resolveCountries(filters.countries);
+    const degreeLevelId = await this.resolveDegreeLevel(filters.targetDegree);
+    const languageReferenceId = await this.resolveLanguage(filters.studyLanguage);
+    const batches = countryIds.length ? countryIds : [undefined];
     const unique = new Map<string, ScholarshipCandidate>();
-    for (const item of pages.flat()) {
-      if (preferredCountries.size) {
-        const countryCandidates = [item.countryReferenceId, item.countryScope, item.countrySourceLabel]
-          .filter((value): value is string => Boolean(value))
-          .map((value) => value.trim().toLowerCase());
-        if (!countryCandidates.some((value) => preferredCountries.has(value))) continue;
-      }
-      if (
-        filters.targetDegree &&
-        !(item.degreeTargets ?? []).some((target) =>
-          String(target.sourceLabel ?? target.degreeLevelId ?? '')
-            .toLowerCase()
-            .includes(filters.targetDegree!.toLowerCase()),
-        )
-      )
-        continue;
-      if (filters.fundingPreference === 'FULL' && !item.isFullyFunded) continue;
-      if (
-        filters.studyLanguage &&
-        item.studyLanguageSourceLabel &&
-        !item.studyLanguageSourceLabel.toLowerCase().includes(filters.studyLanguage.toLowerCase())
-      )
-        continue;
-      unique.set(item.publicId, {
-        publicId: item.publicId,
-        slug: item.slug,
-        displayName: item.displayName,
-        country: item.countryScope ?? item.countrySourceLabel,
-        degreeLevels: (item.degreeTargets ?? [])
-          .map((target) => String(target.sourceLabel ?? target.degreeLevelId ?? ''))
-          .filter(Boolean),
-        fundingType: item.fundingTypeCode,
-        isFullyFunded: item.isFullyFunded,
-        deadline: item.applicationDeadline,
-        canonicalUrl: item.officialWebsite ?? item.applicationUrl,
-        publicationStatus: String(item.publicationStatus),
+
+    for (const countryReferenceId of batches) {
+      const items = await this.listAllPublished({
+        countryReferenceId,
+        degreeLevelId,
+        studyLanguageReferenceId: languageReferenceId,
       });
+      for (const item of items) {
+        if (filters.fundingPreference === 'FULL' && !item.isFullyFunded) continue;
+        unique.set(item.publicId, {
+          publicId: item.publicId,
+          slug: item.slug,
+          displayName: item.displayName,
+          country: item.countrySourceLabel ?? item.countryScope ?? item.countryReferenceId,
+          degreeLevels: (item.degreeTargets ?? [])
+            .map((target) => String(target.sourceLabel ?? target.degreeLevelId ?? ''))
+            .filter(Boolean),
+          fundingType: item.fundingTypeCode,
+          isFullyFunded: item.isFullyFunded,
+          deadline: item.applicationDeadline,
+          canonicalUrl: item.officialWebsite ?? item.applicationUrl,
+          publicationStatus: String(item.publicationStatus),
+        });
+      }
     }
     return [...unique.values()];
   }
 
-  private async listAllPublished() {
+  private async listAllPublished(
+    filters: Omit<Parameters<IScholarshipRepository['listPublished']>[0], 'page' | 'pageSize'>,
+  ) {
     const data: Awaited<ReturnType<IScholarshipRepository['listPublished']>>['data'] = [];
     let page = 1;
     let totalPages = 1;
     do {
       if (page > 500) throw new Error('SCHOLARSHIP_RECOMMENDATION_CANDIDATE_SCAN_LIMIT_EXCEEDED');
-      const result = await this.repository.listPublished({ page, pageSize: 100 });
+      const result = await this.repository.listPublished({ ...filters, page, pageSize: 100 });
       data.push(...result.data);
       totalPages = result.totalPages;
       page += 1;
     } while (page <= totalPages);
     return data;
   }
+
+  private async resolveCountries(values: string[]): Promise<string[]> {
+    const result: string[] = [];
+    for (const value of values.map((v) => v.trim()).filter(Boolean)) {
+      const resolved = await this.references.resolveCountry(referenceLookup(value));
+      if (!resolved?.active) throw new Error(`SCHOLARSHIP_COUNTRY_REFERENCE_NOT_ACTIVE:${value}`);
+      result.push(resolved.id);
+    }
+    return [...new Set(result)];
+  }
+  private async resolveLanguage(value?: string): Promise<string | undefined> {
+    if (!value?.trim()) return undefined;
+    const resolved = await this.references.resolveLanguage(referenceLookup(value));
+    if (!resolved?.active) throw new Error(`SCHOLARSHIP_LANGUAGE_REFERENCE_NOT_ACTIVE:${value}`);
+    return resolved.id;
+  }
+  private async resolveDegreeLevel(value?: string): Promise<string | undefined> {
+    if (!value?.trim()) return undefined;
+    const raw = value.trim();
+    const byId = await this.degreeLevels.getDegreeLevelById(raw);
+    if (byId?.status === 'ACTIVE') return byId.id;
+    const byCode = await this.degreeLevels.getDegreeLevelByCode(raw.toUpperCase());
+    if (!byCode || byCode.status !== 'ACTIVE') throw new Error(`SCHOLARSHIP_DEGREE_REFERENCE_NOT_ACTIVE:${value}`);
+    return byCode.id;
+  }
+}
+
+function referenceLookup(value: string) {
+  const trimmed = value.trim();
+  if (/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(trimmed) || trimmed.startsWith('mem-')) return { id: trimmed };
+  if (/^[A-Za-z]{2,3}$/.test(trimmed)) return { standardCode: trimmed.toUpperCase() };
+  return { alias: trimmed };
 }
 
 export class StudentToolRateLimitGateway implements IStudentToolRateLimitGateway {

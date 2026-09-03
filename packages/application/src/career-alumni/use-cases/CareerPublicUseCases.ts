@@ -1,25 +1,37 @@
 import {
   CareerJobFilters,
   CareerJobPostingDto,
+  CareerJobStatus,
+  ICareerReferenceGateway,
   ICareerRepository,
-  PaginatedCareerResult
+  PaginatedCareerResult,
 } from '@manaratak/domain';
 
-export class CareerPublicUseCases {
-  constructor(private readonly repository: ICareerRepository) {}
+export interface CareerPublicFilters extends Omit<CareerJobFilters, 'status'> {
+  country?: string;
+  city?: string;
+}
 
-  public async listPublishedJobs(filters: Omit<CareerJobFilters, 'status'>): Promise<PaginatedCareerResult<CareerJobPostingDto>> {
-    return this.repository.listPublishedJobs({
-      ...filters,
-      pageSize: Math.min(filters.pageSize || 20, 50)
-    });
+export class CareerPublicUseCases {
+  constructor(
+    private readonly repository: ICareerRepository,
+    private readonly references: ICareerReferenceGateway,
+  ) {}
+
+  public async listPublishedJobs(filters: CareerPublicFilters): Promise<PaginatedCareerResult<CareerJobPostingDto>> {
+    const canonical: Omit<CareerJobFilters, 'status'> = { ...filters };
+    delete (canonical as CareerPublicFilters).country;
+    delete (canonical as CareerPublicFilters).city;
+    if (!canonical.countryReferenceId && filters.country)
+      canonical.countryReferenceId = (await this.references.resolveCountryReference(filters.country)).id;
+    if (!canonical.cityReferenceId && filters.city)
+      canonical.cityReferenceId = (await this.references.resolveCityReference(filters.city, canonical.countryReferenceId)).id;
+    return this.repository.listPublishedJobs({ ...canonical, pageSize: Math.min(filters.pageSize || 20, 50) });
   }
 
   public async getPublishedJobBySlug(slug: string): Promise<CareerJobPostingDto> {
     const job = await this.repository.findJobBySlug(slug);
-    if (!job || job.status !== 'PUBLISHED') {
-      throw new Error('Career opportunity not found');
-    }
+    if (!job || job.status !== CareerJobStatus.PUBLISHED) throw new Error('Career opportunity not found');
     return job;
   }
 }

@@ -44,7 +44,7 @@ describe('ReferenceDataUseCases', () => {
   describe('Countries', () => {
     it('listCountries delegates filters to repository and enforces activeOnly', async () => {
       const mockResult: ReferenceCountryDto[] = [
-        { iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt', isActive: true }
+        { id: 'country-eg', iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt', isActive: true }
       ];
       repository.listCountries.mockResolvedValue(mockResult);
 
@@ -56,7 +56,7 @@ describe('ReferenceDataUseCases', () => {
     });
 
     it('getCountry returns country if found and active', async () => {
-      const mockResult: ReferenceCountryDto = { iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt', isActive: true };
+      const mockResult: ReferenceCountryDto = { id: 'country-eg', iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt', isActive: true };
       repository.getCountry.mockResolvedValue(mockResult);
 
       const result = await useCases.getCountry('EG');
@@ -70,7 +70,7 @@ describe('ReferenceDataUseCases', () => {
     });
 
     it('getCountry throws error if country is inactive', async () => {
-      const mockResult: ReferenceCountryDto = { iso2Code: 'XX', iso3Code: 'XXX', name: 'Inactive', isActive: false };
+      const mockResult: ReferenceCountryDto = { id: 'country-xx', iso2Code: 'XX', iso3Code: 'XXX', name: 'Inactive', isActive: false };
       repository.getCountry.mockResolvedValue(mockResult);
       await expect(useCases.getCountry('XX')).rejects.toThrow('Country not found: XX');
     });
@@ -84,7 +84,7 @@ describe('ReferenceDataUseCases', () => {
 
     it('upsertCountry delegates strict input and returns result', async () => {
       const mockInput: UpsertReferenceCountryDto = { iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt', isActive: true };
-      const mockResult: ReferenceCountryDto = { ...mockInput, isActive: true };
+      const mockResult: ReferenceCountryDto = { id: 'country-eg', ...mockInput, isActive: true };
       repository.upsertCountry.mockResolvedValue(mockResult);
 
       const result = await useCases.upsertCountry(mockInput);
@@ -96,7 +96,7 @@ describe('ReferenceDataUseCases', () => {
   describe('Currencies', () => {
     it('listCurrencies delegates filters to repository and enforces activeOnly', async () => {
       const mockResult: ReferenceCurrencyDto[] = [
-        { isoCode: 'USD', name: 'US Dollar', isActive: true }
+        { id: 'currency-usd', isoCode: 'USD', name: 'US Dollar', isActive: true }
       ];
       repository.listCurrencies.mockResolvedValue(mockResult);
 
@@ -108,7 +108,7 @@ describe('ReferenceDataUseCases', () => {
     });
 
     it('getCurrency returns currency if found and active', async () => {
-      const mockResult: ReferenceCurrencyDto = { isoCode: 'USD', name: 'US Dollar', isActive: true };
+      const mockResult: ReferenceCurrencyDto = { id: 'currency-usd', isoCode: 'USD', name: 'US Dollar', isActive: true };
       repository.getCurrency.mockResolvedValue(mockResult);
 
       const result = await useCases.getCurrency('USD');
@@ -123,7 +123,7 @@ describe('ReferenceDataUseCases', () => {
 
     it('upsertCurrency delegates strict input', async () => {
       const mockInput: UpsertReferenceCurrencyDto = { isoCode: 'USD', name: 'US Dollar', isActive: true };
-      const mockResult: ReferenceCurrencyDto = { ...mockInput, isActive: true };
+      const mockResult: ReferenceCurrencyDto = { id: 'currency-usd', ...mockInput, isActive: true };
       repository.upsertCurrency.mockResolvedValue(mockResult);
 
       const result = await useCases.upsertCurrency(mockInput);
@@ -135,7 +135,7 @@ describe('ReferenceDataUseCases', () => {
   describe('Languages', () => {
     it('listLanguages delegates filters to repository and enforces activeOnly', async () => {
       const mockResult: ReferenceLanguageDto[] = [
-        { isoCode: 'en', name: 'English', direction: 'LTR', isActive: true }
+        { id: 'language-en', isoCode: 'en', name: 'English', direction: 'LTR', isActive: true }
       ];
       repository.listLanguages.mockResolvedValue(mockResult);
 
@@ -147,7 +147,7 @@ describe('ReferenceDataUseCases', () => {
     });
 
     it('getLanguage returns language if found and active', async () => {
-      const mockResult: ReferenceLanguageDto = { isoCode: 'en', name: 'English', direction: 'LTR', isActive: true };
+      const mockResult: ReferenceLanguageDto = { id: 'language-en', isoCode: 'en', name: 'English', direction: 'LTR', isActive: true };
       repository.getLanguage.mockResolvedValue(mockResult);
 
       const result = await useCases.getLanguage('en');
@@ -162,7 +162,7 @@ describe('ReferenceDataUseCases', () => {
 
     it('upsertLanguage delegates strict input', async () => {
       const mockInput: UpsertReferenceLanguageDto = { isoCode: 'en', name: 'English', direction: 'LTR', isActive: true };
-      const mockResult: ReferenceLanguageDto = { ...mockInput, isActive: true };
+      const mockResult: ReferenceLanguageDto = { id: 'language-en', ...mockInput, isActive: true };
       repository.upsertLanguage.mockResolvedValue(mockResult);
 
       const result = await useCases.upsertLanguage(mockInput);
@@ -174,7 +174,7 @@ describe('ReferenceDataUseCases', () => {
   describe('Cities', () => {
     it('listCities delegates filters to repository and enforces activeOnly', async () => {
       const mockResult: ReferenceCityDto[] = [
-        { countryIso2Code: 'EG', name: 'Cairo', isActive: true }
+        { id: 'city-cairo', countryIso2Code: 'EG', name: 'Cairo', isActive: true }
       ];
       repository.listCities.mockResolvedValue(mockResult);
 
@@ -205,7 +205,7 @@ describe('ReferenceDataUseCases', () => {
       repository.upsertCity.mockResolvedValue(mockResult);
 
       const result = await useCases.upsertCity(mockInput);
-      expect(repository.upsertCity).toHaveBeenCalledWith(mockInput);
+      expect(repository.upsertCity).toHaveBeenCalledWith({ ...mockInput, countryReferenceId: 'country-eg' });
       expect(result).toEqual(mockResult);
     });
 

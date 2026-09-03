@@ -16,6 +16,8 @@ export class CareerAdminRouter {
       displayName: z.string().min(1),
       employerType: z.string().min(1),
       industry: z.string().nullable().optional(),
+      countryReferenceId: z.string().nullable().optional(),
+      cityReferenceId: z.string().nullable().optional(),
       country: z.string().nullable().optional(),
       city: z.string().nullable().optional(),
       websiteUrl: z.string().url().nullable().optional(),
@@ -30,7 +32,9 @@ export class CareerAdminRouter {
       employmentType: z.nativeEnum(EmploymentType),
       jobCategory: z.string().min(1),
       description: z.string().min(1),
-      country: z.string().min(1),
+      countryReferenceId: z.string().optional(),
+      cityReferenceId: z.string().nullable().optional(),
+      country: z.string().min(1).optional(),
       city: z.string().nullable().optional(),
       employerId: z.string().min(1),
       recruiterContactId: z.string().nullable().optional(),
@@ -49,8 +53,8 @@ export class CareerAdminRouter {
       opportunityType: z.nativeEnum(CareerOpportunityType).optional(),
       employmentType: z.nativeEnum(EmploymentType).optional(),
       jobCategory: z.string().optional(),
-      country: z.string().optional(),
-      city: z.string().optional(),
+      countryReferenceId: z.string().optional(),
+      cityReferenceId: z.string().optional(),
       employerId: z.string().optional(),
       page: z.string().optional().transform((value) => value ? parseInt(value, 10) : 1),
       pageSize: z.string().optional().transform((value) => value ? Math.min(parseInt(value, 10), 50) : 20)
@@ -59,7 +63,7 @@ export class CareerAdminRouter {
     const employerListQuerySchema = z.object({
       verificationStatus: z.nativeEnum(CareerEmployerStatus).optional(),
       employerType: z.string().optional(),
-      country: z.string().optional(),
+      countryReferenceId: z.string().optional(),
       page: z.string().optional().transform((value) => value ? parseInt(value, 10) : 1),
       pageSize: z.string().optional().transform((value) => value ? Math.min(parseInt(value, 10), 50) : 50)
     });

@@ -8,7 +8,7 @@ export interface ReferenceDataFilters {
 }
 
 export interface ReferenceCountryDto {
-  id?: string;
+  id: string;
   iso2Code: string;
   iso3Code: string;
   name: string;
@@ -41,7 +41,7 @@ export interface UpsertReferenceCountryDto {
 }
 
 export interface ReferenceCurrencyDto {
-  id?: string;
+  id: string;
   isoCode: string;
   numericCode?: string | null;
   name: string;
@@ -64,7 +64,7 @@ export interface UpsertReferenceCurrencyDto {
 }
 
 export interface ReferenceLanguageDto {
-  id?: string;
+  id: string;
   isoCode: string;
   name: string;
   nameAr?: string | null;
@@ -86,6 +86,7 @@ export interface UpsertReferenceLanguageDto {
 
 export interface AdministrativeRegionDto {
   id: string;
+  countryReferenceId?: string | null;
   countryIso2Code: string;
   regionCode: string;
   name: string;
@@ -96,6 +97,7 @@ export interface AdministrativeRegionDto {
 
 export interface ReferenceCityDto {
   id: string;
+  countryReferenceId?: string | null;
   countryIso2Code: string;
   name: string;
   nameAr?: string | null;
@@ -110,6 +112,8 @@ export interface ReferenceCityDto {
 }
 
 export interface UpsertReferenceCityDto {
+  /** Internal canonical P7 identity; callers normally supply countryIso2Code and the application layer resolves this. */
+  countryReferenceId?: string | null;
   countryIso2Code: string;
   name: string;
   nameAr?: string | null;

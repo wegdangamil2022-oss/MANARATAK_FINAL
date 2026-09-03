@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-const read = (path) => readFileSync(path, 'utf8');
+const read = (path) => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
 const files = {
   courseEntity: read('packages/domain/src/courses/entities/Course.ts'),
   publicDto: read('packages/domain/src/courses/entities/PublicCourseDto.ts'),

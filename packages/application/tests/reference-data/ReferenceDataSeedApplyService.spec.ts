@@ -296,7 +296,7 @@ describe('ReferenceDataSeedApplyService', () => {
     expect(mockRepo.upsertCountry).toHaveBeenCalledWith(countryPayload);
     expect(mockRepo.upsertCurrency).toHaveBeenCalledWith(currencyPayload);
     expect(mockRepo.upsertLanguage).toHaveBeenCalledWith(languagePayload);
-    expect(mockRepo.upsertCity).toHaveBeenCalledWith(cityPayload);
+    expect(mockRepo.upsertCity).toHaveBeenCalledWith({ ...cityPayload, countryReferenceId: 'country-eg' });
 
     expect(result.status).toBe(ReferenceDataSeedStatus.APPLIED);
     expect(result.appliedBy).toBe('system-admin');

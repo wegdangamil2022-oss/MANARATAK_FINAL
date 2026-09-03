@@ -34,7 +34,12 @@ export interface ScholarshipExamRef {
 }
 
 export interface Scholarship {
+  /** Stable public route key (slug in live mode). */
   id: string;
+  publicId?: string;
+  slug?: string;
+  ownerId?: string;
+  countryReferenceId?: string | null;
   title: string;
   titleEn: string;
   country: string;
@@ -77,7 +82,11 @@ export interface CountryOfficialLink {
 }
 
 export interface CountryDestination {
+  /** Canonical Phase 7 reference ID in live mode. */
   id: string;
+  publicId?: string;
+  slug?: string;
+  ownerId?: string;
   name: string;
   nameEn: string;
   flag: string;
@@ -223,7 +232,14 @@ export interface UniversityInternationalAdmissions {
 }
 
 export interface University {
+  /** Stable public route key (slug in live mode). */
   id: string;
+  publicId?: string;
+  slug?: string;
+  ownerId?: string;
+  countryReferenceId?: string | null;
+  regionReferenceId?: string | null;
+  cityReferenceId?: string | null;
   name: string;
   nameEn: string;
   type?: string; // e.g. جامعة، كلية جامعية، معهد
@@ -262,7 +278,11 @@ export interface ImportedCourseEntityRef {
 }
 
 export interface ImportedCourse {
+  /** Stable public route key (slug in live mode). */
   id: string;
+  publicId?: string;
+  slug?: string;
+  ownerId?: string;
   title: string;
   provider: string;
   field: string;
@@ -319,7 +339,12 @@ export interface ServiceContextLink {
  * Production direct-relation and availability contracts stay deferred to the canonical API/schema phase.
  */
 export interface Service {
+  /** Stable public route key (slug in live mode). */
   id: string;
+  publicId?: string;
+  ownerId?: string;
+  supportedCountryReferenceIds?: string[];
+  supportedLanguageReferenceIds?: string[];
   slug: string;
   title: string;
   audience: ServiceAudience;
@@ -342,7 +367,11 @@ export interface Service {
 }
 
 export interface Course {
+  /** Stable public route key (slug in live mode). */
   id: string;
+  publicId?: string;
+  slug?: string;
+  ownerId?: string;
   title: string;
   titleEn: string;
   provider: string;
@@ -359,7 +388,11 @@ export interface Course {
 }
 
 export interface Major {
+  /** Stable public route key (slug in live mode). */
   id: string;
+  publicId?: string;
+  slug?: string;
+  ownerId?: string;
   name: string;
   nameEn: string;
   category: string;
@@ -469,6 +502,8 @@ export interface ArticleOfficialLink {
 
 export interface PublicArticle {
   id: string;
+  publicId?: string;
+  ownerId?: string;
   slug: string;
   titleAr: string;
   titleEn: string;
@@ -579,7 +614,11 @@ export interface ExamOfficialLink {
 }
 
 export interface Exam {
+  /** Stable public route key (slug in live mode). */
   id: string;
+  publicId?: string;
+  slug?: string;
+  ownerId?: string;
   name: string;
   nameEn: string;
   category: string;
@@ -649,6 +688,8 @@ export interface StudentToolServiceSuggestion {
 
 export interface StudentToolPreview {
   id: string;
+  publicId?: string;
+  ownerId?: string;
   toolKey: string;
   title: string;
   titleEn: string;
@@ -678,7 +719,13 @@ export interface CareerContextLink {
 }
 
 export interface CareerOpportunityPreview {
+  /** Stable public route key (slug in live mode). */
   id: string;
+  publicId?: string;
+  slug?: string;
+  ownerId?: string;
+  countryReferenceId?: string;
+  cityReferenceId?: string | null;
   title: string;
   titleEn: string;
   employerName: string;

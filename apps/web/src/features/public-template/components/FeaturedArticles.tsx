@@ -1,21 +1,19 @@
 import React from 'react';
-import { GOLDEN_ARTICLES } from '../data/articleData';
+import type { PublicArticle } from '../types';
 import { Newspaper, Clock, ArrowUpLeft, ChevronLeft } from 'lucide-react';
 
-const MOCK_ARTICLES = GOLDEN_ARTICLES.slice(0, 3).map((article, index) => ({
-  id: article.id, title: article.titleAr, summary: article.excerptAr || '', category: article.categoryAr,
-  readTime: 'مقال ودليل', isFeatured: index === 0,
-  image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=600',
-}));
-
 interface FeaturedArticlesProps {
+  articles: PublicArticle[];
   onViewAllClick: () => void;
   onSelectArticle: (id: string) => void;
 }
 
-export const FeaturedArticles: React.FC<FeaturedArticlesProps> = ({ onViewAllClick, onSelectArticle }) => {
-  const featuredArticle = MOCK_ARTICLES.find((a) => a.isFeatured)!;
-  const standardArticles = MOCK_ARTICLES.filter((a) => !a.isFeatured);
+export const FeaturedArticles: React.FC<FeaturedArticlesProps> = ({ articles, onViewAllClick, onSelectArticle }) => {
+  const featured = articles.slice(0, 3).map((article, index) => ({
+    id: article.id, title: article.titleAr, summary: article.excerptAr || '', category: article.categoryAr,
+    readTime: article.readingTime || 'مقال ودليل', isFeatured: index === 0,
+    image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=600',
+  }));
 
   return (
     <section
@@ -38,7 +36,7 @@ export const FeaturedArticles: React.FC<FeaturedArticlesProps> = ({ onViewAllCli
 
           {/* Horizontal Scrollable Articles List */}
           <div className="flex overflow-x-auto pb-4 -mx-1 px-1 gap-3 snap-x snap-mandatory no-scrollbar">
-            {MOCK_ARTICLES.map((article) => (
+            {featured.map((article) => (
               <div
                 key={article.id}
                 role="button" tabIndex={0} aria-label={article.title}

@@ -149,7 +149,7 @@ export const ServiceDetail: React.FC<ServiceDetailProps> = ({ service, onBack, o
 
         {service.packages?.length ? (
           <section className="mb-3 rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-3 shadow-sm mn-panel ">
-            <SectionTitle icon={<DollarSign className="h-4 w-4" />} title="الباقات التجريبية" subtitle="تُعرض هنا لاختبار قالب الخدمة فقط" />
+            <SectionTitle icon={<DollarSign className="h-4 w-4" />} title="الباقات" subtitle="خيارات الخدمة المنشورة عند توفرها" />
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {service.packages.map((pkg) => (
                 <div key={pkg.name} className="rounded-xl border border-[var(--mn-border-gold)] bg-[var(--mn-page)] p-2.5 mn-panel ">
@@ -248,9 +248,9 @@ export const ServiceDetail: React.FC<ServiceDetailProps> = ({ service, onBack, o
           className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-[var(--mn-primary)] to-[var(--mn-hero-secondary)] px-4 text-[11px] font-black text-white shadow-md transition active:scale-[0.99] mn-inverse "
         >
           <Sparkles className="h-4 w-4 text-[var(--mn-accent-text)]" />
-          اطلب الخدمة — نموذج تجريبي
+          اطلب الخدمة
         </button>
-        {showRequestNotice && <p role="status" className="mt-3 rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-3 text-sm leading-6 text-[var(--mn-text-muted)]">لم يُرسل طلب ولم يُحصّل أي مبلغ. هذه معاينة للخدمة؛ سيتاح الإرسال بعد ربط نظام الطلبات والحساب.</p>}
+        {showRequestNotice && <p role="status" className="mt-3 rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-3 text-sm leading-6 text-[var(--mn-text-muted)]">لم يُرسل طلب بعد. إرسال الطلب يتطلب جلسة مستخدم وربط مسار الطلبات في بيئة التشغيل.</p>}
       </main>
     </div>
   );

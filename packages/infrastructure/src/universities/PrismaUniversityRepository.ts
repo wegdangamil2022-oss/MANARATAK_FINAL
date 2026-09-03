@@ -10,6 +10,7 @@ import {
   UniversityFilters,
   UniversityStatus,
   UniversityNormalizedDetailsUpdate,
+  UniversityAcademicProgramAuthoringInput,
   UniversityTranslationDto,
   UniversityTranslationReviewStatus,
   UniversityLocalizedTextDto,
@@ -478,6 +479,89 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
     };
   }
 
+  async upsertAcademicProgram(
+    universityId: string,
+    programId: string | null,
+    input: UniversityAcademicProgramAuthoringInput,
+  ): Promise<UniversityDto> {
+    await this.prisma.university.findUniqueOrThrow({ where: { id: universityId }, select: { id: true } });
+    await new UniversityCanonicalRelationshipValidator(this.prisma).validateProgramAuthoring(universityId, input);
+
+    if (programId) {
+      const existing = await this.prisma.universityAcademicProgram.findFirst({
+        where: { id: programId, universityId },
+        select: { id: true },
+      });
+      if (!existing) throw new Error('UNIVERSITY_ACADEMIC_PROGRAM_NOT_FOUND');
+    }
+
+    const normalizedName = input.sourceProgramName.trim().toLocaleLowerCase();
+    const data = {
+      sourceReferenceId: input.sourceReferenceId ?? null,
+      organizationUnitId: input.organizationUnitId ?? null,
+      sourceProgramName: input.sourceProgramName.trim(),
+      normalizedName,
+      degreeLevelId: input.degreeLevelId,
+      majorId: input.majorId ?? null,
+      majorMappingState: input.majorMappingState,
+      status: input.status ?? 'DRAFT',
+      metadata: (input.metadata ?? undefined) as Prisma.InputJsonObject | undefined,
+    };
+
+    const program = programId
+      ? await this.prisma.universityAcademicProgram.update({ where: { id: programId }, data })
+      : await this.prisma.universityAcademicProgram.create({ data: { universityId, ...data } as Prisma.UniversityAcademicProgramUncheckedCreateInput });
+
+    await this.prisma.universityProgramCampus.deleteMany({ where: { academicProgramId: program.id } });
+    const campusIds = [...new Set(input.campusIds ?? [])];
+    if (campusIds.length) {
+      await this.prisma.universityProgramCampus.createMany({
+        data: campusIds.map((campusId) => ({ academicProgramId: program.id, campusId })),
+        skipDuplicates: true,
+      });
+    }
+
+    await this.prisma.universityProgramAdmissionRequirement.deleteMany({ where: { academicProgramId: program.id } });
+    for (const requirement of input.admissionRequirements ?? []) {
+      await this.prisma.universityProgramAdmissionRequirement.create({
+        data: {
+          academicProgramId: program.id,
+          internationalTestId: requirement.internationalTestId,
+          testVariantId: requirement.testVariantId ?? undefined,
+          testVersionId: requirement.testVersionId ?? undefined,
+          minimumScore: requirement.minimumScore ?? undefined,
+          sectionScores: (requirement.sectionScores ?? undefined) as Prisma.InputJsonObject | undefined,
+          validityMetadata: (requirement.validityMetadata ?? undefined) as Prisma.InputJsonObject | undefined,
+          restrictionMetadata: (requirement.restrictionMetadata ?? undefined) as Prisma.InputJsonObject | undefined,
+          status: requirement.status ?? 'REVIEW_REQUIRED',
+        },
+      });
+    }
+
+    const updated = await this.prisma.university.findUniqueOrThrow({
+      where: { id: universityId },
+      include: universityDetails,
+    });
+    return this.mapToDto(updated);
+  }
+
+  async archiveAcademicProgram(universityId: string, programId: string): Promise<UniversityDto> {
+    const existing = await this.prisma.universityAcademicProgram.findFirst({
+      where: { id: programId, universityId },
+      select: { id: true },
+    });
+    if (!existing) throw new Error('UNIVERSITY_ACADEMIC_PROGRAM_NOT_FOUND');
+    await this.prisma.universityAcademicProgram.update({
+      where: { id: programId },
+      data: { status: 'ARCHIVED' },
+    });
+    const updated = await this.prisma.university.findUniqueOrThrow({
+      where: { id: universityId },
+      include: universityDetails,
+    });
+    return this.mapToDto(updated);
+  }
+
   async replaceNormalizedDetails(
     id: string,
     details: UniversityNormalizedDetailsUpdate,
@@ -681,6 +765,7 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
       academicPrograms: (rest.academicPrograms ?? []).map((program) => ({
         id: program.id,
         universityId: program.universityId,
+        organizationUnitId: program.organizationUnitId,
         sourceReferenceId: program.sourceReferenceId,
         sourceProgramName: program.sourceProgramName,
         normalizedName: program.normalizedName,

@@ -125,6 +125,28 @@ export interface UpdateUniversityDto {
   optionalFields?: Record<string, unknown>;
 }
 
+export interface UniversityAcademicProgramAuthoringInput {
+  sourceReferenceId?: string | null;
+  organizationUnitId?: string | null;
+  sourceProgramName: string;
+  degreeLevelId: string;
+  majorId?: string | null;
+  majorMappingState: string;
+  status?: string;
+  campusIds?: string[];
+  metadata?: Record<string, unknown> | null;
+  admissionRequirements?: Array<{
+    internationalTestId: string;
+    testVariantId?: string | null;
+    testVersionId?: string | null;
+    minimumScore?: number | null;
+    sectionScores?: Record<string, unknown> | null;
+    validityMetadata?: Record<string, unknown> | null;
+    restrictionMetadata?: Record<string, unknown> | null;
+    status?: string;
+  }>;
+}
+
 export interface UniversityNormalizedDetailsUpdate {
   campuses?: Array<{
     sourceReferenceId?: string;
@@ -286,6 +308,12 @@ export interface IUniversityRepository {
     id: string,
     details: UniversityNormalizedDetailsUpdate,
   ): Promise<UniversityDto>;
+  upsertAcademicProgram?(
+    universityId: string,
+    programId: string | null,
+    input: UniversityAcademicProgramAuthoringInput,
+  ): Promise<UniversityDto>;
+  archiveAcademicProgram?(universityId: string, programId: string): Promise<UniversityDto>;
 }
 
 export const UNIVERSITY_CANONICAL_KEYS = new Set<string>([
@@ -427,6 +455,7 @@ export interface UniversityProgramAdmissionRequirementReadDto {
 export interface UniversityAcademicProgramReadDto {
   id: string;
   universityId: string;
+  organizationUnitId?: string | null;
   sourceReferenceId?: string | null;
   sourceProgramName: string;
   normalizedName: string;

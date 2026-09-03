@@ -2,27 +2,21 @@ import { ApiClient, type PublicScholarshipDto } from '../../api/client';
 import type { DegreeLevel, Scholarship } from './types';
 
 export type PublicTemplateDataMode = 'prototype' | 'api';
-export type PublicScholarshipDataStatus = 'prototype' | 'loading' | 'ready' | 'unavailable';
+export type PublicScholarshipDataStatus = 'prototype' | 'loading' | 'ready' | 'empty' | 'unavailable';
 
 const DEGREE_LEVELS: Array<Exclude<DegreeLevel, 'all'>> = [
-  'بكالوريوس',
-  'ماجستير',
-  'دكتوراه',
-  'دورات تدريبية',
-  'زمالة أبحاث',
+  'بكالوريوس', 'ماجستير', 'دكتوراه', 'دورات تدريبية', 'زمالة أبحاث',
 ];
 
+/** Live/API is the safe default. Prototype mode must be explicitly requested. */
 export function resolvePublicTemplateDataMode(value: unknown): PublicTemplateDataMode {
-  return value === 'api' ? 'api' : 'prototype';
+  return value === 'prototype' ? 'prototype' : 'api';
 }
 
-function toTextList(value: string | string[] | undefined): string[] {
+function toTextList(value: string | string[] | undefined | null): string[] {
   if (Array.isArray(value)) return value.map((item) => item.trim()).filter(Boolean);
   if (!value) return [];
-  return value
-    .split(/[,،;\n]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
+  return value.split(/[,،;\n]/).map((item) => item.trim()).filter(Boolean);
 }
 
 function normalizeDegreeLevels(value: string): Array<Exclude<DegreeLevel, 'all'>> {
@@ -44,47 +38,69 @@ function daysUntil(deadline: string | null | undefined, now: Date): number {
   return Math.max(0, Math.ceil((value.getTime() - now.getTime()) / 86_400_000));
 }
 
+/**
+ * Maps only owner-published P12 data. Canonical relationship IDs are retained;
+ * no synthetic university/program/test identities are generated from labels.
+ */
 export function mapPublicScholarshipDto(dto: PublicScholarshipDto, now = new Date()): Scholarship {
-  const universities = toTextList(dto.targetUniversities);
-  const fields = toTextList(dto.eligibleMajorsOrFields);
+  const legacyUniversities = toTextList(dto.targetUniversities);
+  const legacyFields = toTextList(dto.eligibleMajorsOrFields);
+  const canonicalUniversityLinks = (dto.universityLinks ?? []).filter((link) => Boolean(link.universityId));
+  const canonicalMajorTargets = (dto.majorTargets ?? []).filter((target) => Boolean(target.majorId));
+  const canonicalDegrees = (dto.degreeTargets ?? []).flatMap((target) => normalizeDegreeLevels(target.sourceLabel ?? target.degreeLevelId ?? ''));
+  const legacyDegrees = normalizeDegreeLevels(dto.degreeLevel ?? '');
   const deadline = dto.applicationDeadline ?? '';
   const deadlineDate = deadline ? new Date(deadline) : null;
-  const isClosed =
-    deadlineDate !== null && !Number.isNaN(deadlineDate.getTime()) && deadlineDate < now;
+  const isClosed = deadlineDate !== null && !Number.isNaN(deadlineDate.getTime()) && deadlineDate < now;
+  const requirements = (dto.requiredDocumentItems ?? []).map((item) => item.displayName).filter(Boolean);
+  const eligibility = (dto.eligibilityItems ?? []).map((item) => item.valueText).filter((item): item is string => Boolean(item));
+  const requiredTests = (dto.eligibilityItems ?? []).filter((item) => Boolean(item.internationalTestId));
+  const benefitLabels = (dto.benefits ?? []).map((item) => item.valueText ?? item.benefitTypeCode).filter(Boolean);
+  const participatingUniversities = canonicalUniversityLinks.map((link) => ({
+    id: link.universityId as string,
+    name: link.sourceLabel ?? 'جامعة مرتبطة',
+    nameEn: link.sourceLabel ?? 'Linked university',
+  }));
+  const universityLabel = participatingUniversities[0]?.name ?? legacyUniversities[0] ?? dto.sponsorName ?? '';
+  const fields = canonicalMajorTargets.map((target) => target.sourceLabel ?? target.majorId ?? '').filter(Boolean);
 
   return {
-    id: dto.publicId,
+    id: dto.slug,
+    publicId: dto.publicId,
+    slug: dto.slug,
+    countryReferenceId: dto.countryReferenceId,
     title: dto.displayName,
     titleEn: dto.canonicalName,
-    country: dto.studyCountry ?? '',
-    countryEn: dto.studyCountry ?? '',
+    country: dto.studyCountry ?? dto.countrySourceLabel ?? '',
+    countryEn: dto.studyCountry ?? dto.countrySourceLabel ?? '',
     countryFlag: '',
-    university: universities[0] ?? dto.sponsorName ?? '',
-    universityEn: universities[0] ?? dto.sponsorName ?? '',
-    degreeLevel: normalizeDegreeLevels(dto.degreeLevel),
-    fundingType: dto.fundingCoverage,
-    financialCoverage: toTextList(dto.coverageDetails),
+    university: universityLabel,
+    universityEn: universityLabel,
+    degreeLevel: [...new Set([...canonicalDegrees, ...legacyDegrees])],
+    fundingType: dto.fundingCoverage ?? dto.fundingTypeCode ?? 'تمويل',
+    financialCoverage: benefitLabels.length ? benefitLabels : toTextList(dto.coverageDetails),
     deadline,
     daysLeft: daysUntil(deadline, now),
     featured: false,
     tag: 'منحة منشورة',
     imageUrl: '',
-    field: fields.join('، '),
-    requirements: toTextList(dto.eligibilityCriteria),
+    field: (fields.length ? fields : legacyFields).join('، '),
+    requirements: requirements.length ? [...requirements, ...eligibility] : (eligibility.length ? eligibility : toTextList(dto.eligibilityCriteria)),
     description: dto.coverageDetails || dto.eligibilityCriteria || '',
-    applicationUrl: dto.applicationLink ?? dto.officialSourceUrl ?? '',
+    applicationUrl: dto.applicationLink ?? dto.applicationUrl ?? dto.officialSourceUrl ?? '',
     withoutIelts: false,
     status: isClosed ? 'مغلقة' : 'مفتوحة الآن',
-    participatingUniversities: universities.map((name, index) => ({
-      id: `${dto.publicId}:university:${index}`,
-      name,
-      nameEn: name,
+    participatingUniversities,
+    requiredExams: requiredTests.map((item) => ({
+      id: item.internationalTestId as string,
+      name: item.valueText ?? 'اختبار مطلوب',
+      nameEn: item.valueText ?? 'Required test',
     })),
   };
 }
 
-/** Reads the published Phase 12 projection without a prototype-data fallback. */
+/** Reads the published Phase 12 projection without any prototype-data fallback. */
 export async function loadPublishedScholarships(): Promise<Scholarship[]> {
-  const result = await ApiClient.getScholarships({ page: 1, pageSize: 100 });
+  const result = await ApiClient.getScholarships({ page: 1, pageSize: 50 });
   return result.data.map((item) => mapPublicScholarshipDto(item));
 }

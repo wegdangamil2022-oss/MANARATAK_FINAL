@@ -44,7 +44,7 @@ interface ScholarshipDetailModalProps {
   onOpenAiLetter?: (scholarshipTitle: string) => void;
   onOpenUniversity?: (universityId: string) => void;
   onOpenMajor?: (majorId: string) => void;
-  onOpenCountry?: (countryName: string) => void;
+  onOpenCountry?: (countryId: string) => void;
   onOpenExam?: (examId: string) => void;
   onOpenScholarship?: (scholarshipId: string) => void;
   onOpenArticle?: (articleId: string) => void;
@@ -237,7 +237,7 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
             {/* Right Card: دولة الدراسة */}
             <button
               type="button"
-              onClick={() => onOpenCountry?.(scholarship.country)}
+              onClick={() => scholarship.countryReferenceId && onOpenCountry?.(scholarship.countryReferenceId)}
               className="flex-1 bg-[var(--mn-surface)] rounded-2xl p-2.5 border border-[var(--mn-border-gold)] shadow-sm flex items-center gap-2 min-w-0 hover:border-[var(--mn-accent)]/55 hover:shadow-md active:scale-[0.99] transition-all text-right group cursor-pointer mn-panel "
               title={`استكشف ${scholarship.country}`}
             >

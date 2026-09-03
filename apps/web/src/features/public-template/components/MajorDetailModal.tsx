@@ -36,159 +36,32 @@ import { Major } from '../types';
 import { FellowshipDetailView } from './modal/FellowshipDetailView';
 import { DoctorateAcademicBackgroundsSlider } from './modal/DoctorateAcademicBackgroundsSlider';
 import { FavoriteButton } from './FavoriteButton';
+import type { MajorPublicRelationshipGraph } from '../usePublicRelationshipGraph';
 
 interface MajorDetailModalProps {
   major: Major;
+  relationshipGraph?: MajorPublicRelationshipGraph;
+  relationshipGraphStatus?: 'loading' | 'ready' | 'unavailable';
   onClose: () => void;
   onOpenUniversity?: (universityId: string) => void;
   onOpenScholarship?: (scholarshipId: string) => void;
   onOpenCourse?: (courseQuery: string) => void;
   onOpenCourseCollection?: (field: string) => void;
   onOpenMajor?: (majorId: string) => void;
-  onOpenCountry?: (countryName: string) => void;
   isFavorite?: boolean;
   onToggleFavorite?: (id: string) => void;
 }
 
-interface MajorRelationshipDemo {
-  universities: Array<{ id: string; name: string; meta: string }>;
-  scholarships: Array<{ id: string; name: string; meta: string }>;
-  courses: Array<{ courseId?: string; query: string; name: string; meta: string }>;
-  courseField?: string;
-  countries: Array<{ name: string; meta: string }>;
-  academicPath: Array<{ id: string; degree: string; name: string; meta: string }>;
-  similarMajorLinks: Record<string, string>;
-}
-
-const DEFAULT_RELATIONSHIPS: MajorRelationshipDemo = {
-  universities: [
-    { id: 'tsinghua', name: 'جامعة تسينغهوا', meta: 'برنامج أكاديمي مرتبط' },
-    { id: 'peking', name: 'جامعة بكين', meta: 'برنامج أكاديمي مرتبط' },
-  ],
-  scholarships: [
-    { id: 'csc-china', name: 'منحة الحكومة الصينية (CSC)', meta: 'تمويل مرتبط بالمجال' },
-    { id: 'daad-germany', name: 'منحة DAAD الألمانية', meta: 'فرص دراسات عليا مرتبطة' },
-  ],
-  courses: [
-    { query: 'أساسيات التخصص', name: 'دورات تأسيسية في المجال', meta: 'دورات مرتبطة بالتخصص' },
-    { query: 'مهارات التخصص', name: 'مهارات عملية مرتبطة', meta: 'تطوير مهارات مساندة' },
-    { query: 'بحث أكاديمي', name: 'مهارات البحث الأكاديمي', meta: 'مسار داعم للدراسة' },
-  ],
-  countries: [
-    { name: 'الصين', meta: 'وجهة دراسية مرتبطة' },
-    { name: 'ألمانيا', meta: 'وجهة دراسية مرتبطة' },
-  ],
-  academicPath: [],
-  similarMajorLinks: {},
-};
-
-const MAJOR_RELATIONSHIP_DEMOS: Record<string, MajorRelationshipDemo> = {
-  'mjr-0001': {
-    universities: [
-      { id: 'oxford', name: 'جامعة أكسفورد', meta: 'برامج طبية وصحية' },
-      { id: 'peking', name: 'جامعة بكين', meta: 'برامج طبية وصحية' },
-    ],
-    scholarships: [
-      { id: 'csc-china', name: 'منحة الحكومة الصينية (CSC)', meta: 'تشمل تخصصات طبية مؤهلة' },
-      { id: 'turkiye-burslari', name: 'منحة الحكومة التركية', meta: 'فرص بكالوريوس مرتبطة' },
-    ],
-    courses: [
-      { query: 'المصطلحات الطبية', name: 'المصطلحات الطبية', meta: 'دورة داعمة للتأسيس' },
-      { query: 'البحث الطبي', name: 'أساسيات البحث الطبي', meta: 'دورة مرتبطة بالبحث' },
-      { query: 'الإحصاء الحيوي', name: 'الإحصاء الحيوي', meta: 'مهارة كمية مساندة' },
-    ],
-    courseField: 'الصحة والطب',
-    countries: [
-      { name: 'المملكة المتحدة', meta: 'وجهة قوية للطب والبحث' },
-      { name: 'ألمانيا', meta: 'برامج طبية وبحثية' },
-    ],
-    academicPath: [
-      { id: 'mas-0001', degree: 'ماجستير', name: 'العلوم الطبية', meta: 'امتداد أكاديمي بعد البكالوريوس' },
-      { id: 'doc-0001', degree: 'دكتوراه', name: 'العلوم الطبية', meta: 'مسار بحثي متقدم' },
-      { id: 'fel-0001', degree: 'زمالة', name: 'زمالة طب القلب للبالغين', meta: 'مسار مهني تخصصي' },
-    ],
-    similarMajorLinks: {},
-  },
-  'mjr-demo-software-engineering': {
-    universities: [
-      { id: 'tsinghua', name: 'جامعة تسينغهوا', meta: 'برامج حوسبة وهندسة' },
-      { id: 'tum', name: 'جامعة ميونخ التقنية TUM', meta: 'برامج حوسبة وهندسة' },
-    ],
-    scholarships: [
-      { id: 'csc-china', name: 'منحة الحكومة الصينية (CSC)', meta: 'برامج تقنية مؤهلة' },
-      { id: 'daad-germany', name: 'منحة DAAD الألمانية', meta: 'فرص هندسية وتقنية' },
-    ],
-    courses: [
-      { courseId: 'saylor-cs105-introduction-to-python', query: 'Python', name: 'Introduction to Python', meta: 'دورة مستوردة • Saylor University' },
-      { query: 'تطوير الويب', name: 'تطوير الويب', meta: 'مهارة تطبيقية' },
-      { query: 'DevOps', name: 'DevOps وإدارة الإصدارات', meta: 'مسار مهني داعم' },
-    ],
-    courseField: 'البرمجة وتطوير البرمجيات',
-    countries: [
-      { name: 'ألمانيا', meta: 'وجهة هندسية وتقنية' },
-      { name: 'الصين', meta: 'برامج تقنية واسعة' },
-    ],
-    academicPath: [],
-    similarMajorLinks: { 'الذكاء الاصطناعي': 'mjr-demo-artificial-intelligence' },
-  },
-  'mjr-demo-computer-science': {
-    universities: [
-      { id: 'oxford', name: 'جامعة أكسفورد', meta: 'برامج حوسبة وعلوم حاسب' },
-      { id: 'tsinghua', name: 'جامعة تسينغهوا', meta: 'برامج حوسبة وهندسة' },
-    ],
-    scholarships: [
-      { id: 'csc-china', name: 'منحة الحكومة الصينية (CSC)', meta: 'برامج حوسبة وتقنية مؤهلة' },
-      { id: 'daad-germany', name: 'منحة DAAD الألمانية', meta: 'فرص دراسات تقنية مرتبطة' },
-    ],
-    courses: [
-      { courseId: 'saylor-cs105-introduction-to-python', query: 'Python', name: 'Introduction to Python', meta: 'دورة مستوردة • Saylor University' },
-      { courseId: 'freecodecamp-ai-literacy-for-everybody', query: 'AI', name: 'AI Literacy for Everybody', meta: 'دورة مستوردة • freeCodeCamp' },
-      { query: 'Data Science', name: 'دورات علوم البيانات', meta: 'مسار قريب من علوم الحاسب' },
-    ],
-    courseField: 'البرمجة وتطوير البرمجيات',
-    countries: [
-      { name: 'المملكة المتحدة', meta: 'برامج حوسبة وبحث تقني' },
-      { name: 'الصين', meta: 'برامج تقنية واسعة' },
-    ],
-    academicPath: [],
-    similarMajorLinks: {
-      'هندسة البرمجيات': 'mjr-demo-software-engineering',
-      'الذكاء الاصطناعي': 'mjr-demo-artificial-intelligence',
-    },
-  },
-  'mjr-demo-artificial-intelligence': {
-    universities: [
-      { id: 'tsinghua', name: 'جامعة تسينغهوا', meta: 'برامج ذكاء اصطناعي وحوسبة' },
-      { id: 'peking', name: 'جامعة بكين', meta: 'برامج ذكاء اصطناعي وحوسبة' },
-    ],
-    scholarships: [
-      { id: 'csc-china', name: 'منحة الحكومة الصينية (CSC)', meta: 'تشمل تخصصات الذكاء الاصطناعي' },
-      { id: 'daad-germany', name: 'منحة DAAD الألمانية', meta: 'فرص دراسات تقنية متقدمة' },
-    ],
-    courses: [
-      { courseId: 'saylor-cs105-introduction-to-python', query: 'Python', name: 'Introduction to Python', meta: 'دورة مستوردة • Saylor University' },
-      { courseId: 'freecodecamp-ai-literacy-for-everybody', query: 'AI', name: 'AI Literacy for Everybody', meta: 'دورة مستوردة • freeCodeCamp' },
-      { query: 'علوم البيانات', name: 'علوم البيانات وتحليلها', meta: 'مسار داعم' },
-    ],
-    courseField: 'الذكاء الاصطناعي وتعلّم الآلة',
-    countries: [
-      { name: 'الصين', meta: 'برامج ذكاء اصطناعي متقدمة' },
-      { name: 'ألمانيا', meta: 'مسارات تقنية وبحثية' },
-    ],
-    academicPath: [],
-    similarMajorLinks: { 'هندسة البرمجيات': 'mjr-demo-software-engineering' },
-  },
-};
-
 export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
   major,
+  relationshipGraph,
+  relationshipGraphStatus = 'ready',
   onClose,
   onOpenUniversity,
   onOpenScholarship,
   onOpenCourse,
   onOpenCourseCollection,
   onOpenMajor,
-  onOpenCountry,
   isFavorite = false,
   onToggleFavorite,
 }) => {
@@ -320,8 +193,14 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
       'الأخلاقيات الطبية.',
     ];
 
-  // Similar majors fallback
-  const relationshipDemo = MAJOR_RELATIONSHIP_DEMOS[major.id] || DEFAULT_RELATIONSHIPS;
+  const relationshipDemo = {
+    universities: relationshipGraph?.universities ?? [],
+    scholarships: relationshipGraph?.scholarships ?? [],
+    courses: relationshipGraph?.courses ?? [],
+    countries: [] as Array<{ id: string; name: string; meta: string }>,
+    academicPath: [] as Array<{ id: string; degree: string; name: string; meta: string }>,
+    similarMajorLinks: {} as Record<string, string>,
+  };
 
   const similarMajorsList = major.similarMajors || [
     { name: 'الطب العام', difference: 'غالبًا تسمية بديلة أو محلية للدرجة الطبية الأساسية' },
@@ -1312,7 +1191,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
           </div>
 
           {/* 17. SIMILAR DOCTORATES & DIFFERENCES */}
-          {/* RELATIONSHIP HUB — canonical navigation prototype */}
+          {/* RELATIONSHIP HUB — owner-published canonical graph */}
           <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
             <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent)] to-transparent" />
 
@@ -1324,11 +1203,17 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                 <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)]">استكشف فرص هذا التخصص</h2>
               </div>
               <p className="text-[9.5px] sm:text-[10.5px] font-bold text-[var(--mn-text-muted)] text-center leading-5 max-w-[330px]">
-                روابط تجريبية توضح كيف ينتقل الطالب من التخصص إلى الجامعات والمنح والدورات المرتبطة به.
+                علاقات منشورة من نماذج القراءة المالكة تربط التخصص بالجامعات والمنح والدورات ذات الصلة.
               </p>
               <div className="mt-2 w-[150px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent" />
             </div>
 
+            {relationshipGraphStatus === 'loading' && (
+              <div className="mb-3 rounded-xl border border-[var(--mn-border)] bg-[var(--mn-page)] px-3 py-2 text-center text-[10px] font-bold text-[var(--mn-text-muted)]">جاري تحميل العلاقات المنشورة…</div>
+            )}
+            {relationshipGraphStatus === 'unavailable' && (
+              <div className="mb-3 rounded-xl border border-[var(--mn-danger-border)] bg-[var(--mn-danger-soft)] px-3 py-2 text-center text-[10px] font-bold text-[var(--mn-danger-text)]">تعذر تحميل شبكة العلاقات الحية. لم يتم عرض علاقات تجريبية بديلة.</div>
+            )}
             <div className="grid grid-cols-1 gap-3">
               <div className="rounded-2xl border border-[var(--mn-border-brand)]/50 bg-gradient-to-l from-[var(--mn-primary)]/5 to-[var(--mn-surface)] p-3 shadow-2xs">
                 <div className="mb-2.5 flex items-center justify-between gap-2">
@@ -1338,7 +1223,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                     </div>
                     <div>
                       <h3 className="text-[11px] sm:text-[11.5px] font-black text-[var(--mn-heading)]">جامعات وبرامج تدرس هذا التخصص</h3>
-                      <p className="text-[9px] font-bold text-[var(--mn-text-muted)] mt-0.5">نموذجان فقط لاختبار الربط</p>
+                      <p className="text-[9px] font-bold text-[var(--mn-text-muted)] mt-0.5">برامج جامعية منشورة مرتبطة</p>
                     </div>
                   </div>
                 </div>
@@ -1405,9 +1290,9 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                 <div className="grid grid-cols-1 gap-2">
                   {relationshipDemo.courses.map((item) => (
                     <button
-                      key={item.query}
+                      key={item.id}
                       type="button"
-                      onClick={() => onOpenCourse?.(item.courseId ?? item.query)}
+                      onClick={() => onOpenCourse?.(item.id)}
                       className="group w-full text-right rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface)] px-3 py-2.5 shadow-2xs hover:border-[var(--mn-accent)]/60 hover:shadow-sm transition-all mn-panel "
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -1420,45 +1305,10 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                     </button>
                   ))}
                 </div>
-                {relationshipDemo.courseField && onOpenCourseCollection && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenCourseCollection(relationshipDemo.courseField!)}
-                    className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-[var(--mn-accent)]/45 bg-[var(--mn-accent)]/8 px-3 py-2 text-[10px] font-black text-[var(--mn-heading)] transition-all hover:border-[var(--mn-accent)] hover:bg-[var(--mn-accent)]/12"
-                  >
-                    <span>عرض المزيد من الدورات</span>
-                    <ArrowLeft className="h-3.5 w-3.5 text-[var(--mn-accent)]" />
-                  </button>
-                )}
               </div>
 
-              <div className="rounded-2xl border border-[var(--mn-border-brand)]/50 bg-[var(--mn-surface)] p-3 shadow-2xs mn-panel ">
-                <div className="mb-2.5 flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-xl bg-[var(--mn-accent)]/10 border border-[var(--mn-accent)]/35 flex items-center justify-center">
-                    <Compass className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                  </div>
-                  <div>
-                    <h3 className="text-[11px] sm:text-[11.5px] font-black text-[var(--mn-heading)]">دول بارزة لدراسة هذا التخصص</h3>
-                    <p className="text-[9px] font-bold text-[var(--mn-text-muted)] mt-0.5">مسار استكشاف مشتق من البرامج والجامعات</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {relationshipDemo.countries.map((item) => (
-                    <button
-                      key={item.name}
-                      type="button"
-                      onClick={() => onOpenCountry?.(item.name)}
-                      title={item.meta}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--mn-border-brand)]/45 bg-[var(--mn-primary)]/5 px-3 py-1.5 text-[9.5px] font-black text-[var(--mn-heading)] hover:border-[var(--mn-accent)]/60 hover:bg-[var(--mn-accent)]/10 transition-all"
-                    >
-                      {item.name}
-                      <ArrowLeft className="w-3 h-3 text-[var(--mn-accent)]" />
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
-          </div>
 
           {relationshipDemo.academicPath.length > 0 && (
             <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">

@@ -14,7 +14,6 @@ import {
   Briefcase,
 } from 'lucide-react';
 import { University } from '../types';
-import { MOCK_UNIVERSITIES } from '../data/mockData';
 
 interface UniversitiesSearchPageProps {
   universities?: University[];
@@ -25,7 +24,7 @@ interface UniversitiesSearchPageProps {
 }
 
 export const UniversitiesSearchPage: React.FC<UniversitiesSearchPageProps> = ({
-  universities = MOCK_UNIVERSITIES,
+  universities = [],
   onBack,
   onSelectUniversity,
   favoriteIds,

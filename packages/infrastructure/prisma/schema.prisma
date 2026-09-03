@@ -3418,10 +3418,15 @@ model ReferenceCountry {
   updatedAt              DateTime                     @updatedAt
   universities           University[]
   universityCampuses     UniversityCampus[]
+  administrativeRegions  AdministrativeRegion[]
+  cities                  ReferenceCity[]
   scholarships           Scholarship[]                @relation("ScholarshipPrimaryCountry")
   scholarshipEligibility ScholarshipEligibilityItem[] @relation("ScholarshipEligibilityCountry")
   externalCourseProviders ExternalCourseProvider[]       @relation("ExternalCourseProviderHeadquartersCountry")
   internationalTestCountryRelationships InternationalTestCountryRelationship[]
+  serviceCatalogCountries ServiceCatalogCountryRecord[]
+  careerEmployers CareerEmployerRecord[]
+  careerJobs CareerJobPostingRecord[]
 
   @@index([region])
   @@index([isActive])
@@ -3464,6 +3469,7 @@ model ReferenceLanguage {
   courses    Course[] @relation("CourseLearningLanguageReference")
   scholarships Scholarship[] @relation("ScholarshipStudyLanguage")
   internationalTestLanguageRelationships InternationalTestLanguageRelationship[]
+  serviceCatalogLanguages ServiceCatalogLanguageRecord[]
 
   @@index([isActive])
   @@index([name])
@@ -3473,6 +3479,7 @@ model ReferenceLanguage {
 model ReferenceCity {
   id                     String                @id @default(uuid())
   canonicalIdentityKey   String?               @unique
+  countryReferenceId     String?
   countryIso2Code        String
   name                   String
   nameAr                 String?
@@ -3483,12 +3490,16 @@ model ReferenceCity {
   isActive               Boolean               @default(true)
   metadata               Json?
   administrativeRegionId String?
+  countryReference       ReferenceCountry?      @relation(fields: [countryReferenceId], references: [id], onDelete: Restrict)
   administrativeRegion   AdministrativeRegion? @relation(fields: [administrativeRegionId], references: [id])
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
   universities           University[]
   universityCampuses     UniversityCampus[]
+  careerEmployers         CareerEmployerRecord[]
+  careerJobs              CareerJobPostingRecord[]
 
+  @@index([countryReferenceId])
   @@index([countryIso2Code])
   @@index([countryIso2Code, name])
   @@index([region])
@@ -3499,6 +3510,7 @@ model ReferenceCity {
 
 model AdministrativeRegion {
   id                 String             @id @default(uuid())
+  countryReferenceId String?
   countryIso2Code    String
   regionCode         String
   name               String
@@ -3510,11 +3522,13 @@ model AdministrativeRegion {
   metadata           Json?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
+  countryReference   ReferenceCountry?  @relation(fields: [countryReferenceId], references: [id], onDelete: Restrict)
   cities             ReferenceCity[]
   universities       University[]
   universityCampuses UniversityCampus[]
 
   @@unique([countryIso2Code, regionCode])
+  @@index([countryReferenceId])
   @@index([countryIso2Code])
   @@index([regionCode])
 }
@@ -4405,4 +4419,153 @@ model FinanceEstimateRecord {
   lines Json
   generatedAt DateTime @default(now())
   @@index([subjectReferenceId, generatedAt])
+}
+
+
+// --- Phase 20 Enterprise Services Platform (P8 source closure) ---
+model ServiceCatalogRecord {
+  id                         String   @id @default(uuid())
+  publicId                   String   @unique
+  slug                       String   @unique
+  canonicalName              String
+  canonicalDedupKey          String   @unique
+  displayName                String
+  status                     String
+  completenessStatus         String
+  serviceCategory            String
+  fulfillmentType            String
+  serviceDescription         String
+  serviceAvailabilityStatus  String
+  requiredInputsOrDocuments  Json
+  deliveryMode               String
+  responsibleServiceOwnerType String
+  providerName               String?
+  providerReferenceId        String?
+  estimatedDeliveryTime      String?
+  slaPolicy                  Json?
+  appointmentRequired        Boolean?
+  supportedCountryLabels     Json?
+  supportedLanguageLabels    Json?
+  servicePrerequisites       Json?
+  deliveryArtifactTypes      Json?
+  pricingReferenceId         String?
+  thumbnailAssetId           String?
+  publicDisplayMetadata      Json?
+  optionalFields             Json?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  supportedCountries         ServiceCatalogCountryRecord[]
+  supportedLanguages         ServiceCatalogLanguageRecord[]
+  requests                   ServiceRequestRecord[]
+
+  @@index([status, serviceCategory])
+  @@index([fulfillmentType, serviceAvailabilityStatus])
+}
+
+model ServiceCatalogCountryRecord {
+  serviceId          String
+  countryReferenceId String
+  service            ServiceCatalogRecord @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  country            ReferenceCountry     @relation(fields: [countryReferenceId], references: [id], onDelete: Restrict)
+
+  @@id([serviceId, countryReferenceId])
+  @@index([countryReferenceId])
+}
+
+model ServiceCatalogLanguageRecord {
+  serviceId           String
+  languageReferenceId String
+  service              ServiceCatalogRecord @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  language             ReferenceLanguage    @relation(fields: [languageReferenceId], references: [id], onDelete: Restrict)
+
+  @@id([serviceId, languageReferenceId])
+  @@index([languageReferenceId])
+}
+
+model ServiceRequestRecord {
+  id                     String   @id @default(uuid())
+  publicId               String   @unique
+  studentReferenceId     String
+  serviceId              String
+  status                 String
+  requestParameters      Json
+  providerReferenceId    String?
+  financeInvoiceId       String?
+  financeInvoicePublicId String?
+  fulfillmentMetadata    Json?
+  completedAt            DateTime?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  service                ServiceCatalogRecord @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@index([studentReferenceId, status, updatedAt])
+  @@index([serviceId, status])
+  @@index([financeInvoiceId])
+}
+
+// --- Phase 21 Career & Alumni Platform (P8 source closure) ---
+model CareerEmployerRecord {
+  id                    String   @id @default(uuid())
+  publicId              String   @unique
+  slug                  String   @unique
+  canonicalName         String
+  canonicalDedupKey     String   @unique
+  displayName           String
+  employerType          String
+  industry              String?
+  countryReferenceId    String?
+  cityReferenceId       String?
+  country               String?
+  city                  String?
+  websiteUrl            String?
+  logoAssetId           String?
+  verificationStatus    String
+  description           String?
+  metadata              Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  countryReference      ReferenceCountry? @relation(fields: [countryReferenceId], references: [id], onDelete: Restrict)
+  cityReference         ReferenceCity?    @relation(fields: [cityReferenceId], references: [id], onDelete: Restrict)
+  jobs                  CareerJobPostingRecord[]
+
+  @@index([verificationStatus, employerType])
+  @@index([countryReferenceId])
+  @@index([cityReferenceId])
+}
+
+model CareerJobPostingRecord {
+  id                    String   @id @default(uuid())
+  publicId              String   @unique
+  slug                  String   @unique
+  canonicalTitle        String
+  canonicalDedupKey     String   @unique
+  title                 String
+  opportunityType       String
+  employmentType        String
+  jobCategory           String
+  description           String
+  countryReferenceId    String
+  cityReferenceId       String?
+  country               String?
+  city                  String?
+  status                String
+  employerId            String
+  recruiterContactId    String?
+  applicationDeadline   DateTime?
+  externalPostingUrl    String?
+  salaryRange           Json?
+  requiredSkills        Json?
+  educationRequirement  String?
+  languageRequirements  Json?
+  remoteOption          Boolean  @default(false)
+  metadata              Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  employer              CareerEmployerRecord @relation(fields: [employerId], references: [id], onDelete: Restrict)
+  countryReference      ReferenceCountry      @relation(fields: [countryReferenceId], references: [id], onDelete: Restrict)
+  cityReference         ReferenceCity?        @relation(fields: [cityReferenceId], references: [id], onDelete: Restrict)
+
+  @@index([status, updatedAt])
+  @@index([countryReferenceId, cityReferenceId])
+  @@index([employerId, status])
 }

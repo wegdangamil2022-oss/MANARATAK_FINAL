@@ -24,7 +24,7 @@ interface ArticleDetailProps {
   onBack: () => void;
   onOpenScholarship?: (id: string) => void;
   onOpenUniversity?: (id: string) => void;
-  onOpenCountry?: (name: string) => void;
+  onOpenCountry?: (id: string) => void;
   onOpenMajor?: (id: string) => void;
   onOpenExam?: (id: string) => void;
   onOpenCourse?: (id: string) => void;
@@ -73,10 +73,10 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({
   onToggleFavorite,
 }) => {
   const openEntity = (entity: ArticleEntityRef) => {
-    if (!entity.id && entity.type !== 'COUNTRY') return;
+    if (!entity.id) return;
     if (entity.type === 'SCHOLARSHIP' && entity.id) onOpenScholarship?.(entity.id);
     if (entity.type === 'UNIVERSITY' && entity.id) onOpenUniversity?.(entity.id);
-    if (entity.type === 'COUNTRY') onOpenCountry?.(entity.name);
+    if (entity.type === 'COUNTRY') onOpenCountry?.(entity.id);
     if (entity.type === 'MAJOR' && entity.id) onOpenMajor?.(entity.id);
     if (entity.type === 'EXAM' && entity.id) onOpenExam?.(entity.id);
     if (entity.type === 'COURSE' && entity.id) onOpenCourse?.(entity.id);

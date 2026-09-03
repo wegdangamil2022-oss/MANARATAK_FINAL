@@ -361,3 +361,22 @@ export interface IStudentWorkspaceRepository {
   resetLayout(studentReferenceId: string, expectedVersion: number): Promise<StudentWorkspaceDto>;
   ingestIntegrationEvent(event: StudentWorkspaceIntegrationEventDto): Promise<boolean>;
 }
+
+/** P8 cross-domain read contract: Phase 15 stores only references; owner domains hydrate display truth. */
+export interface StudentSavedItemOwnerReadModel {
+  ownerType: StudentSavedItemType;
+  ownerId: string;
+  publicId?: string;
+  slug?: string;
+  displayName?: string;
+  lifecycleStatus?: string;
+  available: boolean;
+}
+export interface HydratedStudentSavedItemDto {
+  savedItem: StudentSavedItemDto;
+  owner: StudentSavedItemOwnerReadModel | null;
+}
+export interface IStudentSavedItemHydrationGateway {
+  supports(entityType: StudentSavedItemType): boolean;
+  hydrate(item: StudentSavedItemDto): Promise<StudentSavedItemOwnerReadModel | null>;
+}

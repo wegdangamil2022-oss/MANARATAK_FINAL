@@ -24,18 +24,10 @@ import {
   Scholarship,
   Service,
   University,
+  CountryDestination,
+  StudentToolPreview,
+  CareerOpportunityPreview,
 } from '../types';
-import {
-  GOLDEN_IMPORTED_COURSES,
-  MOCK_COUNTRIES,
-  MOCK_EXAMS,
-  MOCK_MAJORS,
-  MOCK_UNIVERSITIES,
-} from '../data/mockData';
-import { GOLDEN_ARTICLES } from '../data/articleData';
-import { PUBLIC_SERVICES } from '../data/serviceData';
-import { STUDENT_TOOLS_PREVIEW } from '../data/studentToolsData';
-import { CAREER_OPPORTUNITIES_PREVIEW } from '../data/careerData';
 import { FavoriteButton } from './FavoriteButton';
 
 type GlobalResultKind =
@@ -53,6 +45,15 @@ type GlobalResultKind =
 interface GlobalSearchPageProps {
   query: string;
   scholarships: Scholarship[];
+  universities: University[];
+  majors: Major[];
+  countries: CountryDestination[];
+  importedCourses: ImportedCourse[];
+  exams: Exam[];
+  articles: PublicArticle[];
+  services: Service[];
+  tools: StudentToolPreview[];
+  careers: CareerOpportunityPreview[];
   onBack: () => void;
   onOpenSmartSearch: () => void;
   onOpenScholarship: (item: Scholarship) => void;
@@ -62,7 +63,7 @@ interface GlobalSearchPageProps {
   onOpenCourse: (item: ImportedCourse) => void;
   onOpenArticle: (item: PublicArticle) => void;
   onOpenService: (item: Service) => void;
-  onOpenCountry: (countryName: string) => void;
+  onOpenCountry: (countryId: string) => void;
   onNavigateCategory: (category: CategoryType) => void;
   favoriteKeys?: FavoriteKey[];
   onToggleFavorite?: (kind: FavoriteKind, id: string) => void;
@@ -112,6 +113,15 @@ const searchable = (value: unknown) => normalize(JSON.stringify(value));
 export const GlobalSearchPage: React.FC<GlobalSearchPageProps> = ({
   query,
   scholarships,
+  universities,
+  majors,
+  countries,
+  importedCourses,
+  exams,
+  articles,
+  services,
+  tools,
+  careers,
   onBack,
   onOpenSmartSearch,
   onOpenScholarship,
@@ -142,7 +152,7 @@ export const GlobalSearchPage: React.FC<GlobalSearchPageProps> = ({
       }),
     );
 
-    MOCK_UNIVERSITIES.forEach((item: any) =>
+    universities.forEach((item: any) =>
       results.push({
         key: `university-${item.id}`,
         kind: 'universities',
@@ -153,7 +163,7 @@ export const GlobalSearchPage: React.FC<GlobalSearchPageProps> = ({
       }),
     );
 
-    MOCK_MAJORS.forEach((item: any) =>
+    majors.forEach((item: any) =>
       results.push({
         key: `major-${item.id}`,
         kind: 'majors',
@@ -164,7 +174,7 @@ export const GlobalSearchPage: React.FC<GlobalSearchPageProps> = ({
       }),
     );
 
-    MOCK_COUNTRIES.forEach((item: any) =>
+    countries.forEach((item: any) =>
       results.push({
         key: `country-${item.id}`,
         kind: 'countries',
@@ -175,7 +185,7 @@ export const GlobalSearchPage: React.FC<GlobalSearchPageProps> = ({
       }),
     );
 
-    GOLDEN_IMPORTED_COURSES.forEach((item: any) =>
+    importedCourses.forEach((item: any) =>
       results.push({
         key: `course-${item.id}`,
         kind: 'courses',
@@ -186,7 +196,7 @@ export const GlobalSearchPage: React.FC<GlobalSearchPageProps> = ({
       }),
     );
 
-    MOCK_EXAMS.forEach((item: any) =>
+    exams.forEach((item: any) =>
       results.push({
         key: `exam-${item.id}`,
         kind: 'exams',
@@ -197,7 +207,7 @@ export const GlobalSearchPage: React.FC<GlobalSearchPageProps> = ({
       }),
     );
 
-    GOLDEN_ARTICLES.forEach((item: any) =>
+    articles.forEach((item: any) =>
       results.push({
         key: `article-${item.id}`,
         kind: 'articles',
@@ -208,7 +218,7 @@ export const GlobalSearchPage: React.FC<GlobalSearchPageProps> = ({
       }),
     );
 
-    PUBLIC_SERVICES.forEach((item: any) =>
+    services.forEach((item: any) =>
       results.push({
         key: `service-${item.id}`,
         kind: 'services',
@@ -219,7 +229,7 @@ export const GlobalSearchPage: React.FC<GlobalSearchPageProps> = ({
       }),
     );
 
-    STUDENT_TOOLS_PREVIEW.forEach((item: any) =>
+    tools.forEach((item: any) =>
       results.push({
         key: `tool-${item.id}`,
         kind: 'tools',
@@ -230,7 +240,7 @@ export const GlobalSearchPage: React.FC<GlobalSearchPageProps> = ({
       }),
     );
 
-    CAREER_OPPORTUNITIES_PREVIEW.forEach((item: any) =>
+    careers.forEach((item: any) =>
       results.push({
         key: `career-${item.id}`,
         kind: 'jobs',
@@ -242,7 +252,7 @@ export const GlobalSearchPage: React.FC<GlobalSearchPageProps> = ({
     );
 
     return results;
-  }, [scholarships]);
+  }, [scholarships, universities, majors, countries, importedCourses, exams, articles, services, tools, careers]);
 
   const baseMatchedResults = useMemo(() => {
     const q = normalize(query);
@@ -288,7 +298,7 @@ export const GlobalSearchPage: React.FC<GlobalSearchPageProps> = ({
     if (result.kind === 'courses') return onOpenCourse(result.raw as ImportedCourse);
     if (result.kind === 'articles') return onOpenArticle(result.raw as PublicArticle);
     if (result.kind === 'services') return onOpenService(result.raw as Service);
-    if (result.kind === 'countries') return onOpenCountry(result.raw.name);
+    if (result.kind === 'countries') return onOpenCountry(result.raw.id);
     if (result.kind === 'tools') return onNavigateCategory('tools');
     return onNavigateCategory('jobs');
   };

@@ -25,7 +25,7 @@ interface ImportedCourseDetailProps {
   onOpenMajor?: (majorId: string) => void;
   onOpenUniversity?: (universityId: string) => void;
   onOpenScholarship?: (scholarshipId: string) => void;
-  onOpenCountry?: (countryName: string) => void;
+  onOpenCountry?: (countryId: string) => void;
   onOpenExam?: (examId: string) => void;
   isFavorite?: boolean;
   onToggleFavorite?: (id: string) => void;
@@ -254,7 +254,7 @@ export const ImportedCourseDetail: React.FC<ImportedCourseDetailProps> = ({
                   <div className="mb-1.5 flex items-center gap-1.5 text-[9.5px] font-black text-[var(--mn-text-muted)]"><Globe2 className="h-3.5 w-3.5 text-[var(--mn-accent-text)]" /><span>دول مرتبطة</span></div>
                   <div className="grid grid-cols-1 gap-2">
                     {course.relatedCountries.map((item) => (
-                      <button key={`${item.id ?? item.name}-country`} type="button" disabled={!onOpenCountry} onClick={() => onOpenCountry?.(item.name)} className="group flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--mn-border)] bg-[var(--mn-page)]/75 px-3 py-2.5 text-right transition-all enabled:hover:border-[var(--mn-border-gold)] enabled:hover:bg-[var(--mn-surface)] disabled:cursor-default enabled:hover:mn-panel ">
+                      <button key={`${item.id ?? item.name}-country`} type="button" disabled={!onOpenCountry || !item.id} onClick={() => item.id && onOpenCountry?.(item.id)} className="group flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--mn-border)] bg-[var(--mn-page)]/75 px-3 py-2.5 text-right transition-all enabled:hover:border-[var(--mn-border-gold)] enabled:hover:bg-[var(--mn-surface)] disabled:cursor-default enabled:hover:mn-panel ">
                         <div className="min-w-0"><div className="text-[10.5px] font-black text-[var(--mn-heading)]">{item.name}</div>{item.meta && <div className="mt-0.5 text-[8.5px] font-bold leading-4 text-[var(--mn-text-muted)]">{item.meta}</div>}</div>
                         <ArrowLeft className="h-3.5 w-3.5 shrink-0 text-[var(--mn-accent-text)]" />
                       </button>

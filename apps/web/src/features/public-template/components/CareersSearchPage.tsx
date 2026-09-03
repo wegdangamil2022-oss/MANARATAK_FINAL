@@ -27,15 +27,15 @@ import {
   CareerWorkMode,
   CategoryType,
 } from '../types';
-import { CAREER_OPPORTUNITIES_PREVIEW } from '../data/careerData';
 import { FavoriteButton } from './FavoriteButton';
 
 interface CareersSearchPageProps {
   detailId?: string;
+  opportunities: CareerOpportunityPreview[];
   onDetailChange?: (id: string) => void;
   onBack?: () => void;
   onNavigateCategory?: (category: CategoryType) => void;
-  onOpenCountry?: (countryName: string) => void;
+  onOpenCountry?: (countryId: string) => void;
   onOpenTools?: () => void;
   favoriteIds?: string[];
   onToggleFavorite?: (id: string) => void;
@@ -82,7 +82,7 @@ const CareerOpportunityCard: React.FC<{
               </h2>
             </div>
             <span className="shrink-0 rounded-full bg-[var(--mn-gold-surface)] border border-[var(--mn-border-gold)] px-2 py-1 text-[9px] font-black text-[var(--mn-accent-text)] font-['Cairo',sans-serif] mn-panel ">
-              نموذج تجريبي
+              منشور
             </span>
           </div>
 
@@ -152,7 +152,7 @@ const CareerOpportunityDetail: React.FC<{
   opportunity: CareerOpportunityPreview;
   onBack: () => void;
   onNavigateCategory?: (category: CategoryType) => void;
-  onOpenCountry?: (countryName: string) => void;
+  onOpenCountry?: (countryId: string) => void;
   onOpenTools?: () => void;
   isFavorite?: boolean;
   onToggleFavorite?: (id: string) => void;
@@ -205,7 +205,7 @@ const CareerOpportunityDetail: React.FC<{
     <div className="max-w-xl mx-auto px-3 sm:px-4 -mt-4 relative z-20 space-y-3">
       <div className="bg-[var(--mn-gold-surface)] border border-[var(--mn-border-gold)] rounded-2xl px-3 py-2.5 text-center mn-panel ">
         <p className="text-[9px] sm:text-[10px] leading-5 font-bold text-[var(--mn-accent-text)] font-['Cairo',sans-serif]">
-          هذا سجل تجريبي لا يمثل إعلان توظيف حقيقيًا. الغرض اختبار واجهة Phase 21 والربط فقط.
+          هذه الفرصة معروضة من كتالوج Career & Alumni المنشور. تحقق من الجهة والموعد والتفاصيل قبل التقديم.
         </p>
       </div>
 
@@ -287,7 +287,7 @@ const CareerOpportunityDetail: React.FC<{
 
         <div className="mt-3 space-y-2">
           <button
-            onClick={() => onOpenCountry?.(opportunity.country)}
+            onClick={() => opportunity.countryReferenceId && onOpenCountry?.(opportunity.countryReferenceId)}
             className="w-full flex items-center justify-between gap-3 rounded-2xl border border-[var(--mn-border)] hover:border-[var(--mn-accent)]/60 bg-[var(--mn-page)]/70 hover:bg-[var(--mn-accent)]/5 p-3 text-right transition-all cursor-pointer"
           >
             <div className="flex items-start gap-2.5">
@@ -337,6 +337,7 @@ const CareerOpportunityDetail: React.FC<{
 
 export const CareersSearchPage: React.FC<CareersSearchPageProps> = ({
   detailId, onDetailChange,
+  opportunities,
   onBack,
   onNavigateCategory,
   onOpenCountry,
@@ -354,18 +355,18 @@ export const CareersSearchPage: React.FC<CareersSearchPageProps> = ({
   const [selectedEmploymentType, setSelectedEmploymentType] = useState('الكل');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [localDetail, setLocalDetail] = useState<CareerOpportunityPreview | null>(() =>
-    initialSelectedId ? CAREER_OPPORTUNITIES_PREVIEW.find((item) => item.id === initialSelectedId) || null : null,
+    initialSelectedId ? opportunities.find((item) => item.id === initialSelectedId) || null : null,
   );
-  const selectedOpportunity = detailId !== undefined ? (CAREER_OPPORTUNITIES_PREVIEW.find(item => item.id === detailId) || (CAREER_OPPORTUNITIES_PREVIEW.find(item => item.id === initialSelectedId)) || null) : localDetail;
+  const selectedOpportunity = detailId !== undefined ? (opportunities.find(item => item.id === detailId) || (opportunities.find(item => item.id === initialSelectedId)) || null) : localDetail;
   const setSelectedOpportunity = (value: CareerOpportunityPreview | null) => onDetailChange ? onDetailChange(value?.id || '') : setLocalDetail(value);
 
 
-  const kinds = useMemo(() => ['الكل', ...Array.from(new Set(CAREER_OPPORTUNITIES_PREVIEW.map((item) => item.kind)))], []);
-  const countries = useMemo(() => ['الكل', ...Array.from(new Set(CAREER_OPPORTUNITIES_PREVIEW.map((item) => item.country)))], []);
-  const industries = useMemo(() => ['الكل', ...Array.from(new Set(CAREER_OPPORTUNITIES_PREVIEW.map((item) => item.industry)))], []);
-  const workModes = useMemo(() => ['الكل', ...Array.from(new Set(CAREER_OPPORTUNITIES_PREVIEW.map((item) => item.workMode)))], []);
-  const experienceLevels = useMemo(() => ['الكل', ...Array.from(new Set(CAREER_OPPORTUNITIES_PREVIEW.map((item) => item.experienceLevel)))], []);
-  const employmentTypes = useMemo(() => ['الكل', ...Array.from(new Set(CAREER_OPPORTUNITIES_PREVIEW.map((item) => item.employmentType)))], []);
+  const kinds = useMemo(() => ['الكل', ...Array.from(new Set(opportunities.map((item) => item.kind)))], [opportunities]);
+  const countries = useMemo(() => ['الكل', ...Array.from(new Set(opportunities.map((item) => item.country)))], [opportunities]);
+  const industries = useMemo(() => ['الكل', ...Array.from(new Set(opportunities.map((item) => item.industry)))], [opportunities]);
+  const workModes = useMemo(() => ['الكل', ...Array.from(new Set(opportunities.map((item) => item.workMode)))], [opportunities]);
+  const experienceLevels = useMemo(() => ['الكل', ...Array.from(new Set(opportunities.map((item) => item.experienceLevel)))], [opportunities]);
+  const employmentTypes = useMemo(() => ['الكل', ...Array.from(new Set(opportunities.map((item) => item.employmentType)))], [opportunities]);
 
   const advancedFiltersCount =
     (selectedIndustry !== 'الكل' ? 1 : 0) +
@@ -381,7 +382,7 @@ export const CareersSearchPage: React.FC<CareersSearchPageProps> = ({
 
   const filteredOpportunities = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return CAREER_OPPORTUNITIES_PREVIEW.filter((item) => {
+    return opportunities.filter((item) => {
       const searchable = [
         item.title,
         item.titleEn,
@@ -413,6 +414,7 @@ export const CareersSearchPage: React.FC<CareersSearchPageProps> = ({
       );
     });
   }, [
+    opportunities,
     searchQuery,
     selectedKind,
     selectedCountry,
@@ -617,8 +619,8 @@ export const CareersSearchPage: React.FC<CareersSearchPageProps> = ({
           {filteredOpportunities.length === 0 ? (
             <div className="bg-[var(--mn-surface)] border border-[var(--mn-border)] rounded-3xl p-8 text-center flex flex-col items-center justify-center gap-2 shadow-2xs mn-panel ">
               <div className="w-12 h-12 rounded-full bg-[var(--mn-surface-muted)] flex items-center justify-center text-[var(--mn-text-muted)] mn-panel "><Search className="w-6 h-6" /></div>
-              <h3 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">لا توجد فرصة مطابقة في النموذج التجريبي</h3>
-              <p className="text-xs text-[var(--mn-text-muted)] max-w-xs font-['Cairo',sans-serif]">الفلاتر مصممة لكتالوج Phase 21 الكامل، بينما هذه النسخة تحتوي ثلاثة سجلات تجريبية فقط.</p>
+              <h3 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">لا توجد فرصة مطابقة</h3>
+              <p className="text-xs text-[var(--mn-text-muted)] max-w-xs font-['Cairo',sans-serif]">غيّر الفلاتر أو أعد البحث في الفرص المنشورة.</p>
               <button onClick={resetFilters} className="mt-2 px-4 py-1.5 bg-[var(--mn-primary)] text-white rounded-xl text-xs font-bold cursor-pointer font-['Cairo',sans-serif] mn-inverse ">إلغاء التصفية</button>
             </div>
           ) : (

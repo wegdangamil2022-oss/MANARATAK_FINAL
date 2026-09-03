@@ -79,7 +79,11 @@
     "w15:verify": "node scripts/verify-w15-source.mjs",
     "w16:verify": "node scripts/verify-w16-final-closure.mjs",
     "remediation:verify": "node scripts/run-remediation-verifiers.mjs",
-    "postw16:verify": "node scripts/verify-post-w16-hardening.mjs"
+    "postw16:verify": "node scripts/verify-post-w16-hardening.mjs",
+    "phase7:plan:verify": "node scripts/verify-p7-plan-closure.mjs",
+    "phase8:plan:verify": "node scripts/verify-p8-plan-closure.mjs",
+    "phase9:plan:verify": "node scripts/verify-p9-plan-closure.mjs",
+    "phase10:plan:verify": "node scripts/verify-p10-plan-closure.mjs"
   },
   "dependencies": {
     "@e965/xlsx": "0.20.3",

@@ -8,6 +8,7 @@ import {
   UniversityImportCompletenessState,
   UniversityStatus,
   UniversityNormalizedDetailsUpdate,
+  UniversityAcademicProgramAuthoringInput,
   UniversityTranslationDto,
   UpdateUniversityDto,
   PublicationReadinessEngine,
@@ -76,6 +77,13 @@ export class AdminUniversityUseCases {
     context?: AtomicMutationRequestContext,
   ): Promise<UniversityDto> {
     const existing = await this.getUniversity(id);
+    const canonicalRelationshipMutation =
+      updates.countryReferenceId !== undefined ||
+      updates.regionReferenceId !== undefined ||
+      updates.cityReferenceId !== undefined;
+    if (existing.status === UniversityStatus.PUBLISHED && canonicalRelationshipMutation) {
+      throw new Error('UNIVERSITY_PUBLISHED_STRUCTURE_IMMUTABLE');
+    }
 
     const payloadForClassification = {
       universityName: updates.displayName ?? existing.displayName,
@@ -99,6 +107,44 @@ export class AdminUniversityUseCases {
         completenessStatus: classification.state,
       }),
     );
+  }
+
+  public async upsertAcademicProgram(
+    universityId: string,
+    programId: string | null,
+    input: UniversityAcademicProgramAuthoringInput,
+    context?: AtomicMutationRequestContext,
+  ): Promise<UniversityDto> {
+    const university = await this.getUniversity(universityId);
+    if (university.status === UniversityStatus.PUBLISHED) {
+      throw new Error('UNIVERSITY_PUBLISHED_STRUCTURE_IMMUTABLE');
+    }
+    if (!input.sourceProgramName.trim()) throw new Error('UNIVERSITY_PROGRAM_NAME_REQUIRED');
+    if (!input.degreeLevelId) throw new Error('UNIVERSITY_PROGRAM_DEGREE_LEVEL_REQUIRED');
+    return this.mutate(
+      programId ? 'UNIVERSITY_ACADEMIC_PROGRAM_UPDATED' : 'UNIVERSITY_ACADEMIC_PROGRAM_CREATED',
+      universityId,
+      context,
+      async (repository) => {
+        if (!repository.upsertAcademicProgram) throw new Error('UNIVERSITY_PROGRAM_PERSISTENCE_NOT_AVAILABLE');
+        return repository.upsertAcademicProgram(universityId, programId, input);
+      },
+    );
+  }
+
+  public async archiveAcademicProgram(
+    universityId: string,
+    programId: string,
+    context?: AtomicMutationRequestContext,
+  ): Promise<UniversityDto> {
+    const university = await this.getUniversity(universityId);
+    if (university.status === UniversityStatus.PUBLISHED) {
+      throw new Error('UNIVERSITY_PUBLISHED_STRUCTURE_IMMUTABLE');
+    }
+    return this.mutate('UNIVERSITY_ACADEMIC_PROGRAM_ARCHIVED', universityId, context, async (repository) => {
+      if (!repository.archiveAcademicProgram) throw new Error('UNIVERSITY_PROGRAM_PERSISTENCE_NOT_AVAILABLE');
+      return repository.archiveAcademicProgram(universityId, programId);
+    });
   }
 
   public async replaceNormalizedDetails(

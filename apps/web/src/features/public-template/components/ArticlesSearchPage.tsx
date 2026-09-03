@@ -13,7 +13,6 @@ import {
   X,
 } from 'lucide-react';
 import { PublicArticle } from '../types';
-import { ARTICLE_PREVIEWS, GOLDEN_ARTICLES } from '../data/articleData';
 import { FavoriteButton } from './FavoriteButton';
 
 type ArticleType = PublicArticle['contentType'];
@@ -42,27 +41,28 @@ const TYPE_STYLE: Record<ArticleType, { icon: React.ReactNode; label: string; cl
 };
 
 interface ArticlesSearchPageProps {
+  articles: PublicArticle[];
   onBack?: () => void;
   onSelectArticle?: (article: PublicArticle) => void;
   favoriteIds?: string[];
   onToggleFavorite?: (id: string) => void;
 }
 
-export const ArticlesSearchPage: React.FC<ArticlesSearchPageProps> = ({ onBack, onSelectArticle, favoriteIds = [], onToggleFavorite }) => {
+export const ArticlesSearchPage: React.FC<ArticlesSearchPageProps> = ({ articles, onBack, onSelectArticle, favoriteIds = [], onToggleFavorite }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<'ALL' | ArticleType>('ALL');
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return ARTICLE_PREVIEWS.filter((article) => {
+    return articles.filter((article) => {
       if (selectedType !== 'ALL' && article.contentType !== selectedType) return false;
       if (!q) return true;
       return [article.titleAr, article.titleEn, article.categoryAr, article.author]
         .join(' ')
         .toLowerCase()
         .includes(q);
-    }).sort((a, b) => Number(b.id === 'art_104') - Number(a.id === 'art_104'));
-  }, [searchQuery, selectedType]);
+    });
+  }, [articles, searchQuery, selectedType]);
 
   return (
     <main dir="rtl" className="min-h-screen bg-[var(--mn-surface)] pb-16 font-['Cairo',sans-serif] mn-panel ">
@@ -235,24 +235,14 @@ export const ArticlesSearchPage: React.FC<ArticlesSearchPageProps> = ({ onBack, 
                           {article.updatedAt}
                         </span>
                       </div>
-                      {(() => {
-                        const fullArticle = GOLDEN_ARTICLES.find((item) => item.id === article.id);
-                        return (
-                          <button
-                            type="button"
-                            disabled={!fullArticle}
-                            onClick={() => fullArticle && onSelectArticle?.(fullArticle)}
-                            className={`inline-flex min-h-9 shrink-0 items-center gap-1 rounded-xl px-3 text-[10px] font-black shadow-sm transition ${
-                              fullArticle
-                                ? 'bg-[var(--mn-primary)] text-white hover:bg-[var(--mn-primary-hover)] active:scale-[0.99] mn-inverse hover:mn-inverse '
-                                : 'cursor-default border border-[var(--mn-border)] bg-[var(--mn-page)] text-[var(--mn-text-muted)] mn-panel '
-                            }`}
-                          >
-                            {fullArticle ? 'اقرأ المقال' : 'قريباً'}
-                            <ChevronLeft className="h-3.5 w-3.5" />
-                          </button>
-                        );
-                      })()}
+                      <button
+                        type="button"
+                        onClick={() => onSelectArticle?.(article)}
+                        className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-xl bg-[var(--mn-primary)] px-3 text-[10px] font-black text-white shadow-sm transition hover:bg-[var(--mn-primary-hover)] active:scale-[0.99] mn-inverse hover:mn-inverse"
+                      >
+                        اقرأ المقال
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
                 </div>

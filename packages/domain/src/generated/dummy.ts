@@ -118,15 +118,6 @@ export class SecurityPolicyCreatedEvent { constructor(..._args: any[]) {} [key: 
 export class SecurityPolicyActivatedEvent { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class SecurityPolicyDeprecatedEvent { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class SecurityPolicyArchivedEvent { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
-export interface CreateServiceCatalogItemDto { [key: string]: any }
-export interface PaginatedServiceCatalogResult<T = any, _unused = T> { [key: string]: any }
-export interface ServiceCatalogFilters { [key: string]: any }
-export interface ServiceCatalogItemDto { [key: string]: any }
-export enum ServiceCompletenessStatus { DUMMY = 'DUMMY', INCOMPLETE = 'INCOMPLETE', NEEDS_REVIEW = 'NEEDS_REVIEW', COMPLETE = 'COMPLETE' }
-export enum ServiceStatus { DUMMY = 'DUMMY', ARCHIVED = 'ARCHIVED', REJECTED = 'REJECTED', PUBLISHED = 'PUBLISHED', READY_TO_PUBLISH = 'READY_TO_PUBLISH', READY_TO_REVIEW = 'READY_TO_REVIEW' }
-export interface UpdateServiceCatalogItemDto { [key: string]: any }
-export interface PublicServiceCatalogFilters { [key: string]: any }
-export interface PublicServiceCatalogItemDto { [key: string]: any }
 export class SharedComponent { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class SharedComponentId { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class SharedComponentReference { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
@@ -204,7 +195,6 @@ export enum SecurityLifecycleState { DUMMY = 'DUMMY', ARCHIVED = 'ARCHIVED', DEP
 export interface ISecurityPolicyRepository { [key: string]: any }
 export class SecurityLifecycleService { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export class SecurityVersionPublishedEvent { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
-export interface IServiceCatalogRepository { [key: string]: any }
 export class ComponentMetadata { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
 export enum ComponentLifecycleState { DUMMY = 'DUMMY', ARCHIVED = 'ARCHIVED', DEPRECATED = 'DEPRECATED', CREATED = 'CREATED', ACTIVATED = 'ACTIVATED' }
 export class ComponentLifecycleService { constructor(..._args: any[]) {} [key: string]: any; static [key: string]: any; }
@@ -216,7 +206,3 @@ export class WorkflowArchivedEvent { constructor(..._args: any[]) {} [key: strin
 export class AIExecutionResponseDto { [key: string]: any; static [key: string]: any; }
 export class AIExecutionUseCases { [key: string]: any; static [key: string]: any; }
 
-export enum ServiceAvailabilityStatus { DUMMY = 'DUMMY', AVAILABLE = 'AVAILABLE' }
-export enum ServiceCategory { DUMMY = 'DUMMY', VISA_SERVICES = 'VISA_SERVICES' }
-export enum ServiceDeliveryMode { DUMMY = 'DUMMY', ONLINE = 'ONLINE' }
-export enum ServiceFulfillmentType { DUMMY = 'DUMMY', CONSULTATION = 'CONSULTATION' }

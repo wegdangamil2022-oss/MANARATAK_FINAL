@@ -10,6 +10,7 @@ import {
 describe('ReferenceDataContracts', () => {
   it('should allow valid ReferenceCountryDto assignment', () => {
     const country: ReferenceCountryDto = {
+      id: 'country-eg',
       iso2Code: 'EG',
       iso3Code: 'EGY',
       name: 'Egypt',
@@ -22,6 +23,7 @@ describe('ReferenceDataContracts', () => {
 
   it('should allow valid ReferenceCurrencyDto assignment', () => {
     const currency: ReferenceCurrencyDto = {
+      id: 'currency-usd',
       isoCode: 'EGP',
       name: 'Egyptian Pound',
       isActive: true,
@@ -32,6 +34,7 @@ describe('ReferenceDataContracts', () => {
 
   it('should allow valid ReferenceLanguageDto assignment', () => {
     const lang: ReferenceLanguageDto = {
+      id: 'language-ar',
       isoCode: 'ar',
       name: 'Arabic',
       direction: 'RTL',
@@ -42,6 +45,7 @@ describe('ReferenceDataContracts', () => {
 
   it('should allow valid ReferenceCityDto assignment', () => {
     const city: ReferenceCityDto = {
+      id: 'city-cairo',
       countryIso2Code: 'EG',
       name: 'Cairo',
       isActive: true

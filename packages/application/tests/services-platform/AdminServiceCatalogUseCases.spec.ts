@@ -45,7 +45,10 @@ describe('AdminServiceCatalogUseCases', () => {
       list: vi.fn(),
       listPublished: vi.fn()
     };
-    useCases = new AdminServiceCatalogUseCases(repository);
+    useCases = new AdminServiceCatalogUseCases(repository, {
+      resolveCountryReference: vi.fn(async (value: string) => ({ id: `country:${value}`, label: value })),
+      resolveLanguageReference: vi.fn(async (value: string) => ({ id: `language:${value}`, label: value })),
+    });
   });
 
   it('creates a complete service catalog item with generated identity fields', async () => {
@@ -60,7 +63,7 @@ describe('AdminServiceCatalogUseCases', () => {
       responsibleServiceOwnerType: 'MANARATAK_TEAM'
     });
 
-    expect(result.slug).toBe('visa-review');
+    expect(result.slug).toMatch(/^visa-review-[0-9a-f]{8}$/);
     expect(result.completenessStatus).toBe(ServiceCompletenessStatus.COMPLETE);
     expect(repository.create).toHaveBeenCalledWith(expect.objectContaining({
       canonicalDedupKey: 'visa review|VISA_SERVICES|CONSULTATION|ONLINE'

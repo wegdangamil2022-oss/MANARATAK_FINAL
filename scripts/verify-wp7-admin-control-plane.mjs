@@ -42,7 +42,7 @@ const report = {
   backendPermissionGuards: guards.length,
   adminMutationAudit: apiApp.includes("new MutationAuditMiddleware(auditRecordRepository, 'ADMIN').generate()"),
   duplicateInternationalTestDetailMethods: duplicateDetailMethods,
-  initialInternationalTestDetailRequests: (testDetail.match(/getInternationalTest\(/g) || []).length,
+  initialInternationalTestDetailRequests: (testDetail.match(/getInternationalTest(?:<[^>]+>)?\(/g) || []).length,
   internationalTestMaxPageSize100: /Math\.min\(Math\.max\(parseInt\(value, 10\), 1\), 100\)/.test(testRouter),
   majorMaxPageSize100: /\.max\(100\)/.test(majorRouter),
 };

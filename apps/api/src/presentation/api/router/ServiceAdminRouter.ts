@@ -7,14 +7,15 @@ import {
   ServiceFulfillmentType,
   ServiceStatus,
   ServiceCompletenessStatus,
+  ServiceRequestStatus,
   UpdateServiceCatalogItemDto
 } from '@manaratak/domain';
-import { AdminServiceCatalogUseCases } from '@manaratak/application';
+import { AdminServiceCatalogUseCases, AdminServiceFulfillmentUseCases } from '@manaratak/application';
 
 export class ServiceAdminRouter {
-  public static create(cradle: { adminServiceCatalogUseCases: AdminServiceCatalogUseCases }): Router {
+  public static create(cradle: { adminServiceCatalogUseCases: AdminServiceCatalogUseCases; adminServiceFulfillmentUseCases: AdminServiceFulfillmentUseCases }): Router {
     const router = Router();
-    const { adminServiceCatalogUseCases } = cradle;
+    const { adminServiceCatalogUseCases, adminServiceFulfillmentUseCases } = cradle;
 
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
@@ -45,8 +46,10 @@ export class ServiceAdminRouter {
       estimatedDeliveryTime: z.string().nullable().optional(),
       slaPolicy: z.record(z.string(), z.unknown()).nullable().optional(),
       appointmentRequired: z.boolean().nullable().optional(),
-      supportedCountries: z.array(z.string()).nullable().optional(),
-      supportedLanguages: z.array(z.string()).nullable().optional(),
+      supportedCountryReferenceIds: z.array(z.string().min(1)).nullable().optional(),
+      supportedLanguageReferenceIds: z.array(z.string().min(1)).nullable().optional(),
+      supportedCountries: z.array(z.string().min(1)).nullable().optional(),
+      supportedLanguages: z.array(z.string().min(1)).nullable().optional(),
       servicePrerequisites: z.array(z.string()).nullable().optional(),
       deliveryArtifactTypes: z.array(z.string()).nullable().optional(),
       pricingReferenceId: z.string().nullable().optional(),
@@ -57,6 +60,25 @@ export class ServiceAdminRouter {
 
     const updateBodySchema = serviceBodySchema.partial();
 
+    const requestListQuerySchema = z.object({
+      studentReferenceId: z.string().min(1).optional(),
+      serviceId: z.string().min(1).optional(),
+      status: z.nativeEnum(ServiceRequestStatus).optional(),
+      page: z.string().optional().transform((value) => value ? parseInt(value, 10) : 1),
+      pageSize: z.string().optional().transform((value) => value ? Math.min(parseInt(value, 10), 100) : 20),
+    });
+    const requestTransitionSchema = z.object({
+      status: z.nativeEnum(ServiceRequestStatus),
+      fulfillmentMetadata: z.record(z.string(), z.unknown()).nullable().optional(),
+    }).strict();
+    const requestInvoiceSchema = z.object({
+      description: z.string().trim().min(1).max(240).optional(),
+      quantity: z.number().int().positive().max(100).optional(),
+      amountMinorUnits: z.string().regex(/^\d+$/),
+      currencyCode: z.string().trim().min(3).max(3),
+      scale: z.number().int().min(0).max(6),
+    }).strict();
+
     router.get('/', asyncHandler(async (req: Request, res: Response) => {
       const filters = listQuerySchema.parse(req.query);
       res.json(await adminServiceCatalogUseCases.listServices(filters));
@@ -65,6 +87,30 @@ export class ServiceAdminRouter {
     router.post('/', asyncHandler(async (req: Request, res: Response) => {
       const body = serviceBodySchema.parse(req.body);
       res.status(201).json(await adminServiceCatalogUseCases.createService(body));
+    }));
+
+    router.get('/requests', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await adminServiceFulfillmentUseCases.listRequests(requestListQuerySchema.parse(req.query)));
+    }));
+
+    router.post('/requests/:requestId/transition', asyncHandler(async (req: Request, res: Response) => {
+      const body = requestTransitionSchema.parse(req.body);
+      res.json(await adminServiceFulfillmentUseCases.transitionRequest(req.params.requestId, body.status, body.fulfillmentMetadata));
+    }));
+
+    router.post('/requests/:requestId/provider', asyncHandler(async (req: Request, res: Response) => {
+      const body = z.object({ providerReferenceId: z.string().trim().min(1).max(200) }).strict().parse(req.body);
+      res.json(await adminServiceFulfillmentUseCases.assignProvider(req.params.requestId, body.providerReferenceId));
+    }));
+
+    router.post('/requests/:requestId/finance-invoice', asyncHandler(async (req: Request, res: Response) => {
+      if (!req.authUserId) throw new Error('ADMIN_AUTHENTICATION_REQUIRED');
+      const body = requestInvoiceSchema.parse(req.body);
+      res.status(201).json(await adminServiceFulfillmentUseCases.createFinanceInvoice({
+        requestId: req.params.requestId,
+        actorId: req.authUserId,
+        ...body,
+      }));
     }));
 
     router.get('/:id', asyncHandler(async (req: Request, res: Response) => {

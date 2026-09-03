@@ -117,7 +117,7 @@ check('P6-MATRIX-001', r023.includes('| Runtime Pending | P6 CLOSED |'), 'R-023 
 check('P6-MATRIX-002', all(r023, ['CertificateCompletionOutboxWorker', 'CertificateCompletionOutboxDeliveryGateway', 'CertificateIssuanceInbox']), 'R-023 records the actual delivery/idempotency implementation.');
 check('P6-MATRIX-003', r028.includes('| Partial | P7 |'), 'R-028 remains explicitly deferred to P7; P6 does not overreach.');
 check('P6-MATRIX-004', all(r028, ['CertificateReadModelService.listForStudent', 'delivery caller remains absent']), 'R-028 records completed P14 read boundary and remaining P7 delivery gap.');
-check('P6-MATRIX-005', all(r063, ['CertificateReadModelService.verifyPublic', '| Runtime Pending | P10 |']), 'R-063 records P14 verification adapter without claiming P10 closure.');
+check('P6-MATRIX-005', r063.includes('CertificateReadModelService.verifyPublic') && /\| Runtime Pending \| P10(?: CLOSED)? \|/.test(r063), 'R-063 preserves P14 verification authority before or after subsequent P10 source closure.');
 check('P6-MATRIX-006', files.matrix.includes('### Current snapshot after P6 source closure'), 'Matrix includes a P6 measurement snapshot.');
 check('P6-MATRIX-007', all(files.matrix, ['`Runtime Pending`: **38**', '`Partial`: **27**', '`Missing`: **2**', '`Source Closed`: **1**']), 'P6 matrix counts reflect exactly one Partial→Runtime Pending closure.');
 check('P6-SCOPE-002', files.matrix.includes('R-028 remains `Partial | P7`'), 'P7 boundary is explicitly not started.');

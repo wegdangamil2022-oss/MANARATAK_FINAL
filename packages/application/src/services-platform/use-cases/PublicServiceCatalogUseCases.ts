@@ -44,6 +44,8 @@ export class PublicServiceCatalogUseCases {
       providerName: service.providerName,
       estimatedDeliveryTime: service.estimatedDeliveryTime,
       appointmentRequired: service.appointmentRequired,
+      supportedCountryReferenceIds: service.supportedCountryReferenceIds,
+      supportedLanguageReferenceIds: service.supportedLanguageReferenceIds,
       supportedCountries: service.supportedCountries,
       supportedLanguages: service.supportedLanguages,
       servicePrerequisites: service.servicePrerequisites,

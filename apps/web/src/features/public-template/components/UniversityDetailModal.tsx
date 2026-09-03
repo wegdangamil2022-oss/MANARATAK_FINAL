@@ -47,7 +47,7 @@ interface UniversityDetailModalProps {
   onClose: () => void;
   isSaved?: boolean;
   onToggleSave?: (e: React.MouseEvent) => void;
-  onOpenCountry?: (countryName: string) => void;
+  onOpenCountry?: (countryId: string) => void;
   onOpenMajor?: (majorId: string) => void;
   onOpenScholarship?: (scholarshipId: string) => void;
   onOpenExam?: (examId: string) => void;
@@ -155,7 +155,7 @@ export const UniversityDetailModal: React.FC<UniversityDetailModalProps> = ({
           <div className="grid grid-cols-2 gap-2 sm:gap-2.5 border-t border-white/10 pt-3 mt-1">
             <button
               type="button"
-              onClick={() => onOpenCountry?.(university.country)}
+              onClick={() => university.countryReferenceId && onOpenCountry?.(university.countryReferenceId)}
               className="bg-[var(--mn-surface-elevated)]/95 backdrop-blur-sm w-full rounded-lg py-1.5 px-2.5 flex flex-col sm:flex-row items-center text-center sm:text-right gap-1.5 shadow-sm border border-[var(--mn-border)] transition-all hover:border-[var(--mn-accent)]/70 hover:shadow-md cursor-pointer mn-panel "
               title={`استكشف الدراسة في ${university.country}`}
             >

@@ -45,7 +45,10 @@ export class UniversityAdminRouter {
       institutionType: z.string().optional(),
       sourceUrl: z.union([z.string().url(), z.literal('')]).optional(),
       officialSourceUrl: z.union([z.string().url(), z.literal('')]).optional(),
-      city: z.string().optional(),
+      city: z.string().nullable().optional(),
+      countryReferenceId: z.string().min(1).nullable().optional(),
+      regionReferenceId: z.string().min(1).nullable().optional(),
+      cityReferenceId: z.string().min(1).nullable().optional(),
       logoAssetId: z.string().optional(),
       foundedYear: z.number().int().min(1000).max(new Date().getFullYear()).nullable().optional(),
       localizedNames: z.record(z.string(), z.string()).optional(),
@@ -68,6 +71,28 @@ export class UniversityAdminRouter {
       sourceRecordId: z.string().nullable().optional(),
       metadata: z.record(z.string(), z.unknown()).optional(),
     });
+
+    const academicProgramAuthoringSchema = z.object({
+      sourceReferenceId: z.string().min(1).nullable().optional(),
+      organizationUnitId: z.string().min(1).nullable().optional(),
+      sourceProgramName: z.string().trim().min(1),
+      degreeLevelId: z.string().min(1),
+      majorId: z.string().min(1).nullable().optional(),
+      majorMappingState: z.string().min(1),
+      status: z.string().min(1).optional(),
+      campusIds: z.array(z.string().min(1)).optional(),
+      metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+      admissionRequirements: z.array(z.object({
+        internationalTestId: z.string().min(1),
+        testVariantId: z.string().min(1).nullable().optional(),
+        testVersionId: z.string().min(1).nullable().optional(),
+        minimumScore: z.number().nullable().optional(),
+        sectionScores: z.record(z.string(), z.unknown()).nullable().optional(),
+        validityMetadata: z.record(z.string(), z.unknown()).nullable().optional(),
+        restrictionMetadata: z.record(z.string(), z.unknown()).nullable().optional(),
+        status: z.string().min(1).optional(),
+      })).optional(),
+    }).strict();
 
     const normalizedDetailsSchema = z
       .object({
@@ -244,6 +269,9 @@ export class UniversityAdminRouter {
           sourceUrl: updates.sourceUrl === '' ? null : updates.sourceUrl,
           officialSourceUrl: updates.officialSourceUrl === '' ? null : updates.officialSourceUrl,
           city: updates.city,
+          countryReferenceId: updates.countryReferenceId,
+          regionReferenceId: updates.regionReferenceId,
+          cityReferenceId: updates.cityReferenceId,
           logoAssetId: updates.logoAssetId,
           foundedYear: updates.foundedYear,
         };
@@ -268,6 +296,46 @@ export class UniversityAdminRouter {
         const university = await adminUniversityUseCases.replaceNormalizedDetails(
           req.params.id,
           details,
+          mutationContext(req),
+        );
+        res.json(university);
+      }),
+    );
+
+    router.post(
+      '/:id/academic-programs',
+      asyncHandler(async (req: Request, res: Response) => {
+        const input = academicProgramAuthoringSchema.parse(req.body);
+        const university = await adminUniversityUseCases.upsertAcademicProgram(
+          req.params.id,
+          null,
+          input,
+          mutationContext(req),
+        );
+        res.status(201).json(university);
+      }),
+    );
+
+    router.put(
+      '/:id/academic-programs/:programId',
+      asyncHandler(async (req: Request, res: Response) => {
+        const input = academicProgramAuthoringSchema.parse(req.body);
+        const university = await adminUniversityUseCases.upsertAcademicProgram(
+          req.params.id,
+          req.params.programId,
+          input,
+          mutationContext(req),
+        );
+        res.json(university);
+      }),
+    );
+
+    router.delete(
+      '/:id/academic-programs/:programId',
+      asyncHandler(async (req: Request, res: Response) => {
+        const university = await adminUniversityUseCases.archiveAcademicProgram(
+          req.params.id,
+          req.params.programId,
           mutationContext(req),
         );
         res.json(university);

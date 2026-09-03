@@ -7,20 +7,21 @@ import {
   FileText,
   GraduationCap,
 } from 'lucide-react';
-import { PUBLIC_SERVICES } from '../data/serviceData';
 import { Service } from '../types';
 
 interface FeaturedServicesProps {
+  services: Service[];
   onViewAllClick?: () => void;
   onSelectService?: (service: Service) => void;
 }
 
 export const FeaturedServices: React.FC<FeaturedServicesProps> = ({
+  services: sourceServices,
   onViewAllClick,
   onSelectService,
 }) => {
   const [activeTab, setActiveTab] = useState<'student' | 'general'>('student');
-  const services = PUBLIC_SERVICES.filter((service) => service.audience === activeTab);
+  const services = sourceServices.filter((service) => service.audience === activeTab);
 
   return (
     <section className="px-0.5 sm:px-1 py-3 w-full font-['Cairo',sans-serif]">

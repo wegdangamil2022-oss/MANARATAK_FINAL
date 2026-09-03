@@ -4,6 +4,7 @@ import {
   IEnterpriseAIConsumerGateway,
   IScholarshipRecommendationGateway,
   IStudentToolHandler,
+  IStudentContextGateway,
   IUniversityComparisonGateway,
   MotivationLetterInput,
   MotivationLetterOutput,
@@ -279,6 +280,7 @@ export class ScholarshipRecommendationHandler implements IStudentToolHandler<
   constructor(
     private readonly scholarships: IScholarshipRecommendationGateway,
     private readonly ai: IEnterpriseAIConsumerGateway,
+    private readonly studentContext: IStudentContextGateway,
   ) {}
   validate(value: unknown): ScholarshipRecommendationInput {
     const input = object(value);
@@ -307,19 +309,27 @@ export class ScholarshipRecommendationHandler implements IStudentToolHandler<
     context: StudentToolExecutionContext,
     input: ScholarshipRecommendationInput,
   ): Promise<ScholarshipRecommendationOutput> {
+    const privateContext = context.authenticatedStudentReference
+      ? await this.studentContext.getMinimalContext(context.authenticatedStudentReference)
+      : null;
+    const effectiveInput: ScholarshipRecommendationInput = {
+      ...input,
+      targetDegree: input.targetDegree || privateContext?.targetDegree,
+      academicInterests: input.academicInterests?.length ? input.academicInterests : (privateContext?.interests ?? []),
+    };
     const candidates = (
       await this.scholarships.findPublishedCandidates({
-        countries: input.preferredCountries,
-        targetDegree: input.targetDegree,
-        fundingPreference: input.fundingPreference,
-        studyLanguage: input.studyLanguage,
+        countries: effectiveInput.preferredCountries,
+        targetDegree: effectiveInput.targetDegree,
+        fundingPreference: effectiveInput.fundingPreference,
+        studyLanguage: effectiveInput.studyLanguage,
       })
     ).slice(0, 25);
     const fallback = candidates.map((scholarship) => ({
       scholarship,
       constraintSummary: [
-        input.targetDegree ? `degree:${input.targetDegree}` : 'degree:any',
-        input.fundingPreference ? `funding:${input.fundingPreference}` : 'funding:any',
+        effectiveInput.targetDegree ? `degree:${effectiveInput.targetDegree}` : 'degree:any',
+        effectiveInput.fundingPreference ? `funding:${effectiveInput.fundingPreference}` : 'funding:any',
       ],
     }));
     if (!candidates.length)
@@ -341,7 +351,7 @@ export class ScholarshipRecommendationHandler implements IStudentToolHandler<
       locale: context.locale,
       dataClassification: 'CANONICAL_PUBLIC_DATA',
       payload: {
-        preferences: input,
+        preferences: effectiveInput,
         candidates: candidates.map(({ publicId, displayName, country, degreeLevels, fundingType }) => ({ publicId, displayName, country, degreeLevels, fundingType })),
       },
       idempotencyKey: context.executionId,

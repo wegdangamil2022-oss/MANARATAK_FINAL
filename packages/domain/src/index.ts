@@ -357,3 +357,5 @@ export * from './academic-taxonomy';
 export * from './degree-level';
 
 export * from './hierarchy';
+
+export * from './services-platform';

@@ -12,7 +12,10 @@ export interface CareerJobPostingDto {
   employmentType: EmploymentType;
   jobCategory: string;
   description: string;
-  country: string;
+  countryReferenceId: string;
+  cityReferenceId?: string | null;
+  /** Compatibility/source labels only. */
+  country?: string | null;
   city?: string | null;
   status: CareerJobStatus;
   employerId: string;
@@ -38,7 +41,9 @@ export interface UpdateCareerJobPostingDto {
   employmentType?: EmploymentType;
   jobCategory?: string;
   description?: string;
-  country?: string;
+  countryReferenceId?: string;
+  cityReferenceId?: string | null;
+  country?: string | null;
   city?: string | null;
   status?: CareerJobStatus;
   recruiterContactId?: string | null;
@@ -52,13 +57,15 @@ export interface UpdateCareerJobPostingDto {
   metadata?: Record<string, unknown> | null;
 }
 
+export type CareerJobRepositoryUpdateDto = UpdateCareerJobPostingDto & { canonicalTitle?: string; canonicalDedupKey?: string };
+
 export interface CareerJobFilters {
   status?: CareerJobStatus;
   opportunityType?: CareerOpportunityType;
   employmentType?: EmploymentType;
   jobCategory?: string;
-  country?: string;
-  city?: string;
+  countryReferenceId?: string;
+  cityReferenceId?: string;
   employerId?: string;
   page?: number;
   pageSize?: number;

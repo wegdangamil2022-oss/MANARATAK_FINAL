@@ -1,19 +1,21 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { ISessionManager, ITokenProvider } from '@manaratak/core';
-import { FinanceStudentUseCases, StudentWorkspaceUseCases } from '@manaratak/application';
-import { StudentSavedItemType } from '@manaratak/domain';
+import { FinanceStudentUseCases, StudentWorkspaceUseCases, StudentSavedItemHydrationService, StudentServiceRequestUseCases } from '@manaratak/application';
+import { ServiceRequestStatus, StudentSavedItemType } from '@manaratak/domain';
 import { AuthMiddleware } from '../../middleware/AuthMiddleware';
 
 export class StudentWorkspaceRouter {
   public static create(cradle: {
     studentWorkspaceUseCases: StudentWorkspaceUseCases;
     financeStudentUseCases: FinanceStudentUseCases;
+    studentSavedItemHydrationService: StudentSavedItemHydrationService;
+    studentServiceRequestUseCases: StudentServiceRequestUseCases;
     tokenProvider: ITokenProvider;
     sessionManager?: ISessionManager;
   }): Router {
     const router = Router();
-    const { studentWorkspaceUseCases, financeStudentUseCases, tokenProvider, sessionManager } = cradle;
+    const { studentWorkspaceUseCases, financeStudentUseCases, studentSavedItemHydrationService, studentServiceRequestUseCases, tokenProvider, sessionManager } = cradle;
 
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
@@ -245,6 +247,43 @@ export class StudentWorkspaceRouter {
       asyncHandler(async (req: Request, res: Response) => {
         await studentWorkspaceUseCases.clearSearchHistory(ownStudent(req));
         res.status(204).send();
+      }),
+    );
+
+    router.get(
+      '/saved-items/hydrated',
+      asyncHandler(async (req: Request, res: Response) => {
+        res.json({ data: await studentSavedItemHydrationService.listHydrated(ownStudent(req)) });
+      }),
+    );
+    router.get(
+      '/services/requests',
+      asyncHandler(async (req: Request, res: Response) => {
+        const query = z.object({
+          status: z.nativeEnum(ServiceRequestStatus).optional(),
+          page: z.coerce.number().int().positive().optional(),
+          pageSize: z.coerce.number().int().positive().max(100).optional(),
+        }).parse(req.query);
+        res.json(await studentServiceRequestUseCases.listMyRequests(ownStudent(req), query));
+      }),
+    );
+    router.post(
+      '/services/requests',
+      asyncHandler(async (req: Request, res: Response) => {
+        const body = z.object({
+          serviceId: z.string().min(1),
+          requestParameters: z.record(z.string(), z.unknown()).optional(),
+        }).strict().parse(req.body);
+        res.status(201).json(await studentServiceRequestUseCases.createRequest({
+          studentReferenceId: ownStudent(req),
+          ...body,
+        }));
+      }),
+    );
+    router.get(
+      '/services/requests/:requestId',
+      asyncHandler(async (req: Request, res: Response) => {
+        res.json(await studentServiceRequestUseCases.getMyRequest(ownStudent(req), req.params.requestId));
       }),
     );
 

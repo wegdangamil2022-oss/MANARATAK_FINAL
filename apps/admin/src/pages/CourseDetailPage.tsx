@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { adminApiClient } from '../api/client';
 import { ArrowLeft, CheckCircle2, FileQuestion, Layers, Loader2, Plus, Save, XCircle } from 'lucide-react';
 import { useTranslation } from "../i18n/I18nProvider";
+import { CanonicalPicker } from '../components/CanonicalPicker';
+import { canonicalPickerApi } from '../api/canonicalPickers';
 
 interface CourseDetail {
   id: string;
@@ -68,6 +70,21 @@ interface CourseQuestion {
   points: number;
 }
 
+
+
+interface CourseRelationshipReview {
+  courseId: string;
+  source: {
+    shortCourseTopicsRaw?: string | null;
+    learningLanguageRaw?: string | null;
+    learningLanguageReferenceId?: string | null;
+    learningLanguageResolutionState: string;
+  };
+  taxonomyLinks: Array<{ id: string; taxonomyNodeId: string; sourceTerm: string; relationshipType: string; reviewState: string }>;
+  majorProjections: Array<{ id: string; majorId: string; relationshipType: string; projectionState: string }>;
+  closure: { languageCanonical: boolean; approvedTaxonomyLinks: number; approvedMajorProjections: number; reviewRequired: boolean };
+}
+
 interface CurriculumSnapshot {
   modules: CourseModule[];
   lessons: CourseLesson[];
@@ -83,6 +100,7 @@ export function CourseDetailPage() {
   const navigate = useNavigate();
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [snapshot, setSnapshot] = useState<CurriculumSnapshot | null>(null);
+  const [relationships, setRelationships] = useState<CourseRelationshipReview | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -132,6 +150,8 @@ export function CourseDetailPage() {
     try {
       const courseResponse = await adminApiClient.request<CourseDetail>(`/admin/courses/${id}`);
       setCourse(courseResponse);
+      const relationshipResponse = await adminApiClient.request<CourseRelationshipReview>(`/admin/courses/${id}/relationships`);
+      setRelationships(relationshipResponse);
       setFormData({
         displayName: courseResponse.displayName,
         directCourseUrl: courseResponse.directCourseUrl,
@@ -262,6 +282,49 @@ export function CourseDetailPage() {
     });
     setQuestionDraft({ ...questionDraft, prompt: '', position: questionDraft.position + 1 });
     await refreshCurriculum();
+  };
+
+
+  const refreshRelationships = async () => {
+    if (!id) return;
+    setRelationships(await adminApiClient.request<CourseRelationshipReview>(`/admin/courses/${id}/relationships`));
+  };
+
+  const analyzeRelationships = async () => {
+    if (!id) return;
+    setSaving(true); setError(null); setSuccessMsg(null);
+    try {
+      await adminApiClient.request(`/admin/courses/${id}/relationships/analyze`, { method: 'POST' });
+      await refreshRelationships();
+      setSuccessMsg('Course relationship analysis completed; proposals are ready for review.');
+    } catch (err: any) { setError(err.message); } finally { setSaving(false); }
+  };
+
+  const approveLanguage = async (languageReferenceId: string | null) => {
+    if (!id || !languageReferenceId) return;
+    setSaving(true); setError(null);
+    try {
+      await adminApiClient.request(`/admin/courses/${id}/relationships/language`, { method: 'POST', body: JSON.stringify({ languageReferenceId }) });
+      await refreshRelationships();
+    } catch (err: any) { setError(err.message); } finally { setSaving(false); }
+  };
+
+  const reviewTaxonomy = async (linkId: string, decision: 'approve' | 'reject') => {
+    if (!id) return;
+    await adminApiClient.request(`/admin/courses/${id}/relationships/taxonomy/${linkId}/${decision}`, { method: 'POST' });
+    await refreshRelationships();
+  };
+
+  const projectMajors = async () => {
+    if (!id) return;
+    await adminApiClient.request(`/admin/courses/${id}/relationships/majors/project`, { method: 'POST' });
+    await refreshRelationships();
+  };
+
+  const reviewMajorProjection = async (projectionId: string, decision: 'approve' | 'reject') => {
+    if (!id) return;
+    await adminApiClient.request(`/admin/courses/${id}/relationships/majors/${projectionId}/${decision}`, { method: 'POST' });
+    await refreshRelationships();
   };
 
   if (loading && !course) {
@@ -447,6 +510,19 @@ export function CourseDetailPage() {
           )}
         </section>
       </div>
+
+      <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h3 className="font-semibold">Canonical course relationships</h3><p className="text-xs text-gray-500">P13 relationship owner API · analyze, review and publish canonical IDs without direct DB writes.</p></div>
+          <div className="flex gap-2"><button onClick={analyzeRelationships} disabled={saving} className="rounded border px-3 py-2 text-xs font-semibold">Analyze source terms</button><button onClick={projectMajors} disabled={saving || !relationships?.taxonomyLinks.some((item) => item.reviewState === 'APPROVED')} className="rounded border px-3 py-2 text-xs font-semibold disabled:opacity-50">Project majors</button></div>
+        </div>
+        {relationships ? <>
+          <div className="grid gap-3 md:grid-cols-4 text-xs"><div className="rounded bg-gray-50 p-3">Language: <strong>{relationships.source.learningLanguageResolutionState}</strong></div><div className="rounded bg-gray-50 p-3">Approved taxonomy: <strong>{relationships.closure.approvedTaxonomyLinks}</strong></div><div className="rounded bg-gray-50 p-3">Approved majors: <strong>{relationships.closure.approvedMajorProjections}</strong></div><div className={`rounded p-3 ${relationships.closure.reviewRequired ? 'bg-amber-50 text-amber-800' : 'bg-green-50 text-green-800'}`}>{relationships.closure.reviewRequired ? 'Review required' : 'Relationships closed'}</div></div>
+          <CanonicalPicker label={`Canonical learning language${relationships.source.learningLanguageRaw ? ` · source: ${relationships.source.learningLanguageRaw}` : ''}`} value={relationships.source.learningLanguageReferenceId} onChange={(next) => approveLanguage(next)} load={() => canonicalPickerApi.languages()} reloadKey="course-languages" optional />
+          <div className="space-y-2"><h4 className="text-sm font-semibold">Taxonomy proposals</h4>{relationships.taxonomyLinks.map((link) => <div key={link.id} className="flex flex-wrap items-center justify-between gap-2 rounded border p-3 text-xs"><span><strong>{link.sourceTerm}</strong> → {link.taxonomyNodeId} · {link.relationshipType} · {link.reviewState}</span><div className="flex gap-2"><button disabled={link.reviewState === 'APPROVED'} onClick={() => reviewTaxonomy(link.id, 'approve')} className="text-green-700 disabled:opacity-40">Approve</button><button disabled={link.reviewState === 'REJECTED'} onClick={() => reviewTaxonomy(link.id, 'reject')} className="text-red-700 disabled:opacity-40">Reject</button></div></div>)}{relationships.taxonomyLinks.length === 0 ? <p className="text-xs text-gray-500">No taxonomy proposals. Run analysis first.</p> : null}</div>
+          <div className="space-y-2"><h4 className="text-sm font-semibold">Major projections</h4>{relationships.majorProjections.map((projection) => <div key={projection.id} className="flex flex-wrap items-center justify-between gap-2 rounded border p-3 text-xs"><span>Major {projection.majorId} · {projection.relationshipType} · {projection.projectionState}</span><div className="flex gap-2"><button disabled={projection.projectionState === 'APPROVED'} onClick={() => reviewMajorProjection(projection.id, 'approve')} className="text-green-700 disabled:opacity-40">Approve</button><button disabled={projection.projectionState === 'REJECTED'} onClick={() => reviewMajorProjection(projection.id, 'reject')} className="text-red-700 disabled:opacity-40">Reject</button></div></div>)}{relationships.majorProjections.length === 0 ? <p className="text-xs text-gray-500">No major projections yet.</p> : null}</div>
+        </> : <p className="text-xs text-gray-500">Relationship review model unavailable.</p>}
+      </section>
     </div>
   );
 }

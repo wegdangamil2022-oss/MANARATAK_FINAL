@@ -51,10 +51,18 @@ import {
   CanonicalScholarshipRecommendationGateway,
   StudentToolRateLimitGateway,
   Phase15StudentToolSaveGateway,
+  Phase15StudentContextGateway,
   EnterpriseStudentToolDependencyHealthGateway,
   EnvironmentStudentToolResultProtector,
   DefaultRateLimiter,
   PrismaCmsRepository,
+  CmsStudentSavedItemHydrationGateway,
+  ServiceStudentSavedItemHydrationGateway,
+  PrismaServicePlatformRepository,
+  CanonicalServiceReferenceGateway,
+  Phase19ServiceFinanceGateway,
+  PrismaCareerRepository,
+  CanonicalCareerReferenceGateway,
   RedisClientFactory,
   RedisStudentWorkspaceDeliveryCache,
   RedisCmsDeliveryCache,
@@ -158,6 +166,7 @@ import {
   CertificateReadModelService,
   TransactionalOutboxDispatcher,
   StudentWorkspaceUseCases,
+  StudentSavedItemHydrationService,
   AdminCmsUseCases,
   PublicCmsUseCases,
   StudentToolRegistryUseCases,
@@ -174,6 +183,8 @@ import {
   DegreeLevelUseCases,
   AdminServiceCatalogUseCases,
   PublicServiceCatalogUseCases,
+  StudentServiceRequestUseCases,
+  AdminServiceFulfillmentUseCases,
   FinanceAdminUseCases,
   FinancePlatformUseCases,
   FinanceStudentUseCases,
@@ -8186,21 +8197,24 @@ export function registerDependencies(
     studentToolAnonymousSessionService: asFunction(() => new StudentToolAnonymousSessionService(readConfig<string>('STUDENT_TOOL_ANONYMOUS_SESSION_SECRET'))).singleton(),
     studentToolsAIConsumerGateway: asFunction(({ aiExecutionUseCases }) => new Phase17StudentToolsAIConsumerGateway(aiExecutionUseCases)).scoped(),
     universityComparisonGateway: asFunction(({ universityRepository }) => new CanonicalUniversityComparisonGateway(universityRepository)).singleton(),
-    scholarshipRecommendationGateway: asFunction(({ scholarshipRepository }) => new CanonicalScholarshipRecommendationGateway(scholarshipRepository)).singleton(),
+    scholarshipRecommendationGateway: asFunction(({ scholarshipRepository, referenceResolver, degreeLevelRepository }) => new CanonicalScholarshipRecommendationGateway(scholarshipRepository, referenceResolver, degreeLevelRepository)).singleton(),
     studentToolRateLimiter: asClass(DefaultRateLimiter).singleton(),
     studentToolRateLimitGateway: asFunction(({ studentToolRateLimiter }) => new StudentToolRateLimitGateway(studentToolRateLimiter)).singleton(),
     studentToolSaveGateway: asFunction(({ studentWorkspaceRepository }) => new Phase15StudentToolSaveGateway(studentWorkspaceRepository)).singleton(),
+    studentContextGateway: asFunction(({ studentWorkspaceRepository }) => new Phase15StudentContextGateway(studentWorkspaceRepository)).singleton(),
     studentToolDependencyHealthGateway: asFunction(({ aiExecutionUseCases, universityRepository, scholarshipRepository }) => new EnterpriseStudentToolDependencyHealthGateway(aiExecutionUseCases, universityRepository, scholarshipRepository)).scoped(),
-    studentToolHandlerRegistry: asFunction(({ universityComparisonGateway, scholarshipRecommendationGateway, studentToolsAIConsumerGateway }) => new StudentToolHandlerRegistry([
+    studentToolHandlerRegistry: asFunction(({ universityComparisonGateway, scholarshipRecommendationGateway, studentToolsAIConsumerGateway, studentContextGateway }) => new StudentToolHandlerRegistry([
       new GpaCalculatorHandler(),
       new UniversityComparisonHandler(universityComparisonGateway),
       new MotivationLetterGeneratorHandler(studentToolsAIConsumerGateway),
-      new ScholarshipRecommendationHandler(scholarshipRecommendationGateway, studentToolsAIConsumerGateway),
+      new ScholarshipRecommendationHandler(scholarshipRecommendationGateway, studentToolsAIConsumerGateway, studentContextGateway),
     ])).singleton(),
     studentToolActivationReadinessService: asFunction(({ studentToolHandlerRegistry, studentToolDependencyHealthGateway }) => new StudentToolActivationReadinessService(studentToolHandlerRegistry, studentToolDependencyHealthGateway)).scoped(),
     studentToolHealthService: asFunction(({ studentToolHandlerRegistry, studentToolDependencyHealthGateway }) => new StudentToolHealthService(studentToolHandlerRegistry, studentToolDependencyHealthGateway)).scoped(),
     referenceDataRepository: asFunction(({ prisma }) => new PrismaReferenceDataRepository(prisma)).singleton(),
-    serviceCatalogRepository: asFunction(() => createUnavailableCapability('serviceCatalogPersistence')).singleton(),
+    servicePlatformRepository: asFunction(({ prisma }) => new PrismaServicePlatformRepository(prisma)).singleton(),
+    serviceCatalogRepository: asFunction(({ servicePlatformRepository }) => servicePlatformRepository).singleton(),
+    serviceRequestRepository: asFunction(({ servicePlatformRepository }) => servicePlatformRepository).singleton(),
     financeRepository: asFunction(({ prisma }) => new PrismaFinanceRepository(prisma)).singleton(),
     financeCurrencyReferenceGateway: asFunction(({ prisma }) => new PrismaFinanceCurrencyReferenceGateway(prisma)).singleton(),
     financePaymentGatewayRegistry: asFunction(() => {
@@ -8227,7 +8241,7 @@ export function registerDependencies(
         basisPoints,
       };
     }).singleton(),
-    careerRepository: asFunction(() => createUnavailableCapability('careerPersistence')).singleton(),
+    careerRepository: asFunction(({ prisma }) => new PrismaCareerRepository(prisma)).singleton(),
     internationalTestRepository: asFunction(({ prisma }) => new PrismaInternationalTestRepository(prisma)).singleton(),
     aiPlatformRepository: asFunction(({ prisma }) => new PrismaAIPlatformRepository(prisma)).singleton(),
     aiExecutionRepository: asFunction(({ aiPlatformRepository }) => aiPlatformRepository).singleton(),
@@ -8356,8 +8370,8 @@ export function registerDependencies(
     fileIntegrityValidationService: asClass(FileIntegrityValidationService).singleton(),
 
     // --- UseCases ---
-    adminScholarshipUseCases: asFunction(({ scholarshipRepository, atomicDomainMutationCoordinator }) =>
-      new AdminScholarshipUseCases(scholarshipRepository, atomicDomainMutationCoordinator)).scoped(),
+    adminScholarshipUseCases: asFunction(({ scholarshipRepository, atomicDomainMutationCoordinator, scholarshipCanonicalLookupGateway }) =>
+      new AdminScholarshipUseCases(scholarshipRepository, atomicDomainMutationCoordinator, scholarshipCanonicalLookupGateway)).scoped(),
     publicScholarshipUseCases: asFunction(({ scholarshipRepository }) => new PublicScholarshipUseCases(scholarshipRepository)).scoped(),
     // WP12-3/4: Phase 12 owns the semantic consumer; Phase 6 supplies only UniversalImportHandoff data.
     scholarshipCanonicalResolutionService: asFunction(({ scholarshipCanonicalLookupGateway }) =>
@@ -8411,6 +8425,9 @@ export function registerDependencies(
     certificateCompletionOutboxWorker: asFunction(({ certificateCompletionOutboxDispatcher }) => new CertificateCompletionOutboxWorker(certificateCompletionOutboxDispatcher)).scoped(),
     certificateReadModelService: asFunction(({ certificateRepository, certificateUseCases }) => new CertificateReadModelService(certificateRepository, certificateUseCases)).scoped(),
     studentWorkspaceUseCases: asFunction(({ studentWorkspaceRepository, studentWorkspaceDeliveryCache }) => new StudentWorkspaceUseCases(studentWorkspaceRepository, studentWorkspaceDeliveryCache)).scoped(),
+    cmsStudentSavedItemHydrationGateway: asFunction(({ cmsRepository }) => new CmsStudentSavedItemHydrationGateway(cmsRepository)).scoped(),
+    serviceStudentSavedItemHydrationGateway: asFunction(({ serviceCatalogRepository }) => new ServiceStudentSavedItemHydrationGateway(serviceCatalogRepository)).scoped(),
+    studentSavedItemHydrationService: asFunction(({ studentWorkspaceRepository, cmsStudentSavedItemHydrationGateway, serviceStudentSavedItemHydrationGateway }) => new StudentSavedItemHydrationService(studentWorkspaceRepository, [cmsStudentSavedItemHydrationGateway, serviceStudentSavedItemHydrationGateway])).scoped(),
     adminCmsUseCases: asFunction(({ cmsRepository, cmsDeliveryCache }) => new AdminCmsUseCases(cmsRepository, cmsDeliveryCache)).scoped(),
     publicCmsUseCases: asFunction(({ cmsRepository, cmsDeliveryCache }) => new PublicCmsUseCases(cmsRepository, cmsDeliveryCache)).scoped(),
     studentToolRegistryUseCases: asFunction(({ studentToolRegistryRepository, studentToolActivationReadinessService, studentToolHealthService, studentToolDependencyHealthGateway }) => new StudentToolRegistryUseCases(studentToolRegistryRepository, studentToolActivationReadinessService, studentToolHealthService, studentToolDependencyHealthGateway)).scoped(),
@@ -8418,8 +8435,10 @@ export function registerDependencies(
     referenceDataUseCases: asFunction(({ referenceDataRepository, atomicAuditedOutboxMutationExecutor, referenceDataValidationService }) =>
       new ReferenceDataUseCases(referenceDataRepository, undefined, undefined, atomicAuditedOutboxMutationExecutor, referenceDataValidationService)).scoped(),
     referenceResolver: asFunction(({ referenceDataRepository }) => new ReferenceResolverService(referenceDataRepository)).scoped(),
-    adminServiceCatalogUseCases: asFunction(({ serviceCatalogRepository }) => new AdminServiceCatalogUseCases(serviceCatalogRepository)).scoped(),
+    serviceReferenceGateway: asFunction(({ referenceResolver }) => new CanonicalServiceReferenceGateway(referenceResolver)).scoped(),
+    adminServiceCatalogUseCases: asFunction(({ serviceCatalogRepository, serviceReferenceGateway }) => new AdminServiceCatalogUseCases(serviceCatalogRepository, serviceReferenceGateway)).scoped(),
     publicServiceCatalogUseCases: asFunction(({ serviceCatalogRepository }) => new PublicServiceCatalogUseCases(serviceCatalogRepository)).scoped(),
+    studentServiceRequestUseCases: asFunction(({ serviceCatalogRepository, serviceRequestRepository }) => new StudentServiceRequestUseCases(serviceCatalogRepository, serviceRequestRepository)).scoped(),
     financeAdminUseCases: asFunction(({ financeRepository }) => new FinanceAdminUseCases(financeRepository)).scoped(),
     financePlatformUseCases: asFunction(({ financeRepository, financeCurrencyReferenceGateway, financePaymentGatewayRegistry, financeBankTransferGatewayRegistry, financeTransferFeePolicy }) =>
       new FinancePlatformUseCases(financeRepository, {
@@ -8429,8 +8448,11 @@ export function registerDependencies(
         transferFeePolicy: financeTransferFeePolicy,
       })).scoped(),
     financeStudentUseCases: asFunction(({ financeRepository }) => new FinanceStudentUseCases(financeRepository)).scoped(),
-    careerAdminUseCases: asFunction(({ careerRepository }) => new CareerAdminUseCases(careerRepository)).scoped(),
-    careerPublicUseCases: asFunction(({ careerRepository }) => new CareerPublicUseCases(careerRepository)).scoped(),
+    serviceFinanceGateway: asFunction(({ financePlatformUseCases }) => new Phase19ServiceFinanceGateway(financePlatformUseCases)).scoped(),
+    adminServiceFulfillmentUseCases: asFunction(({ serviceCatalogRepository, serviceRequestRepository, serviceFinanceGateway }) => new AdminServiceFulfillmentUseCases(serviceCatalogRepository, serviceRequestRepository, serviceFinanceGateway)).scoped(),
+    careerReferenceGateway: asFunction(({ referenceResolver, referenceDataRepository }) => new CanonicalCareerReferenceGateway(referenceResolver, referenceDataRepository)).scoped(),
+    careerAdminUseCases: asFunction(({ careerRepository, careerReferenceGateway }) => new CareerAdminUseCases(careerRepository, careerReferenceGateway)).scoped(),
+    careerPublicUseCases: asFunction(({ careerRepository, careerReferenceGateway }) => new CareerPublicUseCases(careerRepository, careerReferenceGateway)).scoped(),
     internationalTestAdminUseCases: asFunction(({ internationalTestRepository, referenceResolver, degreeLevelRepository, academicTaxonomyRepository, atomicDomainMutationCoordinator }) =>
       new InternationalTestAdminUseCases(
         internationalTestRepository,

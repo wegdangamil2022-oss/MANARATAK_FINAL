@@ -2,6 +2,8 @@ import { FormEvent, useEffect, useState } from 'react';
 import { adminApiClient } from '../api/client';
 import { Archive, CheckCircle2, Edit3, Filter, Loader2, Plus, Send, XCircle } from 'lucide-react';
 import { useTranslation } from "../i18n/I18nProvider";
+import { CanonicalMultiPicker } from '../components/CanonicalPicker';
+import { canonicalPickerApi } from '../api/canonicalPickers';
 
 type ServiceCategory = 'STUDENT_SERVICES' | 'DOCUMENT_SERVICES' | 'VISA_SERVICES' | 'TRAVEL_SERVICES' | 'ACADEMIC_SERVICES' | 'AUXILIARY_PROFESSIONAL_SERVICES' | 'ENTERPRISE_OPERATIONAL_SERVICES';
 type ServiceStatus = 'IMPORTED' | 'READY_TO_REVIEW' | 'READY_TO_PUBLISH' | 'PUBLISHED' | 'REJECTED' | 'ARCHIVED';
@@ -29,6 +31,8 @@ interface ServiceCatalogItem {
   appointmentRequired?: boolean | null;
   supportedCountries?: string[] | null;
   supportedLanguages?: string[] | null;
+  supportedCountryReferenceIds?: string[] | null;
+  supportedLanguageReferenceIds?: string[] | null;
   pricingReferenceId?: string | null;
   thumbnailAssetId?: string | null;
   updatedAt: string;
@@ -59,8 +63,8 @@ const emptyForm = {
   providerName: '',
   estimatedDeliveryTime: '',
   appointmentRequired: false,
-  supportedCountries: '',
-  supportedLanguages: '',
+  supportedCountryReferenceIds: [] as string[],
+  supportedLanguageReferenceIds: [] as string[],
   pricingReferenceId: '',
   thumbnailAssetId: ''
 };
@@ -160,8 +164,8 @@ export function ServicesAdminPage() {
       providerName: service.providerName || '',
       estimatedDeliveryTime: service.estimatedDeliveryTime || '',
       appointmentRequired: Boolean(service.appointmentRequired),
-      supportedCountries: (service.supportedCountries || []).join(', '),
-      supportedLanguages: (service.supportedLanguages || []).join(', '),
+      supportedCountryReferenceIds: service.supportedCountryReferenceIds || [],
+      supportedLanguageReferenceIds: service.supportedLanguageReferenceIds || [],
       pricingReferenceId: service.pricingReferenceId || '',
       thumbnailAssetId: service.thumbnailAssetId || ''
     });
@@ -179,8 +183,8 @@ export function ServicesAdminPage() {
     providerName: form.providerName.trim() || null,
     estimatedDeliveryTime: form.estimatedDeliveryTime.trim() || null,
     appointmentRequired: form.appointmentRequired,
-    supportedCountries: splitList(form.supportedCountries),
-    supportedLanguages: splitList(form.supportedLanguages),
+    supportedCountryReferenceIds: form.supportedCountryReferenceIds,
+    supportedLanguageReferenceIds: form.supportedLanguageReferenceIds,
     pricingReferenceId: form.pricingReferenceId.trim() || null,
     thumbnailAssetId: form.thumbnailAssetId.trim() || null
   });
@@ -295,8 +299,20 @@ export function ServicesAdminPage() {
           <Field label={t('responsible_owner_type')} value={form.responsibleServiceOwnerType} onChange={(value) => setForm({ ...form, responsibleServiceOwnerType: value })} />
           <Field label={t('estimated_delivery_time')} value={form.estimatedDeliveryTime} onChange={(value) => setForm({ ...form, estimatedDeliveryTime: value })} optional />
           <Field label={t('provider_name')} value={form.providerName} onChange={(value) => setForm({ ...form, providerName: value })} optional />
-          <Field label={t('supported_countries')} value={form.supportedCountries} onChange={(value) => setForm({ ...form, supportedCountries: value })} optional />
-          <Field label={t('supported_languages')} value={form.supportedLanguages} onChange={(value) => setForm({ ...form, supportedLanguages: value })} optional />
+          <CanonicalMultiPicker
+            label={t('supported_countries')}
+            values={form.supportedCountryReferenceIds}
+            onChange={(values) => setForm({ ...form, supportedCountryReferenceIds: values })}
+            load={() => canonicalPickerApi.countries()}
+            reloadKey="service-countries"
+          />
+          <CanonicalMultiPicker
+            label={t('supported_languages')}
+            values={form.supportedLanguageReferenceIds}
+            onChange={(values) => setForm({ ...form, supportedLanguageReferenceIds: values })}
+            load={() => canonicalPickerApi.languages()}
+            reloadKey="service-languages"
+          />
           <Field label={t('pricing_reference_id')} value={form.pricingReferenceId} onChange={(value) => setForm({ ...form, pricingReferenceId: value })} optional />
           <Field label={t('thumbnail_asset_id')} value={form.thumbnailAssetId} onChange={(value) => setForm({ ...form, thumbnailAssetId: value })} optional />
 

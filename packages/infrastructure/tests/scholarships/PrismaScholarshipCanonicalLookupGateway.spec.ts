@@ -3,7 +3,7 @@ import { PrismaScholarshipCanonicalLookupGateway } from '../../src/scholarships/
 
 function createPrismaMock() {
   return {
-    university: { findUnique: vi.fn() },
+    university: { findFirst: vi.fn() },
     universityAcademicProgram: { findUnique: vi.fn() },
     referenceCountry: { findUnique: vi.fn(), findMany: vi.fn() },
     referenceLanguage: { findUnique: vi.fn(), findMany: vi.fn() },
@@ -16,11 +16,11 @@ function createPrismaMock() {
 }
 
 describe('PrismaScholarshipCanonicalLookupGateway', () => {
-  it('looks up University by exact publicId only', async () => {
+  it('looks up University by exact canonical or public ID, never by name', async () => {
     const prisma = createPrismaMock();
-    prisma.university.findUnique.mockResolvedValue({ id: 'u1', publicId: 'INS-YEM-0001', canonicalName: 'Sample University', displayName: 'Sample University' });
+    prisma.university.findFirst.mockResolvedValue({ id: 'u1', publicId: 'INS-YEM-0001', canonicalName: 'Sample University', displayName: 'Sample University' });
     const results = await new PrismaScholarshipCanonicalLookupGateway(prisma as any).findCandidates('UNIVERSITY', { target: 'UNIVERSITY', canonicalId: 'INS-YEM-0001' });
-    expect(prisma.university.findUnique).toHaveBeenCalledWith({ where: { publicId: 'INS-YEM-0001' }, select: expect.any(Object) });
+    expect(prisma.university.findFirst).toHaveBeenCalledWith({ where: { OR: [{ id: 'INS-YEM-0001' }, { publicId: 'INS-YEM-0001' }] }, select: expect.any(Object) });
     expect(results[0].method).toBe('EXACT_PUBLIC_ID');
   });
 
@@ -28,7 +28,7 @@ describe('PrismaScholarshipCanonicalLookupGateway', () => {
     const prisma = createPrismaMock();
     const results = await new PrismaScholarshipCanonicalLookupGateway(prisma as any).findCandidates('UNIVERSITY', { target: 'UNIVERSITY', rawValue: 'University' });
     expect(results).toEqual([]);
-    expect(prisma.university.findUnique).not.toHaveBeenCalled();
+    expect(prisma.university.findFirst).not.toHaveBeenCalled();
   });
 
 

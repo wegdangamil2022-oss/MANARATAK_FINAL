@@ -47,6 +47,8 @@ export interface ScholarshipCanonicalCandidate {
   standardCode?: string | null;
   canonicalName: string;
   displayName?: string | null;
+  ownerId?: string | null;
+  lifecycle?: string | null;
   method: Exclude<ScholarshipCanonicalResolutionMethod, 'NOT_APPLICABLE'>;
 }
 

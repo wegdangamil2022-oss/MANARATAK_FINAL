@@ -12,7 +12,6 @@ import {
   Globe2,
 } from 'lucide-react';
 import { Scholarship, DegreeLevel } from '../types';
-import { INITIAL_SCHOLARSHIPS } from '../data/mockData';
 import type { PublicScholarshipDataStatus } from '../publicScholarshipDataSource';
 
 interface ScholarshipsSearchPageProps {
@@ -21,7 +20,7 @@ interface ScholarshipsSearchPageProps {
   onSelectScholarship?: (scholarship: Scholarship) => void;
   favoriteIds?: string[];
   onToggleFavorite?: (id: string) => void;
-  initialCountryName?: string;
+  initialCountryReferenceId?: string;
   dataStatus?: PublicScholarshipDataStatus;
 }
 
@@ -153,36 +152,37 @@ const ScholarshipCountryFlag: React.FC<{
 };
 
 export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
-  scholarships = INITIAL_SCHOLARSHIPS,
+  scholarships = [],
   onBack,
   onSelectScholarship,
   favoriteIds = [],
   onToggleFavorite,
-  initialCountryName,
+  initialCountryReferenceId,
   dataStatus = 'prototype',
 }) => {
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState('الكل');
+  const [selectedCountryReferenceId, setSelectedCountryReferenceId] = useState('الكل');
   const [selectedDegree, setSelectedDegree] = useState('الكل');
   const [selectedFunding, setSelectedFunding] = useState('الكل');
 
   useEffect(() => {
-    if (!initialCountryName) return;
-    setSelectedCountry(initialCountryName);
+    if (!initialCountryReferenceId) return;
+    setSelectedCountryReferenceId(initialCountryReferenceId);
     setSearchQuery('');
-  }, [initialCountryName]);
+  }, [initialCountryReferenceId]);
 
   const resultsRef = useRef<HTMLDivElement>(null);
 
   // Extract unique countries
-  const countries = useMemo(() => {
-    const set = new Set<string>();
-    scholarships.forEach((s) => {
-      if (s.country) set.add(s.country);
+  const countryOptions = useMemo(() => {
+    const options = new Map<string, string>();
+    scholarships.forEach((scholarship) => {
+      const key = scholarship.countryReferenceId || (dataStatus === 'prototype' ? `prototype:${scholarship.country}` : '');
+      if (key) options.set(key, scholarship.country);
     });
-    return ['الكل', ...Array.from(set)];
-  }, [scholarships]);
+    return Array.from(options, ([id, label]) => ({ id, label }));
+  }, [scholarships, dataStatus]);
 
   // Keep filter options aligned with the actual scholarship dataset.
   // This prevents dead options from appearing when the API/data model changes.
@@ -230,7 +230,8 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
           .toLowerCase();
         const matchesQuery = !q || searchableText.includes(q);
 
-        const matchesCountry = selectedCountry === 'الكل' || s.country === selectedCountry;
+        const scholarshipCountryKey = s.countryReferenceId || (dataStatus === 'prototype' ? `prototype:${s.country}` : '');
+        const matchesCountry = selectedCountryReferenceId === 'الكل' || scholarshipCountryKey === selectedCountryReferenceId;
         const matchesDegree =
           selectedDegree === 'الكل' || s.degreeLevel.includes(selectedDegree as DegreeLevel);
         const matchesFunding = selectedFunding === 'الكل' || s.fundingType === selectedFunding;
@@ -245,7 +246,7 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
   }, [
     scholarships,
     searchQuery,
-    selectedCountry,
+    selectedCountryReferenceId,
     selectedDegree,
     selectedFunding,
   ]);
@@ -259,13 +260,13 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
 
   const handleResetFilters = () => {
     setSearchQuery('');
-    setSelectedCountry('الكل');
+    setSelectedCountryReferenceId('الكل');
     setSelectedDegree('الكل');
     setSelectedFunding('الكل');
   };
 
   const activeFiltersCount =
-    (selectedCountry !== 'الكل' ? 1 : 0) +
+    (selectedCountryReferenceId !== 'الكل' ? 1 : 0) +
     (selectedDegree !== 'الكل' ? 1 : 0) +
     (selectedFunding !== 'الكل' ? 1 : 0) +
     (searchQuery.trim() !== '' ? 1 : 0);
@@ -407,21 +408,20 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
           <div className="relative bg-[var(--mn-surface)] hover:bg-[var(--mn-gold-surface)]/40 border-1.5 border-[var(--mn-accent)]/70 hover:border-[var(--mn-accent)] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)] transition-all h-[58px] sm:h-[64px] cursor-pointer mn-panel ">
             <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-extrabold text-[11px] sm:text-xs font-['Cairo',sans-serif] w-full">
               <span className="truncate">
-                {selectedCountry === 'الكل' ? 'الدولة' : selectedCountry}
+                {selectedCountryReferenceId === 'الكل' ? 'الدولة' : (countryOptions.find((item) => item.id === selectedCountryReferenceId)?.label || 'الدولة')}
               </span>
               <Globe2 className="w-3.5 h-3.5 text-[var(--mn-accent-text)] shrink-0" />
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-[var(--mn-text-muted)] mt-0.5" />
             <select
-              value={selectedCountry}
-              onChange={(e) => setSelectedCountry(e.target.value)}
+              value={selectedCountryReferenceId}
+              onChange={(e) => setSelectedCountryReferenceId(e.target.value)}
               className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
               title="اختر الدولة"
             >
-              {countries.map((c) => (
-                <option key={c} value={c}>
-                  {c === 'الكل' ? '🌍 جميع الدول' : c}
-                </option>
+              <option value="الكل">🌍 جميع الدول</option>
+              {countryOptions.map((country) => (
+                <option key={country.id} value={country.id}>{country.label}</option>
               ))}
             </select>
           </div>

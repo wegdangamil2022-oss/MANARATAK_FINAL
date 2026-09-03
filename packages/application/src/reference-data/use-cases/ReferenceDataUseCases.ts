@@ -126,8 +126,10 @@ export class ReferenceDataUseCases {
         throw new ReferenceDataInvariantError('City administrative region must belong to the selected country.');
       }
     }
+    if (!country.id) throw new ReferenceDataInvariantError('Canonical country ID is required for city persistence.');
+    const canonicalData: UpsertReferenceCityDto = { ...data, countryReferenceId: country.id };
     const identity = `${data.countryIso2Code}:${data.name}:${data.region ?? ''}`;
-    return this.atomicUpsert('CITY', identity, context, transaction => transaction.repository.upsertCityInTransaction(data, transaction.context), () => this.repository.upsertCity(data));
+    return this.atomicUpsert('CITY', identity, context, transaction => transaction.repository.upsertCityInTransaction(canonicalData, transaction.context), () => this.repository.upsertCity(canonicalData));
   }
 
   private assertCanonicalValidation(entityType: string, issues: readonly ReferenceDataValidationIssue[]): void {

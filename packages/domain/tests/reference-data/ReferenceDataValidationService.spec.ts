@@ -22,6 +22,7 @@ describe('ReferenceDataValidationService', () => {
   describe('validateCountry', () => {
     it('returns isComplete true and canBeImported true for a valid country', () => {
       const input: ReferenceCountryDto = {
+        id: 'country-test',
         iso2Code: 'EG',
         iso3Code: 'EGY',
         name: 'Egypt',
@@ -99,6 +100,7 @@ describe('ReferenceDataValidationService', () => {
   describe('validateCurrency', () => {
     it('returns isComplete true and canBeImported true for a valid currency', () => {
       const input: ReferenceCurrencyDto = {
+        id: 'currency-test',
         isoCode: 'USD',
         numericCode: '840',
         name: 'US Dollar',
@@ -148,6 +150,7 @@ describe('ReferenceDataValidationService', () => {
   describe('validateLanguage', () => {
     it('returns isComplete true and canBeImported true for a valid language', () => {
       const input: ReferenceLanguageDto = {
+        id: 'language-test',
         isoCode: 'ar',
         name: 'Arabic',
         direction: 'RTL',
@@ -164,6 +167,7 @@ describe('ReferenceDataValidationService', () => {
 
     it('accepts valid BCP-47 language tag like pt-br', () => {
       const input: ReferenceLanguageDto = {
+        id: 'language-test',
         isoCode: 'pt-br',
         name: 'Portuguese (Brazil)',
         direction: 'LTR',
@@ -194,6 +198,7 @@ describe('ReferenceDataValidationService', () => {
   describe('validateCity', () => {
     it('returns isComplete true and computes deterministicKey as countryIso2Code:name', () => {
       const input: ReferenceCityDto = {
+        id: 'city-test',
         countryIso2Code: 'EG',
         name: 'Cairo',
         latitude: 30.0444,

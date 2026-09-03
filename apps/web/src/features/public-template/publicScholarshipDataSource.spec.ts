@@ -9,8 +9,9 @@ import {
 describe('public scholarship data source', () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it('keeps prototype mode explicit unless API mode is requested', () => {
-    expect(resolvePublicTemplateDataMode(undefined)).toBe('prototype');
+  it('defaults to live API and requires an explicit prototype request', () => {
+    expect(resolvePublicTemplateDataMode(undefined)).toBe('api');
+    expect(resolvePublicTemplateDataMode('invalid')).toBe('api');
     expect(resolvePublicTemplateDataMode('prototype')).toBe('prototype');
     expect(resolvePublicTemplateDataMode('api')).toBe('api');
   });
@@ -36,10 +37,11 @@ describe('public scholarship data source', () => {
       new Date('2026-08-31T00:00:00.000Z'),
     );
 
-    expect(mapped.id).toBe('scholarship-1');
+    expect(mapped.id).toBe('published-scholarship');
+    expect(mapped.publicId).toBe('scholarship-1');
     expect(mapped.degreeLevel).toEqual(['بكالوريوس', 'ماجستير']);
     expect(mapped.financialCoverage).toEqual(['الرسوم', 'السكن']);
-    expect(mapped.participatingUniversities).toHaveLength(2);
+    expect(mapped.participatingUniversities).toEqual([]);
     expect(mapped.applicationUrl).toBe('https://example.edu/apply');
     expect(mapped.featured).toBe(false);
   });

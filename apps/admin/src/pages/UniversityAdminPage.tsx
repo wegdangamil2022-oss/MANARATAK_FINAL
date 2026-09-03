@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { adminApiClient } from '../api/client';
 import { School, Filter, Loader2, Globe, Calendar, MapPin } from 'lucide-react';
 import { useTranslation } from "../i18n/I18nProvider";
@@ -117,7 +118,7 @@ export function UniversityAdminPage() {
                       <td className="px-6 py-4">
                         <div className="font-semibold text-gray-900 flex items-center gap-2">
                           <School className="w-4 h-4 text-emerald-700 shrink-0" />
-                          <span>{uni.displayName}</span>
+                          <Link to={`/universities/${uni.id}`} className="text-emerald-800 hover:underline">{uni.displayName}</Link>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-gray-600">

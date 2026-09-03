@@ -9,6 +9,10 @@ export interface CareerEmployerDto {
   displayName: string;
   employerType: string;
   industry?: string | null;
+  /** Canonical Phase 7 geography identity. */
+  countryReferenceId?: string | null;
+  cityReferenceId?: string | null;
+  /** Compatibility/source labels only. */
   country?: string | null;
   city?: string | null;
   websiteUrl?: string | null;
@@ -26,6 +30,8 @@ export interface UpdateCareerEmployerDto {
   displayName?: string;
   employerType?: string;
   industry?: string | null;
+  countryReferenceId?: string | null;
+  cityReferenceId?: string | null;
   country?: string | null;
   city?: string | null;
   websiteUrl?: string | null;
@@ -38,7 +44,7 @@ export interface UpdateCareerEmployerDto {
 export interface CareerEmployerFilters {
   verificationStatus?: CareerEmployerStatus;
   employerType?: string;
-  country?: string;
+  countryReferenceId?: string;
   page?: number;
   pageSize?: number;
 }

@@ -1,6 +1,7 @@
 import { CsrfClientManager } from '@manaratak/shared';
 
 export interface ReferenceCountryDto {
+  id: string;
   iso2Code: string;
   iso3Code: string;
   name: string;
@@ -17,6 +18,7 @@ export interface ReferenceCountryDto {
 
 export interface AdministrativeRegionDto {
   id: string;
+  countryReferenceId?: string | null;
   countryIso2Code: string;
   regionCode: string;
   name: string;
@@ -26,7 +28,8 @@ export interface AdministrativeRegionDto {
 }
 
 export interface ReferenceCityDto {
-  id?: string;
+  id: string;
+  countryReferenceId?: string | null;
   countryIso2Code: string;
   name: string;
   region?: string | null;
@@ -131,6 +134,7 @@ export interface AdminScholarshipSummary {
 }
 
 export interface UniversityFilters {
+  locale?: 'ar' | 'en';
   country?: string;
   institutionType?: string;
   city?: string;
@@ -139,6 +143,7 @@ export interface UniversityFilters {
 }
 
 export interface MajorFilters {
+  locale?: 'ar' | 'en';
   degreeLevel?: string;
   academicFieldOrDiscipline?: string;
   collegeOrFaculty?: string;
@@ -316,6 +321,7 @@ export interface ServiceFilters {
 }
 
 export interface InternationalTestFilters {
+  locale?: 'ar' | 'en';
   testCategory?: string;
   providerName?: string;
   page?: number;
@@ -351,6 +357,17 @@ export interface PublicScholarshipDto {
   slug: string;
   displayName: string;
   canonicalName: string;
+  countryReferenceId?: string | null;
+  countrySourceLabel?: string | null;
+  studyLanguageReferenceId?: string | null;
+  fundingTypeCode?: string | null;
+  applicationUrl?: string | null;
+  degreeTargets?: Array<{ degreeLevelId?: string | null; sourceLabel?: string | null; resolutionStatus?: string }>;
+  majorTargets?: Array<{ majorId?: string | null; sourceLabel?: string | null; resolutionStatus?: string }>;
+  eligibilityItems?: Array<{ itemTypeCode: string; valueText?: string | null; countryReferenceId?: string | null; degreeLevelId?: string | null; majorId?: string | null; internationalTestId?: string | null; resolutionStatus?: string }>;
+  requiredDocumentItems?: Array<{ displayName: string; internationalTestId?: string | null; resolutionStatus?: string }>;
+  universityLinks?: Array<{ universityId?: string | null; academicProgramId?: string | null; sourceLabel?: string | null; resolutionStatus?: string }>;
+  benefits?: Array<{ benefitTypeCode: string; valueText?: string | null; amount?: string | number | null; currencyReferenceId?: string | null }>;
   fundingCoverage: string;
   coverageDetails: string;
   eligibleMajorsOrFields: string | string[];
@@ -382,6 +399,9 @@ export interface PublicUniversityDto {
   officialWebsite: string;
   country: string;
   institutionType: string;
+  countryReferenceId?: string | null;
+  regionReferenceId?: string | null;
+  cityReferenceId?: string | null;
 
   sourceUrl?: string | null;
   officialSourceUrl?: string | null;
@@ -460,6 +480,7 @@ export interface PublicMajorDto {
 }
 
 export interface PublicCourseDto {
+  ownerId?: string;
   publicId: string;
   slug: string;
   displayName: string;
@@ -467,6 +488,10 @@ export interface PublicCourseDto {
   accessType: string;
   originType: string;
   directCourseUrl: string;
+  isStudyFree?: boolean | null;
+  isFreeCertificate?: boolean | null;
+  certificateType?: string | null;
+  learningLanguageReferenceId?: string | null;
 
   platformName?: string | null;
   providerName?: string | null;
@@ -863,6 +888,8 @@ export interface PublicServiceCatalogItemDto {
   providerName?: string | null;
   estimatedDeliveryTime?: string | null;
   appointmentRequired?: boolean | null;
+  supportedCountryReferenceIds?: string[] | null;
+  supportedLanguageReferenceIds?: string[] | null;
   supportedCountries?: string[] | null;
   supportedLanguages?: string[] | null;
   servicePrerequisites?: string[] | null;
@@ -972,6 +999,105 @@ export interface PublicInternationalTestDto {
   preparationMaterials?: PublicInternationalTestPreparationMaterialDto[];
 
   [key: string]: unknown;
+}
+
+export interface PublicCareerEmployerDto {
+  id: string;
+  publicId: string;
+  slug: string;
+  displayName: string;
+  employerType: string;
+  industry?: string | null;
+  countryReferenceId?: string | null;
+  cityReferenceId?: string | null;
+  country?: string | null;
+  city?: string | null;
+  websiteUrl?: string | null;
+  description?: string | null;
+}
+
+export interface PublicCareerJobDto {
+  id: string;
+  publicId: string;
+  slug: string;
+  canonicalTitle: string;
+  title: string;
+  opportunityType: string;
+  employmentType: string;
+  jobCategory: string;
+  description: string;
+  countryReferenceId: string;
+  cityReferenceId?: string | null;
+  country?: string | null;
+  city?: string | null;
+  employerId: string;
+  employer?: PublicCareerEmployerDto;
+  applicationDeadline?: string | null;
+  externalPostingUrl?: string | null;
+  salaryRange?: Record<string, unknown> | null;
+  requiredSkills?: string[] | null;
+  educationRequirement?: string | null;
+  languageRequirements?: string[] | null;
+  remoteOption: boolean;
+  metadata?: Record<string, unknown> | null;
+  updatedAt: string;
+}
+
+export interface StablePublicGraphIdentity {
+  ownerId: string;
+  publicId?: string;
+  slug?: string;
+  canonicalCode?: string;
+  displayName: string;
+}
+
+export interface PublicMajorGraphDto {
+  subject: StablePublicGraphIdentity;
+  relationships: {
+    universities: PaginatedResult<StablePublicGraphIdentity & { matchingPrograms?: Array<{ ownerId: string; sourceProgramName: string; degreeLevelId?: string | null; majorOwnerId: string }> }>;
+    scholarships: PaginatedResult<StablePublicGraphIdentity>;
+    courses: PaginatedResult<StablePublicGraphIdentity & { directCourseUrl: string; providerName?: string | null; category?: string | null }>;
+  };
+}
+
+export interface PublicUniversityGraphDto {
+  subject: StablePublicGraphIdentity;
+  countryOwnerId?: string | null;
+  relationships: {
+    majors: StablePublicGraphIdentity[];
+    academicPrograms: Array<{ ownerId: string; sourceProgramName: string; degreeLevelId?: string | null; majorOwnerId: string }>;
+    scholarships: PaginatedResult<StablePublicGraphIdentity>;
+  };
+}
+
+export interface PublicScholarshipGraphDto {
+  subject: StablePublicGraphIdentity;
+  countryOwnerId?: string | null;
+  relationships: {
+    universities: StablePublicGraphIdentity[];
+    academicPrograms: Array<{ ownerId: string; universityOwnerId: string; universityPublicId: string; universitySlug: string; universityDisplayName: string; sourceProgramName: string; degreeLevelId?: string | null; majorOwnerId?: string | null; majorMappingState: string; status: string }>;
+    majors: StablePublicGraphIdentity[];
+  };
+}
+
+export interface PublicCountryGraphDto {
+  subject: StablePublicGraphIdentity & { canonicalCode: string };
+  relationships: {
+    universities: PaginatedResult<StablePublicGraphIdentity>;
+    scholarships: PaginatedResult<StablePublicGraphIdentity>;
+    providerHeadquartersCourses: PaginatedResult<StablePublicGraphIdentity & { directCourseUrl: string; providerName?: string | null; category?: string | null }>;
+  };
+}
+
+export interface CareerFilters {
+  opportunityType?: string;
+  employmentType?: string;
+  jobCategory?: string;
+  countryReferenceId?: string;
+  cityReferenceId?: string;
+  employerId?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface PaginatedResult<T> {
@@ -1727,6 +1853,53 @@ export class ApiClient {
           'Failed to fetch international test',
       );
     }
+    return res.json();
+  }
+
+  static async getCareerJobs(filters: CareerFilters = {}): Promise<PaginatedResult<PublicCareerJobDto>> {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') params.append(key, String(value));
+    });
+    const res = await apiFetch(`${API_BASE_URL}/public/career/jobs?${params.toString()}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error((typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) || 'Failed to fetch career opportunities');
+    }
+    return res.json();
+  }
+
+  static async getCareerJobBySlug(slug: string): Promise<PublicCareerJobDto> {
+    const res = await apiFetch(`${API_BASE_URL}/public/career/jobs/${encodeURIComponent(slug)}`);
+    if (!res.ok) {
+      if (res.status === 404) throw new Error('Career opportunity not found');
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error((typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) || 'Failed to fetch career opportunity');
+    }
+    return res.json();
+  }
+
+  static async getMajorGraph(slug: string, page = 1, pageSize = 12): Promise<PublicMajorGraphDto> {
+    const res = await apiFetch(`${API_BASE_URL}/public/graph/majors/${encodeURIComponent(slug)}?page=${page}&pageSize=${pageSize}`);
+    if (!res.ok) throw new Error(res.status === 404 ? 'Major graph not found' : 'Failed to fetch major graph');
+    return res.json();
+  }
+
+  static async getUniversityGraph(slug: string, page = 1, pageSize = 12): Promise<PublicUniversityGraphDto> {
+    const res = await apiFetch(`${API_BASE_URL}/public/graph/universities/${encodeURIComponent(slug)}?page=${page}&pageSize=${pageSize}`);
+    if (!res.ok) throw new Error(res.status === 404 ? 'University graph not found' : 'Failed to fetch university graph');
+    return res.json();
+  }
+
+  static async getScholarshipGraph(slug: string): Promise<PublicScholarshipGraphDto> {
+    const res = await apiFetch(`${API_BASE_URL}/public/graph/scholarships/${encodeURIComponent(slug)}`);
+    if (!res.ok) throw new Error(res.status === 404 ? 'Scholarship graph not found' : 'Failed to fetch scholarship graph');
+    return res.json();
+  }
+
+  static async getCountryGraph(iso2Code: string, page = 1, pageSize = 12): Promise<PublicCountryGraphDto> {
+    const res = await apiFetch(`${API_BASE_URL}/public/graph/countries/${encodeURIComponent(iso2Code)}?page=${page}&pageSize=${pageSize}`);
+    if (!res.ok) throw new Error(res.status === 404 ? 'Country graph not found' : 'Failed to fetch country graph');
     return res.json();
   }
 

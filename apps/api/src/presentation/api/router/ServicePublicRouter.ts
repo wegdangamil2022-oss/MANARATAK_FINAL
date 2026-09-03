@@ -22,6 +22,8 @@ export class ServicePublicRouter {
       fulfillmentType: z.nativeEnum(ServiceFulfillmentType).optional(),
       serviceAvailabilityStatus: z.nativeEnum(ServiceAvailabilityStatus).optional(),
       deliveryMode: z.nativeEnum(ServiceDeliveryMode).optional(),
+      supportedCountryReferenceId: z.string().min(1).optional(),
+      supportedLanguageReferenceId: z.string().min(1).optional(),
       page: z.string().optional().transform((value) => value ? parseInt(value, 10) : 1),
       pageSize: z.string().optional().transform((value) => value ? Math.min(parseInt(value, 10), 50) : 20)
     });

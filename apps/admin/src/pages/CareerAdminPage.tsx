@@ -2,6 +2,8 @@ import { FormEvent, useEffect, useState } from 'react';
 import { adminApiClient } from '../api/client';
 import { Archive, BriefcaseBusiness, CheckCircle2, Filter, Loader2, Plus, Send } from 'lucide-react';
 import { useTranslation } from "../i18n/I18nProvider";
+import { CanonicalPicker } from '../components/CanonicalPicker';
+import { canonicalPickerApi } from '../api/canonicalPickers';
 
 type CareerJobStatus = 'DRAFT' | 'READY_TO_REVIEW' | 'READY_TO_PUBLISH' | 'PUBLISHED' | 'EXPIRED' | 'REJECTED' | 'ARCHIVED';
 type CareerOpportunityType = 'JOB' | 'INTERNSHIP' | 'GRADUATE_PROGRAM' | 'MENTORSHIP' | 'CAREER_EVENT';
@@ -17,6 +19,8 @@ interface CareerEmployer {
   industry?: string | null;
   country?: string | null;
   city?: string | null;
+  countryReferenceId?: string | null;
+  cityReferenceId?: string | null;
   websiteUrl?: string | null;
   logoAssetId?: string | null;
   verificationStatus: CareerEmployerStatus;
@@ -35,6 +39,8 @@ interface CareerJobPosting {
   description: string;
   country: string;
   city?: string | null;
+  countryReferenceId?: string | null;
+  cityReferenceId?: string | null;
   status: CareerJobStatus;
   employerId: string;
   employer?: CareerEmployer;
@@ -64,8 +70,8 @@ const emptyEmployerForm = {
   displayName: '',
   employerType: 'PRIVATE_COMPANY',
   industry: '',
-  country: '',
-  city: '',
+  countryReferenceId: '',
+  cityReferenceId: '',
   websiteUrl: '',
   logoAssetId: '',
   description: ''
@@ -77,8 +83,8 @@ const emptyJobForm = {
   employmentType: 'FULL_TIME' as EmploymentType,
   jobCategory: '',
   description: '',
-  country: '',
-  city: '',
+  countryReferenceId: '',
+  cityReferenceId: '',
   employerId: '',
   recruiterContactId: '',
   applicationDeadline: '',
@@ -96,6 +102,8 @@ export function CareerAdminPage() {
   const [selectedJob, setSelectedJob] = useState<CareerJobPosting | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [countryFilter, setCountryFilter] = useState('');
+  const [employerCountryIso2, setEmployerCountryIso2] = useState('');
+  const [jobCountryIso2, setJobCountryIso2] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -117,7 +125,7 @@ export function CareerAdminPage() {
     try {
       const params = new URLSearchParams({ page: '1', pageSize: '20' });
       if (statusFilter) params.append('status', statusFilter);
-      if (countryFilter) params.append('country', countryFilter.trim());
+      if (countryFilter) params.append('countryReferenceId', countryFilter);
       const response = await adminApiClient.request<PaginatedResult<CareerJobPosting>>(`/admin/careers/jobs?${params.toString()}`);
       setJobs(response);
     } catch (err: any) {
@@ -144,8 +152,8 @@ export function CareerAdminPage() {
           displayName: employerForm.displayName.trim(),
           employerType: employerForm.employerType.trim(),
           industry: employerForm.industry.trim() || null,
-          country: employerForm.country.trim() || null,
-          city: employerForm.city.trim() || null,
+          countryReferenceId: employerForm.countryReferenceId || null,
+          cityReferenceId: employerForm.cityReferenceId || null,
           websiteUrl: employerForm.websiteUrl.trim() || null,
           logoAssetId: employerForm.logoAssetId.trim() || null,
           description: employerForm.description.trim() || null
@@ -153,6 +161,7 @@ export function CareerAdminPage() {
       });
       setMessage(`Employer created: ${employer.displayName}`);
       setEmployerForm(emptyEmployerForm);
+      setEmployerCountryIso2('');
       await loadEmployers();
       setJobForm((current) => ({ ...current, employerId: employer.id }));
     } catch (err: any) {
@@ -175,6 +184,7 @@ export function CareerAdminPage() {
       setMessage(`Job created: ${job.title}`);
       setSelectedJob(job);
       setJobForm({ ...emptyJobForm, employerId: job.employerId });
+      setJobCountryIso2('');
       await loadJobs();
     } catch (err: any) {
       setError(err.message || 'Unable to create job.');
@@ -204,8 +214,8 @@ export function CareerAdminPage() {
     employmentType: jobForm.employmentType,
     jobCategory: jobForm.jobCategory.trim(),
     description: jobForm.description.trim(),
-    country: jobForm.country.trim(),
-    city: jobForm.city.trim() || null,
+    countryReferenceId: jobForm.countryReferenceId,
+    cityReferenceId: jobForm.cityReferenceId || null,
     employerId: jobForm.employerId,
     recruiterContactId: jobForm.recruiterContactId.trim() || null,
     applicationDeadline: jobForm.applicationDeadline ? new Date(jobForm.applicationDeadline).toISOString() : null,
@@ -231,7 +241,7 @@ export function CareerAdminPage() {
             </select>
             <Filter className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
           </div>
-          <input value={countryFilter} onChange={(event) => setCountryFilter(event.target.value)} placeholder={t('country_filter')} className="bg-white border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black" />
+          <div className="min-w-64"><CanonicalPicker label={t('country_filter')} value={countryFilter} onChange={(id) => setCountryFilter(id || '')} load={() => canonicalPickerApi.countries()} reloadKey="career-filter-countries" optional /></div>
           <button onClick={loadJobs} className="border border-gray-300 rounded-md px-3 py-2 text-sm bg-white hover:bg-gray-50">{t('apply')}</button>
         </div>
       </div>
@@ -300,8 +310,8 @@ export function CareerAdminPage() {
             <Field label={t('display_name')} value={employerForm.displayName} onChange={(value) => setEmployerForm({ ...employerForm, displayName: value })} />
             <Field label={t('employer_type')} value={employerForm.employerType} onChange={(value) => setEmployerForm({ ...employerForm, employerType: value })} />
             <Field label={t('industry')} value={employerForm.industry} onChange={(value) => setEmployerForm({ ...employerForm, industry: value })} optional />
-            <Field label={t('country')} value={employerForm.country} onChange={(value) => setEmployerForm({ ...employerForm, country: value })} optional />
-            <Field label={t('city')} value={employerForm.city} onChange={(value) => setEmployerForm({ ...employerForm, city: value })} optional />
+            <CanonicalPicker label={t('country')} value={employerForm.countryReferenceId} onChange={(id, option) => { setEmployerCountryIso2(option?.code || ''); setEmployerForm({ ...employerForm, countryReferenceId: id || '', cityReferenceId: '' }); }} load={() => canonicalPickerApi.countries()} reloadKey="career-employer-countries" optional />
+            <CanonicalPicker label={t('city')} value={employerForm.cityReferenceId} onChange={(id) => setEmployerForm({ ...employerForm, cityReferenceId: id || '' })} load={() => canonicalPickerApi.cities(employerCountryIso2 || undefined)} reloadKey={`career-employer-cities:${employerCountryIso2}`} optional disabled={!employerForm.countryReferenceId} />
             <Field label={t('website_url')} value={employerForm.websiteUrl} onChange={(value) => setEmployerForm({ ...employerForm, websiteUrl: value })} optional />
             <Field label={t('logo_asset_id')} value={employerForm.logoAssetId} onChange={(value) => setEmployerForm({ ...employerForm, logoAssetId: value })} optional />
             <TextArea label={t('description')} value={employerForm.description} onChange={(value) => setEmployerForm({ ...employerForm, description: value })} rows={3} optional />
@@ -321,8 +331,8 @@ export function CareerAdminPage() {
             <Field label={t('category')} value={jobForm.jobCategory} onChange={(value) => setJobForm({ ...jobForm, jobCategory: value })} />
             <TextArea label={t('description')} value={jobForm.description} onChange={(value) => setJobForm({ ...jobForm, description: value })} rows={4} />
             <div className="grid grid-cols-2 gap-2">
-              <Field label={t('country')} value={jobForm.country} onChange={(value) => setJobForm({ ...jobForm, country: value })} />
-              <Field label={t('city')} value={jobForm.city} onChange={(value) => setJobForm({ ...jobForm, city: value })} optional />
+              <CanonicalPicker label={t('country')} value={jobForm.countryReferenceId} onChange={(id, option) => { setJobCountryIso2(option?.code || ''); setJobForm({ ...jobForm, countryReferenceId: id || '', cityReferenceId: '' }); }} load={() => canonicalPickerApi.countries()} reloadKey="career-job-countries" />
+              <CanonicalPicker label={t('city')} value={jobForm.cityReferenceId} onChange={(id) => setJobForm({ ...jobForm, cityReferenceId: id || '' })} load={() => canonicalPickerApi.cities(jobCountryIso2 || undefined)} reloadKey={`career-job-cities:${jobCountryIso2}`} optional disabled={!jobForm.countryReferenceId} />
             </div>
             <Field label={t('required_skills')} value={jobForm.requiredSkills} onChange={(value) => setJobForm({ ...jobForm, requiredSkills: value })} placeholder={t('react_english_sql')} optional />
             <Field label={t('languages')} value={jobForm.languageRequirements} onChange={(value) => setJobForm({ ...jobForm, languageRequirements: value })} optional />
@@ -335,7 +345,7 @@ export function CareerAdminPage() {
               <span>{t('remote_option')}</span>
               <input type="checkbox" checked={jobForm.remoteOption} onChange={(event) => setJobForm({ ...jobForm, remoteOption: event.target.checked })} />
             </label>
-            <button type="submit" disabled={saving || !jobForm.title || !jobForm.employerId || !jobForm.jobCategory || !jobForm.description || !jobForm.country} className="w-full inline-flex items-center justify-center gap-2 bg-green-700 text-white rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50">
+            <button type="submit" disabled={saving || !jobForm.title || !jobForm.employerId || !jobForm.jobCategory || !jobForm.description || !jobForm.countryReferenceId} className="w-full inline-flex items-center justify-center gap-2 bg-green-700 text-white rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50">
               {t('create_job')}</button>
           </form>
 

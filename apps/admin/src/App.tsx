@@ -4,6 +4,7 @@ import { adminApiClient } from './api/client';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { ScholarshipListPage } from './pages/ScholarshipListPage';
 import { ScholarshipDetailPage } from './pages/ScholarshipCatalogDetailPage';
+import { ScholarshipRelationshipEditorPage } from './pages/ScholarshipRelationshipEditorPage';
 import { CourseListPage } from './pages/CourseListPage';
 import { CourseDetailPage } from './pages/CourseDetailPage';
 import { CertificateAdminPage } from './pages/CertificateAdminPage';
@@ -20,6 +21,7 @@ import { AdminHealthReadinessPage } from './pages/AdminHealthReadinessPage';
 import { ImportAdminPage } from './pages/ImportAdminPage';
 import { ScholarshipImportCenterPage } from './pages/ScholarshipImportCenterPage';
 import { UniversityAdminPage } from './pages/UniversityAdminPage';
+import { UniversityRelationshipEditorPage } from './pages/UniversityRelationshipEditorPage';
 import { MajorAdminPage } from './pages/MajorAdminPage';
 import { MajorDetailPage } from './pages/MajorDetailPage';
 import { SettingsAdminPage } from './pages/SettingsAdminPage';
@@ -112,9 +114,12 @@ function AdminLayout() {
               <Route path="/health-readiness" element={<AdminHealthReadinessPage />} />
               <Route path="/scholarships" element={<ScholarshipListPage />} />
               <Route path="/scholarships/:id" element={<ScholarshipDetailPage />} />
+              <Route path="/scholarships/:id/relationships" element={<ScholarshipRelationshipEditorPage />} />
               <Route path="/admin/scholarships" element={<ScholarshipListPage />} />
               <Route path="/admin/scholarships/:id" element={<ScholarshipDetailPage />} />
+              <Route path="/admin/scholarships/:id/relationships" element={<ScholarshipRelationshipEditorPage />} />
               <Route path="/universities" element={<UniversityAdminPage />} />
+              <Route path="/universities/:id" element={<UniversityRelationshipEditorPage />} />
               <Route path="/majors" element={<MajorAdminPage />} />
               <Route path="/majors/:id" element={<MajorDetailPage />} />
               <Route path="/translations" element={<AdminTranslationWorkspacePage />} />

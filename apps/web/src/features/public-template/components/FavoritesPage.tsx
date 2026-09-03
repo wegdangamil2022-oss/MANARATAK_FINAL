@@ -22,28 +22,29 @@ import {
   Scholarship,
   Service,
   University,
+  CountryDestination,
+  StudentToolPreview,
+  CareerOpportunityPreview,
 } from '../types';
-import {
-  GOLDEN_IMPORTED_COURSES,
-  MOCK_COUNTRIES,
-  MOCK_EXAMS,
-  MOCK_MAJORS,
-  MOCK_UNIVERSITIES,
-} from '../data/mockData';
-import { GOLDEN_ARTICLES } from '../data/articleData';
-import { PUBLIC_SERVICES } from '../data/serviceData';
-import { STUDENT_TOOLS_PREVIEW } from '../data/studentToolsData';
-import { CAREER_OPPORTUNITIES_PREVIEW } from '../data/careerData';
 import { FavoriteButton } from './FavoriteButton';
 
 interface FavoritesPageProps {
   favoriteKeys: FavoriteKey[];
   scholarships: Scholarship[];
+  universities: University[];
+  majors: Major[];
+  countries: CountryDestination[];
+  importedCourses: ImportedCourse[];
+  exams: Exam[];
+  articles: PublicArticle[];
+  services: Service[];
+  tools: StudentToolPreview[];
+  careers: CareerOpportunityPreview[];
   onToggleFavorite: (kind: FavoriteKind, id: string) => void;
   onOpenScholarship: (item: Scholarship) => void;
   onOpenUniversity: (item: University) => void;
   onOpenMajor: (item: Major) => void;
-  onOpenCountry: (countryName: string) => void;
+  onOpenCountry: (countryId: string) => void;
   onOpenCourse: (item: ImportedCourse) => void;
   onOpenExam: (item: Exam) => void;
   onOpenArticle: (item: PublicArticle) => void;
@@ -84,6 +85,15 @@ const splitKey = (key: FavoriteKey): [FavoriteKind, string] => {
 export const FavoritesPage: React.FC<FavoritesPageProps> = ({
   favoriteKeys,
   scholarships,
+  universities,
+  majors,
+  countries,
+  importedCourses,
+  exams,
+  articles,
+  services,
+  tools,
+  careers,
   onToggleFavorite,
   onOpenScholarship,
   onOpenUniversity,
@@ -109,37 +119,37 @@ export const FavoritesPage: React.FC<FavoritesPageProps> = ({
         const raw = scholarships.find((item) => item.id === id);
         if (raw) items.push({ key, kind, id, title: raw.title, subtitle: `${raw.countryFlag} ${raw.country} · ${raw.university}`, meta: raw.fundingType, raw });
       } else if (kind === 'university') {
-        const raw = MOCK_UNIVERSITIES.find((item) => item.id === id);
+        const raw = universities.find((item) => item.id === id);
         if (raw) items.push({ key, kind, id, title: raw.name, subtitle: [raw.city, raw.country].filter(Boolean).join(' · '), meta: raw.type, raw });
       } else if (kind === 'major') {
-        const raw = MOCK_MAJORS.find((item) => item.id === id);
+        const raw = majors.find((item) => item.id === id);
         if (raw) items.push({ key, kind, id, title: raw.name, subtitle: raw.nameEn || raw.category, meta: raw.category, raw });
       } else if (kind === 'country') {
-        const raw = MOCK_COUNTRIES.find((item) => item.id === id);
+        const raw = countries.find((item) => item.id === id);
         if (raw) items.push({ key, kind, id, title: `${raw.flagEmoji || raw.flag || ''} ${raw.name}`.trim(), subtitle: raw.continent || 'وجهة دراسية', meta: raw.capitalCity, raw });
       } else if (kind === 'course') {
-        const raw = GOLDEN_IMPORTED_COURSES.find((item) => item.id === id);
+        const raw = importedCourses.find((item) => item.id === id);
         if (raw) items.push({ key, kind, id, title: raw.title, subtitle: raw.provider || 'دورة تدريبية', meta: raw.language, raw });
       } else if (kind === 'exam') {
-        const raw = MOCK_EXAMS.find((item) => item.id === id);
+        const raw = exams.find((item) => item.id === id);
         if (raw) items.push({ key, kind, id, title: raw.name, subtitle: raw.nameEn || raw.category, meta: raw.category, raw });
       } else if (kind === 'article') {
-        const raw = GOLDEN_ARTICLES.find((item) => item.id === id);
+        const raw = articles.find((item) => item.id === id);
         if (raw) items.push({ key, kind, id, title: raw.titleAr, subtitle: raw.excerptAr || 'مقال ودليل', meta: raw.categoryAr || raw.contentType, raw });
       } else if (kind === 'service') {
-        const raw = PUBLIC_SERVICES.find((item) => item.id === id);
+        const raw = services.find((item) => item.id === id);
         if (raw) items.push({ key, kind, id, title: raw.title, subtitle: raw.shortDescription, meta: raw.category, raw });
       } else if (kind === 'tool') {
-        const raw = STUDENT_TOOLS_PREVIEW.find((item) => item.id === id);
+        const raw = tools.find((item) => item.id === id);
         if (raw) items.push({ key, kind, id, title: raw.title, subtitle: raw.shortDescription, meta: raw.category, raw });
       } else if (kind === 'career') {
-        const raw = CAREER_OPPORTUNITIES_PREVIEW.find((item) => item.id === id);
+        const raw = careers.find((item) => item.id === id);
         if (raw) items.push({ key, kind, id, title: raw.title, subtitle: `${raw.countryFlag || ''} ${raw.country} · ${raw.employerName}`.trim(), meta: raw.kind, raw });
       }
       if (items.length === previousLength) items.push({key, kind, id, title: 'عنصر محفوظ غير متاح في هذه النسخة', subtitle: 'احتفظنا بحفظك؛ يمكنك إزالته من زر القلب.', meta: 'غير متاح', raw: null});
     });
     return items;
-  }, [favoriteKeys, scholarships]);
+  }, [favoriteKeys, scholarships, universities, majors, countries, importedCourses, exams, articles, services, tools, careers]);
 
   const counts = useMemo(() => {
     const result = Object.keys(META).reduce((acc, kind) => {
@@ -157,7 +167,7 @@ export const FavoritesPage: React.FC<FavoritesPageProps> = ({
     if (item.kind === 'scholarship') return onOpenScholarship(item.raw as Scholarship);
     if (item.kind === 'university') return onOpenUniversity(item.raw as University);
     if (item.kind === 'major') return onOpenMajor(item.raw as Major);
-    if (item.kind === 'country') return onOpenCountry(item.raw.name);
+    if (item.kind === 'country') return onOpenCountry(item.raw.id);
     if (item.kind === 'course') return onOpenCourse(item.raw as ImportedCourse);
     if (item.kind === 'exam') return onOpenExam(item.raw as Exam);
     if (item.kind === 'article') return onOpenArticle(item.raw as PublicArticle);

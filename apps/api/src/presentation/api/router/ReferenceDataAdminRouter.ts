@@ -157,6 +157,23 @@ export class ReferenceDataAdminRouter {
       }),
     );
 
+    // P9/P23 canonical picker reads stay on the P7 owner API.
+    router.get(
+      '/languages',
+      asyncHandler(async (req: Request, res: Response) => {
+        const filters = querySchema.parse(req.query);
+        res.json({ data: await referenceDataUseCases.listLanguages(filters) });
+      }),
+    );
+
+    router.get(
+      '/currencies',
+      asyncHandler(async (req: Request, res: Response) => {
+        const filters = querySchema.parse(req.query);
+        res.json({ data: await referenceDataUseCases.listCurrencies(filters) });
+      }),
+    );
+
     router.put(
       '/countries/:iso2Code',
       asyncHandler(async (req: Request, res: Response) => {

@@ -60,6 +60,7 @@ interface DbLanguage {
 
 interface DbCity {
   id: string;
+  countryReferenceId?: string | null;
   countryIso2Code: string;
   name: string;
   nameAr: string | null;
@@ -579,8 +580,15 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
   }
 
   public async upsertCity(data: UpsertReferenceCityDto): Promise<ReferenceCityDto> {
+    const canonicalCountry = data.countryReferenceId
+      ? await this.prisma.referenceCountry.findUnique({ where: { id: data.countryReferenceId } })
+      : await this.prisma.referenceCountry.findUnique({ where: { iso2Code: data.countryIso2Code } });
+    if (!canonicalCountry || canonicalCountry.iso2Code !== data.countryIso2Code) {
+      throw new Error('REFERENCE_CITY_CANONICAL_COUNTRY_MISMATCH');
+    }
     const canonicalIdentityKey = this.cityCanonicalIdentityKey(data);
     const updateData = {
+      countryReferenceId: canonicalCountry.id,
       name: data.name,
       nameAr: data.nameAr,
       region: data.region,
@@ -715,6 +723,7 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
 
   private mapToRegionDto(record: {
     id: string;
+    countryReferenceId?: string | null;
     countryIso2Code: string;
     regionCode: string;
     name: string;
@@ -724,6 +733,7 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
   }): AdministrativeRegionDto {
     return {
       id: record.id,
+      countryReferenceId: record.countryReferenceId,
       countryIso2Code: record.countryIso2Code,
       regionCode: record.regionCode,
       name: record.name,
@@ -782,6 +792,7 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
   private mapToCityDto(record: DbCity): ReferenceCityDto {
     return {
       id: record.id,
+      countryReferenceId: record.countryReferenceId,
       countryIso2Code: record.countryIso2Code,
       name: record.name,
       nameAr: record.nameAr,

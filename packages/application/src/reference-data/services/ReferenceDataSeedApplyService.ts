@@ -83,7 +83,8 @@ export class ReferenceDataSeedApplyService {
               throw new Error('REFERENCE_DATA_SEED_CITY_REGION_COUNTRY_MISMATCH');
             }
           }
-          await this.repository.upsertCity(payload);
+          if (!country.id) throw new Error('REFERENCE_DATA_SEED_CANONICAL_COUNTRY_ID_REQUIRED');
+          await this.repository.upsertCity({ ...payload, countryReferenceId: country.id });
           break;
         }
         default:

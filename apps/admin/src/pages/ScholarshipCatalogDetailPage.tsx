@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import type {
   ScholarshipBenefitDto,
   ScholarshipDegreeTargetDto,
@@ -340,6 +340,7 @@ export function ScholarshipDetailPage() {
             <div className="mt-3 flex flex-wrap gap-2"><Badge value={String(scholarship.status)} /><Badge value={String(scholarship.completenessStatus)} /><Badge value={String(scholarship.verificationStatus ?? 'PENDING')} /><Badge value={String(scholarship.publicationStatus ?? 'DRAFT')} /></div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link to={`/scholarships/${id}/relationships`} className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">Canonical relationships</Link>
             {scholarship.status !== 'READY_TO_REVIEW' && scholarship.status !== 'PUBLISHED' && scholarship.completenessStatus !== 'INCOMPLETE' ? <button disabled={Boolean(action)} onClick={() => void run('mark-ready')} className="rounded-lg border px-3 py-2 text-sm font-semibold">{ui.markReady}</button> : null}
             {scholarship.status === 'READY_TO_REVIEW' && scholarship.completenessStatus === 'COMPLETE' ? <button disabled={Boolean(action)} onClick={() => void run('mark-publishable')} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">{ui.markPublishable}</button> : null}
             {scholarship.status === 'READY_TO_PUBLISH' ? <button disabled={Boolean(action)} onClick={() => void run('publish')} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">{ui.publish}</button> : null}

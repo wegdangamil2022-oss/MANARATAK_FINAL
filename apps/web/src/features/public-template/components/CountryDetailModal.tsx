@@ -30,7 +30,7 @@ interface CountryDetailModalProps {
   onOpenScholarship?: (scholarshipId: string) => void;
   onOpenMajor?: (majorId: string) => void;
   onOpenExam?: (examId: string) => void;
-  onBrowseScholarships?: (countryName: string) => void;
+  onBrowseScholarships?: (countryId: string) => void;
   onOpenArticle?: (articleId: string) => void;
   isFavorite?: boolean;
   onToggleFavorite?: (id: string) => void;
@@ -208,7 +208,7 @@ export const CountryDetailModal: React.FC<CountryDetailModalProps> = ({
             <div className="flex items-start justify-between gap-2 mb-2">
               <SectionTitle icon={<GraduationCap className="w-4 h-4" />} title="منح دراسية" subtitle="منح مرتبطة بهذه الدولة" />
               {onBrowseScholarships && (
-                <button type="button" onClick={() => onBrowseScholarships(country.name)} className="text-[9px] font-black text-[var(--mn-heading)] border border-[var(--mn-border-brand)]/30 bg-[var(--mn-page)] rounded-full px-2 py-1 whitespace-nowrap mn-panel ">
+                <button type="button" onClick={() => onBrowseScholarships(country.id)} className="text-[9px] font-black text-[var(--mn-heading)] border border-[var(--mn-border-brand)]/30 bg-[var(--mn-page)] rounded-full px-2 py-1 whitespace-nowrap mn-panel ">
                   عرض الكل
                 </button>
               )}
@@ -327,7 +327,7 @@ export const CountryDetailModal: React.FC<CountryDetailModalProps> = ({
         {onBrowseScholarships && (
           <button
             type="button"
-            onClick={() => onBrowseScholarships(country.name)}
+            onClick={() => onBrowseScholarships(country.id)}
             className="w-full min-h-11 rounded-xl bg-gradient-to-r from-[var(--mn-primary)] via-[var(--mn-hero-secondary)] to-[var(--mn-primary)] text-white font-black text-[11px] flex items-center justify-center gap-2 shadow-sm active:scale-[0.99] mn-inverse "
           >
             <GraduationCap className="w-4 h-4 text-[var(--mn-accent-text)]" />

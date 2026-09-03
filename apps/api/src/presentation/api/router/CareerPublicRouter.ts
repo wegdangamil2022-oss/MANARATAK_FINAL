@@ -16,6 +16,8 @@ export class CareerPublicRouter {
       opportunityType: z.nativeEnum(CareerOpportunityType).optional(),
       employmentType: z.nativeEnum(EmploymentType).optional(),
       jobCategory: z.string().optional(),
+      countryReferenceId: z.string().optional(),
+      cityReferenceId: z.string().optional(),
       country: z.string().optional(),
       city: z.string().optional(),
       employerId: z.string().optional(),
