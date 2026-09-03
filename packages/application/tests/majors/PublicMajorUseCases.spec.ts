@@ -103,10 +103,11 @@ describe('PublicMajorUseCases', () => {
         targetType: 'ACADEMIC_PROGRAM',
         source: 'MAJOR_LEVEL_PROFILE',
         query: expect.objectContaining({
-          major: 'Computer Science',
+          majorId: 'major-1',
+          majorPublicId: 'pub-1',
           majorSlug: 'computer-science',
-          degreeLevel: 'Bachelor',
         }),
+        metadata: expect.objectContaining({ degreeLevel: 'Bachelor', majorName: 'Computer Science' }),
       }),
     ]));
     expect(result.contentSections).toEqual([{

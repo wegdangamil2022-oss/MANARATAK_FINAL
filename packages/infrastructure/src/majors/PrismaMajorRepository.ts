@@ -92,6 +92,15 @@ export class PrismaMajorRepository implements ITransactionalMajorRepository {
     return record ? this.mapToDto(record) : null;
   }
 
+  async findPublishedByIds(ids: string[]): Promise<MajorDto[]> {
+    if (!ids.length) return [];
+    const records = await this.prisma.major.findMany({
+      where: { id: { in: [...new Set(ids)] }, status: MajorStatus.PUBLISHED },
+      include: MAJOR_INCLUDE,
+    });
+    return records.map((record) => this.mapToDto(record));
+  }
+
   async findBySlug(slug: string): Promise<MajorDto | null> {
     const record = await this.prisma.major.findUnique({
       where: { slug },

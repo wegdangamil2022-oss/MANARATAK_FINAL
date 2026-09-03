@@ -28,6 +28,14 @@ export const ScholarshipImportPayloadSchema = z.object({
   studyLanguage: z.string().optional(),
   targetUniversities: z.array(z.string()).optional(),
   targetAcademicPrograms: z.array(z.string()).optional(),
+  targetUniversityReferences: z.array(z.object({
+    canonicalId: z.string().min(1),
+    sourceLabel: z.string().optional(),
+  })).optional(),
+  targetAcademicProgramReferences: z.array(z.object({
+    canonicalId: z.string().min(1),
+    sourceLabel: z.string().optional(),
+  })).optional(),
   fundingAmount: z.union([z.string(), z.number()]).optional(),
   currency: z.string().optional(),
   duration: z.string().optional(),

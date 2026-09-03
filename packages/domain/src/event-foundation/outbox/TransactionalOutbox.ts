@@ -44,6 +44,9 @@ export interface OutboxClaimRequest {
   batchSize: number;
   claimUntil: Date;
   now: Date;
+  /** Optional bounded subscription filter; prevents a domain worker from consuming unrelated events. */
+  domain?: string;
+  eventTypes?: readonly string[];
 }
 
 export interface ITransactionalOutboxStore {
@@ -79,6 +82,9 @@ export interface OutboxDispatchRequest {
   maxAttempts: number;
   baseBackoffMs: number;
   maxBackoffMs: number;
+  /** Optional bounded subscription filter forwarded to the durable outbox store. */
+  domain?: string;
+  eventTypes?: readonly string[];
 }
 
 export interface OutboxDispatchResult {

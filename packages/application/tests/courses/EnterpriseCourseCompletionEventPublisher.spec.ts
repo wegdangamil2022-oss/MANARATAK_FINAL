@@ -1,15 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { EnterpriseCourseCompletionEventPublisher } from '../../src/courses/gateways/EnterpriseCourseCompletionEventPublisher';
 
 describe('EnterpriseCourseCompletionEventPublisher', () => {
-  it('registers and publishes CourseCompleted events through Event Foundation', async () => {
-    const eventsUseCase = {
-      register: vi.fn().mockResolvedValue({ reference: 'event-1' }),
-      publish: vi.fn().mockResolvedValue(undefined)
-    };
-    const publisher = new EnterpriseCourseCompletionEventPublisher(eventsUseCase as any);
+  it('fails closed because CourseProgressUseCases owns the transactional outbox mutation', async () => {
+    const publisher = new EnterpriseCourseCompletionEventPublisher();
 
-    await publisher.publishCourseCompleted({
+    await expect(publisher.publishCourseCompleted({
       courseId: 'course-1',
       studentReferenceId: 'student-1',
       completionId: 'completion-1',
@@ -17,22 +13,6 @@ describe('EnterpriseCourseCompletionEventPublisher', () => {
       eligibleForCertificate: true,
       certificateOwnerPhase: 'Phase 14 - Enterprise Certificates Platform',
       sourcePhase: 'Phase 13 - Learning Platform'
-    });
-
-    expect(eventsUseCase.register).toHaveBeenCalledWith(expect.objectContaining({
-      reference: 'course-completed:course-1:student-1:completion-1',
-      ownerReference: 'phase-13-learning-platform',
-      type: 'CourseCompleted',
-      category: 'LearningPlatform',
-      version: '1.0.0',
-      payloadMetadata: expect.objectContaining({
-        courseId: 'course-1',
-        eligibleForCertificate: true,
-        certificateOwnerPhase: 'Phase 14 - Enterprise Certificates Platform'
-      })
-    }));
-    expect(eventsUseCase.publish).toHaveBeenCalledWith({
-      reference: 'course-completed:course-1:student-1:completion-1'
-    });
+    })).rejects.toThrow('COURSE_COMPLETION_DIRECT_PUBLISH_FORBIDDEN_USE_ATOMIC_OUTBOX');
   });
 });

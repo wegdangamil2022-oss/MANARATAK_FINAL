@@ -17,7 +17,7 @@ export class PublicCourseUseCases {
 
     return {
       ...paginated,
-      data: paginated.data.map(this.mapToPublicDto)
+      data: paginated.data.map((course) => this.mapToPublicDto(course))
     };
   }
 
@@ -32,21 +32,46 @@ export class PublicCourseUseCases {
   }
 
   private mapToPublicDto(course: any): PublicCourseDto {
-    const {
-      id,
-      canonicalDedupKey,
-      sourceImportRecordId,
-      status,
-      completenessStatus,
-      createdAt,
-      optionalFields,
-      ...publicData
-    } = course;
-
+    const optional = course.optionalFields && typeof course.optionalFields === 'object' && !Array.isArray(course.optionalFields)
+      ? course.optionalFields as Record<string, unknown>
+      : {};
+    const optionalPublic = this.pickOptionalPublicFields(optional);
     return {
-      ...(optionalFields || {}),
-      ...publicData,
+      ownerId: course.id,
+      publicId: course.publicId,
+      slug: course.slug,
+      displayName: course.displayName,
+      canonicalName: course.canonicalName,
+      accessType: course.accessType,
+      originType: course.originType,
+      directCourseUrl: course.directCourseUrl,
+      externalProviderId: course.externalProviderId ?? null,
+      isStudyFree: course.isStudyFree ?? null,
+      isFreeCertificate: course.isFreeCertificate ?? null,
+      certificateType: course.certificateType ?? null,
+      learningLanguageReferenceId: course.learningLanguageReferenceId ?? null,
+      platformName: course.platformName ?? null,
+      providerName: course.providerName ?? null,
+      learningLanguage: course.learningLanguage ?? null,
+      studyDuration: course.studyDuration ?? null,
+      certificateAvailable: course.certificateAvailable ?? null,
+      category: course.category ?? null,
+      difficultyLevel: course.difficultyLevel ?? null,
+      sourceUrl: course.sourceUrl ?? null,
+      officialSourceUrl: course.officialSourceUrl ?? null,
+      thumbnailAssetId: course.thumbnailAssetId ?? null,
+      ...optionalPublic,
+      updatedAt: course.updatedAt,
     };
+  }
+
+  private pickOptionalPublicFields(optional: Record<string, unknown>): Partial<PublicCourseDto> {
+    const allowed = [
+      'courseContent', 'relatedMajorsOrFields', 'acquiredSkills', 'localizedNames', 'metadata',
+    ] as const;
+    const result: Record<string, unknown> = {};
+    for (const key of allowed) if (optional[key] !== undefined) result[key] = optional[key];
+    return result as Partial<PublicCourseDto>;
   }
 
   private publicEligible(course: any): boolean {

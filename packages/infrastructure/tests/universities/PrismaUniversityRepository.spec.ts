@@ -129,6 +129,33 @@ describe('PrismaUniversityRepository', () => {
     );
   });
 
+
+  it('maps AcademicProgram read models with canonical Degree/Major/Test identities', async () => {
+    mockPrisma.university.findUnique.mockResolvedValue({
+      id: 'db-id-1', publicId: 'INS-YEM-0001', status: 'READY_TO_REVIEW', completenessStatus: 'COMPLETE', optionalFields: {},
+      academicPrograms: [{
+        id: 'program-1', universityId: 'db-id-1', sourceReferenceId: 'src-program-1', sourceProgramName: 'Computer Science', normalizedName: 'computer science',
+        degreeLevelId: 'degree-bachelor', majorId: 'major-cs', majorMappingState: 'CANONICALLY_MAPPED', status: 'ACTIVE', metadata: null,
+        campuses: [{ campusId: 'campus-1' }],
+        admissionRequirements: [{ id: 'req-1', academicProgramId: 'program-1', internationalTestId: 'test-ielts', testVariantId: null, testVersionId: null, minimumScore: 6.5, sectionScores: null, validityMetadata: null, restrictionMetadata: null, status: 'ACTIVE' }],
+      }],
+    });
+    const result = await repository.findById('db-id-1');
+    expect(result?.academicPrograms?.[0]).toMatchObject({
+      id: 'program-1', universityId: 'db-id-1', degreeLevelId: 'degree-bachelor', majorId: 'major-cs', campusIds: ['campus-1'],
+      admissionRequirements: [expect.objectContaining({ internationalTestId: 'test-ielts' })],
+    });
+  });
+
+  it('filters university geography through canonical Country/Region/City ids', async () => {
+    mockPrisma.university.findMany.mockResolvedValue([]);
+    mockPrisma.university.count.mockResolvedValue(0);
+    await repository.list({ countryReferenceId: 'country-ye', regionReferenceId: 'region-aden', cityReferenceId: 'city-aden' });
+    expect(mockPrisma.university.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ countryReferenceId: 'country-ye', regionReferenceId: 'region-aden', cityReferenceId: 'city-aden' }),
+    }));
+  });
+
   it('lists universities by canonical countryReferenceId instead of country display text', async () => {
     mockPrisma.university.findMany.mockResolvedValue([]);
     mockPrisma.university.count.mockResolvedValue(0);

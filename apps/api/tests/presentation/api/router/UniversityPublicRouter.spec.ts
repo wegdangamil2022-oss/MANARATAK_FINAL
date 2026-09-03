@@ -23,7 +23,7 @@ describe('UniversityPublicRouter locale contract', () => {
   it('projects list responses with requested locale and preserves filters', async () => {
     const repository = createRepository();
     repository.listPublished.mockResolvedValue({ data: [university], total: 1, page: 1, pageSize: 20, totalPages: 1 });
-    const res = await request(createApp(repository)).get('/public/universities?country=Qatar&locale=ar');
+    const res = await request(createApp(repository)).get('/public/universities?countryReferenceId=country-qa&locale=ar');
     expect(res.status).toBe(200);
     expect(res.body.data[0].displayName).toBe('جامعة قطر');
     expect(repository.listPublished).toHaveBeenCalledWith(expect.objectContaining({ countryReferenceId: 'country-qa' }));
@@ -46,11 +46,27 @@ describe('UniversityPublicRouter locale contract', () => {
     expect(repository.listPublished).not.toHaveBeenCalled();
   });
 
-  it.each([['Qatar', 'country-qa'], ['Yemen', 'country-ye']])('resolves exact legacy country=%s deterministically', async (name, id) => {
-    const repository = createRepository(); repository.listPublished.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
-    const response = await request(createApp(repository)).get(`/public/universities?country=${name}`);
-    expect(response.status).toBe(200);
-    expect(repository.listPublished).toHaveBeenCalledWith(expect.objectContaining({ countryReferenceId: id }));
+  it('rejects legacy country-name relationship filters instead of resolving by display text', async () => {
+    const repository = createRepository();
+    const response = await request(createApp(repository)).get('/public/universities?country=Qatar');
+    expect(response.status).toBe(400);
+    expect(repository.listPublished).not.toHaveBeenCalled();
+  });
+
+
+  it('passes canonical majorId to the P11 AcademicProgram reverse read', async () => {
+    const repository = createRepository();
+    repository.listPublished.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
+    const res = await request(createApp(repository)).get('/public/universities?majorId=major-1');
+    expect(res.status).toBe(200);
+    expect(repository.listPublished).toHaveBeenCalledWith(expect.objectContaining({ majorId: 'major-1' }));
+  });
+
+  it('rejects invalid reverse-read pagination before querying P11', async () => {
+    const repository = createRepository();
+    const res = await request(createApp(repository)).get('/public/universities?majorId=major-1&page=abc');
+    expect(res.status).toBe(400);
+    expect(repository.listPublished).not.toHaveBeenCalled();
   });
 
   it('rejects unsupported locale', async () => {

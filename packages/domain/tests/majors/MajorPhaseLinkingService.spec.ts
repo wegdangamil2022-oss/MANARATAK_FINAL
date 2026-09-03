@@ -51,9 +51,14 @@ describe('MajorPhaseLinkingService', () => {
       }),
     ]));
     expect(links.find((link) => link.targetType === 'ACADEMIC_PROGRAM')?.query).toMatchObject({
-      major: 'Computer Science',
+      majorId: 'major-1',
+      majorPublicId: 'MJR-0001',
       majorSlug: 'computer-science',
-      degreeLevel: 'Bachelor',
     });
+    expect(links.find((link) => link.targetType === 'ACADEMIC_PROGRAM')?.query).not.toHaveProperty('major');
+    expect(links.find((link) => link.targetType === 'ACADEMIC_PROGRAM')?.query).not.toHaveProperty('degreeLevel');
+    expect(links.find((link) => link.targetType === 'ACADEMIC_PROGRAM')?.href).toContain('/universities?');
+    expect(links.find((link) => link.targetType === 'SCHOLARSHIP')?.href).toContain('/scholarships?');
+    expect(links.find((link) => link.targetType === 'COURSE')?.href).toContain('/courses?');
   });
 });

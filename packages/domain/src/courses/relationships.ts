@@ -172,6 +172,8 @@ export interface CourseGeographySemanticsDto {
 }
 
 export interface CourseRelationshipPublicCourseDto {
+  /** Canonical P13 Course owner ID for cross-domain read-model joins. */
+  ownerId: string;
   publicId: string;
   slug: string;
   displayName: string;
@@ -193,6 +195,30 @@ export interface CourseRelationshipPublicFilters extends PublicCourseFilters {
   taxonomyNodeId?: string;
   learningLanguageReferenceId?: string;
   providerHeadquartersCountryReferenceId?: string;
+}
+
+export interface CourseRelationshipReviewReadModel {
+  courseId: string;
+  source: Pick<CourseRelationshipSourceDto,
+    | 'status'
+    | 'sourceImportRecordId'
+    | 'shortCourseTopicsRaw'
+    | 'learningLanguageRaw'
+    | 'learningLanguageReferenceId'
+    | 'learningLanguageResolutionState'
+    | 'learningLanguageResolutionMethod'
+    | 'learningLanguageReviewedBy'
+    | 'externalProviderId'
+  >;
+  taxonomyLinks: CourseAcademicTaxonomyLinkDto[];
+  majorProjections: CourseMajorProjectionDto[];
+  geography: CourseGeographySemanticsDto;
+  closure: {
+    languageCanonical: boolean;
+    approvedTaxonomyLinks: number;
+    approvedMajorProjections: number;
+    reviewRequired: boolean;
+  };
 }
 
 export interface CourseRelationshipAnalysisResult {
@@ -244,6 +270,7 @@ export interface ICourseRelationshipRepository {
   }): Promise<void>;
   listTaxonomyLinks(courseId: string, reviewState?: CourseAcademicTaxonomyLinkReviewState): Promise<CourseAcademicTaxonomyLinkDto[]>;
   reviewTaxonomyLink(input: {
+    courseId: string;
     linkId: string;
     decision: 'APPROVED' | 'REJECTED';
     actorId: string;
@@ -283,6 +310,7 @@ export interface ICourseRelationshipRepository {
   }): Promise<void>;
   listMajorProjections(courseId: string, state?: CourseMajorProjectionState): Promise<CourseMajorProjectionDto[]>;
   reviewMajorProjection(input: {
+    courseId: string;
     projectionId: string;
     decision: 'APPROVED' | 'REJECTED';
     actorId: string;

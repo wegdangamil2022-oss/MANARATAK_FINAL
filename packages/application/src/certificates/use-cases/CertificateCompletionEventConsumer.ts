@@ -30,6 +30,9 @@ export class CertificateCompletionEventConsumer {
     const metadata = this.object(record.metadata);
     const eventVersion = this.text(metadata.eventVersion ?? metadata.schemaVersion);
     if (!eventVersion) throw new Error('CERTIFICATE_SOURCE_EVENT_VERSION_REQUIRED');
+    // A versioned trusted completion may legitimately be non-credential-bearing.
+    // Acknowledge it as a no-op so the durable dispatcher does not create a retry storm.
+    if (payload.eligibleForCertificate !== true) return null;
     const envelope: CertificateAuthoritativeEventEnvelope<CourseCompletedEventPayload | LearningPathCompletedEventPayload> = {
       eventId: record.id,
       eventType: record.eventType,

@@ -21,10 +21,10 @@ describe('ScholarshipAdminRouter', () => {
   it('forwards the complete canonical admin filter contract', async () => {
     const useCases = createMockUseCases();
     useCases.listScholarships.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
-    const res = await request(createApp(useCases)).get('/admin/scholarships?country=SA&degreeLevel=Bachelor&fundingCoverage=FULL&sponsorName=Ministry&verificationStatus=VERIFIED&translationState=NEEDS_TRANSLATION&sourceType=OFFICIAL&query=engineering&deadlineTo=2027-01-01T00:00:00.000Z');
+    const res = await request(createApp(useCases)).get('/admin/scholarships?countryReferenceId=country-sa&degreeLevelId=degree-bachelor&majorId=major-cs&internationalTestId=test-ielts&universityId=university-1&academicProgramId=program-1&fundingCoverage=FULL&sponsorName=Ministry&verificationStatus=VERIFIED&translationState=NEEDS_TRANSLATION&sourceType=OFFICIAL&query=engineering&deadlineTo=2027-01-01T00:00:00.000Z');
     expect(res.status).toBe(200);
     expect(useCases.listScholarships).toHaveBeenCalledWith(expect.objectContaining({
-      country: 'SA', degreeLevel: 'Bachelor', fundingCoverage: 'FULL', sponsorName: 'Ministry',
+      countryReferenceId: 'country-sa', degreeLevelId: 'degree-bachelor', majorId: 'major-cs', internationalTestId: 'test-ielts', universityId: 'university-1', academicProgramId: 'program-1', fundingCoverage: 'FULL', sponsorName: 'Ministry',
       verificationStatus: 'VERIFIED', translationState: 'NEEDS_TRANSLATION', sourceType: 'OFFICIAL', query: 'engineering',
       deadlineTo: new Date('2027-01-01T00:00:00.000Z'),
     }));
@@ -65,16 +65,24 @@ describe('ScholarshipAdminRouter', () => {
     const app = createApp(useCases);
 
     const res = await request(app).get(
-      '/admin/scholarships?status=READY_TO_REVIEW&country=Saudi%20Arabia&page=2',
+      '/admin/scholarships?status=READY_TO_REVIEW&countryReferenceId=country-sa&page=2',
     );
 
     expect(res.status).toBe(200);
     expect(useCases.listScholarships).toHaveBeenCalledWith({
       status: ScholarshipStatus.READY_TO_REVIEW,
-      country: 'Saudi Arabia',
+      countryReferenceId: 'country-sa',
       page: 2,
       pageSize: 20,
     });
+  });
+
+
+  it('rejects legacy country/degree text filters', async () => {
+    const useCases = createMockUseCases();
+    const res = await request(createApp(useCases)).get('/admin/scholarships?country=Saudi%20Arabia&degreeLevel=Bachelor');
+    expect(res.status).toBe(400);
+    expect(useCases.listScholarships).not.toHaveBeenCalled();
   });
 
   it('PATCH /admin/scholarships/:id validates body and calls updateScholarship', async () => {

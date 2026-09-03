@@ -6,6 +6,7 @@ import {
   CourseLanguageResolutionState,
   CourseMajorProjectionDto,
   CourseRelationshipAnalysisResult,
+  CourseRelationshipReviewReadModel,
   ICourseRelationshipRepository,
 } from '@manaratak/domain';
 
@@ -135,25 +136,75 @@ export class CourseRelationshipResolutionService {
     };
   }
 
+  public async getReviewModel(courseId: string): Promise<CourseRelationshipReviewReadModel> {
+    if (!courseId.trim()) throw new Error('COURSE_ID_REQUIRED');
+    const source = await this.repository.getRelationshipSource(courseId);
+    if (!source) throw new Error(`COURSE_NOT_FOUND:${courseId}`);
+    const [taxonomyLinks, majorProjections, geography] = await Promise.all([
+      this.repository.listTaxonomyLinks(courseId),
+      this.repository.listMajorProjections(courseId),
+      this.repository.getGeographySemantics(courseId),
+    ]);
+    const approvedTaxonomyLinks = taxonomyLinks.filter((item) => item.reviewState === 'APPROVED').length;
+    const approvedMajorProjections = majorProjections.filter((item) => item.projectionState === 'APPROVED').length;
+    const languageCanonical = source.learningLanguageRaw?.trim()
+      ? source.learningLanguageResolutionState === 'RESOLVED' && Boolean(source.learningLanguageReferenceId)
+      : true;
+    const reviewRequired = !languageCanonical
+      || taxonomyLinks.some((item) => item.reviewState === 'PROPOSED' || item.reviewState === 'REVIEW_REQUIRED')
+      || majorProjections.some((item) => item.projectionState === 'PROPOSED' || item.projectionState === 'REVIEW_REQUIRED');
+
+    return {
+      courseId,
+      source: {
+        status: source.status,
+        sourceImportRecordId: source.sourceImportRecordId,
+        shortCourseTopicsRaw: source.shortCourseTopicsRaw,
+        learningLanguageRaw: source.learningLanguageRaw,
+        learningLanguageReferenceId: source.learningLanguageReferenceId,
+        learningLanguageResolutionState: source.learningLanguageResolutionState,
+        learningLanguageResolutionMethod: source.learningLanguageResolutionMethod,
+        learningLanguageReviewedBy: source.learningLanguageReviewedBy,
+        externalProviderId: source.externalProviderId,
+      },
+      taxonomyLinks,
+      majorProjections,
+      geography: geography ?? {
+        courseId,
+        providerId: source.provider?.id ?? null,
+        providerName: source.provider?.canonicalName ?? null,
+        providerHeadquartersCountryReferenceId: source.provider?.headquartersCountryReferenceId ?? null,
+        providerHeadquartersCountry: source.provider?.headquartersCountry ?? null,
+        studyCountryReferenceIds: [],
+        semantics: source.provider?.headquartersCountryReferenceId ? 'PROVIDER_HEADQUARTERS_ONLY' : 'NO_GEOGRAPHY',
+      },
+      closure: { languageCanonical, approvedTaxonomyLinks, approvedMajorProjections, reviewRequired },
+    };
+  }
+
   public async approveTaxonomyLink(
+    courseId: string,
     linkId: string,
     actorId: string,
   ): Promise<CourseAcademicTaxonomyLinkDto> {
+    if (!courseId.trim()) throw new Error('COURSE_ID_REQUIRED');
     if (!actorId.trim()) throw new Error('COURSE_RELATIONSHIP_REVIEW_ACTOR_REQUIRED');
     return this.repository.reviewTaxonomyLink({
-      linkId,
+      courseId, linkId,
       decision: 'APPROVED',
       actorId,
     });
   }
 
   public async rejectTaxonomyLink(
+    courseId: string,
     linkId: string,
     actorId: string,
   ): Promise<CourseAcademicTaxonomyLinkDto> {
+    if (!courseId.trim()) throw new Error('COURSE_ID_REQUIRED');
     if (!actorId.trim()) throw new Error('COURSE_RELATIONSHIP_REVIEW_ACTOR_REQUIRED');
     return this.repository.reviewTaxonomyLink({
-      linkId,
+      courseId, linkId,
       decision: 'REJECTED',
       actorId,
     });
@@ -209,24 +260,28 @@ export class CourseRelationshipResolutionService {
   }
 
   public async approveMajorProjection(
+    courseId: string,
     projectionId: string,
     actorId: string,
   ): Promise<CourseMajorProjectionDto> {
+    if (!courseId.trim()) throw new Error('COURSE_ID_REQUIRED');
     if (!actorId.trim()) throw new Error('COURSE_RELATIONSHIP_REVIEW_ACTOR_REQUIRED');
     return this.repository.reviewMajorProjection({
-      projectionId,
+      courseId, projectionId,
       decision: 'APPROVED',
       actorId,
     });
   }
 
   public async rejectMajorProjection(
+    courseId: string,
     projectionId: string,
     actorId: string,
   ): Promise<CourseMajorProjectionDto> {
+    if (!courseId.trim()) throw new Error('COURSE_ID_REQUIRED');
     if (!actorId.trim()) throw new Error('COURSE_RELATIONSHIP_REVIEW_ACTOR_REQUIRED');
     return this.repository.reviewMajorProjection({
-      projectionId,
+      courseId, projectionId,
       decision: 'REJECTED',
       actorId,
     });

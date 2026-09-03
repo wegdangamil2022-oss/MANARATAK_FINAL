@@ -131,6 +131,7 @@ export * from './students';
 export * from './cms';
 export * from './student-tools';
 export * from './reference-data';
+export * from './read-models';
 export * from './services-platform';
 export * from './finance-platform';
 export * from './career-alumni';

@@ -1,6 +1,7 @@
 export type ScholarshipCanonicalTarget =
   | 'PROVIDER_UNIVERSITY'
   | 'UNIVERSITY'
+  | 'ACADEMIC_PROGRAM'
   | 'COUNTRY'
   | 'LANGUAGE'
   | 'CURRENCY'
@@ -53,7 +54,7 @@ export class ScholarshipImportScreeningReader {
         requirementKey,
         target,
         state,
-        rawValue: this.string(item.rawValue) ?? null,
+        rawValue: this.string(item.rawValue ?? item.requestedCanonicalId ?? item.canonicalId) ?? null,
         canonicalReferenceId: this.string(item.canonicalReferenceId ?? item.canonicalId) ?? null,
         canonicalPublicId: this.string(item.canonicalPublicId) ?? null,
         canonicalStandardCode: this.string(item.canonicalStandardCode) ?? null,
@@ -141,7 +142,7 @@ export class ScholarshipImportScreeningReader {
   private static target(value: unknown): ScholarshipCanonicalTarget | undefined {
     const target = this.string(value)?.toUpperCase();
     return target && new Set([
-      'PROVIDER_UNIVERSITY', 'UNIVERSITY', 'COUNTRY', 'LANGUAGE', 'CURRENCY',
+      'PROVIDER_UNIVERSITY', 'UNIVERSITY', 'ACADEMIC_PROGRAM', 'COUNTRY', 'LANGUAGE', 'CURRENCY',
       'DEGREE_LEVEL', 'MAJOR', 'INTERNATIONAL_TEST',
     ]).has(target) ? target as ScholarshipCanonicalTarget : undefined;
   }

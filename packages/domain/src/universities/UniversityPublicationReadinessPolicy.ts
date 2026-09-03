@@ -8,7 +8,10 @@ export class UniversityPublicationReadinessPolicy implements PublicationReadines
     const blockingIssues: PublicationReadinessIssue[] = [];
     const programs = Array.isArray(entity.academicPrograms) ? entity.academicPrograms : [];
     const acceptedTests = Array.isArray(entity.acceptedLanguageTests) ? entity.acceptedLanguageTests : [];
-    const requirements = Array.isArray(entity.admissionRequirements) ? entity.admissionRequirements : [];
+    const requirements = [
+      ...(Array.isArray(entity.admissionRequirements) ? entity.admissionRequirements : []),
+      ...programs.flatMap(program => Array.isArray(program.admissionRequirements) ? program.admissionRequirements : []),
+    ];
 
     if (entity.status !== UniversityStatus.READY_TO_PUBLISH) blockingIssues.push(issue('UNIVERSITY_INVALID_PUBLICATION_STATUS', 'status', 'University must be READY_TO_PUBLISH.'));
     if (entity.completenessStatus !== UniversityImportCompletenessState.COMPLETE) blockingIssues.push(issue('UNIVERSITY_INCOMPLETE', 'completenessStatus', 'University completeness must be COMPLETE.'));
@@ -16,8 +19,8 @@ export class UniversityPublicationReadinessPolicy implements PublicationReadines
     if (!entity.countryReferenceId) blockingIssues.push(issue('UNIVERSITY_CANONICAL_COUNTRY_REFERENCE_MISSING', 'countryReferenceId', 'Canonical country reference is required; country text alone is insufficient.'));
 
     programs.forEach((program, index) => {
+      if (!program.degreeLevelId) blockingIssues.push(issue('UNIVERSITY_PROGRAM_DEGREE_REFERENCE_MISSING', `academicPrograms.${index}.degreeLevelId`, 'Academic Program requires canonical DegreeLevel ID before publication.'));
       if (program.majorMappingState === 'CANONICALLY_MAPPED' && !program.majorId) blockingIssues.push(issue('UNIVERSITY_PROGRAM_MAJOR_REFERENCE_MISSING', `academicPrograms.${index}.majorId`, 'CANONICALLY_MAPPED program requires canonical Major ID.'));
-      if (program.majorMappingState === 'CANONICALLY_MAPPED' && !program.degreeLevelCanonicalCode && !program.degreeLevelId) blockingIssues.push(issue('UNIVERSITY_PROGRAM_DEGREE_REFERENCE_MISSING', `academicPrograms.${index}.degreeLevelCanonicalCode`, 'CANONICALLY_MAPPED program requires canonical DegreeLevel reference.'));
     });
 
     if (acceptedTests.length > 0 && !requirements.some(requirement => requirement.internationalTestId)) {

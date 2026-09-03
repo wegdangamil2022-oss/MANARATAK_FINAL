@@ -20,7 +20,7 @@ A concise architectural overview explaining:
 Establish the Major Platform as the official enterprise-wide academic reference responsible for governing, standardizing, classifying, and maintaining all academic majors across the MANARATAK ecosystem.
 
 **Mission**
-The platform serves as the Single Source of Truth (SSoT) for academic majors and provides a unified canonical model that enables consistent integration with upstream bounded contexts such as Universities & Institutions (Phase 11), Scholarships (Phase 12), Applications (Phase 13), Student Profiles (Phase 15), and the AI Studio platform.
+The platform serves as the Single Source of Truth (SSoT) for academic majors and provides a unified canonical model consumed through approved contracts by downstream domains such as Universities & Institutions (Phase 11), Scholarships (Phase 12), Learning (Phase 13), Student Workspace read models (Phase 15), Enterprise AI/Student Tools (Phases 17–18), and Public composition (Phase 24). Consumer relationships do not transfer Major ownership away from Phase 10.
 
 **Enterprise Responsibilities**
 The Major Platform Enterprise Domain SHALL govern the definitive single source of truth for all major definitions and hierarchical structures. It SHALL own a unified domain model to align consistent representation and enterprise-wide structural integrity without leaking implementation or operational logic.
@@ -323,6 +323,6 @@ This section shall describe how this platform exposes its capabilities and inter
 **Separation and Dependency:**
 - **Dependency:** Phase 10 Academic Majors **must reference** Phase 08 taxonomy nodes. Major records may link directly to `AcademicTaxonomyNode` IDs to classify the major within a structured discipline or field.
 - **No Redefinition:** Phase 10 **must not** redefine ISCED, CIP, or general academic taxonomy structures.
-- **Phase 10 Exclusives:** The Major Platform exclusively owns major-specific enrichments that are student-facing. This includes "Best majors," high-demand majors, country recommendations, career outcomes, salary expectations, and full public student-facing major pages. These rich features belong to Phase 10, not Phase 08.
+- **Phase 10 Exclusives:** The Major Platform exclusively owns canonical major identity plus structured major-specific enrichments/read models. Phase 08 owns taxonomy and DegreeLevel. Phase 24 owns full public page composition/rendering; it consumes approved Phase 10 read models and does not re-own Major truth.
 > **Current remediation status (2026-08-12): `SOURCE_IMPLEMENTED_RUNTIME_PENDING`.**
 > This document records a historical architecture baseline. Operational, database, migration, build, and runtime claims are superseded by `docs/remediation/wp8/WP8_GOOGLE_STUDIO_CLOSURE_MASTER_REGISTER.md`; they are not evidence of Production readiness.

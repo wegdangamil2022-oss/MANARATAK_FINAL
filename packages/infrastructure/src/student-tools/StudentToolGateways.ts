@@ -146,11 +146,18 @@ export class CanonicalScholarshipRecommendationGateway implements IScholarshipRe
     fundingPreference?: string;
     studyLanguage?: string;
   }) {
-    const pages = filters.countries.length
-      ? await Promise.all(filters.countries.map((country) => this.listAllPublished({ studyCountry: country })))
-      : [await this.listAllPublished({})];
+    // P3: P12 repository filters are canonical-id only. Student preference text is
+    // an orchestration concern here; it must not be converted into a persisted/domain relationship filter.
+    const pages = [await this.listAllPublished()];
+    const preferredCountries = new Set(filters.countries.map((value) => value.trim().toLowerCase()).filter(Boolean));
     const unique = new Map<string, ScholarshipCandidate>();
     for (const item of pages.flat()) {
+      if (preferredCountries.size) {
+        const countryCandidates = [item.countryReferenceId, item.countryScope, item.countrySourceLabel]
+          .filter((value): value is string => Boolean(value))
+          .map((value) => value.trim().toLowerCase());
+        if (!countryCandidates.some((value) => preferredCountries.has(value))) continue;
+      }
       if (
         filters.targetDegree &&
         !(item.degreeTargets ?? []).some((target) =>
@@ -185,13 +192,13 @@ export class CanonicalScholarshipRecommendationGateway implements IScholarshipRe
     return [...unique.values()];
   }
 
-  private async listAllPublished(filters: { studyCountry?: string }) {
+  private async listAllPublished() {
     const data: Awaited<ReturnType<IScholarshipRepository['listPublished']>>['data'] = [];
     let page = 1;
     let totalPages = 1;
     do {
       if (page > 500) throw new Error('SCHOLARSHIP_RECOMMENDATION_CANDIDATE_SCAN_LIMIT_EXCEEDED');
-      const result = await this.repository.listPublished({ ...filters, page, pageSize: 100 });
+      const result = await this.repository.listPublished({ page, pageSize: 100 });
       data.push(...result.data);
       totalPages = result.totalPages;
       page += 1;

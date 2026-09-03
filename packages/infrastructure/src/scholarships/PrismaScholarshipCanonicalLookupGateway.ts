@@ -17,6 +17,7 @@ export class PrismaScholarshipCanonicalLookupGateway
   ): Promise<ScholarshipCanonicalCandidate[]> {
     switch (target) {
       case 'UNIVERSITY': return this.findUniversity(request);
+      case 'ACADEMIC_PROGRAM': return this.findAcademicProgram(request);
       case 'COUNTRY': return this.findCountry(request);
       case 'LANGUAGE': return this.findLanguage(request);
       case 'CURRENCY': return this.findCurrency(request);
@@ -38,6 +39,23 @@ export class PrismaScholarshipCanonicalLookupGateway
       target: 'UNIVERSITY', id: record.id, publicId: record.publicId,
       canonicalName: record.canonicalName, displayName: record.displayName,
       method: 'EXACT_PUBLIC_ID',
+    }] : [];
+  }
+
+  private async findAcademicProgram(
+    request: ScholarshipCanonicalResolutionRequest,
+  ): Promise<ScholarshipCanonicalCandidate[]> {
+    if (!request.canonicalId) return [];
+    const record = await this.prisma.universityAcademicProgram.findUnique({
+      where: { id: request.canonicalId },
+      select: { id: true, sourceProgramName: true, normalizedName: true },
+    });
+    return record ? [{
+      target: 'ACADEMIC_PROGRAM',
+      id: record.id,
+      canonicalName: record.normalizedName || record.sourceProgramName,
+      displayName: record.sourceProgramName,
+      method: 'EXACT_CANONICAL_ID',
     }] : [];
   }
 

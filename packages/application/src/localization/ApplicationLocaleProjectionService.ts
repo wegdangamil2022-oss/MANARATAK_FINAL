@@ -268,7 +268,7 @@ export class ApplicationLocaleProjectionService {
         reviewStatus: section.reviewStatus,
         metadata: section.metadata,
       })),
-      phaseLinks: MajorPhaseLinkingService.buildLinks(projectedMajor),
+      phaseLinks: MajorPhaseLinkingService.buildLinks(major),
     };
   }
 

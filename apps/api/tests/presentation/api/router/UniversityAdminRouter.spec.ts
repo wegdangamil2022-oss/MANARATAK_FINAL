@@ -45,13 +45,13 @@ describe('UniversityAdminRouter', () => {
     const app = createApp(useCases);
 
     const res = await request(app).get(
-      '/admin/universities?status=READY_TO_REVIEW&country=Qatar&page=2',
+      '/admin/universities?status=READY_TO_REVIEW&countryReferenceId=country-qa&page=2',
     );
 
     expect(res.status).toBe(200);
     expect(useCases.listUniversities).toHaveBeenCalledWith({
       status: UniversityStatus.READY_TO_REVIEW,
-      country: 'Qatar',
+      countryReferenceId: 'country-qa',
       page: 2,
       pageSize: 50,
     });

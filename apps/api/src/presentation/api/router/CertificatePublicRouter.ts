@@ -1,11 +1,11 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { CertificateUseCases } from '@manaratak/application';
+import { CertificateReadModelService } from '@manaratak/application';
 
 export class CertificatePublicRouter {
-  public static create(cradle: { certificateUseCases: CertificateUseCases }): Router {
+  public static create(cradle: { certificateReadModelService: CertificateReadModelService }): Router {
     const router = Router();
-    const { certificateUseCases } = cradle;
+    const { certificateReadModelService } = cradle;
 
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
@@ -15,7 +15,7 @@ export class CertificatePublicRouter {
 
     router.get('/verify/:verificationCode', asyncHandler(async (req: Request, res: Response) => {
       const verificationCode = codeSchema.parse(req.params.verificationCode);
-      res.json(await certificateUseCases.verifyByCode(verificationCode));
+      res.json(await certificateReadModelService.verifyPublic(verificationCode));
     }));
 
     router.use((err: any, req: Request, res: Response, next: NextFunction) => {

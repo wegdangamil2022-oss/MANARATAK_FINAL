@@ -304,6 +304,21 @@ describe('WP12-10 ScholarshipImportAtomicTransferUseCase', () => {
     expect(created.universityLinks).toEqual(expect.arrayContaining([expect.objectContaining({ universityId: 'university-qu' })]));
   });
 
+
+  it('persists explicit canonical AcademicProgram targets instead of unresolved text placeholders', async () => {
+    const env = setup();
+    const raw = env.getRecord().rawPayload as any;
+    raw.targetAcademicProgramReferences = [{ canonicalId: 'program-cs-phd', sourceLabel: 'Computer Science PhD' }];
+    raw.metadata.canonicalScreening = [
+      { target: 'COUNTRY', state: 'RESOLVED', rawValue: 'Qatar', canonicalReferenceId: 'country-qa' },
+      { target: 'ACADEMIC_PROGRAM', state: 'RESOLVED', rawValue: 'Computer Science PhD', canonicalReferenceId: 'program-cs-phd' },
+    ];
+    await env.service.transfer({ recordId: 'rec-1', actorId: 'admin-1' });
+    expect(env.create.mock.calls[0][0].universityLinks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ relationshipTypeCode: 'TARGET_PROGRAM', academicProgramId: 'program-cs-phd', resolutionStatus: 'RESOLVED' }),
+    ]));
+  });
+
   it('merge retains prior SourceEvidence and adds incoming provenance deterministically', async () => {
     const existing = existingScholarship();
     existing.sourceEvidence = [{ evidenceKey: 'old-source', sourceTypeCode: 'OFFICIAL_SOURCE', sourceUrl: 'https://old.example/source', importRecordId: 'old-record' }];

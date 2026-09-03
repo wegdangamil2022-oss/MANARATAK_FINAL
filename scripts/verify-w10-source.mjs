@@ -8,6 +8,7 @@ const files = {
   contract: read('packages/domain/src/certificates/contracts/ICertificateRepository.ts'),
   usecase: read('packages/application/src/certificates/use-cases/CertificateUseCases.ts'),
   consumer: read('packages/application/src/certificates/use-cases/CertificateCompletionEventConsumer.ts'),
+  trustPolicy: read('packages/application/src/certificates/services/CertificateTrustPolicy.ts'),
   repo: read('packages/infrastructure/src/certificates/PrismaCertificateRepository.ts'),
   schema: read('packages/infrastructure/prisma/schema.prisma'),
   migration: read('packages/infrastructure/prisma/migrations/20260826024500_w10_certificate_trust_model/migration.sql'),
@@ -88,7 +89,7 @@ check('P14-EVT-008',
 
 check('W10-DB-MUTATION-GUARD', files.migration.includes('DO NOT APPLY outside the approved Google Studio runtime gate'), 'Migration is source-only and explicitly deferred.');
 check('W10-EVENT-AUTHORITY-GUARD', files.usecase.includes("event.sourceDomain !== 'COURSES'") && files.usecase.includes("event.eventVersion !== '1.0.0'"), 'Completion envelope authority/version fail closed.');
-check('W10-KEY-OWNERSHIP-GUARD', files.usecase.includes('CERTIFICATE_ISSUER_SIGNING_KEY_NOT_CONFIGURED') && files.repo.includes('CERTIFICATE_ISSUER_SIGNING_KEY_MISMATCH'), 'Configured signer must match canonical issuer key reference.');
+check('W10-KEY-OWNERSHIP-GUARD', (files.usecase.includes('CERTIFICATE_ISSUER_SIGNING_KEY_NOT_CONFIGURED') || files.trustPolicy.includes('CERTIFICATE_ISSUER_SIGNING_KEY_NOT_CONFIGURED')) && files.repo.includes('CERTIFICATE_ISSUER_SIGNING_KEY_MISMATCH'), 'Configured signer must match canonical issuer key reference.');
 
 let passed = 0;
 for (const item of checks) {

@@ -271,7 +271,7 @@ export class PrismaCertificateRepository implements ICertificateRepository {
       if (current.status === CertificateStatus.REVOKED) return this.certificate(current);
       if (current.status === CertificateStatus.ARCHIVED) throw new Error('CERTIFICATE_ARCHIVED');
       const row = await tx.certificate.update({ where: { id: data.certificateId }, data: { status: CertificateStatus.REVOKED, revokedAt: new Date(), revocationReason: data.reason, revokedBy: data.actorId } });
-      await this.appendMutation(tx, row.id, 'REVOKED', data.actorId, data.reason, data.correlationId, { certificateId: row.id, studentReferenceId: row.studentReferenceId, publicId: row.publicId, serialNumber: row.serialNumber, verificationCode: row.verificationCode, status: CertificateStatus.REVOKED, courseDisplayName: row.courseDisplayName, issuedAt: row.issuedAt?.toISOString?.() ?? row.issuedAt }, 'CertificateRevoked');
+      await this.appendMutation(tx, row.id, 'REVOKED', data.actorId, data.reason, data.correlationId, { certificateId: row.id, studentReferenceId: row.studentReferenceId, publicId: row.publicId, serialNumber: row.serialNumber, verificationCode: row.verificationCode, status: CertificateStatus.REVOKED, courseDisplayName: row.courseDisplayName, learningPathDisplayName: row.learningPathDisplayName, issuedAt: row.issuedAt?.toISOString?.() ?? row.issuedAt, revokedAt: row.revokedAt?.toISOString?.() ?? row.revokedAt, reason: data.reason }, 'CertificateRevoked');
       return this.certificate(row);
     });
   }
@@ -289,7 +289,7 @@ export class PrismaCertificateRepository implements ICertificateRepository {
       const eventType = data.eventType ?? 'CertificateReissued';
       const eventPayload = eventType === 'CertificateRenewed'
         ? { certificateId: replacement.id, certificateNumber: replacement.serialNumber, studentReferenceId: replacement.studentReferenceId, renewedAt: replacement.issuedAt?.toISOString?.() ?? replacement.issuedAt, newExpirationDate: replacement.expiresAt?.toISOString?.() ?? replacement.expiresAt }
-        : { certificateId: replacement.id, studentReferenceId: replacement.studentReferenceId, reasonCode: data.reason, replacesCertificateId: original.id, publicId: replacement.publicId, serialNumber: replacement.serialNumber, verificationCode: replacement.verificationCode, status: replacement.status, courseDisplayName: replacement.courseDisplayName, issuedAt: replacement.issuedAt?.toISOString?.() ?? replacement.issuedAt };
+        : { certificateId: replacement.id, studentReferenceId: replacement.studentReferenceId, reasonCode: data.reason, replacesCertificateId: original.id, publicId: replacement.publicId, serialNumber: replacement.serialNumber, verificationCode: replacement.verificationCode, status: replacement.status, courseDisplayName: replacement.courseDisplayName, learningPathDisplayName: replacement.learningPathDisplayName, issuedAt: replacement.issuedAt?.toISOString?.() ?? replacement.issuedAt, expiresAt: replacement.expiresAt?.toISOString?.() ?? replacement.expiresAt ?? null };
       await this.appendMutation(tx, replacement.id, eventType === 'CertificateRenewed' ? 'RENEWED' : 'REISSUED', data.actorId, data.reason, data.correlationId, eventPayload, eventType);
       return this.certificate(replacement);
     });

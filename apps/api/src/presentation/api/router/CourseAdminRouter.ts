@@ -11,12 +11,12 @@ import {
   LessonAssetType,
   UpdateCourseDto
 } from '@manaratak/domain';
-import { AdminCourseUseCases, CourseCurriculumUseCases, CourseEnrollmentPolicyUseCases, LearningPathUseCases, NativeCourseUseCases } from '@manaratak/application';
+import { AdminCourseUseCases, CourseCurriculumUseCases, CourseEnrollmentPolicyUseCases, CourseRelationshipResolutionService, LearningPathUseCases, NativeCourseUseCases } from '@manaratak/application';
 
 export class CourseAdminRouter {
-  public static create(cradle: { adminCourseUseCases: AdminCourseUseCases; courseCurriculumUseCases: CourseCurriculumUseCases; courseEnrollmentPolicyUseCases: CourseEnrollmentPolicyUseCases; learningPathUseCases: LearningPathUseCases; nativeCourseUseCases: NativeCourseUseCases }): Router {
+  public static create(cradle: { adminCourseUseCases: AdminCourseUseCases; courseCurriculumUseCases: CourseCurriculumUseCases; courseEnrollmentPolicyUseCases: CourseEnrollmentPolicyUseCases; courseRelationshipResolutionService: CourseRelationshipResolutionService; learningPathUseCases: LearningPathUseCases; nativeCourseUseCases: NativeCourseUseCases }): Router {
     const router = Router();
-    const { adminCourseUseCases, courseCurriculumUseCases, courseEnrollmentPolicyUseCases, learningPathUseCases, nativeCourseUseCases } = cradle;
+    const { adminCourseUseCases, courseCurriculumUseCases, courseEnrollmentPolicyUseCases, courseRelationshipResolutionService, learningPathUseCases, nativeCourseUseCases } = cradle;
 
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
@@ -194,6 +194,40 @@ export class CourseAdminRouter {
     router.get('/:id/curriculum', asyncHandler(async (req: Request, res: Response) => {
       const snapshot = await courseCurriculumUseCases.getCurriculumSnapshot(req.params.id);
       res.json(snapshot);
+    }));
+
+    router.get('/:id/relationships', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await courseRelationshipResolutionService.getReviewModel(req.params.id));
+    }));
+
+    router.post('/:id/relationships/analyze', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await courseRelationshipResolutionService.analyzeCourse(req.params.id));
+    }));
+
+    router.post('/:id/relationships/taxonomy/:linkId/approve', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await courseRelationshipResolutionService.approveTaxonomyLink(req.params.id, req.params.linkId, mutationContext(req).actorId));
+    }));
+
+    router.post('/:id/relationships/taxonomy/:linkId/reject', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await courseRelationshipResolutionService.rejectTaxonomyLink(req.params.id, req.params.linkId, mutationContext(req).actorId));
+    }));
+
+    router.post('/:id/relationships/language', asyncHandler(async (req: Request, res: Response) => {
+      const body = z.object({ languageReferenceId: z.string().trim().min(1) }).parse(req.body);
+      await courseRelationshipResolutionService.approveLanguageReference(req.params.id, body.languageReferenceId, mutationContext(req).actorId);
+      res.json(await courseRelationshipResolutionService.getReviewModel(req.params.id));
+    }));
+
+    router.post('/:id/relationships/majors/project', asyncHandler(async (req: Request, res: Response) => {
+      res.json({ data: await courseRelationshipResolutionService.projectMajors(req.params.id) });
+    }));
+
+    router.post('/:id/relationships/majors/:projectionId/approve', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await courseRelationshipResolutionService.approveMajorProjection(req.params.id, req.params.projectionId, mutationContext(req).actorId));
+    }));
+
+    router.post('/:id/relationships/majors/:projectionId/reject', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await courseRelationshipResolutionService.rejectMajorProjection(req.params.id, req.params.projectionId, mutationContext(req).actorId));
     }));
 
     router.get('/:id/enrollment-policy', asyncHandler(async (req: Request, res: Response) => {

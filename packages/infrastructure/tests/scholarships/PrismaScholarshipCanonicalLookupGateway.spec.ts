@@ -4,6 +4,7 @@ import { PrismaScholarshipCanonicalLookupGateway } from '../../src/scholarships/
 function createPrismaMock() {
   return {
     university: { findUnique: vi.fn() },
+    universityAcademicProgram: { findUnique: vi.fn() },
     referenceCountry: { findUnique: vi.fn(), findMany: vi.fn() },
     referenceLanguage: { findUnique: vi.fn(), findMany: vi.fn() },
     referenceCurrency: { findUnique: vi.fn(), findMany: vi.fn() },
@@ -28,6 +29,22 @@ describe('PrismaScholarshipCanonicalLookupGateway', () => {
     const results = await new PrismaScholarshipCanonicalLookupGateway(prisma as any).findCandidates('UNIVERSITY', { target: 'UNIVERSITY', rawValue: 'University' });
     expect(results).toEqual([]);
     expect(prisma.university.findUnique).not.toHaveBeenCalled();
+  });
+
+
+  it('looks up AcademicProgram by exact canonical id only', async () => {
+    const prisma = createPrismaMock();
+    prisma.universityAcademicProgram.findUnique.mockResolvedValue({ id: 'program-1', sourceProgramName: 'Computer Science PhD', normalizedName: 'computer science phd' });
+    const results = await new PrismaScholarshipCanonicalLookupGateway(prisma as any).findCandidates('ACADEMIC_PROGRAM', { target: 'ACADEMIC_PROGRAM', canonicalId: 'program-1' });
+    expect(prisma.universityAcademicProgram.findUnique).toHaveBeenCalledWith({ where: { id: 'program-1' }, select: expect.any(Object) });
+    expect(results[0]).toMatchObject({ id: 'program-1', method: 'EXACT_CANONICAL_ID' });
+  });
+
+  it('does not resolve AcademicProgram from a free-text name', async () => {
+    const prisma = createPrismaMock();
+    const results = await new PrismaScholarshipCanonicalLookupGateway(prisma as any).findCandidates('ACADEMIC_PROGRAM', { target: 'ACADEMIC_PROGRAM', rawValue: 'Computer Science PhD' });
+    expect(results).toEqual([]);
+    expect(prisma.universityAcademicProgram.findUnique).not.toHaveBeenCalled();
   });
 
   it('uses exact Country standard codes', async () => {

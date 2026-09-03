@@ -474,9 +474,9 @@ function canonicalItems(record: ScholarshipImportCenterRecordView): Array<{
   return candidate.map(objectValue).flatMap((entry) => {
     const key = stringValue(entry.requirementKey) ?? stringValue(entry.fieldOrRequirementKey) ?? stringValue(entry.target);
     const target = stringValue(entry.canonicalEntityType) ?? stringValue(entry.target);
-    const rawValue = stringValue(entry.rawValue);
+    const rawValue = stringValue(entry.rawValue) ?? stringValue(entry.requestedCanonicalId) ?? stringValue(entry.canonicalId);
     const state = stringValue(entry.state) ?? 'NOT_EXECUTED';
-    const allowedTargets: ScholarshipCanonicalTarget[] = ['PROVIDER_UNIVERSITY', 'UNIVERSITY', 'COUNTRY', 'LANGUAGE', 'CURRENCY', 'DEGREE_LEVEL', 'MAJOR', 'INTERNATIONAL_TEST'];
+    const allowedTargets: ScholarshipCanonicalTarget[] = ['PROVIDER_UNIVERSITY', 'UNIVERSITY', 'ACADEMIC_PROGRAM', 'COUNTRY', 'LANGUAGE', 'CURRENCY', 'DEGREE_LEVEL', 'MAJOR', 'INTERNATIONAL_TEST'];
     if (!key || !rawValue || !allowedTargets.includes(target as ScholarshipCanonicalTarget)) return [];
     return [{ key, target: target as ScholarshipCanonicalTarget, rawValue, state }];
   });

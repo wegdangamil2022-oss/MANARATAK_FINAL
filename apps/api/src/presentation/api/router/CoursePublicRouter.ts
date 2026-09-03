@@ -1,12 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { CourseAccessType, CourseOriginType } from '@manaratak/domain';
-import { PublicCourseUseCases } from '@manaratak/application';
+import { CourseRelationshipQueryService, PublicCourseUseCases } from '@manaratak/application';
 
 export class CoursePublicRouter {
-  public static create(cradle: { publicCourseUseCases: PublicCourseUseCases }): Router {
+  public static create(cradle: { publicCourseUseCases: PublicCourseUseCases; courseRelationshipQueryService: CourseRelationshipQueryService }): Router {
     const router = Router();
-    const { publicCourseUseCases } = cradle;
+    const { publicCourseUseCases, courseRelationshipQueryService } = cradle;
 
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
@@ -18,16 +18,27 @@ export class CoursePublicRouter {
       platformName: z.string().optional(),
       category: z.string().optional(),
       learningLanguage: z.string().optional(),
-      page: z.string().optional().transform((val) => val ? parseInt(val, 10) : 1),
-      pageSize: z.string().optional().transform((val) => {
-        const parsed = val ? parseInt(val, 10) : 20;
-        return Math.min(parsed, 50);
-      }),
+      majorId: z.string().trim().min(1).optional(),
+      taxonomyNodeId: z.string().trim().min(1).optional(),
+      learningLanguageReferenceId: z.string().trim().min(1).optional(),
+      providerHeadquartersCountryReferenceId: z.string().trim().min(1).optional(),
+      page: z.coerce.number().int().min(1).default(1),
+      pageSize: z.coerce.number().int().min(1).transform((value) => Math.min(value, 50)).default(20),
     });
 
     router.get('/', asyncHandler(async (req: Request, res: Response) => {
       const filters = listQuerySchema.parse(req.query);
-      const result = await publicCourseUseCases.listCourses(filters);
+      const { majorId, taxonomyNodeId, learningLanguageReferenceId, providerHeadquartersCountryReferenceId, ...baseFilters } = filters;
+      const hasRelationshipFilter = Boolean(majorId || taxonomyNodeId || learningLanguageReferenceId || providerHeadquartersCountryReferenceId);
+      const result = hasRelationshipFilter
+        ? await courseRelationshipQueryService.listPublishedRelatedCourses({
+            ...baseFilters,
+            majorId,
+            taxonomyNodeId,
+            learningLanguageReferenceId,
+            providerHeadquartersCountryReferenceId,
+          })
+        : await publicCourseUseCases.listCourses(baseFilters);
       res.json(result);
     }));
 

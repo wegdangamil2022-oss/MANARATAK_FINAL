@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import {
   AssetId,
   AssetLifecycleState,
@@ -23,12 +23,7 @@ import {
   UpdateCertificateIssuerDto,
   UpdateCertificateTemplateDto,
 } from '@manaratak/domain';
-
-export interface CertificateSigningRuntimeConfiguration {
-  signingKeyReference?: string;
-  signingSecret?: string;
-  productionLike?: boolean;
-}
+import { CertificateSigningRuntimeConfiguration, CertificateTrustPolicy } from '../services/CertificateTrustPolicy';
 
 export type CertificateTemplateAuthoringInput = Omit<
   Parameters<ICertificateRepository['createTemplate']>[0],
@@ -46,13 +41,17 @@ const templateTransitions: Record<CertificateTemplateStatus, CertificateTemplate
 };
 
 export class CertificateUseCases {
+  private readonly trustPolicy: CertificateTrustPolicy;
+
   constructor(
     private readonly certificateRepository: ICertificateRepository,
     private readonly courseRepository: ICourseRepository,
     private readonly assetRepository?: IAssetRecordRepository,
-    private readonly signingRuntime: CertificateSigningRuntimeConfiguration = {},
+    signingRuntime: CertificateSigningRuntimeConfiguration = {},
     private readonly learningPathRepository?: ILearningPathRepository,
-  ) {}
+  ) {
+    this.trustPolicy = new CertificateTrustPolicy(signingRuntime);
+  }
 
   /**
    * Authoritative Phase 13 integration boundary. There is deliberately no HTTP
@@ -196,7 +195,7 @@ export class CertificateUseCases {
       canonical &&
       this.digest(canonical) === certificate.verificationHash &&
       this.persistedIdentityMatchesEnvelope(certificate, envelope) &&
-      this.verifySignature(certificate.verificationHash, certificate.digitalSignature, envelope.issuer.signingKeyReference),
+      this.trustPolicy.verifyHash(certificate.verificationHash, certificate.digitalSignature, envelope.issuer.signingKeyReference),
     );
     const expiresAt = envelope?.validity.expiresAt ? new Date(envelope.validity.expiresAt) : null;
     const expired = Boolean(expiresAt && expiresAt <= new Date());
@@ -296,11 +295,13 @@ export class CertificateUseCases {
     },
   ): Promise<CertificateDto> {
     const issuer = await this.requireActiveIssuer(template.issuerId);
-    this.assertSigningRuntimeForIssuer(issuer.signingKeyReference);
+    this.trustPolicy.assertIssuerKeyAvailable(issuer.signingKeyReference);
     const issuedAt = new Date();
     const expiresAt = this.expirationFor(template, issuedAt);
-    const serialNumber = this.serial(issuer.code, achievement.type === 'COURSE' ? 'CRS' : 'LP', issuedAt, event.payload.studentReferenceId, achievement.completionId);
+    const serialNumber = this.trustPolicy.generate({ issuerPrefix: issuer.code, certificateTypePrefix: achievement.type === 'COURSE' ? 'CRS' : 'LP', issuedAt, studentReferenceId: event.payload.studentReferenceId, completionIdentity: achievement.completionId });
     const verificationCode = `MNR-${this.digest(`${event.eventId}:${serialNumber}`).slice(0, 18).toUpperCase()}`;
+    const verificationUrl = `/api/v1/public/certificates/verify/${verificationCode}`;
+    const verificationQr = this.trustPolicy.createPayload(verificationCode, verificationUrl);
     const envelope = this.signedEnvelope({
       certificateType: achievement.certificateType,
       studentReferenceId: event.payload.studentReferenceId,
@@ -318,7 +319,7 @@ export class CertificateUseCases {
       publicId: `cert-${randomUUID()}`,
       serialNumber,
       verificationCode,
-      verificationUrl: `/api/v1/public/certificates/verify/${verificationCode}`,
+      verificationUrl,
       verificationHash,
       status: CertificateStatus.ACTIVE,
       certificateType: achievement.certificateType,
@@ -351,25 +352,27 @@ export class CertificateUseCases {
       issuerId: issuer.id,
       issuerName: issuer.name,
       issuerReferenceId: issuer.publicId,
-      digitalSignature: this.sign(verificationHash, issuer.signingKeyReference),
+      digitalSignature: this.trustPolicy.signHash(verificationHash, issuer.signingKeyReference),
       signingKeyReference: issuer.signingKeyReference,
       skills: [],
       competencies: [],
-      metadata: { signedEnvelope: envelope, issuedFromEvent: event.eventType, sourceEventId: event.eventId, sourcePhase: event.payload.sourcePhase, certificateOwnerPhase: event.payload.certificateOwnerPhase, artifactState: 'AWAITING_EAP_RENDER' },
+      metadata: { signedEnvelope: envelope, verificationQr, issuedFromEvent: event.eventType, sourceEventId: event.eventId, sourcePhase: event.payload.sourcePhase, certificateOwnerPhase: event.payload.certificateOwnerPhase, artifactState: 'AWAITING_EAP_RENDER' },
       actorId: 'phase14-system',
     });
   }
 
   private async buildReplacement(source: CertificateDto, template: CertificateTemplateDto, actorId: string, recipientDisplayName: string | undefined, sourceEventId: string, forcedDurationDays?: number) {
     const issuer = await this.requireActiveIssuer(template.issuerId);
-    this.assertSigningRuntimeForIssuer(issuer.signingKeyReference);
+    this.trustPolicy.assertIssuerKeyAvailable(issuer.signingKeyReference);
     const issuedAt = new Date();
     const expiresAt = forcedDurationDays
       ? new Date(issuedAt.getTime() + forcedDurationDays * 86400000)
       : this.expirationFor(template, issuedAt);
     const completionId = source.sourceCompletionId;
-    const serialNumber = this.serial(issuer.code, source.achievementType === 'LEARNING_PATH' ? 'LP' : 'CRS', issuedAt, source.studentReferenceId, sourceEventId);
+    const serialNumber = this.trustPolicy.generate({ issuerPrefix: issuer.code, certificateTypePrefix: source.achievementType === 'LEARNING_PATH' ? 'LP' : 'CRS', issuedAt, studentReferenceId: source.studentReferenceId, completionIdentity: sourceEventId });
     const verificationCode = `MNR-${this.digest(sourceEventId).slice(0, 18).toUpperCase()}`;
+    const verificationUrl = `/api/v1/public/certificates/verify/${verificationCode}`;
+    const verificationQr = this.trustPolicy.createPayload(verificationCode, verificationUrl);
     const envelope = this.signedEnvelope({
       certificateType: source.certificateType,
       studentReferenceId: source.studentReferenceId,
@@ -396,7 +399,7 @@ export class CertificateUseCases {
       publicId: `cert-${randomUUID()}`,
       serialNumber,
       verificationCode,
-      verificationUrl: `/api/v1/public/certificates/verify/${verificationCode}`,
+      verificationUrl,
       verificationHash,
       status: CertificateStatus.ACTIVE,
       certificateType: source.certificateType,
@@ -433,9 +436,9 @@ export class CertificateUseCases {
       score: source.score,
       skills: [...source.skills],
       competencies: [...source.competencies],
-      digitalSignature: this.sign(verificationHash, issuer.signingKeyReference),
+      digitalSignature: this.trustPolicy.signHash(verificationHash, issuer.signingKeyReference),
       signingKeyReference: issuer.signingKeyReference,
-      metadata: { signedEnvelope: envelope, reissuedFromCertificateId: source.id },
+      metadata: { signedEnvelope: envelope, verificationQr, reissuedFromCertificateId: source.id },
       actorId,
     };
   }
@@ -568,22 +571,6 @@ export class CertificateUseCases {
 
   private digest(value: string): string { return createHash('sha256').update(value).digest('hex'); }
 
-  private assertSigningRuntimeForIssuer(signingKeyReference: string): void {
-    if (!signingKeyReference.trim()) throw new Error('CERTIFICATE_ISSUER_SIGNING_KEY_REQUIRED');
-    if (this.signingRuntime.signingKeyReference && this.signingRuntime.signingKeyReference !== signingKeyReference) throw new Error('CERTIFICATE_ISSUER_SIGNING_KEY_NOT_CONFIGURED');
-    if (!this.signingRuntime.signingSecret && this.signingRuntime.productionLike) throw new Error('CERTIFICATE_SIGNING_PROVIDER_NOT_CONFIGURED');
-  }
-
-  private sign(hash: string, signingKeyReference: string): string {
-    this.assertSigningRuntimeForIssuer(signingKeyReference);
-    return createHmac('sha256', this.signingRuntime.signingSecret ?? 'source-only-development-signing-key').update(`${signingKeyReference}:${hash}`).digest('hex');
-  }
-
-  private verifySignature(hash: string, signature: string | null | undefined, signingKeyReference: string): boolean {
-    if (!signature) return false;
-    try { return signature === this.sign(hash, signingKeyReference); } catch { return false; }
-  }
-
   private canonicalJson(value: unknown): string {
     if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
     if (value instanceof Date) return JSON.stringify(value.toISOString());
@@ -592,9 +579,4 @@ export class CertificateUseCases {
     return `{${Object.keys(record).sort().filter(key => record[key] !== undefined).map(key => `${JSON.stringify(key)}:${this.canonicalJson(record[key])}`).join(',')}}`;
   }
 
-  private serial(issuer: string, type: string, date: Date, student: string, completion: string): string {
-    const year = date.getUTCFullYear();
-    const entropy = this.digest(`${student}:${completion}`).slice(0, 12).toUpperCase();
-    return `${issuer}-${type}-${year}-${entropy}`;
-  }
 }

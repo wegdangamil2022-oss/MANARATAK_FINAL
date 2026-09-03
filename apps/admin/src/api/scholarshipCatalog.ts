@@ -9,7 +9,7 @@ import type {
 import { adminApiClient } from './client';
 
 export interface ScholarshipCatalogUnresolvedLink {
-  area: 'COUNTRY' | 'STUDY_LANGUAGE' | 'DEGREE' | 'MAJOR' | 'UNIVERSITY' | 'INTERNATIONAL_TEST';
+  area: 'COUNTRY' | 'STUDY_LANGUAGE' | 'CURRENCY' | 'DEGREE' | 'MAJOR' | 'UNIVERSITY' | 'ACADEMIC_PROGRAM' | 'INTERNATIONAL_TEST';
   key: string;
   rawValue: string | null;
   canonicalId: string | null;

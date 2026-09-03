@@ -29,6 +29,7 @@ import {
   PrismaScholarshipRepository,
   PrismaUniversityRepository,
   PrismaCourseRepository,
+  PrismaCourseRelationshipRepository,
   PrismaCourseCurriculumRepository,
   PrismaCourseProgressRepository,
   PrismaCourseEnrollmentPolicyRepository,
@@ -141,15 +142,21 @@ import {
   CourseImportCoordinator,
   CourseImportOperationsUseCases,
   PublicCourseUseCases,
+  CourseRelationshipQueryService,
+  CourseRelationshipResolutionService,
+  CrossDomainGraphReadService,
   CourseCurriculumUseCases,
   CourseProgressUseCases,
   CourseEnrollmentPolicyUseCases,
   LearningPathUseCases,
   CoursePublicationService,
   NativeCourseUseCases,
-  EnterpriseCourseCompletionEventPublisher,
   CertificateUseCases,
   CertificateCompletionEventConsumer,
+  CertificateCompletionOutboxDeliveryGateway,
+  CertificateCompletionOutboxWorker,
+  CertificateReadModelService,
+  TransactionalOutboxDispatcher,
   StudentWorkspaceUseCases,
   AdminCmsUseCases,
   PublicCmsUseCases,
@@ -235,6 +242,7 @@ import { CourseAdminRouter } from '../../presentation/api/router/CourseAdminRout
 import { CourseLearnerRouter } from '../../presentation/api/router/CourseLearnerRouter';
 import { ImportedCourseAdminRouter } from '../../presentation/api/router/ImportedCourseAdminRouter';
 import { CoursePublicRouter } from '../../presentation/api/router/CoursePublicRouter';
+import { CrossDomainReadModelRouter } from '../../presentation/api/router/CrossDomainReadModelRouter';
 import { CertificateAdminRouter } from '../../presentation/api/router/CertificateAdminRouter';
 import { CertificatePublicRouter } from '../../presentation/api/router/CertificatePublicRouter';
 import { StudentWorkspaceRouter } from '../../presentation/api/router/StudentWorkspaceRouter';
@@ -8139,6 +8147,7 @@ export function registerDependencies(
     phase10CatalogRepository: asFunction(({ prisma }) => new Phase10CatalogRepository(prisma, { catalogPath: readConfig<string>('MANARATAK_PHASE10_CATALOG_PATH'), productionLike })).singleton(),
     fellowshipDefinitionRepository: asFunction(({ prisma }) => new PrismaFellowshipDefinitionRepository(prisma)).singleton(),
     courseRepository: asFunction(({ prisma }) => new PrismaCourseRepository(prisma)).singleton(),
+    courseRelationshipRepository: asFunction(({ prisma }) => new PrismaCourseRelationshipRepository(prisma)).singleton(),
     externalCourseProviderRepository: asFunction(({ prisma }) => new PrismaExternalCourseProviderRepository(prisma)).singleton(),
     courseImportAnalysisRepository: asFunction(({ prisma }) => new PrismaCourseImportAnalysisRepository(prisma)).singleton(),
     courseImportTransferGateway: asFunction(({ prisma }) => new PrismaCourseImportTransferGateway(prisma)).singleton(),
@@ -8382,8 +8391,11 @@ export function registerDependencies(
     courseImportOperationsUseCases: asFunction(({ importedCourseOperationsRepository, importRepository, courseImportCoordinator, courseImportIdentityDiffUseCase }) =>
       new CourseImportOperationsUseCases(importedCourseOperationsRepository, importRepository, courseImportCoordinator, courseImportIdentityDiffUseCase)).scoped(),
     publicCourseUseCases: asFunction(({ courseRepository }) => new PublicCourseUseCases(courseRepository)).scoped(),
+    courseRelationshipQueryService: asFunction(({ courseRelationshipRepository }) => new CourseRelationshipQueryService(courseRelationshipRepository)).scoped(),
+    courseRelationshipResolutionService: asFunction(({ courseRelationshipRepository }) => new CourseRelationshipResolutionService(courseRelationshipRepository)).scoped(),
+    crossDomainGraphReadService: asFunction(({ majorRepository, universityRepository, scholarshipRepository, courseRelationshipRepository, referenceDataRepository }) =>
+      new CrossDomainGraphReadService(majorRepository, universityRepository, scholarshipRepository, courseRelationshipRepository, referenceDataRepository)).scoped(),
     courseCurriculumUseCases: asFunction(({ courseRepository, courseCurriculumRepository, assetRecordRepository }) => new CourseCurriculumUseCases(courseRepository, courseCurriculumRepository, assetRecordRepository)).scoped(),
-    courseCompletionEventPublisher: asFunction(({ manageEnterpriseEventsUseCase }) => new EnterpriseCourseCompletionEventPublisher(manageEnterpriseEventsUseCase)).scoped(),
     courseEnrollmentPolicyUseCases: asFunction(({ courseRepository, courseEnrollmentPolicyRepository }) =>
       new CourseEnrollmentPolicyUseCases(courseRepository, courseEnrollmentPolicyRepository)).scoped(),
     courseProgressUseCases: asFunction(({ courseRepository, courseCurriculumRepository, courseProgressRepository, courseEnrollmentPolicyRepository, courseFinancialClearanceGateway, atomicDomainMutationCoordinator }) =>
@@ -8394,6 +8406,10 @@ export function registerDependencies(
       new NativeCourseUseCases(courseRepository, courseCurriculumRepository, assetRecordRepository, coursePublicationService)).scoped(),
     certificateUseCases: asFunction(({ certificateRepository, courseRepository, assetRecordRepository, learningPathRepository }) => new CertificateUseCases(certificateRepository, courseRepository, assetRecordRepository, { signingKeyReference: readConfig<string>('CERTIFICATE_SIGNING_KEY_REFERENCE'), signingSecret: readConfig<string>('CERTIFICATE_SIGNING_SECRET'), productionLike }, learningPathRepository)).scoped(),
     certificateCompletionEventConsumer: asFunction(({ certificateUseCases }) => new CertificateCompletionEventConsumer(certificateUseCases)).scoped(),
+    certificateCompletionOutboxDeliveryGateway: asFunction(({ certificateCompletionEventConsumer }) => new CertificateCompletionOutboxDeliveryGateway(certificateCompletionEventConsumer)).scoped(),
+    certificateCompletionOutboxDispatcher: asFunction(({ transactionalOutboxStore, certificateCompletionOutboxDeliveryGateway }) => new TransactionalOutboxDispatcher(transactionalOutboxStore, certificateCompletionOutboxDeliveryGateway)).scoped(),
+    certificateCompletionOutboxWorker: asFunction(({ certificateCompletionOutboxDispatcher }) => new CertificateCompletionOutboxWorker(certificateCompletionOutboxDispatcher)).scoped(),
+    certificateReadModelService: asFunction(({ certificateRepository, certificateUseCases }) => new CertificateReadModelService(certificateRepository, certificateUseCases)).scoped(),
     studentWorkspaceUseCases: asFunction(({ studentWorkspaceRepository, studentWorkspaceDeliveryCache }) => new StudentWorkspaceUseCases(studentWorkspaceRepository, studentWorkspaceDeliveryCache)).scoped(),
     adminCmsUseCases: asFunction(({ cmsRepository, cmsDeliveryCache }) => new AdminCmsUseCases(cmsRepository, cmsDeliveryCache)).scoped(),
     publicCmsUseCases: asFunction(({ cmsRepository, cmsDeliveryCache }) => new PublicCmsUseCases(cmsRepository, cmsDeliveryCache)).scoped(),
@@ -8510,6 +8526,7 @@ export function registerDependencies(
     courseLearnerRouter: asFunction((cradle) => CourseLearnerRouter.create(cradle)).singleton(),
     importedCourseAdminRouter: asFunction((cradle) => ImportedCourseAdminRouter.create(cradle)).singleton(),
     coursePublicRouter: asFunction((cradle) => CoursePublicRouter.create(cradle)).singleton(),
+    crossDomainReadModelRouter: asFunction((cradle) => CrossDomainReadModelRouter.create(cradle)).singleton(),
     certificateAdminRouter: asFunction((cradle) => CertificateAdminRouter.create(cradle)).singleton(),
     certificatePublicRouter: asFunction((cradle) => CertificatePublicRouter.create(cradle)).singleton(),
     studentWorkspaceRouter: asFunction((cradle) => StudentWorkspaceRouter.create(cradle)).singleton(),

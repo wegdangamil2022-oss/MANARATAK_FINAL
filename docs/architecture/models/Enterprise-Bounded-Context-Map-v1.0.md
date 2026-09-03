@@ -3,380 +3,150 @@
 ## 1. Document Information
 
 - **Title:** Enterprise Bounded Context Map
-- **Version:** 1.0.0
-- **Status:** Finalized
-- **Date:** 2026-07-19
+- **Version:** 1.0.1
+- **Status:** Finalized — aligned with Roadmap v6.0
+- **Date:** 2026-09-03
 - **Owner:** Chief Enterprise Software Architect
 - **Approval Authority:** Architecture Review Board (ARB)
 - **Artifact Type:** Domain-Driven Design (DDD) Artifact
+- **Authority:** `docs/governance/roadmap/MANARATAK-2.0-Roadmap-v6.0.md`
 
 ## 2. Purpose
 
-This document provides the definitive Domain-Driven Design (DDD) Context Map for the MANARATAK 2.0 Enterprise Architecture. It establishes clear domain boundaries, defines relationships, prevents responsibility overlap, and serves as the authoritative guide for all future implementation.
+This context map defines the Roadmap v6.0 P7–P24 bounded-context boundaries that matter to source closure. It prevents domain ownership leakage and specifies whether cross-context integration is via canonical reference, owner API/read model, event, control-plane composition, or public composition.
 
-## 3. Boundary Rules
+## 3. Binding Boundary Rules
 
-The enterprise architecture strictly enforces the following rules for all Bounded Contexts:
+- No direct database/Prisma access across owning contexts.
+- No shared mutable domain model between phases.
+- Owner truth is consumed through explicit API/read-model/event contracts.
+- Canonical IDs from upstream authorities are used when available; translated labels and names are presentation data, not final identity.
+- Reverse lookup/navigation is a projection and never creates circular ownership.
+- P23 and P24 are composition contexts, not alternate persistence owners.
+- Broad university/scholarship application processing is not assigned to P12 or P15 by this map. Any future owner requires an explicit Roadmap/ADR decision.
 
-- **No direct database access across contexts:** Contexts must never connect to another context's datastore.
-- **Communication only through approved contracts:** All cross-boundary interactions occur via APIs (synchronous) or Events (asynchronous).
-- **No business logic leakage:** Aggregate rules remain strictly inside their owning context.
-- **No shared domain models:** Entities are strictly isolated. Data needed by multiple domains is translated or projected via events.
-- **No circular dependencies:** Dependencies must follow unidirectional flow.
-- **Context autonomy:** Each Bounded Context must be capable of failing and recovering independently, without cascading fatal errors to the rest of the system.
+## 4. Roadmap v6.0 Bounded Contexts — P7 to P24
 
-## 4. Enterprise Bounded Contexts
+| Phase | Bounded Context | Owns | Explicitly Does Not Own |
+| --- | --- | --- | --- |
+| **P7** | Global Reference Data | Canonical country/region/city/language/currency and shared reference identity/resolution | Majors, universities, scholarships or downstream lifecycle rules |
+| **P8** | Academic Taxonomy | Academic taxonomy nodes, classification hierarchy, DegreeLevel and taxonomy mappings | Canonical Majors |
+| **P9** | International Tests | Canonical test identities, score/validity/registration reference semantics | University admissions decisions or scholarship eligibility truth |
+| **P10** | Majors & Disciplines | Canonical Major identity, aliases/equivalency and major lifecycle/read models | Taxonomy/degree ownership; university programs; scholarship/course relationships |
+| **P11** | Universities & Institutions | Universities, campuses, organization units, AcademicPrograms and admissions requirements | Canonical Major/Taxonomy/Test identities |
+| **P12** | Scholarships | Scholarship definitions, eligibility, benefits/documents and canonical relationships to P7–P11 | General Student Workspace; unspecified broad application-processing platform |
+| **P13** | Learning | Courses, learning paths, curriculum/progression/completion facts | Certificate issuance/verification/revocation |
+| **P14** | Enterprise Certificates | Certificate issuance, verification, revocation, templates/signature policy and credential lifecycle | Learning completion truth |
+| **P15** | Student Workspace | Private student profile/workspace, collections, recently viewed/history, privacy/preferences, dashboard and domain references | Universities, scholarships, courses, certificates, broad university/scholarship application processing |
+| **P16** | Enterprise CMS | Editorial content/version/localization/SEO lifecycle | Core domain business records |
+| **P17** | Enterprise AI | AI provider/model routing, prompts, inference, embeddings, safety/cost execution | Business-domain source of truth; Student Tools registry |
+| **P18** | Enterprise Student Tools | Tool registry, deterministic/AI-assisted tool orchestration, tool experience and outputs | AI vendor execution; source domain persistence |
+| **P19** | Finance & Payments | Payments, ledger, invoices, refunds, settlement and financial execution/status | Course/service domain truth |
+| **P20** | Enterprise Services | Service catalog, requests, fulfillment, provider dispatch and SLA semantics | Payment/ledger execution |
+| **P21** | Career & Alumni | Jobs/internships, career applications, alumni profiles and bounded recruitment metadata | Standalone Organizations & Employers platform outside Roadmap scope |
+| **P22** | Product Experience | Product identity, personas, experience principles and UX objective contracts | Domain business persistence |
+| **P23** | Enterprise Administration Portal | Admin UI/control-plane composition, review/approval surfaces and command dispatch | Owner business logic, cross-domain Prisma, duplicated domain persistence |
+| **P24** | Enterprise Public Platform | Public layout/composition, visitor routing, SEO, public page assembly | Underlying P7–P21 business records/lifecycle |
 
-### 4.1. Phase 8 (Phase 8 (Academic Taxonomy)) Context
+## 5. Principal Context Relationships
 
-- **Purpose:** Manage the global hierarchy of academic disciplines and classification standards.
-- **Business Capability:** Academic Classification.
-- **Responsibilities:** Maintain Fields of Study, Degree Types, Certification Levels.
-- **Owned Data:** Disciplines, Taxonomy Trees, Educational Standards.
-- **Public Contracts:** Taxonomy Query API (Open Host Service).
-- **Inbound Dependencies:** None (Core Reference Data).
-- **Outbound Dependencies:** Universal Import.
-- **Published Events:** `TaxonomyUpdated`, `DisciplineCreated`.
-- **Consumed Events:** `ImportCompleted` (from Universal Import).
-- **Shared Services Used:** Enterprise Search, Analytics.
-- **Owner:** Domain Architect (Tax).
+| Upstream / Owner | Consumer | Integration Pattern | Boundary |
+| --- | --- | --- | --- |
+| P7 Reference | P8–P24 where needed | Published reference contract / canonical IDs | Consumer never redefines reference identity. |
+| P8 Taxonomy | P10/P11/P12 | Published language / IDs | P10 owns Majors; P8 only classifies them. |
+| P9 Tests | P11/P12 | Published test read models / IDs | Requirements reference P9 IDs, not names. |
+| P10 Majors | P11/P12/P13/P18/P24 | Owner read models / IDs | Relationship ownership remains downstream. |
+| P11 Universities & Programs | P12/P15/P24 | Owner read models / IDs | P15/P24 consume; they do not own programs. |
+| P12 Scholarships | P15/P24 | Published read models / references | Workspace/public composition only. |
+| P13 Learning | P14 Certificates | **Event-driven only for completion** | `CourseCompleted` / `LearningPathCompleted`; no synchronous certificate-generation API. |
+| P13 Learning | P15/P24 | Learning read models | Progress/catalog remain P13 truth. |
+| P14 Certificates | P15/P24 | Certificate read models/events | Credential lifecycle remains P14 truth. |
+| P16 CMS | P24 | Published editorial read models | Public rendering remains P24. |
+| P17 AI | P18 Tools | Open Host Service / AI execution contract | Tools orchestrate; AI provider execution remains P17. |
+| P19 Finance | Monetized domains | Finance contracts / status projections | Payment truth remains P19. |
+| P20 Services | P15/P24 | Service read models | Private/public presentation does not re-own service truth. |
+| P21 Career & Alumni | P15/P24 | Career/alumni read models | Career application ownership is P21-specific, not a generic P15 application engine. |
+| P7–P21 owners | P23 Admin | Owner command/query APIs | P23 is control plane only. |
+| Published P7–P21 owners | P24 Public | Published read models | P24 is composition only. |
 
-### 4.2. Phase 11 (Universities & Institutions) Context
+## 6. P13 → P14 Credential Boundary
 
-- **Purpose:** Manage higher education institutions and their offerings.
-- **Business Capability:** Institution Management.
-- **Responsibilities:** Manage Campus details, Programs, Admissions criteria.
-- **Owned Data:** Universities, Campuses, Degree Programs.
-- **Public Contracts:** Phase 11 (Universities & Institutions) Query API, Program Catalog API.
-- **Inbound Dependencies:** Phase 8 (Academic Taxonomy).
-- **Outbound Dependencies:** Phase 12 (Scholarships), Phase 15 (Enterprise Student Platform (Student Workspace)).
-- **Published Events:** `Phase 11 (Universities & Institutions)Onboarded`, `ProgramUpdated`.
-- **Consumed Events:** `TaxonomyUpdated`.
-- **Shared Services Used:** CMS, Translation, Search, Workflow, Event Platform.
-- **Owner:** Domain Architect (Univ).
+The Learning context owns the fact that a student completed a course or learning path. It publishes completion events. The Certificates context consumes those facts and independently applies certificate eligibility, template/signature policy, issuance, verification and revocation rules.
 
-### 4.3. Phase 12 (Scholarships) Context
+**Forbidden:** a synchronous P13 `Certificate Generation API` or certificate entity lifecycle inside P13.
 
-- **Purpose:** Manage funding opportunities and financial aid.
-- **Business Capability:** Financial Aid Administration.
-- **Responsibilities:** Track funds, manage eligibility rules, govern the Scholarship Application Engine.
-- **Owned Data:** Scholarships, Eligibility Criteria, Funds, Scholarship Applications.
-- **Public Contracts:** Scholarships Search API, Eligibility Check API, Scholarship Application API.
-- **Inbound Dependencies:** Phase 8 (Academic Taxonomy), Phase 11 (Universities & Institutions).
-- **Outbound Dependencies:** Phase 15 (Enterprise Student Platform (Student Workspace)).
-- **Published Events:** `ScholarshipPublished`, `EligibilityChanged`, `ScholarshipApplicationSubmitted`, `ScholarshipApplicationApproved`.
-- **Consumed Events:** `ProgramUpdated`, `TaxonomyUpdated`.
-- **Shared Services Used:** Notification, AI, Event Platform.
-- **Owner:** Domain Architect (Schol).
+**Required direction:**
 
-### 4.4. Phase 15 (Enterprise Student Platform (Student Workspace)) Context
-
-- **Purpose:** Manage the student lifecycle, profiles, and applications.
-- **Business Capability:** Student Success & Profile Management.
-- **Responsibilities:** Manage user profiles, academic history, applications.
-- **Owned Data:** Student Profiles, Academic Records, Application Status.
-- **Public Contracts:** Profile API, Application API.
-- **Inbound Dependencies:** Phase 11 (Universities & Institutions), Phase 12 (Scholarships), Phase 8 (Academic Taxonomy).
-- **Outbound Dependencies:** None (Terminal consumer of domain data).
-- **Published Events:** `ProfileCreated`, `ApplicationSubmitted`.
-- **Consumed Events:** `Phase 12 (Scholarships)Published`, `ProgramUpdated`.
-- **Shared Services Used:** AI, CMS, Notification, Event Platform.
-- **Owner:** Domain Architect (Stu).
-
-### 4.5. Universal Import Context
-
-- **Purpose:** Handle all external data ingestion and ETL processes.
-- **Business Capability:** Data Integration.
-- **Responsibilities:** Extract, transform, and load partner data.
-- **Owned Data:** Import Jobs, Mapping Rules, Staging Data.
-- **Public Contracts:** Import Trigger API, Mapping Configuration API.
-- **Inbound Dependencies:** None.
-- **Outbound Dependencies:** Phase 8 (Academic Taxonomy), Phase 11 (Universities & Institutions) (via Events).
-- **Published Events:** `ImportCompleted`, `ImportFailed`.
-- **Consumed Events:** None.
-- **Shared Services Used:** Background Jobs, Notification.
-- **Owner:** Platform Architect (UIP).
-
-### 4.6. Enterprise CMS Context
-
-- **Purpose:** Manage and deliver editorial and informational content.
-- **Business Capability:** Enterprise Content Management.
-- **Responsibilities:** Editorial workflows, static pages, site navigation, SEO.
-- **Owned Data:** Articles, News, Pages, Landing Pages, Content Blocks, Tags, Menus, Reusable Components.
-- **Public Contracts:** Content Delivery API, Editorial API.
-- **Inbound Dependencies:** Translation.
-- **Outbound Dependencies:** Phase 15 (Enterprise Student Platform (Student Workspace)), Phase 11 (Universities & Institutions), Media Platform.
-- **Published Events:** `ArticlePublished`, `PageUpdated`, `NavigationChanged`, `AnnouncementBroadcasted`.
-- **Consumed Events:** None.
-- **Shared Services Used:** Enterprise Search, Analytics.
-- **Owner:** Platform Architect (CMS).
-
-### 4.6b. Media Platform Context
-
-- **Purpose:** Centralized processing, delivery, and lifecycle management of all binary assets.
-- **Business Capability:** Media Asset Management.
-- **Responsibilities:** Image optimization, media transformations, CDN integration, access policies.
-- **Owned Data:** Images, Videos, Documents, PDF, Audio, Media Metadata.
-- **Public Contracts:** Media Upload API, Media Delivery API.
-- **Inbound Dependencies:** None.
-- **Outbound Dependencies:** None (Independent).
-- **Published Events:** `MediaUploaded`, `MediaOptimized`, `ThumbnailGenerated`, `MediaDeleted`.
-- **Consumed Events:** None.
-- **Shared Services Used:** Event Platform.
-- **Owner:** Platform Architect (Media).
-
-### 4.7. Translation Context
-
-- **Purpose:** Centralize localization strings and dynamic content translation.
-- **Business Capability:** Localization.
-- **Responsibilities:** Provide multi-language support.
-- **Owned Data:** Translation Keys, Locales.
-- **Public Contracts:** Translation API.
-- **Inbound Dependencies:** None.
-- **Outbound Dependencies:** All UI-facing Contexts.
-- **Published Events:** `TranslationsUpdated`.
-- **Consumed Events:** None.
-- **Shared Services Used:** AI.
-- **Owner:** Platform Architect (Loc).
-
-### 4.8. AI Context
-
-- **Purpose:** Abstract LLM interactions and provide semantic capabilities.
-- **Business Capability:** Artificial Intelligence.
-- **Responsibilities:** Semantic matching, prompt governance, token management.
-- **Owned Data:** Prompt Templates, Inference Logs.
-- **Public Contracts:** AI Inference API (Open Host Service).
-- **Inbound Dependencies:** None.
-- **Outbound Dependencies:** Phase 15 (Enterprise Student Platform (Student Workspace)), Phase 12 (Scholarships).
-- **Published Events:** `InferenceCompleted`.
-- **Consumed Events:** `ApplicationSubmitted` (for background processing).
-- **Shared Services Used:** Background Jobs.
-- **Owner:** Platform Architect (AI).
-
-### 4.9. Enterprise Search Context
-
-- **Purpose:** Provide unified, high-performance search indices.
-- **Business Capability:** Search & Discovery.
-- **Responsibilities:** Ingest domain events, build indices, serve search queries.
-- **Owned Data:** Search Indices, Aggregated Projections.
-- **Public Contracts:** Search Query API.
-- **Inbound Dependencies:** All Core Domains (via Events).
-- **Outbound Dependencies:** Front-end applications.
-- **Published Events:** None.
-- **Consumed Events:** All Domain State Mutations.
-- **Shared Services Used:** None.
-- **Owner:** Platform Architect (Srch).
-
-### 4.10. Notification Context
-
-- **Purpose:** Route communications across multiple channels (Email, SMS, Push).
-- **Business Capability:** User Communication.
-- **Responsibilities:** Template rendering, delivery tracking.
-- **Owned Data:** Notification Templates, Delivery Logs.
-- **Public Contracts:** Send Notification API.
-- **Inbound Dependencies:** None.
-- **Outbound Dependencies:** All Domains (via Events or direct API).
-- **Published Events:** `NotificationSent`, `NotificationFailed`.
-- **Consumed Events:** `ApplicationSubmitted`, `ImportFailed`, etc.
-- **Shared Services Used:** Background Jobs.
-- **Owner:** Platform Architect (Notif).
-
-### 4.11. Analytics Context
-
-- **Purpose:** Aggregate telemetry and business metrics.
-- **Business Capability:** Business Intelligence.
-- **Responsibilities:** Data warehousing, reporting projections.
-- **Owned Data:** Telemetry Data, Business Metrics, Reports.
-- **Public Contracts:** Analytics Query API.
-- **Inbound Dependencies:** All Domains (via Events).
-- **Outbound Dependencies:** External BI Tools.
-- **Published Events:** None.
-- **Consumed Events:** All Enterprise Events.
-- **Shared Services Used:** None.
-- **Owner:** Data Architect.
-
-### 4.12. Workflow Context
-
-- **Purpose:** Orchestrate complex, multi-domain sagas and long-running processes.
-- **Business Capability:** Process Automation.
-- **Responsibilities:** Saga coordination, compensating transactions, state machines.
-- **Owned Data:** Workflow Definitions, Saga State.
-- **Public Contracts:** Workflow Trigger API.
-- **Inbound Dependencies:** Core Domains.
-- **Outbound Dependencies:** Core Domains (for compensation).
-- **Published Events:** `WorkflowStarted`, `WorkflowCompleted`, `WorkflowFailed`.
-- **Consumed Events:** Domain Events triggering state machine transitions.
-- **Shared Services Used:** Event Platform, Background Jobs.
-- **Owner:** Platform Architect (WF).
-
-### 4.13. Authentication & Authorization Contexts (IAM)
-
-- **Purpose:** Centralize identity verification and RBAC/ABAC access control.
-- **Business Capability:** Identity & Access Management.
-- **Responsibilities:** Token issuance, policy evaluation, zero-trust enforcement.
-- **Owned Data:** Users, Credentials, Roles, Policies.
-- **Public Contracts:** Token API, Policy Evaluation API.
-- **Inbound Dependencies:** None.
-- **Outbound Dependencies:** All Domains.
-- **Published Events:** `UserRegistered`, `RoleChanged`.
-- **Consumed Events:** None.
-- **Shared Services Used:** None.
-- **Owner:** Security Architect.
-
-### 4.14. Infrastructure Contexts (Configuration, Background Jobs, Event Platform, Shared Infrastructure)
-
-- **Purpose:** Provide foundational technical capabilities.
-- **Business Capability:** Technical Infrastructure.
-- **Responsibilities:** Env config, async execution, message brokering, deployment.
-- **Owned Data:** Config maps, job queues, message schemas.
-- **Public Contracts:** Internal infrastructure interfaces.
-- **Inbound Dependencies:** None.
-- **Outbound Dependencies:** All Domains.
-- **Published Events:** System alerts.
-- **Consumed Events:** Telemetry.
-- **Owner:** Infrastructure Architect.
-
-## 5. Context Relationships & Integration Patterns
-
-| Upstream Context                           | Downstream Context                                         | Relationship Type     | Integration Pattern      | Reason                                                                                                                       |
-| :----------------------------------------- | :--------------------------------------------------------- | :-------------------- | :----------------------- | :--------------------------------------------------------------------------------------------------------------------------- |
-| **Phase 8 (Academic Taxonomy)**            | Phase 11 (Universities & Institutions)                     | Customer-Supplier     | Published Language (API) | Phase 11 (Universities & Institutions) consumes taxonomy data directly to ensure standardized classification.                |
-| **Phase 11 (Universities & Institutions)** | Phase 12 (Scholarships)                                    | Customer-Supplier     | Published Language (API) | Phase 12 (Scholarships) filters require university and program lists.                                                        |
-| **Phase 11 (Universities & Institutions)** | Phase 15 (Enterprise Student Platform (Student Workspace)) | Conformist            | Event-Driven (Async)     | Phase 15 (Enterprise Student Platform (Student Workspace)) profile follows the university's data structure for applications. |
-| **Universal Import**                       | Phase 8 (Academic Taxonomy)                                | Anti-Corruption Layer | Event-Driven (Async)     | External taxonomy data must be transformed into internal canonical formats.                                                  |
-| **Core Domains**                           | Enterprise Search                                          | Customer-Supplier     | Event-Driven (Async)     | Search builds read models purely by listening to domain events.                                                              |
-| **Core Domains**                           | Analytics                                                  | Conformist            | Event-Driven (Async)     | Analytics consumes all domain events passively.                                                                              |
-| **AI**                                     | Core Domains                                               | Open Host Service     | Synchronous API          | AI provides generic semantic capabilities via a stable, generalized API.                                                     |
-| **IAM**                                    | All Domains                                                | Open Host Service     | Synchronous API          | Security policies are centrally defined and universally enforced.                                                            |
-
-## 6. Visual Model
-
-```mermaid
-graph TD
-    %% Define IAM and Infra
-    IAM[Identity & Access Management]
-    EVT[Event Platform / Message Bus]
-
-    %% Define Core Reference
-    AT((Phase 8 (Academic Taxonomy)))
-
-    %% Define Core Business
-    UP((Phase 11 (Universities & Institutions)))
-    SP((Phase 12 (Scholarships)))
-    ST((Phase 15 (Enterprise Student Platform (Student Workspace))))
-
-    %% Define Shared Services
-    UIP((Universal Import))
-    CMS((CMS))
-    AI((AI Engine))
-    ES((Enterprise Search))
-    NOTIF((Notification))
-    WF((Workflow Engine))
-
-    %% Core Domain Relationships (Synchronous/Published Language)
-    AT -->|OHS / PL| UP
-    AT -->|OHS / PL| SP
-    UP -->|Customer-Supplier| SP
-
-    %% Asynchronous Event Flows
-    AT -.->|Events| EVT
-    UP -.->|Events| EVT
-    SP -.->|Events| EVT
-    ST -.->|Events| EVT
-    UIP -.->|Events| EVT
-
-    %% Consumer Event Flows
-    EVT -.->|State Projection| ES
-    EVT -.->|Triggers| NOTIF
-    EVT -.->|Saga Coordination| WF
-    EVT -.->|Updates| ST
-
-    %% ACL and Import
-    UIP -->|ACL| AT
-    UIP -->|ACL| UP
-
-    %% Service Consumption
-    UP -->|API| AI
-    SP -->|API| AI
-    ST -->|API| CMS
-
-    %% Security Enforcement
-    IAM --> AT
-    IAM --> UP
-    IAM --> SP
-    IAM --> ST
-
-    %% Styling
-    classDef core fill:#d4edda,stroke:#28a745,stroke-width:2px;
-    classDef ref fill:#cce5ff,stroke:#007bff,stroke-width:2px;
-    classDef svc fill:#fff3cd,stroke:#ffc107,stroke-width:2px;
-    classDef infra fill:#f8d7da,stroke:#dc3545,stroke-width:2px;
-
-    class UP,SP,ST core;
-    class AT ref;
-    class UIP,CMS,AI,ES,NOTIF,WF svc;
-    class IAM,EVT infra;
+```text
+P13 Learning completion
+  -> CourseCompleted / LearningPathCompleted event
+  -> P14 Certificates eligibility/policy
+  -> CertificateIssued / CertificateRevoked events/read models
+  -> P15/P24 consumers
 ```
 
-## 7. Validation
+## 7. P15 Student Workspace Boundary
 
-The ARB has validated this Context Map against the following criteria:
+P15 owns personal workspace state and may hold references/projections to domain-owned entities. It may display saved universities, scholarships, learning progress, certificates, services or career items. Such references do not transfer lifecycle ownership.
 
-- **DDD compliance:** Adheres strictly to the principles of Bounded Contexts, Ubiquitous Language, and explicit mapping.
-- **Bounded Context isolation:** Guarantees no database-level coupling.
-- **Clean Architecture alignment:** Verifies that inward-facing dependencies map accurately to domain hierarchies.
-- **Dependency correctness:** Validates the absence of circular dependencies.
-- **Ownership consistency:** Aligns perfectly with the Enterprise Domain Ownership Matrix.
+This map deliberately does **not** define a general University Application or Scholarship Application aggregate under P15. Historical statements that did so are superseded by this Roadmap v6.0-aligned boundary until an explicit owner is adopted.
 
-## 8. Risks
+## 8. P23 / P24 Composition Boundaries
 
-### Boundary Risks
+- **P23 Admin:** control plane. UI/selectors/editors invoke owner Application/API contracts. No direct cross-domain persistence and no duplicate business rules.
+- **P24 Public:** composition plane. It renders only published owner read models and owns routing/SEO/page assembly. It must not create shadow copies of canonical domain truth.
 
-- **Description:** Logic Bleed across Bounded Contexts (e.g., Phase 12 (Scholarships) applying Phase 11 (Universities & Institutions)-specific admission logic).
-- **Impact:** High.
-- **Likelihood:** Medium.
-- **Mitigation:** Strict enforcement of API contracts and Domain Architect code reviews.
+## 9. Visual Context Map
 
-### Coupling Risks
+```mermaid
+graph LR
+    P7[P7 Reference] --> P8[P8 Taxonomy]
+    P7 --> P9[P9 Tests]
+    P8 --> P10[P10 Majors]
+    P9 --> P11[P11 Universities/Programs]
+    P10 --> P11
+    P7 --> P12[P12 Scholarships]
+    P8 --> P12
+    P9 --> P12
+    P10 --> P12
+    P11 --> P12
+    P13[P13 Learning] -. completion events .-> P14[P14 Certificates]
+    P13 --> P15[P15 Student Workspace]
+    P14 --> P15
+    P17[P17 AI] --> P18[P18 Student Tools]
+    P19[P19 Finance] --> P20[P20 Services]
+    P21[P21 Career & Alumni] --> P15
+    P16[P16 CMS] --> P24[P24 Public]
+    P11 --> P23[P23 Admin]
+    P12 --> P23
+    P13 --> P23
+    P14 --> P23
+    P20 --> P23
+    P21 --> P23
+    P10 --> P24
+    P11 --> P24
+    P12 --> P24
+    P13 --> P24
+    P20 --> P24
+    P21 --> P24
+    P22[P22 Product Experience] --> P23
+    P22 --> P24
+```
 
-- **Description:** Synchronous dependencies creating cascading failures.
-- **Impact:** High.
-- **Likelihood:** Medium.
-- **Mitigation:** Aggressive fallback caching and reliance on the Event Platform for eventual consistency.
+## 10. Validation
 
-### Ownership Risks
+P1 authority alignment is closed only if all of these are simultaneously true:
 
-- **Description:** Ambiguity in cross-domain orchestration ownership.
-- **Impact:** Medium.
-- **Likelihood:** Low.
-- **Mitigation:** The Workflow Engine is designated as the sole orchestrator for cross-domain sagas.
+- P7–P24 current contexts are represented;
+- P8 taxonomy/DegreeLevel and P10 Major ownership are separate;
+- P12/P15 no longer claim unspecified broad scholarship/university application ownership;
+- P13→P14 uses completion events only and P14 remains credential authority;
+- P23/P24 are composition contexts without domain persistence ownership;
+- the Dependency Graph, Ownership Matrix, Event Catalog and API Registry use the same boundaries.
 
-### Integration Risks
+## 11. Approval and Revision History
 
-- **Description:** Schema evolution breaking downstream Event consumers.
-- **Impact:** High.
-- **Likelihood:** High.
-- **Mitigation:** Centralized Schema Registry enforcing forward compatibility on all published events.
-
-### Governance Risks
-
-- **Description:** Teams bypassing the API Gateway for direct context-to-context communication.
-- **Impact:** Critical.
-- **Likelihood:** Low.
-- **Mitigation:** Network isolation and Service Mesh policies explicitly blocking unauthorized port access.
-
-## 9. Recommendations
-
-1. **Priority 1:** Finalize the Schema Registry for all events flowing through the Event Platform.
-2. **Priority 2:** Document the precise Anti-Corruption Layer (ACL) patterns required for the Universal Import Platform.
-3. **Priority 3:** Establish the specific Saga definitions within the Workflow Context for cross-domain processes (e.g., student admission).
-
-## 10. Approval
-
-- **Architecture Review Board:** Approved
-- **Chief Enterprise Software Architect:** Approved
-- **Approval Status:** Formal Baseline Approved
-
-## 11. Revision History
-
-- **Initial Version (1.0.0):** Official Enterprise Bounded Context Map established for MANARATAK 2.0.
+- **Architecture Review Board:** Approved baseline; P1 authority alignment applied 2026-09-03.
+- **Chief Enterprise Software Architect:** Approved baseline; Roadmap v6.0 is controlling authority.
+- **1.0.0:** Initial Enterprise Bounded Context Map.
+- **1.0.1:** Replaced historical partial context map with Roadmap v6.0 P7–P24 authority map and corrected P8/P10, P12/P15, P13/P14, P23/P24 boundaries.

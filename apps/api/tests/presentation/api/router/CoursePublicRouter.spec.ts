@@ -10,10 +10,12 @@ describe('CoursePublicRouter', () => {
     getCourse: vi.fn(),
   });
 
-  const createApp = (useCases: ReturnType<typeof createMockUseCases>) => {
+  const createRelationshipQueryService = () => ({ listPublishedRelatedCourses: vi.fn() });
+
+  const createApp = (useCases: ReturnType<typeof createMockUseCases>, relationshipQueryService = createRelationshipQueryService()) => {
     const app = express();
     app.use(express.json());
-    app.use('/public/courses', CoursePublicRouter.create({ publicCourseUseCases: useCases as any }));
+    app.use('/public/courses', CoursePublicRouter.create({ publicCourseUseCases: useCases as any, courseRelationshipQueryService: relationshipQueryService as any }));
     return app;
   };
 
@@ -32,6 +34,25 @@ describe('CoursePublicRouter', () => {
       page: 2,
       pageSize: 50
     });
+  });
+
+
+  it('routes canonical majorId through the P13 relationship read model instead of text lookup', async () => {
+    const useCases = createMockUseCases();
+    const relationshipQueryService = createRelationshipQueryService();
+    relationshipQueryService.listPublishedRelatedCourses.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
+    const res = await request(createApp(useCases, relationshipQueryService)).get('/public/courses?majorId=major-1');
+    expect(res.status).toBe(200);
+    expect(relationshipQueryService.listPublishedRelatedCourses).toHaveBeenCalledWith(expect.objectContaining({ majorId: 'major-1' }));
+    expect(useCases.listCourses).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid relationship pagination before it reaches the repository', async () => {
+    const useCases = createMockUseCases();
+    const relationshipQueryService = createRelationshipQueryService();
+    const res = await request(createApp(useCases, relationshipQueryService)).get('/public/courses?majorId=major-1&page=abc');
+    expect(res.status).toBe(400);
+    expect(relationshipQueryService.listPublishedRelatedCourses).not.toHaveBeenCalled();
   });
 
   it('GET /public/courses/:slug returns a public course', async () => {

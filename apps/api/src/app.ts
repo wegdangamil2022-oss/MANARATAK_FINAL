@@ -380,6 +380,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     v1Router.use('/admin/courses/imported', requireAdminPermission('admin:courses:manage'), lazyRouter('importedCourseAdminRouter'));
     v1Router.use('/admin/courses', requireAdminPermission('admin:courses:manage'), lazyRouter('courseAdminRouter'));
     v1Router.use('/public/courses', lazyRouter('coursePublicRouter'));
+    v1Router.use('/public/graph', lazyRouter('crossDomainReadModelRouter'));
     v1Router.use('/student/courses', lazyRouter('courseLearnerRouter'));
     // Phase 14 W10: authenticated admin boundary is inherited from /admin;
     // CertificateAdminRouter applies fine-grained view/author/checker/lifecycle/issuer permissions per route.

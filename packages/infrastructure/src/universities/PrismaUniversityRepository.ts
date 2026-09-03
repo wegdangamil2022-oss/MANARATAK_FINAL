@@ -15,6 +15,7 @@ import {
   UniversityLocalizedTextDto,
   UniversityLocalizedTextTargetType,
   UpdateUniversityDto,
+  MajorStatus,
 } from '@manaratak/domain';
 import { UniversityCanonicalRelationshipValidator } from './UniversityCanonicalRelationshipValidator';
 
@@ -246,10 +247,21 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
     const where: Prisma.UniversityWhereInput = {};
     if (filters.status) where.status = filters.status;
     if (filters.countryReferenceId) where.countryReferenceId = filters.countryReferenceId;
-    else if (filters.country && this.legacyCountryTextFiltersEnabled)
-      where.country = filters.country;
+    else if (filters.country && this.legacyCountryTextFiltersEnabled) where.country = filters.country;
+    if (filters.regionReferenceId) where.regionReferenceId = filters.regionReferenceId;
+    if (filters.cityReferenceId) where.cityReferenceId = filters.cityReferenceId;
     if (filters.institutionType) where.institutionType = filters.institutionType;
-    if (filters.city) where.city = filters.city;
+    if (filters.majorId) {
+      where.academicPrograms = {
+        some: {
+          majorId: filters.majorId,
+          degreeLevelId: { not: null },
+          majorMappingState: 'CANONICALLY_MAPPED',
+          major: { is: { status: MajorStatus.PUBLISHED } },
+        },
+      };
+    }
+    if (filters.city && this.legacyCountryTextFiltersEnabled) where.city = filters.city;
     if (filters.search) {
       where.OR = [
         { displayName: { contains: filters.search, mode: 'insensitive' } },
@@ -292,6 +304,52 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
       include: universityDetails,
     });
     return rows.map((row) => this.mapToDto(row));
+  }
+
+  async findPublishedByIds(ids: string[]): Promise<UniversityDto[]> {
+    if (!ids.length) return [];
+    const rows = await this.prisma.university.findMany({
+      where: { id: { in: [...new Set(ids)] }, status: UniversityStatus.PUBLISHED },
+      include: universityDetails,
+    });
+    return rows.map((row) => this.mapToDto(row));
+  }
+
+  async findPublishedAcademicProgramsByIds(ids: string[]) {
+    if (!ids.length) return [];
+    const rows = await this.prisma.universityAcademicProgram.findMany({
+      where: {
+        id: { in: [...new Set(ids)] },
+        majorMappingState: 'CANONICALLY_MAPPED',
+        majorId: { not: null },
+        degreeLevelId: { not: null },
+        major: { is: { status: MajorStatus.PUBLISHED } },
+        university: { is: { status: UniversityStatus.PUBLISHED } },
+      },
+      select: {
+        id: true,
+        sourceProgramName: true,
+        degreeLevelId: true,
+        majorId: true,
+        majorMappingState: true,
+        status: true,
+        university: {
+          select: { id: true, publicId: true, slug: true, displayName: true },
+        },
+      },
+    });
+    return rows.map((row) => ({
+      ownerId: row.id,
+      universityOwnerId: row.university.id,
+      universityPublicId: row.university.publicId,
+      universitySlug: row.university.slug,
+      universityDisplayName: row.university.displayName,
+      sourceProgramName: row.sourceProgramName,
+      degreeLevelId: row.degreeLevelId,
+      majorId: row.majorId,
+      majorMappingState: row.majorMappingState,
+      status: row.status,
+    }));
   }
 
   async listTranslations(id: string): Promise<UniversityTranslationDto[]> {
@@ -620,6 +678,31 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
     return {
       ...safeOptionalFields,
       ...rest,
+      academicPrograms: (rest.academicPrograms ?? []).map((program) => ({
+        id: program.id,
+        universityId: program.universityId,
+        sourceReferenceId: program.sourceReferenceId,
+        sourceProgramName: program.sourceProgramName,
+        normalizedName: program.normalizedName,
+        degreeLevelId: program.degreeLevelId,
+        majorId: program.majorId,
+        majorMappingState: program.majorMappingState,
+        status: program.status,
+        campusIds: (program.campuses ?? []).map((link) => link.campusId),
+        admissionRequirements: (program.admissionRequirements ?? []).map((requirement) => ({
+          id: requirement.id,
+          academicProgramId: requirement.academicProgramId,
+          internationalTestId: requirement.internationalTestId,
+          testVariantId: requirement.testVariantId,
+          testVersionId: requirement.testVersionId,
+          minimumScore: requirement.minimumScore,
+          sectionScores: asMetadata(requirement.sectionScores),
+          validityMetadata: asMetadata(requirement.validityMetadata),
+          restrictionMetadata: asMetadata(requirement.restrictionMetadata),
+          status: requirement.status,
+        })),
+        metadata: asMetadata(program.metadata) ?? null,
+      })),
       status: rest.status as UniversityStatus,
       completenessStatus: rest.completenessStatus as UniversityDto['completenessStatus'],
       localizedNames,

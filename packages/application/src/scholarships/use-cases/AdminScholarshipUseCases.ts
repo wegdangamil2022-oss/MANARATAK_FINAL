@@ -19,7 +19,7 @@ type AdminScholarshipRepository = IScholarshipRepository & {
   getAdminSummary?: () => Promise<Record<string, number>>;
 };
 type AdminScholarshipFilters = ScholarshipFilters & {
-  degreeLevel?: string; fundingCoverage?: string; sponsorName?: string; verificationStatus?: string;
+  fundingCoverage?: string; sponsorName?: string; verificationStatus?: string;
   translationState?: 'NEEDS_TRANSLATION' | 'TRANSLATED'; deadlineFrom?: Date; deadlineTo?: Date;
   sourceType?: string; query?: string;
 };
@@ -48,7 +48,7 @@ export class AdminScholarshipUseCases {
     scholarship: ScholarshipDto;
     completeness: ReturnType<typeof ScholarshipCompletenessClassifier.classify>;
     unresolvedLinks: Array<{
-      area: 'COUNTRY' | 'STUDY_LANGUAGE' | 'DEGREE' | 'MAJOR' | 'UNIVERSITY' | 'INTERNATIONAL_TEST';
+      area: 'COUNTRY' | 'STUDY_LANGUAGE' | 'CURRENCY' | 'DEGREE' | 'MAJOR' | 'UNIVERSITY' | 'ACADEMIC_PROGRAM' | 'INTERNATIONAL_TEST';
       key: string;
       rawValue: string | null;
       canonicalId: string | null;
@@ -458,14 +458,14 @@ export class AdminScholarshipUseCases {
   }
 
   private unresolvedLinks(scholarship: ScholarshipDto): Array<{
-    area: 'COUNTRY' | 'STUDY_LANGUAGE' | 'DEGREE' | 'MAJOR' | 'UNIVERSITY' | 'INTERNATIONAL_TEST';
+    area: 'COUNTRY' | 'STUDY_LANGUAGE' | 'CURRENCY' | 'DEGREE' | 'MAJOR' | 'UNIVERSITY' | 'ACADEMIC_PROGRAM' | 'INTERNATIONAL_TEST';
     key: string;
     rawValue: string | null;
     canonicalId: string | null;
     resolutionStatus: string;
   }> {
     const result: Array<{
-      area: 'COUNTRY' | 'STUDY_LANGUAGE' | 'DEGREE' | 'MAJOR' | 'UNIVERSITY' | 'INTERNATIONAL_TEST';
+      area: 'COUNTRY' | 'STUDY_LANGUAGE' | 'CURRENCY' | 'DEGREE' | 'MAJOR' | 'UNIVERSITY' | 'ACADEMIC_PROGRAM' | 'INTERNATIONAL_TEST';
       key: string;
       rawValue: string | null;
       canonicalId: string | null;
@@ -489,6 +489,13 @@ export class AdminScholarshipUseCases {
         resolutionStatus: scholarship.studyLanguageResolutionStatus ?? 'UNRESOLVED',
       });
     }
+    for (const item of scholarship.benefits ?? []) {
+      const hasMonetaryAmount = item.amount !== null && item.amount !== undefined && String(item.amount).trim() !== '';
+      if (hasMonetaryAmount && !item.currencyReferenceId) result.push({
+        area: 'CURRENCY', key: item.benefitKey, rawValue: scholarship.currency ?? scholarship.amountCurrencyCode ?? null,
+        canonicalId: null, resolutionStatus: 'UNRESOLVED',
+      });
+    }
     for (const item of scholarship.degreeTargets ?? []) {
       if (unresolved(item.resolutionStatus, item.degreeLevelId)) result.push({ area: 'DEGREE', key: item.targetKey, rawValue: item.sourceLabel ?? null, canonicalId: item.degreeLevelId ?? null, resolutionStatus: item.resolutionStatus ?? 'UNRESOLVED' });
     }
@@ -496,11 +503,26 @@ export class AdminScholarshipUseCases {
       if (unresolved(item.resolutionStatus, item.majorId)) result.push({ area: 'MAJOR', key: item.targetKey, rawValue: item.sourceLabel ?? null, canonicalId: item.majorId ?? null, resolutionStatus: item.resolutionStatus ?? 'UNRESOLVED' });
     }
     for (const item of scholarship.universityLinks ?? []) {
-      if (unresolved(item.resolutionStatus, item.universityId)) result.push({ area: 'UNIVERSITY', key: item.linkKey, rawValue: item.sourceLabel ?? null, canonicalId: item.universityId ?? null, resolutionStatus: item.resolutionStatus ?? 'UNRESOLVED' });
+      const isAcademicProgramTarget = String(item.relationshipTypeCode ?? '').toUpperCase() === 'TARGET_PROGRAM' || Boolean(item.academicProgramId);
+      const canonicalId = isAcademicProgramTarget ? item.academicProgramId : item.universityId;
+      if (unresolved(item.resolutionStatus, canonicalId)) result.push({
+        area: isAcademicProgramTarget ? 'ACADEMIC_PROGRAM' : 'UNIVERSITY',
+        key: item.linkKey,
+        rawValue: item.sourceLabel ?? null,
+        canonicalId: canonicalId ?? null,
+        resolutionStatus: item.resolutionStatus ?? 'UNRESOLVED',
+      });
     }
     for (const item of scholarship.eligibilityItems ?? []) {
-      if (String(item.itemTypeCode).toUpperCase().includes('TEST') && unresolved(item.resolutionStatus, item.internationalTestId)) {
-        result.push({ area: 'INTERNATIONAL_TEST', key: item.itemKey, rawValue: item.valueText ?? null, canonicalId: item.internationalTestId ?? null, resolutionStatus: item.resolutionStatus ?? 'UNRESOLVED' });
+      const type = String(item.itemTypeCode).toUpperCase();
+      const checks = [
+        { matches: type.includes('COUNTRY'), area: 'COUNTRY' as const, id: item.countryReferenceId },
+        { matches: type.includes('DEGREE'), area: 'DEGREE' as const, id: item.degreeLevelId },
+        { matches: type.includes('MAJOR'), area: 'MAJOR' as const, id: item.majorId },
+        { matches: type.includes('TEST'), area: 'INTERNATIONAL_TEST' as const, id: item.internationalTestId },
+      ];
+      for (const check of checks) if (check.matches && unresolved(item.resolutionStatus, check.id)) {
+        result.push({ area: check.area, key: item.itemKey, rawValue: item.valueText ?? null, canonicalId: check.id ?? null, resolutionStatus: item.resolutionStatus ?? 'UNRESOLVED' });
       }
     }
     for (const item of scholarship.requiredDocumentItems ?? []) {

@@ -144,7 +144,7 @@ class FakeRelationshipRepository implements ICourseRelationshipRepository {
   }
 
   async reviewTaxonomyLink(input: any) {
-    const link = this.links.find((item) => item.id === input.linkId);
+    const link = this.links.find((item) => item.id === input.linkId && item.courseId === input.courseId);
     if (!link) throw new Error('not-found');
     link.reviewState = input.decision;
     link.reviewedBy = input.actorId;
@@ -218,7 +218,7 @@ class FakeRelationshipRepository implements ICourseRelationshipRepository {
   }
 
   async reviewMajorProjection(input: any) {
-    const projection = this.projections.find((item) => item.id === input.projectionId);
+    const projection = this.projections.find((item) => item.id === input.projectionId && item.courseId === input.courseId);
     if (!projection) throw new Error('not-found');
     projection.projectionState = input.decision;
     projection.reviewedBy = input.actorId;
@@ -365,7 +365,7 @@ describe('CourseRelationshipResolutionService', () => {
 
     expect(await service.projectMajors('course-1')).toEqual([]);
 
-    await service.approveTaxonomyLink(repository.links[0].id, 'admin-1');
+    await service.approveTaxonomyLink('course-1', repository.links[0].id, 'admin-1');
     const projections = await service.projectMajors('course-1');
 
     expect(projections).toHaveLength(1);
@@ -380,11 +380,11 @@ describe('CourseRelationshipResolutionService', () => {
     const repository = new FakeRelationshipRepository();
     const service = new CourseRelationshipResolutionService(repository);
     await service.analyzeCourse('course-1');
-    await service.approveTaxonomyLink(repository.links[0].id, 'admin-1');
+    await service.approveTaxonomyLink('course-1', repository.links[0].id, 'admin-1');
     const [projection] = await service.projectMajors('course-1');
 
     expect(projection.projectionState).toBe('PROPOSED');
-    const approved = await service.approveMajorProjection(projection.id, 'admin-2');
+    const approved = await service.approveMajorProjection('course-1', projection.id, 'admin-2');
     expect(approved.projectionState).toBe('APPROVED');
     expect(approved.reviewedBy).toBe('admin-2');
   });
@@ -393,9 +393,9 @@ describe('CourseRelationshipResolutionService', () => {
     const repository = new FakeRelationshipRepository();
     const service = new CourseRelationshipResolutionService(repository);
     await service.analyzeCourse('course-1');
-    await service.approveTaxonomyLink(repository.links[0].id, 'admin-1');
+    await service.approveTaxonomyLink('course-1', repository.links[0].id, 'admin-1');
     const [projection] = await service.projectMajors('course-1');
-    await service.approveMajorProjection(projection.id, 'admin-2');
+    await service.approveMajorProjection('course-1', projection.id, 'admin-2');
 
     repository.source.shortCourseTopicsRaw = 'Data Science';
     await service.analyzeCourse('course-1');
@@ -404,15 +404,31 @@ describe('CourseRelationshipResolutionService', () => {
     expect(repository.projections[0].projectionState).toBe('REVIEW_REQUIRED');
   });
 
+  it('fails closed when a relationship review id is presented under another course owner', async () => {
+    const repository = new FakeRelationshipRepository();
+    const service = new CourseRelationshipResolutionService(repository);
+    await service.analyzeCourse('course-1');
+
+    await expect(
+      service.approveTaxonomyLink('course-other', repository.links[0].id, 'admin-cross-owner'),
+    ).rejects.toThrow('not-found');
+
+    await service.approveTaxonomyLink('course-1', repository.links[0].id, 'admin-1');
+    const [projection] = await service.projectMajors('course-1');
+    await expect(
+      service.approveMajorProjection('course-other', projection.id, 'admin-cross-owner'),
+    ).rejects.toThrow('not-found');
+  });
+
   it('reconciles a projection when its approved taxonomy link is no longer approved', async () => {
     const repository = new FakeRelationshipRepository();
     const service = new CourseRelationshipResolutionService(repository);
     await service.analyzeCourse('course-1');
-    await service.approveTaxonomyLink(repository.links[0].id, 'admin-1');
+    await service.approveTaxonomyLink('course-1', repository.links[0].id, 'admin-1');
     const [projection] = await service.projectMajors('course-1');
-    await service.approveMajorProjection(projection.id, 'admin-2');
+    await service.approveMajorProjection('course-1', projection.id, 'admin-2');
 
-    await service.rejectTaxonomyLink(repository.links[0].id, 'admin-3');
+    await service.rejectTaxonomyLink('course-1', repository.links[0].id, 'admin-3');
     await service.projectMajors('course-1');
 
     expect(repository.projections[0].projectionState).toBe('REVIEW_REQUIRED');

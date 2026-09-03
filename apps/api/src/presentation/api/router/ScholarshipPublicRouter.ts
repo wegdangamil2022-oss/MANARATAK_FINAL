@@ -12,16 +12,21 @@ export class ScholarshipPublicRouter {
 
     const date = z.string().datetime({ offset: true }).transform((value) => new Date(value));
     const listQuerySchema = z.object({
-      studyCountry: z.string().min(1).optional(),
       countryReferenceId: z.string().min(1).optional(),
-      degreeLevel: z.string().min(1).optional(),
+      studyLanguageReferenceId: z.string().min(1).optional(),
+      currencyReferenceId: z.string().min(1).optional(),
+      degreeLevelId: z.string().min(1).optional(),
+      majorId: z.string().min(1).optional(),
+      internationalTestId: z.string().min(1).optional(),
+      universityId: z.string().min(1).optional(),
+      academicProgramId: z.string().min(1).optional(),
       fundingCoverage: z.string().min(1).optional(),
       sponsorName: z.string().min(1).optional(),
       applicationDeadlineFrom: date.optional(),
       applicationDeadlineTo: date.optional(),
       page: z.coerce.number().int().min(1).default(1),
       pageSize: z.coerce.number().int().min(1).transform((value) => Math.min(value, 50)).default(20),
-    }).refine((value) => !value.applicationDeadlineFrom || !value.applicationDeadlineTo || value.applicationDeadlineFrom <= value.applicationDeadlineTo, {
+    }).strict().refine((value) => !value.applicationDeadlineFrom || !value.applicationDeadlineTo || value.applicationDeadlineFrom <= value.applicationDeadlineTo, {
       message: 'applicationDeadlineFrom must be <= applicationDeadlineTo',
     });
 

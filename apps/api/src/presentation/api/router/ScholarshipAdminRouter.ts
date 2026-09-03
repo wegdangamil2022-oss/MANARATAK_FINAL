@@ -99,8 +99,14 @@ export class ScholarshipAdminRouter {
     const listQuerySchema = z.object({
       status: z.nativeEnum(ScholarshipStatus).optional(),
       completenessStatus: z.nativeEnum(ScholarshipCompletenessState).optional(),
-      country: z.string().min(1).optional(),
-      degreeLevel: z.string().min(1).optional(),
+      countryReferenceId: z.string().min(1).optional(),
+      studyLanguageReferenceId: z.string().min(1).optional(),
+      currencyReferenceId: z.string().min(1).optional(),
+      degreeLevelId: z.string().min(1).optional(),
+      majorId: z.string().min(1).optional(),
+      internationalTestId: z.string().min(1).optional(),
+      universityId: z.string().min(1).optional(),
+      academicProgramId: z.string().min(1).optional(),
       fundingCoverage: z.string().min(1).optional(),
       sponsorName: z.string().min(1).optional(),
       verificationStatus: z.nativeEnum(ScholarshipVerificationStatus).optional(),
@@ -117,7 +123,7 @@ export class ScholarshipAdminRouter {
         .string()
         .optional()
         .transform((val) => (val ? parseInt(val, 10) : 20)),
-    });
+    }).strict();
 
     const operationalClassSchema = z.enum(['REAL', 'TEST', 'DEMO', 'ARCHIVED', 'UNCLASSIFIED']);
     const importCenterQuerySchema = z.object({
@@ -199,6 +205,7 @@ export class ScholarshipAdminRouter {
         'DEGREE_LEVEL',
         'MAJOR',
         'INTERNATIONAL_TEST',
+        'ACADEMIC_PROGRAM',
       ]),
       canonicalId: z.string().min(1).optional(),
       rawValue: z.string().min(1),

@@ -286,10 +286,10 @@ export class MajorPhaseLinkingService {
       {
         targetType: 'ACADEMIC_PROGRAM',
         label: 'Programs that offer this major',
-        href: this.withQuery('/programs', degreeQuery),
+        href: this.withQuery('/universities', degreeQuery),
         query: degreeQuery,
         phase: 11,
-        relationship: 'PROGRAMS_BY_MAJOR_LEVEL_PROFILE',
+        relationship: 'UNIVERSITIES_BY_MAJOR_ACADEMIC_PROGRAM',
         source: 'MAJOR_LEVEL_PROFILE',
         metadata: this.buildCommonMetadata(major),
       },
@@ -352,25 +352,23 @@ export class MajorPhaseLinkingService {
   }
 
   private static buildIdentityQuery(major: MajorDto | PublicMajorDto): Record<string, string> {
+    const ownerId = 'id' in major ? major.id : undefined;
     return {
-      major: major.displayName,
-      majorSlug: major.slug,
+      ...(ownerId ? { majorId: ownerId } : {}),
       ...(major.publicId ? { majorPublicId: major.publicId } : {}),
+      ...(major.slug ? { majorSlug: major.slug } : {}),
     };
   }
 
   private static buildDegreeAwareQuery(major: MajorDto | PublicMajorDto): Record<string, string> {
-    return {
-      ...this.buildIdentityQuery(major),
-      ...(major.degreeLevel ? { degreeLevel: String(major.degreeLevel) } : {}),
-    };
+    // P4 reverse reads are keyed by canonical Major owner identity. Legacy degree text is display-only.
+    return this.buildIdentityQuery(major);
   }
 
   private static buildTaxonomyQuery(major: MajorDto | PublicMajorDto): Record<string, string> {
     return {
       ...(major.academicFieldId ? { academicFieldId: major.academicFieldId } : {}),
       ...(major.disciplineId ? { disciplineId: major.disciplineId } : {}),
-      ...(major.academicFieldOrDiscipline ? { academicFieldOrDiscipline: major.academicFieldOrDiscipline } : {}),
     };
   }
 
@@ -450,6 +448,7 @@ export interface IMajorRepository {
   update(id: string, updates: UpdateMajorDto): Promise<MajorDto>;
   findById(id: string): Promise<MajorDto | null>;
   findByPublicId?(publicId: string): Promise<MajorDto | null>;
+  findPublishedByIds?(ids: string[]): Promise<MajorDto[]>;
   findBySlug(slug: string): Promise<MajorDto | null>;
   findByDedupKey(key: string): Promise<MajorDto | null>;
   updateStatus(id: string, status: MajorLifecycleStatus): Promise<void>;

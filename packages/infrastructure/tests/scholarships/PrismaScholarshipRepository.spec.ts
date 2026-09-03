@@ -155,19 +155,49 @@ describe('PrismaScholarshipRepository', () => {
     mockPrisma.scholarship.findMany.mockResolvedValue([]);
     mockPrisma.scholarship.count.mockResolvedValue(41);
     const result = await repository.list({
-      page: 2, pageSize: 20, country: 'SA', degreeLevel: 'Bachelor', fundingCoverage: 'FULL',
-      sponsorName: 'Ministry', verificationStatus: 'VERIFIED' as any, query: 'engineering',
+      page: 2, pageSize: 20, countryReferenceId: 'country-sa', degreeLevelId: 'degree-bachelor',
+      majorId: 'major-cs', internationalTestId: 'test-ielts', universityId: 'university-1', academicProgramId: 'program-1',
+      fundingCoverage: 'FULL', sponsorName: 'Ministry', verificationStatus: 'VERIFIED' as any, query: 'engineering',
     });
     expect(mockPrisma.scholarship.findMany).toHaveBeenCalledWith(expect.objectContaining({
       skip: 20, take: 20,
       where: expect.objectContaining({ verificationStatus: 'VERIFIED', AND: expect.any(Array) }),
     }));
     const where = mockPrisma.scholarship.findMany.mock.calls[0][0].where;
-    expect(JSON.stringify(where)).toContain('primaryCountry');
+    expect(where.countryReferenceId).toBe('country-sa');
+    expect(JSON.stringify(where)).not.toContain('primaryCountry');
     expect(JSON.stringify(where)).not.toContain('countrySourceLabel');
+    expect(JSON.stringify(where)).not.toContain('sourceLabel');
     expect(JSON.stringify(where)).toContain('degreeTargets');
+    expect(JSON.stringify(where)).toContain('majorTargets');
+    expect(JSON.stringify(where)).toContain('internationalTestId');
+    expect(JSON.stringify(where)).toContain('universityLinks');
+    expect(JSON.stringify(where)).toContain('academicProgramId');
     expect(JSON.stringify(where)).toContain('benefits');
     expect(result).toMatchObject({ total: 41, page: 2, totalPages: 3 });
+  });
+
+
+  it('applies public relationship filters only through canonical ids', async () => {
+    mockPrisma.scholarship.findMany.mockResolvedValue([]);
+    mockPrisma.scholarship.count.mockResolvedValue(0);
+    await repository.listPublished({
+      countryReferenceId: 'country-qa', studyLanguageReferenceId: 'language-en', currencyReferenceId: 'currency-usd',
+      degreeLevelId: 'degree-phd', majorId: 'major-cs', internationalTestId: 'test-ielts',
+      universityId: 'university-qu', academicProgramId: 'program-cs-phd', page: 1,
+    });
+    const where = mockPrisma.scholarship.findMany.mock.calls[0][0].where;
+    const serialized = JSON.stringify(where);
+    expect(where.countryReferenceId).toBe('country-qa');
+    expect(where.studyLanguageReferenceId).toBe('language-en');
+    expect(serialized).toContain('currencyReferenceId');
+    expect(serialized).toContain('degreeLevelId');
+    expect(serialized).toContain('majorId');
+    expect(serialized).toContain('internationalTestId');
+    expect(serialized).toContain('universityId');
+    expect(serialized).toContain('academicProgramId');
+    expect(serialized).not.toContain('sourceLabel');
+    expect(serialized).not.toContain('countrySourceLabel');
   });
 
   it('derives dashboard counters from unbounded database count queries', async () => {

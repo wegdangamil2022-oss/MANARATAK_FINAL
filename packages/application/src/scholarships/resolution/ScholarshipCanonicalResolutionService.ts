@@ -53,6 +53,13 @@ export class ScholarshipCanonicalResolutionService {
       }
     }
 
+    if (normalized.target === 'ACADEMIC_PROGRAM' && !normalized.canonicalId) {
+      return this.result(normalized, {
+        state: 'REVIEW_REQUIRED',
+        reason: 'Academic Program resolution requires an explicit canonical program id; name matching is prohibited.',
+      });
+    }
+
     if (
       normalized.target === 'MAJOR' &&
       normalized.canonicalId &&

@@ -30,6 +30,17 @@ describe('CourseAdminRouter', () => {
     publish: vi.fn(),
   });
 
+  const createMockRelationshipService = () => ({
+    getReviewModel: vi.fn(),
+    analyzeCourse: vi.fn(),
+    approveTaxonomyLink: vi.fn(),
+    rejectTaxonomyLink: vi.fn(),
+    approveLanguageReference: vi.fn(),
+    projectMajors: vi.fn(),
+    approveMajorProjection: vi.fn(),
+    rejectMajorProjection: vi.fn(),
+  });
+
   const createMockCurriculumUseCases = () => ({
     createModule: vi.fn(),
     updateModule: vi.fn(),
@@ -62,6 +73,7 @@ describe('CourseAdminRouter', () => {
     useCases: ReturnType<typeof createMockUseCases>,
     curriculumUseCases = createMockCurriculumUseCases(),
     nativeUseCases = createMockNativeUseCases(),
+    relationshipService = createMockRelationshipService(),
   ) => {
     const app = express();
     app.use(express.json());
@@ -70,6 +82,9 @@ describe('CourseAdminRouter', () => {
       CourseAdminRouter.create({
         adminCourseUseCases: useCases as any,
         courseCurriculumUseCases: curriculumUseCases as any,
+        courseEnrollmentPolicyUseCases: {} as any,
+        courseRelationshipResolutionService: relationshipService as any,
+        learningPathUseCases: {} as any,
         nativeCourseUseCases: nativeUseCases as any,
       }),
     );
@@ -202,6 +217,40 @@ describe('CourseAdminRouter', () => {
 
     expect(res.status).toBe(200);
     expect(curriculumUseCases.getCurriculumSnapshot).toHaveBeenCalledWith('course-1');
+  });
+
+  it('exposes a course-owner-scoped relationship review model', async () => {
+    const useCases = createMockUseCases();
+    const relationshipService = createMockRelationshipService();
+    relationshipService.getReviewModel.mockResolvedValue({
+      courseId: 'course-1',
+      taxonomyLinks: [],
+      majorProjections: [],
+      closure: { languageCanonical: true, approvedTaxonomyLinks: 0, approvedMajorProjections: 0, reviewRequired: false },
+    });
+    const app = createApp(useCases, createMockCurriculumUseCases(), createMockNativeUseCases(), relationshipService);
+
+    const res = await request(app).get('/admin/courses/course-1/relationships');
+
+    expect(res.status).toBe(200);
+    expect(res.body.courseId).toBe('course-1');
+    expect(relationshipService.getReviewModel).toHaveBeenCalledWith('course-1');
+  });
+
+  it('scopes taxonomy and Major relationship approvals to the course owner id', async () => {
+    const useCases = createMockUseCases();
+    const relationshipService = createMockRelationshipService();
+    relationshipService.approveTaxonomyLink.mockResolvedValue({ id: 'link-1', reviewState: 'APPROVED' });
+    relationshipService.approveMajorProjection.mockResolvedValue({ id: 'projection-1', projectionState: 'APPROVED' });
+    const app = createApp(useCases, createMockCurriculumUseCases(), createMockNativeUseCases(), relationshipService);
+
+    const taxonomy = await request(app).post('/admin/courses/course-1/relationships/taxonomy/link-1/approve');
+    const major = await request(app).post('/admin/courses/course-1/relationships/majors/projection-1/approve');
+
+    expect(taxonomy.status).toBe(200);
+    expect(major.status).toBe(200);
+    expect(relationshipService.approveTaxonomyLink).toHaveBeenCalledWith('course-1', 'link-1', 'SYSTEM');
+    expect(relationshipService.approveMajorProjection).toHaveBeenCalledWith('course-1', 'projection-1', 'SYSTEM');
   });
 
   it('POST /admin/courses/:id/modules creates course modules', async () => {

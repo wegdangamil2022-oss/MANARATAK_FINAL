@@ -82,7 +82,7 @@ export interface UniversityDto {
   institutionalOwnership?: string | null;
   campuses?: unknown[];
   organizationUnits?: unknown[];
-  academicPrograms?: AcademicProgramIntegrationDto[];
+  academicPrograms?: UniversityAcademicProgramReadDto[];
   acceptedLanguageTests?: unknown[];
   admissionRequirements?: UniversityAdmissionRequirementDto[];
   tuitionProfiles?: unknown[];
@@ -210,14 +210,18 @@ export interface UniversityFilters {
   completenessStatus?: UniversityImportCompletenessState;
   country?: string;
   countryReferenceId?: string;
+  regionReferenceId?: string;
+  cityReferenceId?: string;
   institutionType?: string;
+  /** Canonical P10 Major owner ID. Public reverse reads are projected from P11 AcademicProgram. */
+  majorId?: string;
   city?: string;
   search?: string;
   page?: number;
   pageSize?: number;
 }
 
-export type PublicUniversityFilters = Omit<UniversityFilters, 'status' | 'completenessStatus'>;
+export type PublicUniversityFilters = Omit<UniversityFilters, 'status' | 'completenessStatus' | 'country' | 'city'>;
 export type PublicUniversityDto = Omit<
   UniversityDto,
   | 'id'
@@ -237,6 +241,20 @@ export interface PaginatedUniversityResult<T = UniversityDto> {
   totalPages: number;
 }
 
+
+export interface PublishedAcademicProgramReadModel {
+  ownerId: string;
+  universityOwnerId: string;
+  universityPublicId: string;
+  universitySlug: string;
+  universityDisplayName: string;
+  sourceProgramName: string;
+  degreeLevelId?: string | null;
+  majorId?: string | null;
+  majorMappingState: string;
+  status: string;
+}
+
 export interface IUniversityRepository {
   create(
     data: Omit<UniversityDto, 'id' | 'createdAt' | 'updatedAt'> &
@@ -252,6 +270,8 @@ export interface IUniversityRepository {
     filters: PublicUniversityFilters,
   ): Promise<PaginatedUniversityResult<UniversityDto>>;
   findPublishedByPublicIds?(publicIds: string[]): Promise<UniversityDto[]>;
+  findPublishedByIds?(ids: string[]): Promise<UniversityDto[]>;
+  findPublishedAcademicProgramsByIds?(ids: string[]): Promise<PublishedAcademicProgramReadModel[]>;
   listTranslations?(id: string): Promise<UniversityTranslationDto[]>;
   upsertTranslation?(
     id: string,
@@ -388,6 +408,35 @@ export class UniversityDeduplicationService {
     }
     return `${payload.universityName}|${payload.country || 'UNKNOWN'}|${domain}`.toLowerCase();
   }
+}
+
+
+export interface UniversityProgramAdmissionRequirementReadDto {
+  id: string;
+  academicProgramId: string;
+  internationalTestId: string;
+  testVariantId?: string | null;
+  testVersionId?: string | null;
+  minimumScore?: number | null;
+  sectionScores?: Record<string, unknown> | null;
+  validityMetadata?: Record<string, unknown> | null;
+  restrictionMetadata?: Record<string, unknown> | null;
+  status: string;
+}
+
+export interface UniversityAcademicProgramReadDto {
+  id: string;
+  universityId: string;
+  sourceReferenceId?: string | null;
+  sourceProgramName: string;
+  normalizedName: string;
+  degreeLevelId?: string | null;
+  majorId?: string | null;
+  majorMappingState: string;
+  status: string;
+  campusIds: string[];
+  admissionRequirements: UniversityProgramAdmissionRequirementReadDto[];
+  metadata?: Record<string, unknown> | null;
 }
 
 // --- University & Academic Program Integration Contracts ---

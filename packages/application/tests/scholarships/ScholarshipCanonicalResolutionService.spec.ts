@@ -63,6 +63,22 @@ describe('ScholarshipCanonicalResolutionService', () => {
     expect(result.rawValue).toBe('Sample University');
   });
 
+
+  it('resolves AcademicProgram only from an explicit canonical program id', async () => {
+    const gateway = new FakeGateway({
+      'ACADEMIC_PROGRAM|program-1||': [candidate('ACADEMIC_PROGRAM', 'program-1', { method: 'EXACT_CANONICAL_ID' })],
+    });
+    const result = await new ScholarshipCanonicalResolutionService(gateway).resolve({ target: 'ACADEMIC_PROGRAM', canonicalId: 'program-1' });
+    expect(result.state).toBe('RESOLVED');
+    expect(result.canonicalReferenceId).toBe('program-1');
+  });
+
+  it('keeps AcademicProgram name-only input reviewable instead of name-matching', async () => {
+    const result = await new ScholarshipCanonicalResolutionService(new FakeGateway()).resolve({ target: 'ACADEMIC_PROGRAM', rawValue: 'Computer Science PhD' });
+    expect(result.state).toBe('REVIEW_REQUIRED');
+    expect(result.reason).toContain('explicit canonical program id');
+  });
+
   it('returns NOT_APPLICABLE only when provider is explicitly non-University', async () => {
     const result = await new ScholarshipCanonicalResolutionService(new FakeGateway()).resolve({
       target: 'PROVIDER_UNIVERSITY',

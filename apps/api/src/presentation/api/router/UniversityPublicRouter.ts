@@ -14,25 +14,26 @@ export class UniversityPublicRouter {
     };
 
     const listQuerySchema = z.object({
-      country: z.string().optional(),
+      countryReferenceId: z.string().trim().min(1).optional(),
       countryIso2Code: z.string().trim().length(2).transform((value) => value.toUpperCase()).optional(),
+      regionReferenceId: z.string().trim().min(1).optional(),
+      cityReferenceId: z.string().trim().min(1).optional(),
       institutionType: z.string().optional(),
-      city: z.string().optional(),
-      page: z.string().optional().transform((val) => val ? parseInt(val, 10) : 1),
-      pageSize: z.string().optional().transform((val) => Math.min(val ? parseInt(val, 10) : 20, 50)),
-    }).merge(localeQuerySchema);
+      majorId: z.string().trim().min(1).optional(),
+      page: z.coerce.number().int().min(1).default(1),
+      pageSize: z.coerce.number().int().min(1).transform((value) => Math.min(value, 50)).default(20),
+    }).merge(localeQuerySchema).strict();
 
     router.get('/', asyncHandler(async (req: Request, res: Response) => {
       const { locale, ...filters } = listQuerySchema.parse(req.query);
       let resolvedFilters: PublicUniversityFilters = filters;
-      if (filters.countryIso2Code || filters.country) {
-        const country = filters.countryIso2Code
-          ? await cradle.referenceDataRepository.getCountry(filters.countryIso2Code)
-          : (await cradle.referenceDataRepository.listCountries({ activeOnly: true })).find(
-              (item) => item.name.trim().toLocaleLowerCase('en-US') === filters.country!.trim().toLocaleLowerCase('en-US'),
-            );
+      if (filters.countryIso2Code) {
+        const country = await cradle.referenceDataRepository.getCountry(filters.countryIso2Code);
         if (!country) return res.status(400).json({ error: 'UNKNOWN_COUNTRY_FILTER' });
-        const { country: _country, countryIso2Code: _countryIso2Code, ...rest } = filters;
+        if (filters.countryReferenceId && filters.countryReferenceId !== country.id) {
+          return res.status(400).json({ error: 'COUNTRY_REFERENCE_CODE_MISMATCH' });
+        }
+        const { countryIso2Code: _countryIso2Code, ...rest } = filters;
         resolvedFilters = { ...rest, countryReferenceId: country.id };
       }
       res.json(await localized.listUniversities(resolvedFilters, locale));

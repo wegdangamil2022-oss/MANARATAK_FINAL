@@ -270,12 +270,13 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
   }
 
   public async reviewTaxonomyLink(input: {
+    courseId: string;
     linkId: string;
     decision: 'APPROVED' | 'REJECTED';
     actorId: string;
   }): Promise<CourseAcademicTaxonomyLinkDto> {
-    const existing = await this.prisma.courseAcademicTaxonomyLink.findUnique({
-      where: { id: input.linkId },
+    const existing = await this.prisma.courseAcademicTaxonomyLink.findFirst({
+      where: { id: input.linkId, courseId: input.courseId },
     });
     if (!existing) throw new Error('COURSE_TAXONOMY_LINK_NOT_FOUND');
 
@@ -518,10 +519,15 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
   }
 
   public async reviewMajorProjection(input: {
+    courseId: string;
     projectionId: string;
     decision: 'APPROVED' | 'REJECTED';
     actorId: string;
   }): Promise<CourseMajorProjectionDto> {
+    const existing = await this.prisma.courseMajorProjection.findFirst({
+      where: { id: input.projectionId, courseId: input.courseId },
+    });
+    if (!existing) throw new Error('COURSE_MAJOR_PROJECTION_NOT_FOUND');
     const record = await this.prisma.courseMajorProjection.update({
       where: { id: input.projectionId },
       data: {
@@ -537,7 +543,7 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
     filters: CourseRelationshipPublicFilters,
   ): Promise<PaginatedCourseResult<CourseRelationshipPublicCourseDto>> {
     const page = Math.max(1, filters.page ?? 1);
-    const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
+    const pageSize = Math.min(50, Math.max(1, filters.pageSize ?? 20));
     const where: Prisma.CourseWhereInput = { status: 'PUBLISHED' };
 
     if (filters.accessType) where.accessType = filters.accessType;
@@ -579,6 +585,7 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
         take: pageSize,
         orderBy: { createdAt: 'desc' },
         select: {
+          id: true,
           publicId: true,
           slug: true,
           displayName: true,
@@ -599,7 +606,7 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
     ]);
 
     return {
-      data: records,
+      data: records.map(({ id, ...record }) => ({ ownerId: id, ...record })),
       total,
       page,
       pageSize,

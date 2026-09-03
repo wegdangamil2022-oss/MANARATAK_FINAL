@@ -45,6 +45,7 @@ const BLOCKING_CANONICAL_STATES = new Set(['UNRESOLVED', 'AMBIGUOUS', 'REVIEW_RE
 type CanonicalTarget =
   | 'PROVIDER_UNIVERSITY'
   | 'UNIVERSITY'
+  | 'ACADEMIC_PROGRAM'
   | 'COUNTRY'
   | 'LANGUAGE'
   | 'CURRENCY'
@@ -651,6 +652,18 @@ export class ScholarshipImportAtomicTransferUseCase
 
   private universityLinks(plan: TransferPlan): NonNullable<CreateScholarshipDto['universityLinks']> {
     const links: NonNullable<CreateScholarshipDto['universityLinks']> = [];
+
+    (plan.payload.targetUniversityReferences ?? []).forEach((reference, index) => {
+      const resolved = this.resolutionForCanonicalId(plan.canonical, 'UNIVERSITY', reference.canonicalId);
+      links.push({
+        linkKey: `university-ref-${index + 1}-${this.shortKey(reference.canonicalId)}`,
+        universityId: resolved?.canonicalReferenceId ?? null,
+        sourceLabel: reference.sourceLabel ?? null,
+        relationshipTypeCode: 'TARGET_UNIVERSITY',
+        resolutionStatus: resolved?.state ?? 'UNRESOLVED',
+      });
+    });
+
     this.uniqueStrings(this.strings(plan.payload.targetUniversities)).forEach((label, index) => {
       const resolved = this.resolutionFor(plan.canonical, 'UNIVERSITY', label);
       links.push({
@@ -661,17 +674,36 @@ export class ScholarshipImportAtomicTransferUseCase
         resolutionStatus: resolved?.state ?? 'SOURCE_ONLY',
       });
     });
-    this.uniqueStrings(this.strings(plan.payload.targetAcademicPrograms)).forEach((label, index) => {
+
+    (plan.payload.targetAcademicProgramReferences ?? []).forEach((reference, index) => {
+      const resolved = this.resolutionForCanonicalId(plan.canonical, 'ACADEMIC_PROGRAM', reference.canonicalId);
       links.push({
-        linkKey: `program-${index + 1}-${this.shortKey(label)}`,
-        academicProgramId: null,
-        sourceLabel: label,
+        linkKey: `program-ref-${index + 1}-${this.shortKey(reference.canonicalId)}`,
+        academicProgramId: resolved?.canonicalReferenceId ?? null,
+        sourceLabel: reference.sourceLabel ?? null,
         relationshipTypeCode: 'TARGET_PROGRAM',
-        resolutionStatus: 'UNRESOLVED',
-        metadata: { reason: 'ACADEMIC_PROGRAM_CANONICAL_RESOLVER_NOT_AVAILABLE' },
+        resolutionStatus: resolved?.state ?? 'UNRESOLVED',
       });
     });
-    return links;
+
+    this.uniqueStrings(this.strings(plan.payload.targetAcademicPrograms)).forEach((label, index) => {
+      const resolved = this.resolutionFor(plan.canonical, 'ACADEMIC_PROGRAM', label);
+      links.push({
+        linkKey: `program-${index + 1}-${this.shortKey(label)}`,
+        academicProgramId: resolved?.canonicalReferenceId ?? null,
+        sourceLabel: label,
+        relationshipTypeCode: 'TARGET_PROGRAM',
+        resolutionStatus: resolved?.state ?? 'UNRESOLVED',
+      });
+    });
+
+    const seen = new Set<string>();
+    return links.filter((link) => {
+      const key = `${link.relationshipTypeCode}|${link.universityId ?? ''}|${link.academicProgramId ?? ''}|${this.normalize(link.sourceLabel ?? '')}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   private mergeSourceEvidence(
@@ -738,6 +770,21 @@ export class ScholarshipImportAtomicTransferUseCase
       item.state === 'RESOLVED' &&
       item.rawValue !== null &&
       this.normalize(item.rawValue) === normalized
+    ) ?? null;
+  }
+
+  private resolutionForCanonicalId(
+    items: CanonicalScreeningRecord[],
+    target: CanonicalTarget,
+    canonicalId: string,
+  ): CanonicalScreeningRecord | null {
+    const normalized = this.normalize(canonicalId);
+    return items.find((item) =>
+      item.target === target &&
+      item.state === 'RESOLVED' &&
+      [item.canonicalReferenceId, item.canonicalPublicId]
+        .filter((value): value is string => Boolean(value))
+        .some((value) => this.normalize(value) === normalized)
     ) ?? null;
   }
 

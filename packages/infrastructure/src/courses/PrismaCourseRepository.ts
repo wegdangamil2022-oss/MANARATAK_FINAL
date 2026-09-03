@@ -38,6 +38,7 @@ interface CourseRecord {
   isFreeCertificate: boolean | null;
   certificateType: string | null;
   learningLanguageRaw: string | null;
+  learningLanguageReferenceId: string | null;
   studyLevelRaw: string | null;
   studyDurationRaw: string | null;
   shortCourseTopicsRaw: string | null;
@@ -128,6 +129,7 @@ const RESERVED_OPTIONAL_FIELD_KEYS = new Set([
   'isFreeCertificate',
   'certificateType',
   'learningLanguageRaw',
+  'learningLanguageReferenceId',
   'studyLevelRaw',
   'studyDurationRaw',
   'shortCourseTopicsRaw',
@@ -414,6 +416,7 @@ export class PrismaCourseRepository implements ITransactionalCourseRepository {
       isFreeCertificate: record.isFreeCertificate ?? undefined,
       certificateType: record.certificateType ?? undefined,
       learningLanguageRaw: record.learningLanguageRaw ?? undefined,
+      learningLanguageReferenceId: record.learningLanguageReferenceId ?? undefined,
       studyLevelRaw: record.studyLevelRaw ?? undefined,
       studyDurationRaw: record.studyDurationRaw ?? undefined,
       shortCourseTopicsRaw: record.shortCourseTopicsRaw ?? undefined,

@@ -3,12 +3,13 @@
 ## 1. Document Information
 
 - **Title:** Enterprise Event Catalog
-- **Version:** 1.0.0
-- **Status:** Finalized
-- **Date:** 2026-07-19
+- **Version:** 1.0.1
+- **Status:** Finalized — aligned with Roadmap v6.0
+- **Date:** 2026-09-03
 - **Owner:** Chief Enterprise Software Architect
 - **Approval Authority:** Architecture Review Board (ARB)
 - **Artifact Type:** Enterprise Architecture Model
+- **Authority:** `docs/governance/roadmap/MANARATAK-2.0-Roadmap-v6.0.md`
 
 ## 2. Purpose
 
@@ -18,7 +19,7 @@ This document serves as the official catalog of all enterprise events within the
 
 The following architectural rules govern the enterprise event ecosystem:
 
-- **Naming Standards:** Events must follow the `[Entity][StateChange]` past-tense convention (e.g., `ApplicationSubmitted`, `UniversityOnboarded`).
+- **Naming Standards:** Events must follow the `[Entity][StateChange]` past-tense convention (e.g., `CourseCompleted`, `UniversityOnboarded`).
 - **Versioning Rules:** All event schemas are immutable. Changes require a new semantic version (e.g., `v1` to `v2`).
 - **Deprecation Rules:** Deprecated events require a minimum 90-day sunset period, with proactive alerts to all registered consumers.
 - **Ownership Rules:** An event is exclusively owned by the Bounded Context that maintains the authoritative state (Canonical Data Model) of the mutated entity.
@@ -58,7 +59,7 @@ Events are classified into four architectural groups:
   - **Producer:** Phase 11 (Universities & Institutions)
   - **Consumers:** Enterprise Search, Analytics, Phase 15 (Enterprise Student Platform (Student Workspace))
   - **Trigger:** Admin approval of a university profile.
-  - **Business Meaning:** A new institution is ready to receive student applications.
+  - **Business Meaning:** A new institution is approved for owner-domain discovery/read-model consumption.
   - **Payload Responsibility:** Logical ID, University Name, Status, Core Metadata.
   - **Criticality:** High
   - **Delivery Type:** Guaranteed (At-least-once)
@@ -70,12 +71,12 @@ Events are classified into four architectural groups:
 ### 6.2. Scholarship Events
 
 - **Event Name:** `ScholarshipPublished`
-  - **Description:** Emitted when a financial aid opportunity opens for applications.
+  - **Description:** Emitted when a scholarship opportunity becomes published and discoverable.
   - **Category:** Scholarship Events
   - **Producer:** Phase 12 (Scholarships)
   - **Consumers:** Notification Platform, Enterprise Search, Phase 15 (Enterprise Student Platform (Student Workspace))
-  - **Trigger:** Scholarship date reaches the opening window.
-  - **Business Meaning:** Students can now apply for this specific fund.
+  - **Trigger:** Scholarship lifecycle reaches the published/open discovery state.
+  - **Business Meaning:** The scholarship is available to published discovery/read-model consumers; this event does not assign application-processing ownership.
   - **Payload Responsibility:** Scholarship ID, Title, Eligibility Criteria Hash.
   - **Criticality:** High
   - **Delivery Type:** Guaranteed
@@ -84,52 +85,56 @@ Events are classified into four architectural groups:
   - **Retention Policy:** 7 Years (Compliance)
   - **Ownership:** Domain Architect (Schol)
 
-- **Event Name:** `ScholarshipApplicationSubmitted`
-  - **Description:** Emitted when a student submits an internal scholarship application.
-  - **Category:** Scholarship Events
-  - **Producer:** Phase 12 (Scholarships)
-  - **Consumers:** Notification Platform, Analytics
-  - **Trigger:** Student completes the internal application workflow.
-  - **Business Meaning:** Formal commencement of the scholarship evaluation process.
-  - **Payload Responsibility:** Application ID, Scholarship Version ID, Student ID.
+### 6.3. Application Ownership Boundary
+
+Roadmap v6.0 does not designate Phase 12 or Phase 15 as the owner of a general-purpose university/scholarship application-processing aggregate. Historical `ScholarshipApplicationSubmitted`, `ScholarshipApplicationApproved`, and generic student `ApplicationSubmitted` ownership claims are therefore removed from this authoritative catalog. They must not be reintroduced until a Roadmap/ADR explicitly assigns an owner and its domain/API/event contracts.
+
+### 6.3a. Learning Completion Events
+
+- **Event Name:** `CourseCompleted`
+  - **Description:** Emitted when Phase 13 records authoritative course completion.
+  - **Producer:** Phase 13 (Learning Platform)
+  - **Consumers:** Phase 14 (Enterprise Certificates Platform), analytics/read-model consumers as approved
+  - **Business Meaning:** Learning completion fact only; certificate issuance remains a Phase 14 decision.
+  - **Payload Responsibility:** Completion ID, Course ID, Student/User reference, completion timestamp/version.
+  - **Criticality:** Critical
+  - **Delivery Type:** Guaranteed / idempotent consumption required
+  - **Event Type:** Cross-Domain Domain Event
+  - **Ownership:** Domain Architect (Learning)
+
+- **Event Name:** `LearningPathCompleted`
+  - **Description:** Emitted when Phase 13 records authoritative learning-path completion.
+  - **Producer:** Phase 13 (Learning Platform)
+  - **Consumers:** Phase 14 (Enterprise Certificates Platform), analytics/read-model consumers as approved
+  - **Business Meaning:** Learning completion fact only; no certificate is generated inside Phase 13.
+  - **Payload Responsibility:** Completion ID, LearningPath ID, Student/User reference, completion timestamp/version.
+  - **Criticality:** Critical
+  - **Delivery Type:** Guaranteed / idempotent consumption required
+  - **Event Type:** Cross-Domain Domain Event
+  - **Ownership:** Domain Architect (Learning)
+
+### 6.3b. Certificate Events
+
+- **Event Name:** `CertificateIssued`
+  - **Description:** Emitted after Phase 14 independently validates eligibility/policy and issues a credential.
+  - **Producer:** Phase 14 (Enterprise Certificates Platform)
+  - **Consumers:** Phase 15 Student Workspace, Phase 24 Public verification/read-model composition, analytics as approved
+  - **Business Meaning:** A credential now exists under Phase 14 lifecycle authority.
+  - **Payload Responsibility:** Certificate ID, subject reference, credential type/template version, issued timestamp/status.
   - **Criticality:** Critical
   - **Delivery Type:** Guaranteed
-  - **Event Type:** Domain Event
-  - **Version Strategy:** Semantic
-  - **Retention Policy:** Permanent
-  - **Ownership:** Domain Architect (Schol)
+  - **Event Type:** Cross-Domain Domain Event
+  - **Ownership:** Domain Architect (Certificates)
 
-- **Event Name:** `ScholarshipApplicationApproved`
-  - **Description:** Emitted when a scholarship application is approved and awarded.
-  - **Category:** Scholarship Events
-  - **Producer:** Phase 12 (Scholarships)
-  - **Consumers:** Notification Platform, Analytics, Phase 15 (Enterprise Student Platform (Student Workspace))
-  - **Trigger:** Reviewer approves the scholarship application.
-  - **Business Meaning:** The student has been awarded the scholarship.
-  - **Payload Responsibility:** Application ID, Student ID.
+- **Event Name:** `CertificateRevoked`
+  - **Description:** Emitted when Phase 14 revokes an issued credential under immutable audit policy.
+  - **Producer:** Phase 14 (Enterprise Certificates Platform)
+  - **Consumers:** Phase 15 Student Workspace, Phase 24 verification/read-model composition, analytics as approved
+  - **Business Meaning:** Consumers must update credential status; the certificate record remains under P14 authority.
   - **Criticality:** Critical
   - **Delivery Type:** Guaranteed
-  - **Event Type:** Domain Event
-  - **Version Strategy:** Semantic
-  - **Retention Policy:** Permanent
-  - **Ownership:** Domain Architect (Schol)
-
-### 6.3. Student Events
-
-- **Event Name:** `ApplicationSubmitted`
-  - **Description:** Emitted when a student finalizes a university application.
-  - **Category:** Student Events
-  - **Producer:** Phase 15 (Enterprise Student Platform (Student Workspace))
-  - **Consumers:** Workflow Engine, Notification Platform, Analytics
-  - **Trigger:** Student clicks 'Submit' on the application wizard.
-  - **Business Meaning:** Formal commencement of the admission process.
-  - **Payload Responsibility:** Application ID, Student ID, Target ID (Univ).
-  - **Criticality:** Critical
-  - **Delivery Type:** Guaranteed
-  - **Event Type:** Domain Event
-  - **Version Strategy:** Semantic
-  - **Retention Policy:** Permanent
-  - **Ownership:** Domain Architect (Stu)
+  - **Event Type:** Cross-Domain Domain Event
+  - **Ownership:** Domain Architect (Certificates)
 
 ### 6.4. Academic Taxonomy Events
 
@@ -153,10 +158,10 @@ Events are classified into four architectural groups:
 - **Event Name:** `ImportJobCompleted`
   - **Description:** Emitted when an external data ETL job finishes processing.
   - **Category:** Import Events
-  - **Producer:** Universal Import Platform
-  - **Consumers:** Academic Taxonomy, Phase 11 (Universities & Institutions), Notification Platform
-  - **Trigger:** ETL pipeline success execution.
-  - **Business Meaning:** Fresh canonical data is available for integration.
+  - **Producer:** Phase 6 (Universal Import Infrastructure)
+  - **Consumers:** Owning domain import consumers, Notification Platform as approved
+  - **Trigger:** Generic acquisition/parsing/import-mechanics job completes.
+  - **Business Meaning:** A raw/staged import handoff is available for the receiving owner domain. Final normalization, validation, canonical identity and publish readiness remain the receiving domain's authority.
   - **Payload Responsibility:** Job ID, Source System, Record Count, Status.
   - **Criticality:** Medium
   - **Delivery Type:** Guaranteed
@@ -201,60 +206,36 @@ Events are classified into four architectural groups:
 
 ## 7. Event Dependencies
 
-| Producer                                                       | Consumer                                                   | Event                  | Interaction Pattern           | Criticality |
-| :------------------------------------------------------------- | :--------------------------------------------------------- | :--------------------- | :---------------------------- | :---------- |
-| **Phase 15 (Enterprise Student Platform (Student Workspace))** | Workflow Engine                                            | `ApplicationSubmitted` | Choreography to Orchestration | Critical    |
-| **Phase 13 (Learning Platform)**                               | Phase 14 (Enterprise Certificates Platform)                | `CourseCompleted`      | Trigger Credential Issuance   | Critical    |
-| **Phase 14 (Enterprise Certificates Platform)**                | Phase 15 (Enterprise Student Platform (Student Workspace)) | `CertificateIssued`    | Update Student Portfolio      | Critical    |
+| Producer | Consumer | Event | Interaction Pattern | Criticality |
+| --- | --- | --- | --- | --- |
+| **Phase 13 Learning** | **Phase 14 Certificates** | `CourseCompleted` | Completion fact -> credential policy/issuance | Critical |
+| **Phase 13 Learning** | **Phase 14 Certificates** | `LearningPathCompleted` | Completion fact -> credential policy/issuance | Critical |
+| **Phase 14 Certificates** | **Phase 15 Student Workspace** | `CertificateIssued` / `CertificateRevoked` | Student certificate projection | Critical |
+| **Phase 14 Certificates** | **Phase 24 Public** | `CertificateIssued` / `CertificateRevoked` | Public verification projection | Critical |
+| **Phase 11 Universities** | Enterprise Search | `UniversityOnboarded` | State projection (CQRS) | High |
+| **Phase 12 Scholarships** | Notification/Search | `ScholarshipPublished` | Discovery notification/projection | Medium |
+| **Phase 8 Academic Taxonomy** | Phase 11 Universities | `TaxonomyDisciplineCreated` | Read-model hydration | High |
+| **Authentication/IAM** | Phase 15 Student Workspace | `UserRegistered` | Workspace/profile initialization | Critical |
+| **Universal Import** | Owning domain import consumers | `ImportJobCompleted` | Import handoff signal; final normalization remains owner-domain responsibility | Medium |
+| **All Domains** | Analytics Platform | approved domain events | Telemetry ingestion | Low |
 
-| **Phase 11 (Universities & Institutions)** | Enterprise Search | `UniversityOnboarded` | State Projection (CQRS) | High |
-| **Phase 12 (Scholarships)**| Notification Platform | `ScholarshipPublished` | Event Notification | Medium |
-| **Academic Taxonomy** | Phase 11 (Universities & Institutions) | `TaxonomyDisciplineCreated`| Read-Model Hydration | High |
-| **Authentication** | Phase 15 (Enterprise Student Platform (Student Workspace)) | `UserRegistered` | Cross-Domain Sync | Critical |
-| **Universal Import** | Academic Taxonomy | `ImportJobCompleted` | ETL Trigger | Medium |
-| **All Domains** | Analytics Platform | `*` (All Domain Events) | Telemetry Ingestion | Low |
+**Binding rule:** There is no P15 `ApplicationSubmitted` enterprise event and no P12 scholarship-application event in this authority catalog unless application ownership is explicitly adopted later. P13→P14 credential integration is completion-event based only.
 
 ## 8. Visual Model
 
 ```mermaid
 graph TD
-    %% Event Producers
-    subgraph Producers [Event Producers]
-        ST[Phase 15 (Enterprise Student Platform (Student Workspace))]
-        UP[Phase 11 (Universities & Institutions)]
-        SP[Phase 12 (Scholarships)]
-        AT[Academic Taxonomy]
-        IAM[IAM / Auth]
-    end
-
-    %% Enterprise Event Bus
-    EB((Enterprise Event Bus))
-
-    %% Event Consumers
-    subgraph Consumers [Event Consumers]
-        WF[Workflow Engine]
-        ES[Enterprise Search]
-        NOTIF[Notification Platform]
-        AN[Analytics Platform]
-    end
-
-    %% Publishing Events
-    ST -- ApplicationSubmitted --> EB
-    UP -- UniversityOnboarded --> EB
-    SP -- ScholarshipPublished --> EB
-    AT -- TaxonomyDisciplineCreated --> EB
-    IAM -- UserRegistered --> EB
-
-    %% Consuming Events
-    EB -- Saga Trigger --> WF
-    EB -- Index Hydration --> ES
-    EB -- Alert Trigger --> NOTIF
-    EB -- Data Warehouse Sync --> AN
-
-    %% Cross-Domain Consumption (Peer-to-Peer via Bus)
-    EB -- Read-Model Update --> UP
-    EB -- Read-Model Update --> SP
-    EB -- Profile Init --> ST
+    P13[Phase 13 Learning] -- CourseCompleted / LearningPathCompleted --> EB((Enterprise Event Bus))
+    EB --> P14[Phase 14 Certificates]
+    P14 -- CertificateIssued / CertificateRevoked --> EB
+    EB --> P15[Phase 15 Student Workspace]
+    EB --> P24[Phase 24 Public Verification]
+    P11[Phase 11 Universities] -- UniversityOnboarded --> EB
+    P12[Phase 12 Scholarships] -- ScholarshipPublished --> EB
+    P8[Phase 8 Taxonomy] -- TaxonomyDisciplineCreated --> EB
+    EB --> ES[Enterprise Search]
+    EB --> NOTIF[Notification Platform]
+    EB --> AN[Analytics Platform]
 ```
 
 ## 9. Validation
@@ -319,3 +300,4 @@ The ARB has validated this catalog against the following criteria:
 ## 13. Revision History
 
 - **Initial Version (1.0.0):** Official Enterprise Event Catalog established for MANARATAK 2.0.
+- **1.0.1 (2026-09-03):** P1 authority alignment removed unapproved P12/P15 broad-application ownership and froze P13→P14 to completion events with P14 as certificate authority.

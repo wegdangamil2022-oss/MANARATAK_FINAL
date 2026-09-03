@@ -104,14 +104,14 @@ describeDatabase('WP-IC-06 disposable PostgreSQL relationships', () => {
 
       expect((await repository.listPublishedCoursesForMajor(major.id)).total).toBe(0);
 
-      await service.approveTaxonomyLink(taxonomyLink.id, 'test-reviewer');
+      await service.approveTaxonomyLink(course.id, taxonomyLink.id, 'test-reviewer');
       const [projection] = await service.projectMajors(course.id);
       expect(projection.projectionState).toBe('PROPOSED');
       expect(projection.sourceMajorClassificationMappingId).toBe(mapping.id);
 
       expect((await repository.listPublishedCoursesForMajor(major.id)).total).toBe(0);
 
-      await service.approveMajorProjection(projection.id, 'test-reviewer');
+      await service.approveMajorProjection(course.id, projection.id, 'test-reviewer');
       const related = await repository.listPublishedCoursesForMajor(major.id);
 
       expect(related.total).toBe(1);

@@ -13,7 +13,7 @@ const contracts = read('packages/application/src/scholarships/resolution/Scholar
 for (const state of ['RESOLVED', 'UNRESOLVED', 'REVIEW_REQUIRED', 'AMBIGUOUS', 'NOT_APPLICABLE']) {
   requireValue(contracts.includes(`'${state}'`), `Missing resolver state ${state}`);
 }
-for (const target of ['PROVIDER_UNIVERSITY', 'UNIVERSITY', 'COUNTRY', 'LANGUAGE', 'CURRENCY', 'DEGREE_LEVEL', 'MAJOR', 'INTERNATIONAL_TEST']) {
+for (const target of ['PROVIDER_UNIVERSITY', 'UNIVERSITY', 'ACADEMIC_PROGRAM', 'COUNTRY', 'LANGUAGE', 'CURRENCY', 'DEGREE_LEVEL', 'MAJOR', 'INTERNATIONAL_TEST']) {
   requireValue(contracts.includes(`'${target}'`), `Missing resolver target ${target}`);
 }
 requireValue(service.includes('INS-'), 'University canonical identity enforcement is missing');

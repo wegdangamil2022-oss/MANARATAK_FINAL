@@ -83,6 +83,40 @@ describe('WP12-9 AdminScholarshipUseCases catalog detail', () => {
       expect.objectContaining({ area: 'STUDY_LANGUAGE', rawValue: 'English', canonicalId: null }),
     ]));
   });
+
+  it('treats TARGET_PROGRAM links by academicProgramId rather than requiring universityId', async () => {
+    const resolved = await new AdminScholarshipUseCases(repository(scholarship({
+      universityLinks: [{ linkKey: 'p1', relationshipTypeCode: 'TARGET_PROGRAM', sourceLabel: 'Computer Science PhD', universityId: null, academicProgramId: 'program-1', resolutionStatus: 'RESOLVED' }],
+    }))).getScholarshipCatalogDetail('sch-1');
+    expect(resolved.unresolvedLinks).not.toEqual(expect.arrayContaining([expect.objectContaining({ key: 'p1' })]));
+
+    const unresolved = await new AdminScholarshipUseCases(repository(scholarship({
+      universityLinks: [{ linkKey: 'p2', relationshipTypeCode: 'TARGET_PROGRAM', sourceLabel: 'Computer Science PhD', universityId: null, academicProgramId: null, resolutionStatus: 'UNRESOLVED' }],
+    }))).getScholarshipCatalogDetail('sch-1');
+    expect(unresolved.unresolvedLinks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ area: 'ACADEMIC_PROGRAM', key: 'p2', canonicalId: null }),
+    ]));
+  });
+
+
+  it('reports unresolved Currency and canonical eligibility references before publication', async () => {
+    const detail = await new AdminScholarshipUseCases(repository(scholarship({
+      benefits: [{ benefitKey: 'cash', benefitTypeCode: 'STIPEND', amount: 1000, currencyReferenceId: null }],
+      currency: 'USD',
+      eligibilityItems: [
+        { itemKey: 'country-elig', itemTypeCode: 'COUNTRY', valueText: 'Qatar', countryReferenceId: null, resolutionStatus: 'UNRESOLVED' },
+        { itemKey: 'degree-elig', itemTypeCode: 'DEGREE_LEVEL', valueText: 'Bachelor', degreeLevelId: null, resolutionStatus: 'UNRESOLVED' },
+        { itemKey: 'major-elig', itemTypeCode: 'MAJOR', valueText: 'Computer Science', majorId: null, resolutionStatus: 'UNRESOLVED' },
+      ],
+    }))).getScholarshipCatalogDetail('sch-1');
+    expect(detail.unresolvedLinks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ area: 'CURRENCY', key: 'cash' }),
+      expect.objectContaining({ area: 'COUNTRY', key: 'country-elig' }),
+      expect.objectContaining({ area: 'DEGREE', key: 'degree-elig' }),
+      expect.objectContaining({ area: 'MAJOR', key: 'major-elig' }),
+    ]));
+  });
+
   it('preserves canonical references only for semantically equivalent source values', async () => {
     const current = scholarship({
       degreeTargets: [{ targetKey: 'd1', degreeLevelId: 'degree-existing', sourceLabel: 'Bachelor', resolutionStatus: 'RESOLVED' }],

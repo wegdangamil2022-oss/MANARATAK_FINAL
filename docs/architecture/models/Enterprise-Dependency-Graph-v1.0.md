@@ -3,237 +3,174 @@
 ## 1. Document Information
 
 - **Title:** Enterprise Dependency Graph
-- **Version:** 1.0.0
-- **Status:** Finalized
-- **Date:** 2026-07-19
+- **Version:** 1.0.1
+- **Status:** Finalized — aligned with Roadmap v6.0
+- **Date:** 2026-09-03
 - **Owner:** Chief Enterprise Software Architect
 - **Approval Authority:** Architecture Review Board (ARB)
 - **Artifact Type:** Enterprise Logical Architecture Model
+- **Authority:** `docs/governance/roadmap/MANARATAK-2.0-Roadmap-v6.0.md`
 
 ## 2. Purpose
 
-This document serves as the authoritative dependency model for the MANARATAK 2.0 enterprise architecture. It maps every logical architectural dependency across all enterprise domains, establishing clear boundaries, integration vectors, and governance rules. This is strictly a logical architecture artifact defining structural and directional dependencies, not a physical implementation or network graph.
+This document is the authoritative logical dependency model for MANARATAK 2.0. It defines dependency direction and cross-phase ownership without redefining domain truth. Roadmap v6.0 controls phase numbering and ownership. Domain consumers may use owner APIs, read models, and events, but must not duplicate ownership or query another domain's persistence directly.
 
-## 3. Enterprise Domains
+## 3. Roadmap v6.0 Phase Map
 
-This graph governs the integration of the following enterprise domains and platforms:
+- **Phases 1–5:** Enterprise Foundation Architecture, including IAM, security, configuration, workflow/search foundations, observability, and the Phase 05 Enterprise Asset Platform (EAP).
+- **Phase 6:** Universal Import Infrastructure.
+- **Phase 7:** Global Reference Data.
+- **Phase 8:** Academic Taxonomy.
+- **Phase 9:** International Tests Platform.
+- **Phase 10:** Majors & Disciplines Platform.
+- **Phase 11:** Universities & Institutions Platform.
+- **Phase 12:** Scholarships Platform.
+- **Phase 13:** Learning Platform.
+- **Phase 14:** Enterprise Certificates Platform.
+- **Phase 15:** Enterprise Student Platform (Student Workspace).
+- **Phase 16:** Enterprise CMS Platform.
+- **Phase 17:** Enterprise AI Platform.
+- **Phase 18:** Enterprise Student Tools Platform.
+- **Phase 19:** Enterprise Finance & Payments Platform.
+- **Phase 20:** Enterprise Services Platform.
+- **Phase 21:** Enterprise Career & Alumni Platform.
+- **Phase 22:** Enterprise Product Experience.
+- **Phase 23:** Enterprise Administration Portal.
+- **Phase 24:** Enterprise Public Platform.
 
-- Phase 1 (Foundation)
-- Phase 2 (Identity)
-- Phase 3 (Payments)
-- Phase 4 (Communication)
-- Phase 5 (Core)
-- Phase 6 (Universal Import)
-- Phase 7 (Translation)
-- Phase 8 (Academic Taxonomy)
-- Phase 9 (International Tests Platform)
-- Phase 10 (Major Platform)
-- Phase 11 (Universities & Institutions)
-- Phase 12 (Scholarships)
-- Phase 13 (Learning Platform)
-- Phase 14 (Enterprise Certificates Platform)
-- Phase 15 (Enterprise Student Platform (Student Workspace))
-- Phase 16 (Enterprise CMS Platform)
-- Phase 17 (Enterprise AI Platform)
-- Phase 18 (Enterprise Student Tools Platform)
-- Phase 19 (Enterprise Finance & Payments Platform)
-- Phase 20 (Enterprise Services Platform)
-- Phase 21 (Enterprise Career & Alumni Platform)
-- CMS (Content Management System)
-- Universal Import Platform
-- Translation Platform
-- AI Platform
-- Enterprise Search
-- Notification Platform
-- Analytics Platform
-- Workflow Engine
-- Authentication
-- Authorization
-- Configuration
-- Background Jobs
-- Event Platform
-- Shared Infrastructure
+Cross-cutting capabilities such as Event Platform, Background Jobs, Search, Notifications, Analytics, and configuration remain foundation/shared capabilities and do not replace phase ownership.
 
 ## 4. Dependency Classification
 
-Dependencies within the MANARATAK 2.0 architecture are classified as follows:
+- **Canonical reference dependency:** Consumer stores/uses canonical IDs or owner read models from an upstream reference authority.
+- **Synchronous contract:** Consumer calls an owner API/read-model contract. No direct cross-domain persistence access is allowed.
+- **Asynchronous contract:** Producer publishes an owner event; consumers hydrate projections or react independently.
+- **Control-plane dependency:** Phase 23 composes owner APIs for administration but does not own the underlying business truth.
+- **Composition dependency:** Phase 24 renders published owner read models but does not own domain records.
+- **Shared infrastructure dependency:** Cross-cutting foundation capability used through an abstract contract.
 
-- **Mandatory:** The consumer cannot function without synchronous or guaranteed access to the producer.
-- **Optional:** The consumer can degrade gracefully if the producer is unavailable.
-- **Shared Service:** Dependency on a centralized enterprise capability decoupled from core business logic.
-- **Infrastructure:** Foundational architectural dependency required for system operation.
-- **Cross-Domain:** Direct interaction between two distinct business bounded contexts.
-- **External:** Dependency on systems or entities outside the enterprise boundary.
+## 5. Authoritative Dependency Matrix
 
-## 5. Dependency Matrix
+| Producer / Authority | Consumer | Contract Direction | Criticality | Boundary |
+| --- | --- | --- | --- | --- |
+| Phase 7 Global Reference Data | Phases 8–24 as applicable | Canonical IDs / reference read models | Critical | Country, region, city, language, currency and other global references remain P7 truth. |
+| Phase 8 Academic Taxonomy | Phases 10, 11, 12 | Canonical taxonomy / DegreeLevel references | Critical | P8 owns taxonomy, classification hierarchy and DegreeLevel; it does **not** own majors. |
+| Phase 9 International Tests | Phases 11, 12 | Canonical test IDs / read models | High | Admission and eligibility consumers reference P9 identities rather than free text. |
+| Phase 10 Majors & Disciplines | Phases 11, 12, 13, 18, 24 | Major IDs / owner read models | Critical | P10 is the canonical Major SSoT. Downstream domains own their relationships to majors. |
+| Phase 11 Universities & Institutions | Phase 12 | University and AcademicProgram IDs / read models | Critical | AcademicProgram authority remains P11 and binds University + Major + DegreeLevel. |
+| Phase 11 Universities & Institutions | Phase 15 | Read models / personal references | High | P15 may save, view and hydrate university/program references; it does not acquire university/application ownership. |
+| Phase 12 Scholarships | Phase 15 | Published scholarship read models / personal references | High | P15 may save and track workspace references. Broad scholarship-application processing is not assigned to P15 by this graph. |
+| Phase 13 Learning | Phase 14 Certificates | **Completion events only** (`CourseCompleted`, `LearningPathCompleted`) | Critical | No synchronous certificate-generation ownership is assigned to P13. P14 independently owns issuance/verification/revocation. |
+| Phase 13 Learning | Phase 15 | Learning progress read models | High | P15 consumes progress; P13 owns learning truth. |
+| Phase 14 Certificates | Phase 15 | Certificate events/read models | High | P15 displays certificate history/telemetry; P14 owns credential lifecycle. |
+| Phase 16 CMS | Phase 24 Public | Published editorial read models | High | P16 owns editorial content; P24 owns public composition/rendering. |
+| Phase 17 AI | Phase 18 Student Tools | AI execution contract | High | P17 owns models/providers/prompts/execution; P18 owns tool orchestration and student-facing tool behavior. |
+| Phase 19 Finance & Payments | Phases 13, 20 and other monetized domains | Payment/status read models and finance contracts | Critical | P19 is the execution authority for payments, ledger, invoices and refunds. |
+| Phase 20 Services | Phase 15 / Phase 24 | Service status/read models | High | P20 owns service catalog/request/fulfillment; P15 is private workspace, P24 is public composition. |
+| Phase 21 Career & Alumni | Phase 15 / Phase 24 | Career/alumni read models | High | P21 owns career opportunities, career applications and alumni metadata. |
+| Domain owners P7–P21 | Phase 23 Admin | Owner command/query APIs | Critical | P23 is a control plane; no domain persistence/business truth is re-owned by Admin. |
+| Published domain owners P7–P21 | Phase 24 Public | Published read models | Critical | P24 composes visitor-facing pages; no domain record ownership moves to P24. |
+| Phase 22 Product Experience | Phases 23–24 | UX principles / product contracts | Medium | P22 governs product experience principles, not business-domain persistence. |
+| IAM / Authorization foundation | All protected domains | Security contracts | Critical | Authentication/authorization remain cross-cutting foundation capabilities. |
+| Event Platform | Domain producers/consumers | Outbox/event transport | Critical | Events preserve owner boundaries and must not create shared mutable models. |
+| Background Jobs / Search / Notification / Analytics | Domain consumers | Shared service contracts | High | Access through abstractions; no shared service becomes owner of domain truth. |
 
-| Producer                                                       | Consumer                                                   | Dependency Type            | Dependency Direction   | Criticality | Reason                                                                                       |
-| :------------------------------------------------------------- | :--------------------------------------------------------- | :------------------------- | :--------------------- | :---------- | :------------------------------------------------------------------------------------------- |
-| **Phase 8 (Academic Taxonomy)**                                | Phase 11 (Universities & Institutions)                     | Mandatory / Cross-Domain   | Inward (to Reference)  | High        | University programs and campuses must be classified using standardized academic disciplines. |
-| **Phase 11 (Universities & Institutions)**                     | Phase 12 (Scholarships)                                    | Mandatory / Cross-Domain   | Inward (to Core)       | High        | Scholarships are inherently tied to specific universities and degree programs.               |
-| **Phase 8 (Academic Taxonomy)**                                | Phase 12 (Scholarships)                                    | Mandatory / Cross-Domain   | Inward (to Reference)  | High        | Scholarships are filtered and routed based on academic disciplines.                          |
-| **University / Scholarship**                                   | Phase 15 (Enterprise Student Platform (Student Workspace)) | Mandatory / Cross-Domain   | Inward (to Core)       | High        | Student profiles map directly to university applications and scholarship opportunities.      |
-| **Authentication**                                             | All Business Domains                                       | Mandatory / Shared Service | Downward (to IAM)      | Critical    | Every domain requires identity verification for secure API execution.                        |
-| **Authorization**                                              | All Business Domains                                       | Mandatory / Shared Service | Downward (to IAM)      | Critical    | Every domain requires RBAC/ABAC policy evaluation.                                           |
-| **Configuration**                                              | All Domains                                                | Mandatory / Infrastructure | Downward (to Infra)    | Critical    | All domains must load dynamic, environment-agnostic settings.                                |
-| **Universal Import**                                           | Phase 8 (Academic Taxonomy)                                | Optional / Shared Service  | Outward (to Utility)   | Medium      | ETL pipelines feed external classifications into the taxonomy.                               |
-| **All Domains**                                                | Event Platform                                             | Mandatory / Infrastructure | Downward (to Infra)    | High        | All state mutations must be published to the Event Bus for cross-domain choreography.        |
-| **Event Platform**                                             | Analytics Platform                                         | Mandatory / Infrastructure | Upward (from Infra)    | Medium      | Analytics consumes business events to build data warehouse projections.                      |
-| **Event Platform**                                             | Enterprise Search                                          | Mandatory / Infrastructure | Upward (from Infra)    | High        | Search indices are populated asynchronously via state mutation events.                       |
-| **Workflow Engine**                                            | All Business Domains                                       | Shared Service             | Bi-Directional (Async) | Medium      | Orchestrates complex multi-domain sagas and compensating transactions.                       |
-| **All Domains**                                                | Notification Platform                                      | Optional / Shared Service  | Outward (to Utility)   | Low         | Business events trigger out-of-band user communications.                                     |
-| **CMS**                                                        | Phase 15 (Enterprise Student Platform (Student Workspace)) | Optional / Shared Service  | Outward (to Utility)   | Low         | Marketing and informational content is served dynamically to the Student UI.                 |
-| **Phase 13 (Learning Platform)**                               | Phase 14 (Enterprise Certificates Platform)                | Mandatory / Cross-Domain   | Outward (Event)        | High        | Learning completion events trigger certificate generation.                                   |
-| **Phase 14 (Enterprise Certificates Platform)**                | Phase 15 (Enterprise Student Platform (Student Workspace)) | Mandatory / Cross-Domain   | Outward (Event)        | High        | Issued certificates are linked to the student profile.                                       |
-| **Phase 15 (Enterprise Student Platform (Student Workspace))** | Phase 20 (Enterprise Services Platform)                    | Mandatory / Cross-Domain   | Outward (Event)        | High        | Student activity hydrates enterprise read models.                                            |
+## 6. Binding Dependency Rules
 
-| **All Business Domains**| AI Platform | Optional / Shared Service | Outward (to Utility) | Medium | Domains delegate semantic matching and generation tasks to the AI Engine. |
-| **All Domains** | Background Jobs | Mandatory / Infrastructure | Downward (to Infra) | High | Long-running processes are offloaded to background workers. |
-
-## 6. Dependency Rules
-
-The Enterprise Architecture enforces the following structural rules:
-
-- **Allowed Dependencies:** Core business domains may depend on foundational reference domains (e.g., Phase 8 (Academic Taxonomy)). All domains may depend on Identity & Access Management (IAM) and Shared Infrastructure.
-- **Forbidden Dependencies:** Infrastructure and Utility platforms (e.g., Notification Platform, Analytics) must NEVER possess a synchronous inbound dependency on a Core Business Domain.
-- **Circular Dependency Prevention:** Two domains must NEVER possess synchronous dependencies on each other. If bidirectional communication is required, one direction MUST be handled asynchronously via the Event Platform (Outbox Pattern).
-- **Layering Rules:** Dependencies must flow downward from the Presentation Layer to the Business Layer, and finally to the Infrastructure Layer. Upward dependencies are strictly forbidden.
-- **Shared Service Access Rules:** Shared services (AI, Search, CMS) must be accessed exclusively via abstracted Enterprise Contracts, never via direct vendor SDKs embedded in business domains.
-- **Dependency Inversion Rules:** High-level modules must not depend on low-level modules. Both must depend on abstractions (interfaces/contracts).
-- **Bounded Context Isolation:** A domain must NEVER directly connect to or query the database of another domain. All cross-domain data access must route through published APIs or materialized views populated by asynchronous events.
+1. **Roadmap v6.0 is authoritative:** phase numbering or ownership cannot be changed by this graph.
+2. **One owner per truth:** canonical records and lifecycle decisions remain in their owner phase.
+3. **Canonical IDs first:** where a P7/P8/P9/P10/P11 canonical identity exists, final relationships must not use names, translated labels, or synthetic IDs as identity.
+4. **No cross-domain Prisma/database access:** consumers use owner contracts, projections, or events.
+5. **No circular ownership:** reverse navigation is a read model/projection and never transfers ownership upstream.
+6. **P6 is ingestion mechanics:** final normalization/validation/publish belongs to the receiving owner domain.
+7. **P13 → P14 is asynchronous completion signaling:** P13 emits completion facts; P14 owns certificate issuance and credential lifecycle. No synchronous Certificate Generation API is part of this boundary.
+8. **P15 is a Student Workspace:** it owns private workspace/profile state, collections, history, personalization and references. It does not own universities, scholarships, courses, certificates, or an unspecified broad university/scholarship application engine.
+9. **P23 is the administrative control plane:** it composes owner APIs and may orchestrate approved admin commands; it does not contain owner persistence/business rules.
+10. **P24 is public composition:** it renders published owner read models and owns visitor routing/SEO/page assembly, not underlying domain truth.
+11. **Broad application workflow ownership is not inferred:** no university/scholarship application aggregate is assigned to P12 or P15 by this artifact unless a future Roadmap/ADR explicitly adopts that owner.
 
 ## 7. Visual Model
 
 ```mermaid
 graph TD
-    %% Define Subgraphs for Architectural Layers
-    subgraph IAM [Identity & Access Management]
-        AUTHN[Authentication]
-        AUTHZ[Authorization]
-    end
+    F[Phases 1-5 Foundation / EAP]
+    P6[Phase 6 Universal Import]
+    P7[Phase 7 Global Reference]
+    P8[Phase 8 Academic Taxonomy]
+    P9[Phase 9 International Tests]
+    P10[Phase 10 Majors]
+    P11[Phase 11 Universities & Programs]
+    P12[Phase 12 Scholarships]
+    P13[Phase 13 Learning]
+    P14[Phase 14 Certificates]
+    P15[Phase 15 Student Workspace]
+    P16[Phase 16 CMS]
+    P17[Phase 17 AI]
+    P18[Phase 18 Student Tools]
+    P19[Phase 19 Finance]
+    P20[Phase 20 Services]
+    P21[Phase 21 Career & Alumni]
+    P22[Phase 22 Product Experience]
+    P23[Phase 23 Admin]
+    P24[Phase 24 Public]
 
-    subgraph Core Business Domains
-        ST[Phase 15 (Enterprise Student Platform (Student Workspace))]
-        SP[Phase 12 (Scholarships)]
-        UP[Phase 11 (Universities & Institutions)]
-    end
-
-    subgraph Core Reference Domains
-        AT[Phase 8 (Academic Taxonomy)]
-    end
-
-    subgraph Shared Enterprise Services
-        AI[AI Platform]
-        ES[Enterprise Search]
-        CMS[CMS]
-        TP[Translation Platform]
-        NP[Notification Platform]
-        UIP[Universal Import Platform]
-        WE[Workflow Engine]
-    end
-
-    subgraph Foundation & Infrastructure
-        CFG[Configuration]
-        BJ[Background Jobs]
-        EP[Event Platform]
-        AN[Analytics Platform]
-    end
-
-    %% Core Domain Dependencies
-    ST --> SP
-    ST --> UP
-    SP --> UP
-    SP --> AT
-    UP --> AT
-
-    %% IAM Dependencies
-    Core Business Domains --> IAM
-    Shared Enterprise Services --> IAM
-
-    %% Shared Service Integration (Asynchronous & Synchronous)
-    UIP -.->|ETL Integration| AT
-    UIP -.->|ETL Integration| UP
-    ST -.->|Content Delivery| CMS
-    ST -.->|Translations| TP
-
-    %% AI and Search Delegations
-    Core Business Domains -.->|Inference/Matching| AI
-    Core Business Domains -.->|Search Queries| ES
-
-    %% Event Driven Architecture (State Publishing)
-    Core Business Domains ==Domain Events==> EP
-    Shared Enterprise Services ==System Events==> EP
-
-    %% Downstream Event Consumption
-    EP ==State Hydration==> ES
-    EP ==Telemetry==> AN
-    EP ==Alert Triggers==> NP
-    EP ==Saga Orchestration==> WE
-
-    %% Foundation Dependencies
-    All_Domains((All Domains)) --> CFG
-    All_Domains --> BJ
+    F --> P6
+    F --> P7
+    P7 --> P8
+    P7 --> P9
+    P7 --> P10
+    P8 --> P10
+    P8 --> P11
+    P9 --> P11
+    P10 --> P11
+    P7 --> P12
+    P8 --> P12
+    P9 --> P12
+    P10 --> P12
+    P11 --> P12
+    P13 -. completion events .-> P14
+    P13 --> P15
+    P14 --> P15
+    P17 --> P18
+    P19 --> P20
+    P21 --> P15
+    P16 --> P24
+    P22 --> P23
+    P22 --> P24
+    P11 --> P23
+    P12 --> P23
+    P13 --> P23
+    P14 --> P23
+    P15 --> P23
+    P20 --> P23
+    P21 --> P23
+    P10 --> P24
+    P11 --> P24
+    P12 --> P24
+    P13 --> P24
+    P20 --> P24
+    P21 --> P24
 ```
 
-_(Note: Arrows represent the direction of the dependency, i.e., A --> B means A depends on B)_
+Arrows indicate allowed dependency/consumption direction; they do not transfer data ownership.
 
 ## 8. Validation
 
-The Architecture Review Board validates the following structural guarantees:
+The graph is valid only when all of the following remain true:
 
-- **No circular dependencies:** Confirmed through strict layer isolation and Event Platform decoupling.
-- **No duplicated responsibilities:** Bounded Contexts are strictly segregated.
-- **Proper dependency direction:** Flow strictly adheres to inward and downward architectural vectors.
-- **Shared service consistency:** All domains leverage unified platforms for cross-cutting concerns.
-- **Bounded Context isolation:** Zero database-level integration exists across domains.
-- **DDD compliance:** Dependencies map accurately to aggregate relationships and domain ubiquitous language.
-- **Clean Architecture compliance:** The dependency rule is theoretically unbroken across all defined layers.
+- all 24 Roadmap v6.0 phases are represented by their current names;
+- P8 owns taxonomy/DegreeLevel and P10 owns majors;
+- P13 never owns certificate issuance;
+- P14 is the only certificate authority;
+- P15 remains Student Workspace rather than a broad application-processing owner;
+- P23 remains control-plane composition;
+- P24 remains public composition/rendering;
+- no synchronous circular ownership is introduced;
+- no cross-domain direct persistence access is implied.
 
-## 9. Risks
+## 9. Approval and Revision History
 
-### Dependency Risks
-
-- **Description:** Cascading failures from tightly coupled mandatory synchronous dependencies (e.g., Authentication).
-- **Impact:** Critical.
-- **Likelihood:** Low.
-- **Mitigation:** Extreme high-availability requirements for IAM services, aggressive local caching of AuthZ policies, and circuit breaker patterns on all synchronous cross-domain APIs.
-
-### Coupling Risks
-
-- **Description:** Shared Service interface pollution.
-- **Impact:** Medium.
-- **Likelihood:** Medium.
-- **Mitigation:** Enforcing Interface Segregation Principle on all Shared Services to ensure consumers only depend on the specific methods they use.
-
-### Scalability Risks
-
-- **Description:** Event Platform becoming an enterprise-wide bottleneck.
-- **Impact:** High.
-- **Likelihood:** Low.
-- **Mitigation:** Utilizing horizontally scalable message brokers (e.g., Kafka/PubSub) with partitioned topics and consumer groups.
-
-### Governance Risks
-
-- **Description:** Unapproved "shadow dependencies" bypassing the API Gateway or Event Bus.
-- **Impact:** High.
-- **Likelihood:** Low.
-- **Mitigation:** Network-level zero-trust policies and service mesh constraints explicitly blocking unauthorized service-to-service communication.
-
-## 10. Recommendations
-
-Prioritized architectural improvements required before or during Phase 11 implementation:
-
-1. **Priority 1 (Mandatory):** Generate precise API Contracts (OpenAPI/Swagger) for the dependencies between the Phase 11 (Universities & Institutions) and Phase 8 (Academic Taxonomy).
-2. **Priority 2:** Define the physical Service Mesh configuration rules required to enforce the logical dependency paths mapped in this document.
-3. **Priority 3:** Establish Circuit Breaker thresholds for all mandatory cross-domain synchronous integrations.
-4. **Priority 4:** Deploy automated static analysis tools to the CI/CD pipeline to detect and block circular dependency commits during implementation.
-
-## 11. Approval
-
-- **Architecture Review Board:** Approved
-- **Chief Enterprise Software Architect:** Approved
-- **Approval Status:** Formal Baseline Approved
-
-## 12. Revision History
-
-- **Initial Version (1.0.0):** Official Enterprise Dependency Graph established for MANARATAK 2.0.
+- **Architecture Review Board:** Approved baseline; P1 authority alignment applied 2026-09-03.
+- **Chief Enterprise Software Architect:** Approved baseline; Roadmap v6.0 is the controlling authority.
+- **1.0.0:** Initial enterprise dependency graph.
+- **1.0.1:** P1 source-closure remediation — aligned phase map/ownership to Roadmap v6.0; removed P12/P15 broad-application ownership implication; fixed P13→P14 to completion events only; added P22–P24 and explicit P23/P24 boundaries.

@@ -3,12 +3,13 @@
 ## 1. Document Information
 
 - **Title:** Enterprise API Registry
-- **Version:** 1.0.0
-- **Status:** Finalized
-- **Date:** 2026-07-19
+- **Version:** 1.0.1
+- **Status:** Finalized — aligned with Roadmap v6.0
+- **Date:** 2026-09-03
 - **Owner:** Chief Enterprise Software Architect
 - **Approval Authority:** Architecture Review Board (ARB)
 - **Artifact Type:** Enterprise Architecture Model
+- **Authority:** `docs/governance/roadmap/MANARATAK-2.0-Roadmap-v6.0.md`
 
 ## 2. Purpose
 
@@ -94,23 +95,40 @@ The following architectural rules govern the design and evolution of all enterpr
 - **Availability Target:** 99.99% (Heavily Cached)
 - **Owner Role:** Domain Architect (Tax)
 
-### 5.4. Phase 15 (Enterprise Student Platform (Student Workspace)) APIs
+### 5.4. Phase 15 (Enterprise Student Platform / Student Workspace) APIs
 
-- **API Name:** Student Application API
-- **Owning Domain:** Phase 15 (Enterprise Student Platform (Student Workspace))
-- **Purpose:** Manage the submission and tracking of university and scholarship applications.
-- **Business Capability:** Student Success
+- **API Name:** Student Workspace API
+- **Owning Domain:** Phase 15 (Enterprise Student Platform / Student Workspace)
+- **Purpose:** Manage authenticated student profile/workspace state, dashboard hydration, collections/saved references, recently viewed/history, and privacy/preferences.
+- **Business Capability:** Student Workspace & Personalization
 - **API Style:** REST
-- **Primary Consumers:** External Frontends (Web/Mobile)
-- **Upstream Dependencies:** Phase 11 (Universities & Institutions), Phase 12 (Scholarships)
-- **Downstream Dependencies:** Workflow Engine
+- **Primary Consumers:** Authenticated MANARATAK web/mobile surfaces and approved internal read-model consumers
+- **Upstream Dependencies:** Owner read models from Phases 11–14 and other approved domain references as needed
+- **Downstream Dependencies:** None for business-domain ownership; workspace references remain local personal state
 - **Authentication Requirement:** Required
 - **Authorization Requirement:** Required (Strict Owner-Only ABAC)
 - **Version Strategy:** Semantic
 - **Lifecycle Status:** Approved for Implementation
 - **Criticality:** Critical
 - **Availability Target:** 99.99%
-- **Owner Role:** Domain Architect (Stu)
+- **Owner Role:** Domain Architect (Student)
+- **Boundary:** This API is **not** a general University/Scholarship Application API. Broad application-processing ownership requires a separate explicit Roadmap/ADR decision.
+
+### 5.4a. Phase 14 (Enterprise Certificates Platform) APIs
+
+- **API Name:** Certificate Verification API
+- **Owning Domain:** Phase 14 (Enterprise Certificates Platform)
+- **Purpose:** Verify issued credential identity/status and expose authorized certificate lifecycle read models.
+- **Business Capability:** Enterprise Credentialing
+- **API Style:** REST / internal service contract as appropriate
+- **Primary Consumers:** Phase 15 Student Workspace, Phase 23 Admin, Phase 24 Public verification composition
+- **Upstream Dependencies:** Phase 13 completion **events**, not a synchronous generation API
+- **Authentication Requirement:** Context-dependent; privileged lifecycle operations require authorization
+- **Authorization Requirement:** Required for mutation/privileged reads
+- **Version Strategy:** Semantic
+- **Lifecycle Status:** Approved boundary
+- **Criticality:** Critical
+- **Owner Role:** Domain Architect (Certificates)
 
 ### 5.5. CMS APIs
 
@@ -300,12 +318,15 @@ The following architectural rules govern the design and evolution of all enterpr
 | **Academic Taxonomy**                      | Phase 11 (Universities & Institutions)                     | Taxonomy Query API         | Synchronous         | High        |
 | **Phase 11 (Universities & Institutions)** | Phase 12 (Scholarships)                                    | University Profile API     | Synchronous         | High        |
 | **Phase 12 (Scholarships)**                | Phase 15 (Enterprise Student Platform (Student Workspace)) | Scholarship Discovery API  | Synchronous         | High        |
-| **Phase 13 (Learning Platform)**           | Phase 14 (Enterprise Certificates Platform)                | Certificate Generation API | Synchronous         | High        |
-| **External Verifier**                      | Phase 14 (Enterprise Certificates Platform)                | Verification API           | Synchronous         | Critical    |
+| **Phase 14 (Enterprise Certificates)**    | Phase 15 / Phase 23 / Phase 24                             | Certificate Verification API | Synchronous read/command by authorization | Critical |
 
 | **AI Platform** | Core Domains | AI Inference API | Synchronous / Async | Medium |
 | **CMS** | Frontends | Headless Content Delivery | Synchronous | Medium |
 | **Workflow Engine** | Core Domains | Saga Coordination API | Synchronous / Event | High |
+
+**P13 → P14 boundary:** no synchronous Certificate Generation API is registered. Phase 13 publishes `CourseCompleted` / `LearningPathCompleted` events; Phase 14 consumes them and remains the sole credential lifecycle authority.
+
+**Application boundary:** no general Student Application API is registered under Phase 15, and this registry does not assign broad university/scholarship application processing to P12 or P15.
 
 ## 7. Discovery Model
 
@@ -378,3 +399,4 @@ The ARB has validated this registry against the following standards:
 ## 12. Revision History
 
 - **Initial Version (1.0.0):** Official Enterprise API Registry established for MANARATAK 2.0.
+- **1.0.1 (2026-09-03):** Replaced the historical P15 Student Application API with the Student Workspace API; removed synchronous P13→P14 certificate generation and documented P14 certificate authority.

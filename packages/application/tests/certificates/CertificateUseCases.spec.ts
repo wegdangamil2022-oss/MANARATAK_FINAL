@@ -155,4 +155,34 @@ describe('CertificateUseCases W10 trust model', () => {
     expect(replacement).not.toHaveProperty('revokedBy');
     expect(replacement.metadata.signedEnvelope.replacesCertificateId).toBe('old-cert');
   });
+
+  it('is idempotent for duplicate trusted completion events and never issues twice', async () => {
+    const existing = { id: 'cert-existing', sourceEventId: 'course-completed:course-1:student-1:v1' } as any;
+    repository.findBySourceEventId.mockResolvedValue(existing);
+    const result = await useCases.consumeCompletionEvent(courseEvent());
+    expect(result).toBe(existing);
+    expect(repository.issue).not.toHaveBeenCalled();
+  });
+
+  it('records revocation only through the P14 repository lifecycle boundary', async () => {
+    repository.revoke.mockResolvedValue({ id: 'cert-1', status: CertificateStatus.REVOKED });
+    await expect(useCases.revoke('cert-1', 'Credential integrity correction', 'checker-1')).resolves.toEqual(
+      expect.objectContaining({ status: CertificateStatus.REVOKED }),
+    );
+    expect(repository.revoke).toHaveBeenCalledWith(expect.objectContaining({
+      certificateId: 'cert-1', actorId: 'checker-1', reason: 'Credential integrity correction',
+    }));
+    expect(() => useCases.revoke('cert-1', 'short', 'checker-1')).toThrow('REVOCATION_REASON_TOO_SHORT');
+  });
+
+  it('verifies signed certificate integrity and records the public verification ledger event', async () => {
+    const issued = await useCases.consumeCompletionEvent(courseEvent());
+    repository.findByVerificationCode.mockResolvedValue(issued);
+    repository.recordVerification.mockResolvedValue(undefined);
+    const verification = await useCases.verifyByCode(issued.verificationCode);
+    expect(verification.isValid).toBe(true);
+    expect(verification.integrityVerified).toBe(true);
+    expect(repository.recordVerification).toHaveBeenCalledWith(issued.id, 'VALID', 'PUBLIC_CODE');
+  });
+
 });

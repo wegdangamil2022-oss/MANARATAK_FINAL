@@ -21,17 +21,30 @@ describe('ScholarshipPublicRouter', () => {
     useCases.listScholarships.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
     const app = createApp(useCases);
 
-    const res = await request(app).get('/public/scholarships?studyCountry=USA&page=2&pageSize=100');
+    const res = await request(app).get('/public/scholarships?countryReferenceId=country-us&degreeLevelId=degree-bachelor&majorId=major-cs&universityId=university-1&academicProgramId=program-1&internationalTestId=test-ielts&page=2&pageSize=100');
     
     expect(res.status).toBe(200);
     // Page size should be bounded to 50
     expect(useCases.listScholarships).toHaveBeenCalledWith({
-      studyCountry: 'USA',
+      countryReferenceId: 'country-us',
+      degreeLevelId: 'degree-bachelor',
+      majorId: 'major-cs',
+      universityId: 'university-1',
+      academicProgramId: 'program-1',
+      internationalTestId: 'test-ielts',
       page: 2,
       pageSize: 50
     });
   });
 
+
+  it('rejects legacy name-based relationship filters', async () => {
+    const useCases = createMockUseCases();
+    const app = createApp(useCases);
+    const res = await request(app).get('/public/scholarships?studyCountry=USA&degreeLevel=Bachelor');
+    expect(res.status).toBe(400);
+    expect(useCases.listScholarships).not.toHaveBeenCalled();
+  });
   it('GET /public/scholarships/:slug returns scholarship', async () => {
     const useCases = createMockUseCases();
     useCases.getScholarship.mockResolvedValue({ slug: 'test-slug', displayName: 'Test' });

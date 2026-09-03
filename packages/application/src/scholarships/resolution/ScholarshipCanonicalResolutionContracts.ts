@@ -8,6 +8,7 @@ export type ScholarshipCanonicalResolutionState =
 export type ScholarshipCanonicalResolutionTarget =
   | 'PROVIDER_UNIVERSITY'
   | 'UNIVERSITY'
+  | 'ACADEMIC_PROGRAM'
   | 'COUNTRY'
   | 'LANGUAGE'
   | 'CURRENCY'
@@ -31,7 +32,7 @@ export interface ScholarshipCanonicalResolutionRequest {
   rawValue?: string | null;
   /**
    * For University/Major/InternationalTest this is the existing public identity.
-   * For Reference Data and DegreeLevel it is the existing internal canonical id.
+   * For AcademicProgram, Reference Data and DegreeLevel it is the existing internal canonical id.
    */
   canonicalId?: string | null;
   standardCode?: string | null;
@@ -73,4 +74,5 @@ export interface ScholarshipCanonicalResolutionBundle {
   majors: ScholarshipCanonicalResolutionResult[];
   internationalTests: ScholarshipCanonicalResolutionResult[];
   universities: ScholarshipCanonicalResolutionResult[];
+  academicPrograms: ScholarshipCanonicalResolutionResult[];
 }

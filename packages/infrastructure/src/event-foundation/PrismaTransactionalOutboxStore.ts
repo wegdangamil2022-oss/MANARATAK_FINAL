@@ -37,6 +37,8 @@ export class PrismaTransactionalOutboxStore implements ITransactionalOutboxStore
           state: { in: [OutboxProcessingState.PENDING, OutboxProcessingState.FAILED] },
           availableAt: { lte: request.now },
           OR: [{ claimUntil: null }, { claimUntil: { lt: request.now } }],
+          ...(request.domain ? { domain: request.domain } : {}),
+          ...(request.eventTypes?.length ? { eventType: { in: [...request.eventTypes] } } : {}),
         },
         orderBy: [{ availableAt: 'asc' }, { createdAt: 'asc' }],
         take: request.batchSize,

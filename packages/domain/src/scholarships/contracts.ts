@@ -264,8 +264,14 @@ export type ScholarshipRepositoryUpdateDto = UpdateScholarshipDto & {
 export interface ScholarshipFilters {
   status?: ScholarshipStatus;
   completenessStatus?: ScholarshipCompletenessState;
-  country?: string;
-  degreeLevel?: string;
+  countryReferenceId?: string;
+  studyLanguageReferenceId?: string;
+  currencyReferenceId?: string;
+  degreeLevelId?: string;
+  majorId?: string;
+  internationalTestId?: string;
+  universityId?: string;
+  academicProgramId?: string;
   fundingCoverage?: string;
   sponsorName?: string;
   verificationStatus?: ScholarshipVerificationStatus;
@@ -290,9 +296,14 @@ export interface ScholarshipAdminSummary {
 }
 
 export interface PublicScholarshipFilters {
-  studyCountry?: string;
   countryReferenceId?: string;
-  degreeLevel?: string;
+  studyLanguageReferenceId?: string;
+  currencyReferenceId?: string;
+  degreeLevelId?: string;
+  majorId?: string;
+  internationalTestId?: string;
+  universityId?: string;
+  academicProgramId?: string;
   fundingCoverage?: string;
   sponsorName?: string;
   applicationDeadlineFrom?: Date;

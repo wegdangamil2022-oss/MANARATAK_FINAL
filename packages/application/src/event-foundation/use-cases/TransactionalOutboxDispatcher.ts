@@ -22,6 +22,8 @@ export class TransactionalOutboxDispatcher implements ITransactionalOutboxDispat
       batchSize: request.batchSize,
       now: startedAt,
       claimUntil: new Date(startedAt.getTime() + request.claimDurationMs),
+      domain: request.domain,
+      eventTypes: request.eventTypes,
     });
     const result: OutboxDispatchResult = { claimed: entries.length, processed: 0, failed: 0, exhausted: 0 };
 
@@ -61,8 +63,12 @@ export class TransactionalOutboxDispatcher implements ITransactionalOutboxDispat
 
   private validate(request: OutboxDispatchRequest): void {
     if (!request.workerId.trim()) throw new Error('OUTBOX_WORKER_ID_REQUIRED');
-    for (const [name, value] of Object.entries(request).filter(([key]) => key !== 'workerId')) {
+    for (const [name, value] of Object.entries(request).filter(([key]) => !['workerId', 'domain', 'eventTypes'].includes(key))) {
       if (!Number.isInteger(value) || Number(value) <= 0) throw new Error(`OUTBOX_INVALID_${name.toUpperCase()}`);
+    }
+    if (request.domain !== undefined && !request.domain.trim()) throw new Error('OUTBOX_INVALID_DOMAIN');
+    if (request.eventTypes !== undefined && (request.eventTypes.length === 0 || request.eventTypes.some(value => !value.trim()))) {
+      throw new Error('OUTBOX_INVALID_EVENT_TYPES');
     }
   }
 }

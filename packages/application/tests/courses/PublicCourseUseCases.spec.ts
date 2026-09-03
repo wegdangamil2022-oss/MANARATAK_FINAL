@@ -45,7 +45,9 @@ describe('PublicCourseUseCases', () => {
         status: CourseStatus.PUBLISHED,
         completenessStatus: CourseImportCompletenessState.COMPLETE,
         sourceImportRecordId: 'rec-1',
-        optionalFields: { acquiredSkills: ['Data analysis'] },
+        externalProviderId: 'provider-1',
+        learningLanguageReferenceId: 'lang-en',
+        optionalFields: { acquiredSkills: ['Data analysis'], sourceArtifactHash: 'must-not-leak' },
         createdAt: new Date(),
         updatedAt: new Date()
       }],
@@ -62,6 +64,10 @@ describe('PublicCourseUseCases', () => {
     expect(result.data[0]).not.toHaveProperty('canonicalDedupKey');
     expect(result.data[0]).not.toHaveProperty('sourceImportRecordId');
     expect(result.data[0]).not.toHaveProperty('status');
+    expect(result.data[0]).not.toHaveProperty('sourceArtifactHash');
+    expect(result.data[0]).toHaveProperty('ownerId', 'internal-id');
+    expect(result.data[0]).toHaveProperty('externalProviderId', 'provider-1');
+    expect(result.data[0]).toHaveProperty('learningLanguageReferenceId', 'lang-en');
     expect(result.data[0]).toHaveProperty('displayName', 'Introduction to Data Science');
     expect(result.data[0]).toHaveProperty('acquiredSkills', ['Data analysis']);
   });
@@ -79,6 +85,7 @@ describe('PublicCourseUseCases', () => {
       status: CourseStatus.PUBLISHED,
       completenessStatus: CourseImportCompletenessState.COMPLETE,
       isStudyFree: true,
+      learningLanguageReferenceId: 'lang-en',
       optionalFields: { courseContent: 'Foundations of data science.' },
       updatedAt: new Date()
     });
@@ -87,6 +94,8 @@ describe('PublicCourseUseCases', () => {
 
     expect(result).not.toHaveProperty('id');
     expect(result).not.toHaveProperty('status');
+    expect(result).toHaveProperty('ownerId', 'course-1');
+    expect(result).toHaveProperty('learningLanguageReferenceId', 'lang-en');
     expect(result).toHaveProperty('displayName', 'Introduction to Data Science');
     expect(result).toHaveProperty('courseContent', 'Foundations of data science.');
   });

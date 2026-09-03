@@ -54,14 +54,15 @@ describe('WP-IC-01 course persistence source invariants', () => {
     expect(container).not.toContain("createUnavailableCapability('courseProgressPersistence')");
   });
 
-  it('keeps the legacy import promotion prototype present for WP-IC-04/05 remediation', () => {
+  it('keeps the legacy import promotion adapter present but fail-closed after P5 remediation', () => {
     const legacyPromotion = source(
       'packages/application/src/courses/use-cases/CourseImportPromotionUseCase.ts',
     );
 
     expect(legacyPromotion).toContain('export class CourseImportPromotionUseCase');
-    expect(legacyPromotion).toContain('CourseDeduplicationService.generateKey(payload)');
-    expect(legacyPromotion).toContain('sourceImportRecordId: record.id');
+    expect(legacyPromotion).toContain('@deprecated P5 source closure disables');
+    expect(legacyPromotion).toContain('COURSE_IMPORT_LEGACY_PROMOTION_DISABLED_USE_COURSE_IMPORT_COORDINATOR');
+    expect(legacyPromotion).not.toContain('CourseDeduplicationService.generateKey');
   });
 
   it('ships migration SQL as source without any seed/backfill statements', () => {

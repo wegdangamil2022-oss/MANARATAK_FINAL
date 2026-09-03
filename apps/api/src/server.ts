@@ -1,4 +1,5 @@
 import { createApiApp } from './app.js';
+import { container } from './infrastructure/di/container.js';
 import { ConfigurationRegistry, EnvironmentLoader, EnvironmentConfigurationProvider, ZodEnvironmentValidator } from '@manaratak/config';
 
 async function bootstrap() {
@@ -16,6 +17,31 @@ async function bootstrap() {
   server.requestTimeout = 30_000;
   server.headersTimeout = 15_000;
   server.keepAliveTimeout = 5_000;
+
+  // P6 source closure: runtime scheduling is explicit and opt-in. The worker
+  // consumes only P13 CourseCompleted/LearningPathCompleted outbox records and
+  // delivers them through the P14 idempotent issuance inbox boundary.
+  if (process.env.CERTIFICATE_COMPLETION_WORKER_ENABLED === 'true') {
+    const intervalMs = Math.max(1_000, Number(process.env.CERTIFICATE_COMPLETION_WORKER_INTERVAL_MS ?? 5_000));
+    const worker = container.resolve<any>('certificateCompletionOutboxWorker');
+    const workerId = `certificate-completion-${process.pid}`;
+    let running = false;
+    const tick = async () => {
+      if (running) return;
+      running = true;
+      try {
+        await worker.runOnce(workerId);
+      } catch {
+        console.error('[Certificates] Completion worker iteration failed. Review restricted service logs.');
+      } finally {
+        running = false;
+      }
+    };
+    void tick();
+    const timer = setInterval(() => { void tick(); }, intervalMs);
+    timer.unref?.();
+    server.on('close', () => clearInterval(timer));
+  }
 }
 
 bootstrap().catch(() => {

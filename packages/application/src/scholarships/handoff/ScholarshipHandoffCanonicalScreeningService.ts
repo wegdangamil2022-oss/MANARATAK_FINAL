@@ -52,8 +52,28 @@ export class ScholarshipHandoffCanonicalScreeningService
       requests.push({ target: 'MAJOR', rawValue: major, optional: true });
     }
 
+    for (const reference of payload.targetUniversityReferences ?? []) {
+      requests.push({
+        target: 'UNIVERSITY',
+        canonicalId: reference.canonicalId,
+        rawValue: reference.sourceLabel ?? null,
+        optional: true,
+      });
+    }
     for (const university of this.stringValues(payload.targetUniversities)) {
       requests.push({ target: 'UNIVERSITY', rawValue: university, optional: true });
+    }
+
+    for (const reference of payload.targetAcademicProgramReferences ?? []) {
+      requests.push({
+        target: 'ACADEMIC_PROGRAM',
+        canonicalId: reference.canonicalId,
+        rawValue: reference.sourceLabel ?? null,
+        optional: true,
+      });
+    }
+    for (const program of this.stringValues(payload.targetAcademicPrograms)) {
+      requests.push({ target: 'ACADEMIC_PROGRAM', rawValue: program, optional: true });
     }
 
     const internationalTests = payload.metadata?.internationalTests;

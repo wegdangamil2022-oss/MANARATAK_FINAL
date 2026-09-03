@@ -117,23 +117,26 @@ The portal strictly adheres to the following principles:
 Phase 23 owns administrative UI screens, moderation workflows, review queues, approval dashboards, operational command surfaces, and cross-domain administrative orchestration. Phase 23 explicitly does NOT own domain business logic, data schemas, or runtime execution services.
 
 Domain ownership boundaries are strictly delegated across the 24-phase roadmap as follows:
-- **Phase 05 - Identity & Access Infrastructure:** Owns IAM, RBAC/ABAC authorization policies, audit logging, break-glass security rules, and EAP asset handles.
-- **Phase 06 - Ingestion & ETL Pipelines:** Owns import mechanics, feed parsers, raw data extraction, and ETL transformation jobs.
-- **Phase 07 - Country Architecture:** Owns country reference data, geographical models, and country taxonomy validation.
-- **Phase 08 - Academic Disciplines:** Owns major taxonomies, discipline structures, and academic field schemas.
-- **Phase 11 - University Architecture:** Owns university records, institutional profiles, accreditation schemas, and university validation logic.
-- **Phase 12 - Scholarship Architecture:** Owns scholarship definitions, financial aid schemas, eligibility criteria, and scholarship domain state machines.
-- **Phase 13 - Course Architecture:** Owns course catalog records, provider models, learning outcomes, and course domain lifecycle state machines.
-- **Phase 15 - Student Workspace:** Owns student profile data, saved items, application history, and authenticated student workspace state.
-- **Phase 16 - Enterprise CMS:** Owns editorial content storage, article authoring schemas, CMS asset workflows, and publishing lifecycles.
-- **Phase 17 - Enterprise AI Platform:** Owns AI execution engines, automated translation processing, LLM summarization, and recommendation scoring.
-- **Phase 18 - Enterprise Student Tools Platform:** Owns the Official Tool Registry Backlog, tool metadata, execution orchestration, tool lifecycle model, input/output schemas, and execution contracts.
-- **Phase 19 - Finance & Payments:** Owns financial transactions, payment processing, ledger records, and invoicing models.
-- **Phase 20 - Educational Services:** Owns service request fulfillment, provider dispatch, and service execution workflows.
-- **Phase 21 - Career & Alumni Platform:** Owns career opportunities, alumni networks, and recruitment employer metadata (scoped strictly to Phase 21 metadata; no standalone Organizations & Employers platform exists).
-- **Phase 22 - Product Experience:** Owns global product identity, user personas, experience principles, and user objective hierarchies.
-- **Phase 23 - Enterprise Administration Portal:** Owns administrative UI, moderation screens, approval surfaces, review queues, operational dashboards, and admin command dispatching.
-- **Phase 24 - Enterprise Public Platform:** Owns public layout composition, visitor routing, SEO rendering, public page assembly, and visitor-facing platform state.
+- **Phase 05 - Enterprise Foundation / EAP:** Owns the relevant foundation capabilities, including IAM/security infrastructure and immutable asset handles where defined by the Foundation architecture.
+- **Phase 06 - Universal Import Infrastructure:** Owns generic import mechanics (acquisition, parsing, batching, retry/audit/provenance mechanics), not downstream domain truth.
+- **Phase 07 - Global Reference Data:** Owns canonical country/region/city/language/currency and shared reference identity/resolution.
+- **Phase 08 - Academic Taxonomy:** Owns academic taxonomy, classification hierarchy and DegreeLevel. It does **not** own canonical Majors.
+- **Phase 09 - International Tests:** Owns canonical international-test identity and test lifecycle/reference semantics.
+- **Phase 10 - Majors & Disciplines:** Owns canonical Major identity, aliases/equivalency, major lifecycle and Major read models.
+- **Phase 11 - Universities & Institutions:** Owns university/institution/campus records, AcademicPrograms and university-domain validation/admissions requirements.
+- **Phase 12 - Scholarships:** Owns scholarship definitions, eligibility, benefits/documents and canonical scholarship relationships. It is not assigned a general Student Workspace or broad application-processing platform here.
+- **Phase 13 - Learning:** Owns course catalog, curriculum, learning paths, progression and completion facts; it publishes completion events and does not issue certificates.
+- **Phase 14 - Enterprise Certificates:** Owns certificate issuance, verification, revocation, template/signature policy and credential lifecycle.
+- **Phase 15 - Student Workspace:** Owns private student profile/workspace state, saved collections, recently viewed/history, privacy/preferences, dashboard state and references to domain-owned records. It does **not** own broad university/scholarship application processing unless a future Roadmap/ADR explicitly assigns that owner.
+- **Phase 16 - Enterprise CMS:** Owns editorial content/version/localization/SEO lifecycle; it does not own domain business records.
+- **Phase 17 - Enterprise AI Platform:** Owns AI provider/model routing, prompts, inference, embeddings, safety and AI cost/execution governance.
+- **Phase 18 - Enterprise Student Tools Platform:** Owns tool registry, tool orchestration, tool lifecycle/experience and outputs; AI execution remains Phase 17.
+- **Phase 19 - Finance & Payments:** Owns payments, ledger, invoices, refunds, settlement and financial execution/status.
+- **Phase 20 - Enterprise Services:** Owns service catalog/request/fulfillment/provider-dispatch semantics; payment execution remains Phase 19.
+- **Phase 21 - Career & Alumni Platform:** Owns jobs/internships, career applications, alumni profiles and bounded recruitment metadata; no standalone Organizations & Employers platform exists.
+- **Phase 22 - Product Experience:** Owns product identity, personas, experience principles and UX objective contracts, not business-domain persistence.
+- **Phase 23 - Enterprise Administration Portal:** Owns administrative UI/control-plane composition, review/approval surfaces and command dispatch. It does not own domain persistence/business logic.
+- **Phase 24 - Enterprise Public Platform:** Owns public layout composition, visitor routing, SEO and page assembly; published domain truth remains with its P7–P21 owner.
 
 ---
 

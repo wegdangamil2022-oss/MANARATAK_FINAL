@@ -13,6 +13,8 @@ import {
   ScholarshipPublicationStatus,
   ScholarshipRepositoryUpdateDto,
   ScholarshipVerificationStatus,
+  MajorStatus,
+  UniversityStatus,
 } from '@manaratak/domain';
 
 interface ScholarshipTransactionContext extends AtomicPersistenceContext {
@@ -20,7 +22,7 @@ interface ScholarshipTransactionContext extends AtomicPersistenceContext {
 }
 
 type AdminScholarshipFilters = ScholarshipFilters & {
-  degreeLevel?: string; fundingCoverage?: string; sponsorName?: string; verificationStatus?: ScholarshipVerificationStatus;
+  fundingCoverage?: string; sponsorName?: string; verificationStatus?: ScholarshipVerificationStatus;
   translationState?: 'NEEDS_TRANSLATION' | 'TRANSLATED'; deadlineFrom?: Date; deadlineTo?: Date;
   sourceType?: string; query?: string;
 };
@@ -316,17 +318,20 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
     const where: Prisma.ScholarshipWhereInput = {};
     if (filters.status) where.status = filters.status;
     const constraints: Prisma.ScholarshipWhereInput[] = [];
-    if (filters.country) constraints.push({ OR: [
-      { countryReferenceId: filters.country },
-      { primaryCountry: { is: { OR: [
-        { iso2Code: { equals: filters.country, mode: 'insensitive' } },
-        { name: { equals: filters.country, mode: 'insensitive' } },
-        { nameAr: { equals: filters.country, mode: 'insensitive' } },
-      ] } } },
+    if (filters.countryReferenceId) where.countryReferenceId = filters.countryReferenceId;
+    if (filters.studyLanguageReferenceId) where.studyLanguageReferenceId = filters.studyLanguageReferenceId;
+    if (filters.currencyReferenceId) constraints.push({ benefits: { some: { currencyReferenceId: filters.currencyReferenceId } } });
+    if (filters.degreeLevelId) constraints.push({ degreeTargets: { some: { degreeLevelId: filters.degreeLevelId } } });
+    if (filters.majorId) constraints.push({ OR: [
+      { majorTargets: { some: { majorId: filters.majorId } } },
+      { eligibilityItems: { some: { majorId: filters.majorId } } },
     ] });
-    if (filters.degreeLevel) constraints.push({ degreeTargets: { some: { OR: [
-      { degreeLevelId: filters.degreeLevel }, { sourceLabel: { equals: filters.degreeLevel, mode: 'insensitive' } },
-    ] } } });
+    if (filters.internationalTestId) constraints.push({ OR: [
+      { eligibilityItems: { some: { internationalTestId: filters.internationalTestId } } },
+      { requiredDocuments: { some: { internationalTestId: filters.internationalTestId } } },
+    ] });
+    if (filters.universityId) constraints.push({ universityLinks: { some: { universityId: filters.universityId } } });
+    if (filters.academicProgramId) constraints.push({ universityLinks: { some: { academicProgramId: filters.academicProgramId } } });
     if (filters.fundingCoverage) constraints.push({ OR: [
       { fundingTypeCode: { equals: filters.fundingCoverage, mode: 'insensitive' } },
       { benefits: { some: { coverageTypeCode: { equals: filters.fundingCoverage, mode: 'insensitive' } } } },
@@ -341,10 +346,6 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
       { displayName: { contains: filters.query, mode: 'insensitive' } },
       { canonicalName: { contains: filters.query, mode: 'insensitive' } },
       { providerName: { contains: filters.query, mode: 'insensitive' } },
-      { primaryCountry: { is: { OR: [
-        { name: { contains: filters.query, mode: 'insensitive' } },
-        { nameAr: { contains: filters.query, mode: 'insensitive' } },
-      ] } } },
     ] });
     if (constraints.length) where.AND = constraints;
 
@@ -389,21 +390,41 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
       publicationStatus: ScholarshipPublicationStatus.PUBLISHED,
       verificationStatus: ScholarshipVerificationStatus.VERIFIED,
     };
+    const constraints: Prisma.ScholarshipWhereInput[] = [];
     if (filters.countryReferenceId) where.countryReferenceId = filters.countryReferenceId;
-    if (filters.studyCountry) where.countrySourceLabel = { equals: filters.studyCountry, mode: 'insensitive' };
-    if (filters.degreeLevel) where.degreeTargets = { some: { OR: [
-      { degreeLevelId: filters.degreeLevel },
-      { sourceLabel: { equals: filters.degreeLevel, mode: 'insensitive' } },
-    ] } };
-    if (filters.fundingCoverage) where.OR = [
+    if (filters.studyLanguageReferenceId) where.studyLanguageReferenceId = filters.studyLanguageReferenceId;
+    if (filters.currencyReferenceId) constraints.push({ benefits: { some: { currencyReferenceId: filters.currencyReferenceId } } });
+    if (filters.degreeLevelId) constraints.push({ degreeTargets: { some: { degreeLevelId: filters.degreeLevelId } } });
+    if (filters.majorId) constraints.push({ OR: [
+      { majorTargets: { some: { majorId: filters.majorId, major: { is: { status: MajorStatus.PUBLISHED } } } } },
+      { eligibilityItems: { some: { majorId: filters.majorId, major: { is: { status: MajorStatus.PUBLISHED } } } } },
+    ] });
+    if (filters.internationalTestId) constraints.push({ OR: [
+      { eligibilityItems: { some: { internationalTestId: filters.internationalTestId } } },
+      { requiredDocuments: { some: { internationalTestId: filters.internationalTestId } } },
+    ] });
+    if (filters.universityId) constraints.push({ universityLinks: { some: {
+      universityId: filters.universityId,
+      university: { is: { status: UniversityStatus.PUBLISHED } },
+    } } });
+    if (filters.academicProgramId) constraints.push({ universityLinks: { some: {
+      academicProgramId: filters.academicProgramId,
+      academicProgram: { is: {
+        majorMappingState: 'CANONICALLY_MAPPED',
+        university: { is: { status: UniversityStatus.PUBLISHED } },
+        major: { is: { status: MajorStatus.PUBLISHED } },
+      } },
+    } } });
+    if (filters.fundingCoverage) constraints.push({ OR: [
       { fundingTypeCode: { equals: filters.fundingCoverage, mode: 'insensitive' } },
       { benefits: { some: { coverageTypeCode: { equals: filters.fundingCoverage, mode: 'insensitive' } } } },
-    ];
+    ] });
     if (filters.sponsorName) where.providerName = { equals: filters.sponsorName, mode: 'insensitive' };
     if (filters.applicationDeadlineFrom || filters.applicationDeadlineTo) where.applicationDeadline = {
       gte: filters.applicationDeadlineFrom,
       lte: filters.applicationDeadlineTo,
     };
+    if (constraints.length) where.AND = constraints;
     const [data, total] = await Promise.all([
       this.prisma.scholarship.findMany({ where, skip: (page - 1) * pageSize, take: pageSize, orderBy: { createdAt: 'desc' }, include: this.normalizedInclude }),
       this.prisma.scholarship.count({ where }),

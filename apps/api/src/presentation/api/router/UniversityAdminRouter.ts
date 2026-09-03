@@ -30,11 +30,13 @@ export class UniversityAdminRouter {
     const listQuerySchema = z.object({
       status: z.nativeEnum(UniversityStatus).optional(),
       completenessStatus: z.nativeEnum(UniversityImportCompletenessState).optional(),
-      country: z.string().optional(),
+      countryReferenceId: z.string().min(1).optional(),
+      regionReferenceId: z.string().min(1).optional(),
+      cityReferenceId: z.string().min(1).optional(),
       search: z.string().trim().min(1).max(200).optional(),
       page: z.coerce.number().int().min(1).default(1),
       pageSize: z.coerce.number().int().min(1).max(100).default(50),
-    });
+    }).strict();
 
     const updateBodySchema = z.object({
       displayName: z.string().optional(),

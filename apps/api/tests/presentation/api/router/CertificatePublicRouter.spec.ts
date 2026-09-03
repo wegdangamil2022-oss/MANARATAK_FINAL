@@ -6,19 +6,19 @@ import { CertificatePublicRouter } from '../../../../src/presentation/api/router
 
 describe('CertificatePublicRouter', () => {
   const createUseCases = () => ({
-    verifyByCode: vi.fn(),
+    verifyPublic: vi.fn(),
   });
 
   const createApp = (useCases: ReturnType<typeof createUseCases>) => {
     const app = express();
     app.use(express.json());
-    app.use('/certificates', CertificatePublicRouter.create({ certificateUseCases: useCases as any }));
+    app.use('/certificates', CertificatePublicRouter.create({ certificateReadModelService: useCases as any }));
     return app;
   };
 
   it('verifies a certificate by verification code', async () => {
     const useCases = createUseCases();
-    useCases.verifyByCode.mockResolvedValue({
+    useCases.verifyPublic.mockResolvedValue({
       publicId: 'cert-public-1',
       serialNumber: 'MNR-CERT-1',
       verificationCode: 'MNR-VERIFY',
@@ -36,12 +36,12 @@ describe('CertificatePublicRouter', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.isValid).toBe(true);
-    expect(useCases.verifyByCode).toHaveBeenCalledWith('MNR-VERIFY');
+    expect(useCases.verifyPublic).toHaveBeenCalledWith('MNR-VERIFY');
   });
 
   it('returns 404 when a certificate cannot be found', async () => {
     const useCases = createUseCases();
-    useCases.verifyByCode.mockRejectedValue(new Error('Certificate not found'));
+    useCases.verifyPublic.mockRejectedValue(new Error('Certificate not found'));
     const app = createApp(useCases);
 
     const res = await request(app).get('/certificates/verify/UNKNOWN');

@@ -19,6 +19,7 @@ export type ScholarshipImportVerificationState = 'PENDING' | 'VERIFIED' | 'FAILE
 export type ScholarshipCanonicalTarget =
   | 'PROVIDER_UNIVERSITY'
   | 'UNIVERSITY'
+  | 'ACADEMIC_PROGRAM'
   | 'COUNTRY'
   | 'LANGUAGE'
   | 'CURRENCY'
