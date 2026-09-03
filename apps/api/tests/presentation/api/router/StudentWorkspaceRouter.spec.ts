@@ -23,6 +23,7 @@ describe('StudentWorkspaceRouter', () => {
       '/student',
       StudentWorkspaceRouter.create({
         studentWorkspaceUseCases: useCases as any,
+        studentDashboardHydrationService: { getDashboard: useCases.getDashboard } as any,
         financeStudentUseCases: {} as any,
         tokenProvider: {
           verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'student-1' }),

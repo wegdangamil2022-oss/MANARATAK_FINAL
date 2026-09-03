@@ -1,11 +1,71 @@
 import {
   ICmsRepository,
+  IMajorRepository,
+  IScholarshipRepository,
   IServiceCatalogRepository,
   IStudentSavedItemHydrationGateway,
+  IUniversityRepository,
+  MajorStatus,
+  ScholarshipPublicationStatus,
   ServiceStatus,
   StudentSavedItemDto,
   StudentSavedItemType,
+  UniversityStatus,
 } from '@manaratak/domain';
+
+export class MajorStudentSavedItemHydrationGateway implements IStudentSavedItemHydrationGateway {
+  constructor(private readonly majors: IMajorRepository) {}
+  supports(entityType: StudentSavedItemType): boolean { return entityType === StudentSavedItemType.MAJOR; }
+  async hydrate(item: StudentSavedItemDto) {
+    const major = await this.majors.findById(item.entityId);
+    if (!major) return { ownerType: item.entityType, ownerId: item.entityId, available: false };
+    return {
+      ownerType: item.entityType,
+      ownerId: major.id,
+      publicId: major.publicId,
+      slug: major.slug,
+      displayName: major.displayName,
+      lifecycleStatus: major.status,
+      available: major.status === MajorStatus.PUBLISHED,
+    };
+  }
+}
+
+export class UniversityStudentSavedItemHydrationGateway implements IStudentSavedItemHydrationGateway {
+  constructor(private readonly universities: IUniversityRepository) {}
+  supports(entityType: StudentSavedItemType): boolean { return entityType === StudentSavedItemType.UNIVERSITY; }
+  async hydrate(item: StudentSavedItemDto) {
+    const university = await this.universities.findById(item.entityId);
+    if (!university) return { ownerType: item.entityType, ownerId: item.entityId, available: false };
+    return {
+      ownerType: item.entityType,
+      ownerId: university.id,
+      publicId: university.publicId,
+      slug: university.slug,
+      displayName: university.displayName,
+      lifecycleStatus: university.status,
+      available: university.status === UniversityStatus.PUBLISHED,
+    };
+  }
+}
+
+export class ScholarshipStudentSavedItemHydrationGateway implements IStudentSavedItemHydrationGateway {
+  constructor(private readonly scholarships: IScholarshipRepository) {}
+  supports(entityType: StudentSavedItemType): boolean { return entityType === StudentSavedItemType.SCHOLARSHIP; }
+  async hydrate(item: StudentSavedItemDto) {
+    const scholarship = await this.scholarships.findById(item.entityId);
+    if (!scholarship) return { ownerType: item.entityType, ownerId: item.entityId, available: false };
+    return {
+      ownerType: item.entityType,
+      ownerId: scholarship.id,
+      publicId: scholarship.publicId,
+      slug: scholarship.slug,
+      displayName: scholarship.displayName,
+      lifecycleStatus: scholarship.publicationStatus ?? scholarship.status,
+      available: scholarship.publicationStatus === ScholarshipPublicationStatus.PUBLISHED,
+    };
+  }
+}
 
 export class CmsStudentSavedItemHydrationGateway implements IStudentSavedItemHydrationGateway {
   constructor(private readonly cms: ICmsRepository) {}

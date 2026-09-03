@@ -1,3 +1,5 @@
+> **HISTORICAL / SUPERSEDED — 2026-09-03:** This audit predates the normalized P11/P12 closure and is retained as historical evidence only. Current authority is the Cross-Phase Relationship Closure Matrix v2.0.0 and P13 Final Source Closure Report.
+
 # Phase 11 University Relationship Closure Audit
 
 Status: `SOURCE SAFETY IMPROVED / CANONICAL PERSISTENCE BLOCKED`

@@ -127,7 +127,7 @@ check('P10-076 Universities owner API published-only', has(universityPublic, 're
 check('P10-077 Scholarships owner API published-only', has(scholarshipPublic, 'repository.listPublished(filters)'));
 check('P10-078 Courses owner API published-only', has(coursePublic, 'repository.listPublished(filters)') && has(coursePublic, 'CourseStatus.PUBLISHED'));
 
-check('P10-078A active matrix version advanced for P10', has(matrix, '**Status:** ACTIVE — P10 Source Closure checklist') && has(matrix, '**Version:** 1.5.0'));
+check('P10-078A active matrix is P10 v1.5.0 or later', /\*\*Status:\*\* ACTIVE — P(?:10|11|12|13)\b[^\n]*/.test(matrix) && /\*\*Version:\*\* (?:1\.(?:[5-9]|[1-9]\d+)\.0|[2-9]\d*\.\d+\.\d+)/.test(matrix));
 
 check('P10-092 closure record exists', exists(closureDocPath));
 check('P10-093 closure record preserves source/runtime boundary', has(closureDoc, 'SOURCE CLOSED / RUNTIME PENDING') && has(closureDoc, 'Runtime Pending'));

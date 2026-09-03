@@ -1,5 +1,8 @@
 # Phase 15 — Enterprise Student Platform
 
+> **P13 Final Source Alignment — 2026-09-03:** The current source implements session/API-backed live Student Workspace composition and canonical owner-read hydration. Prototype/local preview behavior is explicit-only and is not a live source of truth. Runtime/DB/E2E validation remains pending; this note does not assert production certification.
+
+
 ### Navigation
 - **Previous:** [Phase 14 — Enterprise Certificates Platform](../phase-14-enterprise-certificates-platform/phase-14-01-enterprise-architecture-specification.md)
 - **Next:** [Phase 16 — Enterprise CMS](../phase-16-enterprise-cms/phase-16-01-enterprise-architecture-specification.md)

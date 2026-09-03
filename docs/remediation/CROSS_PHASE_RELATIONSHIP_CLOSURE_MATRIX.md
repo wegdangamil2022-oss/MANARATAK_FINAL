@@ -1,7 +1,7 @@
 # Cross-Phase Relationship Closure Matrix
 
-**Status:** ACTIVE — P10 Source Closure checklist  
-**Version:** 1.5.0  
+**Status:** ACTIVE — P13 FINAL SOURCE CLOSURE  
+**Version:** 2.0.0  
 **Status date:** 2026-09-03  
 **Architecture authority:** Roadmap v6.0 + P1-closed Enterprise architecture models  
 **Source baseline:** original source commit `e8af4f0e36fabbaf9f7cf38b5d1f4d0a88829012`, carried forward through the P3-closed full-project package (`SHA-256 dca26ee8f0a294a59a39e8d5939c9239493d19776ba1ab98a432c1562f8be790`)  
@@ -86,16 +86,16 @@ The table uses these compact evidence keys. Each key points to current repositor
 | R-021 | P8 | P13 | Course taxonomy links | Canonical `taxonomyNodeId`; raw topics remain provenance/input only | `TAX-D`; `COURSE-D` relationships | `CourseRelationshipResolutionService` exact-candidate proposal + explicit review | `TAX-R`; `COURSE-R` persists review state and invalidates stale source-term links | Course public filter reads APPROVED taxonomy links only; Course admin owner API exposes scoped approve/reject | See R-048 | See R-062 | See R-027 | P13-owned relationship projection | P5 verifier + relationship tests | Runtime Pending | P5 CLOSED |
 | R-022 | P10 | P13 | Course Major projection | Canonical P10 `majorId`; projection lineage retains taxonomy/mapping IDs | `MAJ-D`; `COURSE-D` | `CourseRelationshipResolutionService.projectMajors` + scoped review | `MAJ-R`; `COURSE-R` persists `CourseMajorProjection` and public reads require `APPROVED` | Course public `majorId` filter + Course admin owner projection/review API | See R-045/R-048 | See R-059/R-062 | See R-024/R-027 | P13-owned `CourseMajorProjection`; no P10 reverse collection | P5 verifier + relationship tests | Runtime Pending | P5 CLOSED |
 | R-023 | P13 | P14 | Learning completion → certificate issuance | Durable outbox `eventId`; canonical Course/LearningPath ID; `studentReferenceId` | `CourseCompletedEvent`; `LearningPathCompletedEvent`; P14 trust/lifecycle contracts | P13 transactional completion emission → filtered `CertificateCompletionOutboxWorker` → `CertificateCompletionOutboxDeliveryGateway` → `CertificateCompletionEventConsumer` → `CertificateUseCases` | Filtered transactional outbox + P14 `CertificateIssuanceInbox` idempotency receipt + `PrismaCertificateRepository` | Explicit opt-in worker bootstrap exists; no synchronous issue HTTP route | See R-049 | P14 `CertificateReadModelService.verifyPublic` | See R-028 | Stable outbox ID is the delivery idempotency key; P14 emits its own certificate lifecycle events | P13 atomic-outbox tests + P14 delivery/idempotency/verification/revocation/read-model tests + P6 verifier | Runtime Pending | P6 CLOSED |
-| R-024 | P10 | P15 | Saved Major reference + hydration | `StudentSavedItem.entityId` must be canonical Major ID; optional slug | `MAJ-D`; `STU-D` saved-item contract | `StudentWorkspaceUseCases.saveItem` stores reference only | `STU-R`; owner hydration adapter absent | Student workspace API stores/retrieves generic saved item | N/A | N/A | No owner read-model hydration found | Workspace outbox only | `StudentWorkspace*` tests; `MAJ-T` | Partial | P7 |
-| R-025 | P11 | P15 | Saved University reference + hydration | Canonical University ID; optional `entitySlug` | `UNI-D`; `STU-D` | Student workspace generic reference contract | `STU-R`; owner hydration adapter absent | Student workspace API | N/A | N/A | No University owner hydration found | Workspace outbox only | Student workspace + University tests | Partial | P7 |
-| R-026 | P12 | P15 | Saved Scholarship reference + hydration | Canonical Scholarship ID; optional slug | `SCH-D`; `STU-D` | Student workspace generic reference contract | `STU-R`; owner hydration adapter absent | Student workspace API | N/A | N/A | No Scholarship owner hydration found | Workspace outbox only | Student workspace + Scholarship tests | Partial | P7 |
-| R-027 | P13 | P15 | Learning progress/completion projection | Course ID; `studentReferenceId`; source event ID | `COURSE-D`; `STU-D` projection DTOs | `StudentWorkspaceUseCases.consumeIntegrationEvent` | `STU-R.ingestIntegrationEvent` projects Course events | No delivery endpoint/worker found invoking consumer | N/A | N/A | Dashboard reads projection | Course events supported but inbound delivery wiring absent | StudentWorkspace use-case/repository tests | Partial | P7 |
-| R-028 | P14 | P15 | Certificate read projection | Certificate ID/verification code; `studentReferenceId`; source event ID | P14 `StudentCertificateReadModelDto`; `STU-D` certificate projection | P14 `CertificateReadModelService.listForStudent`; `StudentWorkspaceUseCases.consumeIntegrationEvent` | P14 `CERT-R.listByStudent`; `STU-R.ingestIntegrationEvent` supports issue/revoke/reissue | P14 private read boundary exists; P14→P15 certificate-event delivery caller remains absent | N/A | N/A | Dashboard reads P15 certificate projection | P14 certificate event/read contracts exist; P15 delivery wiring intentionally remains for P7 | P14 read-model tests + Certificate/StudentWorkspace tests | Partial | P7 |
+| R-024 | P10 | P15 | Saved Major reference + hydration | `StudentSavedItem.entityId` is canonical Major ID; slug/display are owner-read output | `MAJ-D`; `STU-D` saved-item + hydration contracts | `StudentWorkspaceUseCases.saveItem` stores reference only; `StudentSavedItemHydrationService` hydrates owner truth | `STU-R` + `MajorStudentSavedItemHydrationGateway` using `IMajorRepository` | `/student/saved-items/hydrated` returns owner read model and lifecycle availability | N/A | N/A | Live Student Vault consumes hydrated owner display/slug; unavailable owner fails closed | Reference-only P15 state; no reverse ownership | P13 source verifier + Student workspace/Major contracts | Runtime Pending | P13 FINAL |
+| R-025 | P11 | P15 | Saved University reference + hydration | Canonical University ID; slug/display hydrated from owner | `UNI-D`; `STU-D` | Reference-only save + `StudentSavedItemHydrationService` | `STU-R` + `UniversityStudentSavedItemHydrationGateway` using `IUniversityRepository` | `/student/saved-items/hydrated` | N/A | N/A | Live Student Vault consumes University owner read model and publication availability | Reference-only P15 state | P13 source verifier + Student workspace/University contracts | Runtime Pending | P13 FINAL |
+| R-026 | P12 | P15 | Saved Scholarship reference + hydration | Canonical Scholarship ID; slug/display hydrated from owner | `SCH-D`; `STU-D` | Reference-only save + `StudentSavedItemHydrationService` | `STU-R` + `ScholarshipStudentSavedItemHydrationGateway` using `IScholarshipRepository` | `/student/saved-items/hydrated` | N/A | N/A | Live Student Vault consumes Scholarship owner read model and publication availability | Reference-only P15 state | P13 source verifier + Student workspace/Scholarship contracts | Runtime Pending | P13 FINAL |
+| R-027 | P13 | P15 | Learning progress/completion owner read | Canonical Course ID + `studentReferenceId`; enrollment ID remains P13-owned | `COURSE-D`; `STU-D` read DTO | `StudentDashboardHydrationService` calls `IStudentLearningReadGateway`; no P15 learning truth ownership | P13 `ICourseProgressRepository.listEnrollmentsByStudent` + `CourseStudentDashboardReadGateway` + Course owner repository | `/student/dashboard` and `/:studentReferenceId/dashboard` use hydrated service | N/A | N/A | Live P15 dashboard reads P13 course progress and degrades explicitly on owner-read failure | Completion events remain P13-owned; P15 event projection is compatibility evidence, not required fan-out | P13 source verifier + Course/Student contracts | Runtime Pending | P13 FINAL |
+| R-028 | P14 | P15 | Certificate owner read | Certificate/public/verification IDs + `studentReferenceId` | P14 `StudentCertificateReadModelDto`; `STU-D` projection DTO | `StudentDashboardHydrationService` calls `IStudentCertificateReadGateway` | P14 `CertificateReadModelService.listForStudent` through `CertificateStudentDashboardReadGateway` | `/student/dashboard` and `/:studentReferenceId/dashboard` expose hydrated certificate rows | N/A | N/A | Live P15 dashboard reads P14 lifecycle/verification truth; no certificate issuance logic in P15 | P14 lifecycle events remain P14-owned | P13 source verifier + P14/P15 read-model tests | Runtime Pending | P13 FINAL |
 | R-029 | P16 | P15 | Saved CMS content reference + hydration | Canonical CMS content ID/slug | `CMS-D`; `STU-D` includes `CMS_CONTENT` saved-item type | `StudentSavedItemHydrationService` + CMS owner hydration contract | `STU-R`; `CmsStudentSavedItemHydrationGateway` reads P16 owner truth | `StudentWorkspaceRouter /saved-items/hydrated` | N/A | N/A | P15 stores reference only; P16 adapter hydrates current published owner read model | Workspace remains reference owner only | CMS + StudentWorkspace + P8 source verifier | Runtime Pending | P8 CLOSED |
 | R-030 | P18 | P15 | Save Student Tool execution result privately | Execution ID; `studentReferenceId`; Student Tool identity | `TOOLS-D`; `STU-D` | `Phase15StudentToolSaveGateway` + Student Tool execution use cases | `STU-R`; tool registry repo | StudentTools public execution/save API path is source-wired | N/A | Tool live page calls explicit save | Private workspace result save gateway implemented | Explicit save action, no ownership transfer | Student Tool pipeline + StudentWorkspace + P8 source verifier | Runtime Pending | P8 CLOSED |
 | R-031 | P20 | P15 | Services private view/request/fulfillment state | Service public ID + service-request public ID; studentReferenceId scoped privately | `SVC-D`; `STU-D` has `SERVICE` saved type | `StudentServiceRequestUseCases`; `StudentSavedItemHydrationService` | `SVC-R`; `ServiceStudentSavedItemHydrationGateway`; `STU-R` keeps references only | Student workspace service request/read routes are source-wired | N/A | N/A | P15 composes P20 owner read state without copying service truth | P20 request status remains owner truth | Service + StudentWorkspace + P8 source verifier | Runtime Pending | P8 CLOSED |
 | R-032 | P19 | P15 | Student finance invoices/payments read model | `studentReferenceId`; invoice/payment public IDs | `FIN-D`; `STU-D` consumer surface | `FinanceStudentUseCases` | `FIN-R` | Authenticated `StudentWorkspaceRouter` finance routes | N/A | N/A | Finance owner read model returned through student API | Read-only composition; finance remains owner | FinanceStudentUseCases + StudentWorkspaceRouter + P8 source verifier | Runtime Pending | P8 CLOSED |
-| R-033 | P15 | P24 | Authenticated Student Workspace surface | Session identity + canonical saved entity references | `STU-D` | `StudentWorkspaceUseCases` | `STU-R` | Backend routes exist and are auth-protected | N/A | `PublicTemplateApp` embeds Student workspace flow | UI still contains preview/local storage paths; API hydration incomplete | Workspace events internal | StudentWorkspaceRouter tests; public-template tests | Partial | P7 |
+| R-033 | P15 | P24 | Authenticated Student Workspace surface | Server session identity + canonical saved entity references | `STU-D`; Auth session contract | `StudentWorkspaceUseCases` + `StudentDashboardHydrationService` | `STU-R` plus owner-read gateways; personal state remains API-backed | Auth `/login` `/me` `/logout`; protected Student Workspace APIs including hydrated saved items | N/A | P24 live mode mounts `LiveStudentAuthPage` / `LiveStudentWorkspacePage`; prototype auth/workspace only in explicit prototype mode | Live account/favorites/journey consume P15 APIs; local preview state is not live source of truth | Workspace/domain owner reads; no localStorage authority | P13 source verifier + Student API/UI contract checks | Runtime Pending | P13 FINAL |
 | R-034 | P7 | P19 | Canonical finance currency projection | ISO 4217 code resolved to canonical active P7 currency | `REF-D`; `FIN-D` `IFinanceCurrencyReferenceGateway` | Finance requires canonical currency before operations | `PrismaFinanceCurrencyReferenceGateway` + `FIN-R` | Finance Admin/API uses application contract | See R-053 | No public finance surface | See R-032 | N/A | Finance core/provider + reference + P8 source verifier | Runtime Pending | P8 CLOSED |
 | R-035 | P7 | P20 | Service supported countries/languages | Canonical P7 country/language IDs are relationship truth; labels compatibility-only | `REF-D`; `SVC-D` typed contracts | `AdminServiceCatalogUseCases` resolves canonical refs through `IServiceReferenceGateway` | `SVC-R` join tables FK to P7; `CanonicalServiceReferenceGateway` | Service admin/public DTOs carry canonical reference IDs | See R-054 | See R-066 | See R-031 | N/A | Service + ReferenceData + P8 source verifier | Runtime Pending | P8 CLOSED |
 | R-036 | P7 | P21 | Career geography | Canonical Country/City IDs are final geography identity; text retained as source/display compatibility only | `REF-D`; `CAREER-D` | Career admin/public use cases resolve geography through `ICareerReferenceGateway` | `CAREER-R` FK to P7 + `CanonicalCareerReferenceGateway` | Career admin/public routers accept/filter canonical geography IDs | See R-055 | See R-067 | N/A | N/A | Career + ReferenceData + P8 source verifier | Runtime Pending | P8 CLOSED |
@@ -133,7 +133,7 @@ The table uses these compact evidence keys. Each key points to current repositor
 | R-068 | P22 | P24 | Product-experience navigation/UX contract; no business-data ownership | N/A by design; P22 owns experience principles, not domain identity | No P22 business domain package by design | Presentation-level navigation contract | N/A | N/A | N/A | `usePublicNavigation`; `PublicTemplateApp` live composition exposes loading/empty/unavailable/retry states and never silently substitutes prototype data | N/A | N/A | `publicUx.spec.ts` + P10 verifier | Source Closed | P10 CLOSED |
 
 
-## 5. Measurement snapshots
+## 5. Historical measurement snapshots (progress evidence only)
 
 ### P2 creation snapshot (historical)
 
@@ -196,19 +196,50 @@ The table uses these compact evidence keys. Each key points to current repositor
 
 The status count remains deliberately conservative. A row stays `Partial` when a later consumer/API/read-model edge outside the active closure step is incomplete; `Runtime Pending` means the source relationship is closed and only live DB/environment proof remains.
 
+### Current snapshot after P10 source closure
+
+- Total tracked important cross-phase relationships: **68**.
+- P24 rows R-056→R-067: **12/12 source-closed as `Runtime Pending`**.
+- P24 row R-068: **Source Closed**.
+- Live Public prototype fixtures and silent fallback are not production relationship truth.
+
+### P11 guard closure
+
+- All R-001→R-068 rows are asserted present by an executable source guard and may not regress to `Missing`.
+- Canonical-identity, Prisma-boundary, P15-localStorage, P23-control-plane, P17-vendor, P13/P14-certificate, Public-live-fixture, and authority-document rules are executable.
+- Negative fixtures prove the guard fails when representative violations are introduced.
+- Circular package/file dependency regressions are covered by the existing source-quality SCC gate and are executed in the P11 CI workflow.
+
+### P12 full source CI closure
+
+- P12 does not reclassify relationship ownership; it makes the already-closed source contracts mandatory in the general CI path.
+- P11 guards, W0–W16 remediation verifiers, P7–P11 plan verifiers, Prisma source validate/generate, typecheck, lint, build and source-unit tests are chained as required source gates.
+- DB-backed Vitest specs are explicitly separated from the source-unit suite and recorded as `Runtime Pending`; they no longer appear as source-suite skips/fallbacks caused by a missing database.
+- The only remaining P12 execution dependency is running the locked dependency-backed toolchain in CI after `npm ci`; no DB is required for those source gates.
+
+### P13 final source closure snapshot
+
+- Total tracked important cross-phase relationships: **68**.
+- `Source Closed`: **1**.
+- `Runtime Pending`: **67**.
+- `Partial`: **0**.
+- `Missing`: **0**.
+- R-024→R-028 and R-033 were re-audited and closed at source through owner-read hydration and live session/API composition; only deployed DB/runtime/E2E proof remains.
+- No relationship is considered runtime-certified by this source closure.
+
 ## 6. Execution checklist mapping
 
 - **P3:** close R-001→R-013 canonical backbone gaps without rebuilding the normalized University/Scholarship schemas.
 - **P4:** close R-014→R-019 reverse read models/aggregations.
 - **P5:** **CLOSED** — R-020→R-022 are source-closed as `Runtime Pending`; imported-course provider/source-identity/direct-URL security gates retained.
 - **P6:** **CLOSED** — R-023 completion-event delivery into P14 and the certificate authority edge are source-closed as `Runtime Pending`; P7 has not started.
-- **P7:** close P15 hydration/live-session edges R-024→R-029 and R-033; P8 owns the later-domain edges R-030→R-041 where noted.
+- **P7:** **CLOSED (source, P13 final repair verified)** — R-024→R-029 and R-033 have owner-read/session/API source paths; deployed session/DB/E2E proof remains Runtime Pending.
 - **P8:** late-domain source integrations R-029→R-041 are source-closed where marked `P8 CLOSED`; remaining proof is Runtime/DB only. P9/P10 consumer UX rows remain intentionally Partial.
 - **P9:** **CLOSED (source)** — P23 owner-API relational authoring R-042→R-055 is source-closed as `Runtime Pending`; canonical pickers write owner IDs and Admin contains no direct business persistence. Runtime DB/E2E proof remains pending.
-- **P10:** close P24 live composition R-056→R-068; remove live mocks/synthetic identities without moving ownership to P24.
-- **P11:** add automated guards/contracts against regression for every relation closed above.
-- **P12:** run full source CI and classify only genuine DB/E2E checks as runtime pending.
-- **P13:** re-audit this matrix against final source; every row must end as `Source Closed` or `Runtime Pending`, and historical matrices/reports must be explicitly marked historical/superseded where appropriate.
+- **P10:** **CLOSED (source)** — P24 live composition R-056→R-068 uses owner read models/canonical identity and live mocks/silent fallback are removed.
+- **P11:** **CLOSED (source)** — executable architecture/static-security guards and negative contract tests protect the relationship/ownership rules closed through P10; CI also executes the zero-new-cycle source-quality gate.
+- **P12:** **CLOSED (source CI contract)** — full source CI is fail-closed and DB/E2E-only checks are explicitly classified as Runtime Pending; dependency-backed remote execution remains required before final P13 certification.
+- **P13:** **CLOSED (final source audit)** — every R-001→R-068 row is `Source Closed` or `Runtime Pending`; final documentation and runtime-pending register are authoritative for source closure.
 
 ## 7. P2 closure gate
 

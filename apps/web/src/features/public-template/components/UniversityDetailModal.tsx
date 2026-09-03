@@ -413,33 +413,32 @@ export const UniversityDetailModal: React.FC<UniversityDetailModalProps> = ({
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {(university.studyPrograms.topKeyMajors ?? []).map((name, idx) => {
-                    const majorLink = university.studyPrograms?.majorLinks?.find(
-                      (link) => link.label === name,
-                    );
+                  {(university.studyPrograms.majorLinks?.length
+                    ? university.studyPrograms.majorLinks.map((link) => ({ label: link.label, majorId: link.majorId }))
+                    : (university.studyPrograms.topKeyMajors ?? []).map((label) => ({ label, majorId: '' }))).map((major, idx) => {
                     const content = (
                       <>
                         <div className="w-1.5 h-1.5 rounded-full bg-[var(--mn-primary)] mn-dark:bg-[var(--mn-accent)] group-hover:scale-125 transition-transform shrink-0 mn-inverse mn-dark:mn-gold " />
                         <span className="text-[11px] sm:text-[11.5px] font-bold text-[var(--mn-heading)] mn-dark:text-[var(--mn-text)] group-hover:text-[var(--mn-heading)] mn-dark:group-hover:text-[var(--mn-accent-text)] transition-colors leading-snug font-['Cairo',sans-serif]">
-                          {name}
+                          {major.label}
                         </span>
                       </>
                     );
                     const sharedClassName =
                       "p-2.5 rounded-xl bg-gradient-to-b from-[var(--mn-surface)] mn-dark:from-[var(--mn-surface-elevated)] to-[var(--mn-page)]/60 mn-dark:to-[var(--mn-surface-muted)] border border-[var(--mn-border-gold)] mn-dark:border-[var(--mn-border)] hover:border-[var(--mn-accent)] text-right flex items-center gap-2 shadow-2xs hover:shadow-xs transition-all group mn-panel mn-dark:mn-panel ";
 
-                    return majorLink ? (
+                    return major.majorId ? (
                       <button
                         type="button"
-                        key={idx}
-                        onClick={() => onOpenMajor?.(majorLink.majorId)}
+                        key={major.majorId}
+                        onClick={() => onOpenMajor?.(major.majorId)}
                         className={`${sharedClassName} cursor-pointer`}
-                        title={`افتح تخصص ${name} في منارتك`}
+                        title={`افتح تخصص ${major.label} في منارتك`}
                       >
                         {content}
                       </button>
                     ) : (
-                      <div key={idx} className={sharedClassName}>
+                      <div key={`${major.label}-${idx}`} className={sharedClassName}>
                         {content}
                       </div>
                     );
@@ -1004,24 +1003,25 @@ function UniversityDecisionSections({
                 الاختبارات المقبولة
               </p>
               <div className="flex flex-wrap gap-1.5">
-                {language.acceptedTests.map((test) => {
-                  const testLink = language.acceptedTestLinks?.find((link) => link.label === test);
+                {(language.acceptedTestLinks?.length
+                  ? language.acceptedTestLinks.map((link) => ({ label: link.label, examId: link.examId }))
+                  : language.acceptedTests.map((label) => ({ label, examId: '' }))).map((test) => {
                   const className =
                     "rounded-lg border border-[var(--mn-accent)]/30 bg-[var(--mn-page)] mn-dark:bg-[var(--mn-surface)] px-2 py-1 text-[9.5px] font-bold text-[var(--mn-text)] mn-dark:text-[var(--mn-text)] mn-panel mn-dark:mn-panel ";
 
-                  return testLink ? (
+                  return test.examId ? (
                     <button
                       type="button"
-                      key={test}
-                      onClick={() => onOpenExam?.(testLink.examId)}
+                      key={test.examId}
+                      onClick={() => onOpenExam?.(test.examId)}
                       className={`${className} cursor-pointer transition-all hover:border-[var(--mn-accent)] hover:text-[var(--mn-heading)]`}
-                      title={`افتح صفحة ${test}`}
+                      title={`افتح صفحة ${test.label}`}
                     >
-                      {test}
+                      {test.label}
                     </button>
                   ) : (
-                    <span key={test} className={className}>
-                      {test}
+                    <span key={test.label} className={className}>
+                      {test.label}
                     </span>
                   );
                 })}

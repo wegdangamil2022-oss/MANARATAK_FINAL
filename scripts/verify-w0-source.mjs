@@ -61,7 +61,7 @@ const p417 = read('docs/phases/phase-04-architecture-governance/baselines/phase-
 const p421 = read('docs/phases/phase-04-architecture-governance/baselines/phase-04-21-report.md');
 check('phase4_testing_reconciled', p414.includes('SUPERSEDED_BY_CURRENT_TEST_ARCHITECTURE'));
 check('phase4_git_reconciled', p415.includes('ACTIVE_IMPLEMENTED — CI_ENFORCED'));
-check('phase4_container_deferred', p417.includes('Phase 4.17\nDEFERRED'));
+check('phase4_container_deferred', /Phase 4\.17\r?\nDEFERRED/.test(p417));
 check('phase4_master_matrix_reconciled', p421.includes('W0 Current Capability Reconciliation'));
 check('phase4_no_active_production_ready_checkmarks', !read('docs/phases/phase-04-architecture-governance/baselines/phase-04-12-report.md').includes('Production Readiness: ✓') && !read('docs/phases/phase-04-architecture-governance/baselines/phase-04-13-report.md').includes('Production Readiness: ✓') && !read('docs/phases/phase-04-architecture-governance/baselines/phase-04-16-report.md').includes('Production Readiness: ✓') && !read('docs/phases/phase-04-architecture-governance/baselines/phase-04-18-report.md').includes('Production Readiness: ✓') && !read('docs/phases/phase-04-architecture-governance/baselines/phase-04-19-report.md').includes('Production Readiness: ✓') && !read('docs/phases/phase-04-architecture-governance/baselines/phase-04-20-report.md').includes('Production Readiness: ✓'));
 check('w0_execution_report_exists', fs.existsSync(path.join(root, 'docs/governance/audits/remediation/MANARATAK-W0-Authority-Quality-Gate-Execution-Report.md')));

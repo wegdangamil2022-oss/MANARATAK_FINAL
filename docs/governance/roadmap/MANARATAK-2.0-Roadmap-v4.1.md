@@ -1,3 +1,5 @@
+> **HISTORICAL / SUPERSEDED:** Roadmap v4.1 is retained for traceability only. Roadmap v6.0 is the active authority.
+
 # MANARATAK-2.0-Roadmap-v4.1
 
 ## 1. Document Information

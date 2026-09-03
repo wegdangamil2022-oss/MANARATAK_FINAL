@@ -380,3 +380,12 @@ export interface IStudentSavedItemHydrationGateway {
   supports(entityType: StudentSavedItemType): boolean;
   hydrate(item: StudentSavedItemDto): Promise<StudentSavedItemOwnerReadModel | null>;
 }
+
+/** P7/P13 owner-read contracts: P15 composes learning/certificate truth but does not own it. */
+export interface IStudentLearningReadGateway {
+  listForStudent(studentReferenceId: string): Promise<StudentCourseProgressDto[]>;
+}
+
+export interface IStudentCertificateReadGateway {
+  listForStudent(studentReferenceId: string): Promise<StudentCertificateProjectionDto[]>;
+}

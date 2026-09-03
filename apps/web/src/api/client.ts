@@ -639,6 +639,19 @@ export interface StudentSavedItemDto {
   updatedAt: string;
 }
 
+export interface HydratedStudentSavedItemDto {
+  savedItem: StudentSavedItemDto;
+  owner: {
+    ownerType: string;
+    ownerId: string;
+    publicId?: string;
+    slug?: string;
+    displayName?: string;
+    lifecycleStatus?: string;
+    available: boolean;
+  } | null;
+}
+
 export interface StudentSavedCollectionDto {
   id: string;
   studentReferenceId: string;
@@ -1923,6 +1936,36 @@ export class ApiClient {
     if (!res.ok) throw new Error('يلزم تسجيل الدخول للوصول إلى مساحة الطالب');
     const payload = await res.json();
     return payload.data;
+  }
+
+  static async loginStudent(email: string, password: string): Promise<void> {
+    const res = await apiFetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: getStudentHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ email: email.trim(), password }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body?.data?.authenticated) {
+      throw new Error(body?.error?.message || body?.message || 'تعذر تسجيل الدخول بهذه البيانات');
+    }
+  }
+
+  static async logoutStudent(): Promise<void> {
+    const res = await apiFetch(`${API_BASE_URL}/auth/logout`, {
+      method: 'POST',
+      headers: getStudentHeaders(),
+    });
+    if (!res.ok && res.status !== 401) throw new Error('تعذر تسجيل الخروج');
+  }
+
+  static async listMyHydratedStudentSavedItems(): Promise<HydratedStudentSavedItemDto[]> {
+    const res = await apiFetch(`${API_BASE_URL}/student/saved-items/hydrated`, { headers: getStudentHeaders() });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error?.message || body?.error || 'تعذر تحميل تفاصيل العناصر المحفوظة');
+    }
+    const payload = await res.json();
+    return Array.isArray(payload?.data) ? payload.data : [];
   }
 
   static async updateStudentWorkspace(

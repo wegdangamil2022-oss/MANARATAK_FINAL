@@ -71,8 +71,10 @@ import { CoursesList } from './components/CoursesList';
 import { MajorsSearchPage } from './components/MajorsSearchPage';
 import { UniversitiesSearchPage } from './components/UniversitiesSearchPage';
 import { NavigationDrawer } from './components/NavigationDrawer';
-import { AuthPage } from './components/AuthPage';
-import { StudentWorkspacePage } from './components/StudentWorkspacePage';
+import { AuthPage as PrototypeAuthPage } from './components/AuthPage';
+import { StudentWorkspacePage as PrototypeStudentWorkspacePage } from './components/StudentWorkspacePage';
+import { StudentAuthPage as LiveStudentAuthPage } from '../students/StudentAuthPage';
+import { StudentWorkspacePage as LiveStudentWorkspacePage } from '../students/StudentWorkspacePage';
 import {
   Filter,
   SlidersHorizontal,
@@ -104,6 +106,14 @@ export default function App() {
   const [selectedCourseTrack, setSelectedCourseTrack] = navigation.field('selectedCourseTrack');
   const [selectedServiceTrack, setSelectedServiceTrack] = navigation.field('selectedServiceTrack');
   const [courseNavigationField, setCourseNavigationField] = navigation.field('courseNavigationField');
+
+  useEffect(() => {
+    if (publicDataMode !== 'api') return;
+    const segments = window.location.pathname.split('/').filter(Boolean);
+    const leaf = segments[segments.length - 1];
+    if (leaf === 'student') setActiveTab('account');
+    if (leaf === 'login') setActiveTab('auth');
+  }, [publicDataMode, setActiveTab]);
   useEffect(() => {
     if (selectedCategory !== 'courses') {
       setSelectedCourseTrack(null);
@@ -134,10 +144,13 @@ export default function App() {
 
   // Domain datasets are owner-API backed in live mode. Prototype data is available only through the explicit dynamic prototype adapter.
   const [milestones, setMilestones] = useState<ApplicationMilestone[]>(() => {
-    return readStoredArray<ApplicationMilestone>('manaratak_milestones', INITIAL_MILESTONES);
+    return publicDataMode === 'prototype'
+      ? readStoredArray<ApplicationMilestone>('manaratak_milestones', INITIAL_MILESTONES)
+      : [];
   });
 
   const [favoriteKeys, setFavoriteKeys] = useState<FavoriteKey[]>(() => {
+    if (publicDataMode !== 'prototype') return [];
     const savedV2 = readStored('manaratak_favorites_v2');
     if (savedV2) {
       try {
@@ -162,6 +175,7 @@ export default function App() {
   });
 
   const [notifications, setNotifications] = useState<PushNotificationItem[]>(() => {
+    if (publicDataMode !== 'prototype') return [];
     return readStoredArray<PushNotificationItem>('manaratak_notifications', INITIAL_NOTIFICATIONS).filter((item, index, list) => !item.title.includes('مرحباً بك في منصة منارتك') || list.findIndex(candidate => candidate.title.includes('مرحباً بك في منصة منارتك')) === index).map(item => item.title.includes('مرحباً بك في منصة منارتك') ? {...item, id: 'welcome-v29', actionType: undefined, targetId: undefined, body: 'هذه معاينة محلية للإشعارات. ستُفعّل التنبيهات الحقيقية بعد ربط الخدمة.'} : item);
   });
 
@@ -217,6 +231,10 @@ export default function App() {
     setIsMenuOpen(false);
     setIsNotificationOpen(false);
     setIsAiToolsOpen(false);
+    if (publicDataMode === 'api' && ['favorites', 'tracker', 'notifications'].includes(target)) {
+      navigate({ activeTab: target === 'tracker' ? 'tracker' : target === 'favorites' ? 'favorites' : 'account' });
+      return;
+    }
     if (['scholarships','universities','countries','majors','courses','exams','articles','services','jobs'].includes(target)) {
       navigate({activeTab: 'search', selectedCategory: target as CategoryType});
     } else if (target === 'tools' || target === 'ai-tools') {
@@ -252,16 +270,19 @@ export default function App() {
 
   // Save to LocalStorage
   useEffect(() => {
+    if (publicDataMode !== 'prototype') return;
     writeStored('manaratak_milestones', JSON.stringify(milestones));
-  }, [milestones]);
+  }, [milestones, publicDataMode]);
 
   useEffect(() => {
+    if (publicDataMode !== 'prototype') return;
     writeStored('manaratak_favorites_v2', JSON.stringify(favoriteKeys));
-  }, [favoriteKeys]);
+  }, [favoriteKeys, publicDataMode]);
 
   useEffect(() => {
+    if (publicDataMode !== 'prototype') return;
     writeStored('manaratak_notifications', JSON.stringify(notifications));
-  }, [notifications]);
+  }, [notifications, publicDataMode]);
 
   // Handle document direction on language change
   useEffect(() => {
@@ -293,6 +314,7 @@ export default function App() {
 
   // Trigger Interactive Push Notification Simulation
   const triggerInstantPush = (customNotification?: Partial<PushNotificationItem>) => {
+    if (publicDataMode !== 'prototype') return;
     const newAlert: PushNotificationItem = {
       id: customNotification?.id || `push-${Date.now()}`,
       title: customNotification?.title || 'تنبيه تجريبي من منارتك',
@@ -318,6 +340,7 @@ export default function App() {
 
   // Initial welcome push after 2.5 seconds
   useEffect(() => {
+    if (publicDataMode !== 'prototype') return;
     if (notifications.some(item => item.id === 'welcome-v29' || item.title.includes('مرحباً بك في منصة منارتك'))) return;
     const timer = setTimeout(() => {
       setNotifications(previous => previous.some(item => item.id === 'welcome-v29') ? previous : [{
@@ -332,7 +355,7 @@ export default function App() {
 
   // Deadline 3-day Local Notification Check (نظام متابعة تقدم المتعلمين)
   useEffect(() => {
-    if (!milestones.length) return;
+    if (publicDataMode !== 'prototype' || !milestones.length) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
 
     const today = new Date();
@@ -472,7 +495,7 @@ export default function App() {
         language={language}
         onToggleLanguage={openLanguage}
         onOpenMenu={() => setIsMenuOpen(true)}
-        onOpenNotifications={() => setIsNotificationOpen(true)}
+        onOpenNotifications={() => publicDataMode === 'api' ? openSection('account') : setIsNotificationOpen(true)}
         onOpenProfile={() => openSection('account')}
         unreadCount={unreadNotificationsCount}
         activeTab={activeTab}
@@ -1538,6 +1561,9 @@ export default function App() {
 
             {/* TAB 3: FAVORITES VIEW */}
             {activeTab === 'favorites' && (
+              publicDataMode === 'api' ? (
+                <LiveStudentWorkspacePage initialTab="VAULT" />
+              ) : (
               <FavoritesPage
                 favoriteKeys={favoriteKeys}
                 scholarships={scholarships}
@@ -1583,6 +1609,7 @@ export default function App() {
                   setActiveTab(category === 'tools' ? 'ai-tools' : 'search');
                 }}
               />
+              )
             )}
 
             {/* TAB 4: SMART AI TOOLS VIEW */}
@@ -1610,61 +1637,47 @@ export default function App() {
               />
             )}
 
-            {/* TAB: STUDENT WORKSPACE / PHASE 15 PUBLIC UI BASELINE */}
+            {/* TAB: STUDENT WORKSPACE / P15 LIVE API OR EXPLICIT PROTOTYPE */}
             {activeTab === 'account' && (
-              <StudentWorkspacePage
-                profile={null}
-                language={language}
-                isDarkMode={isDarkMode}
-                favoriteTypeCounts={favoriteTypeCounts}
-                favoritesCount={favoriteKeys.length}
-                milestones={milestones}
-                notifications={notifications}
-                onOpenFavorites={() => {
-                  setActiveTab('favorites');
-                  window.scrollTo({ top: 0, behavior: 'instant' });
-                }}
-                onOpenTracker={() => {
-                  setActiveTab('tracker');
-                  window.scrollTo({ top: 0, behavior: 'instant' });
-                }}
-                onOpenNotifications={() => setIsNotificationOpen(true)}
-                onOpenGlobalSearch={() => {
-                  setGlobalSearchQuery('');
-                  setSelectedCategory('all');
-                  setIsSmartSearchOpen(false);
-                  setActiveTab('search');
-                  window.scrollTo({ top: 0, behavior: 'instant' });
-                }}
-                onOpenSmartSearch={() => {
-                  setGlobalSearchQuery('');
-                  setSelectedCategory('all');
-                  setActiveTab('search');
-                  setIsSmartSearchOpen(true);
-                  window.scrollTo({ top: 0, behavior: 'instant' });
-                }}
-                onOpenTools={() => {
-                  setActiveTab('ai-tools');
-                  window.scrollTo({ top: 0, behavior: 'instant' });
-                }}
-                onOpenAuth={() => {
-                  setActiveTab('auth');
-                  window.scrollTo({ top: 0, behavior: 'instant' });
-                }}
-                onToggleLanguage={openLanguage}
-                onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
-              />
+              publicDataMode === 'api' ? (
+                <LiveStudentWorkspacePage />
+              ) : (
+                <PrototypeStudentWorkspacePage
+                  profile={null}
+                  language={language}
+                  isDarkMode={isDarkMode}
+                  favoriteTypeCounts={favoriteTypeCounts}
+                  favoritesCount={favoriteKeys.length}
+                  milestones={milestones}
+                  notifications={notifications}
+                  onOpenFavorites={() => { setActiveTab('favorites'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+                  onOpenTracker={() => { setActiveTab('tracker'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+                  onOpenNotifications={() => setIsNotificationOpen(true)}
+                  onOpenGlobalSearch={() => { setGlobalSearchQuery(''); setSelectedCategory('all'); setIsSmartSearchOpen(false); setActiveTab('search'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+                  onOpenSmartSearch={() => { setGlobalSearchQuery(''); setSelectedCategory('all'); setActiveTab('search'); setIsSmartSearchOpen(true); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+                  onOpenTools={() => { setActiveTab('ai-tools'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+                  onOpenAuth={() => { setActiveTab('auth'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+                  onToggleLanguage={openLanguage}
+                  onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
+                />
+              )
             )}
 
-            {/* TAB: AUTH PAGE */}
             {activeTab === 'auth' && (
-              <div className="w-full max-w-4xl lg:max-w-5xl mx-auto flex items-center justify-center min-h-[70vh]">
-                <AuthPage onBackToWorkspace={goBack} />
-              </div>
+              publicDataMode === 'api' ? (
+                <LiveStudentAuthPage onAuthenticated={() => { setActiveTab('account'); window.history.replaceState(null, '', '/student'); }} />
+              ) : (
+                <div className="w-full max-w-4xl lg:max-w-5xl mx-auto flex items-center justify-center min-h-[70vh]">
+                  <PrototypeAuthPage onBackToWorkspace={goBack} />
+                </div>
+              )
             )}
 
             {/* TAB 5: LEARNER PROGRESS TRACKER VIEW (نظام متابعة تقدم المتعلمين) */}
             {activeTab === 'tracker' && (
+              publicDataMode === 'api' ? (
+                <LiveStudentWorkspacePage initialTab="JOURNEY" />
+              ) : (
               <div className="w-full max-w-4xl lg:max-w-5xl mx-auto">
                 <LearnerProgressTracker
                   milestones={milestones}
@@ -1687,6 +1700,7 @@ export default function App() {
                   onOpenScholarshipDetails={(sch) => setSelectedScholarship(sch)}
                 />
               </div>
+              )
             )}
           </>
         )}
@@ -1695,7 +1709,7 @@ export default function App() {
       {/* Bottom Docked Navigation Bar (Always Visible) */}
       <BottomNavBar
         activeTab={activeTab}
-        onTabChange={(tab) => tab === 'notifications' ? setIsNotificationOpen(true) : openSection(tab)}
+        onTabChange={(tab) => tab === 'notifications' ? (publicDataMode === 'api' ? openSection('account') : setIsNotificationOpen(true)) : openSection(tab)}
         favoritesCount={favoriteKeys.length}
         unreadNotificationsCount={unreadNotificationsCount}
         isNotificationsOpen={isNotificationOpen}
@@ -1715,7 +1729,7 @@ export default function App() {
       />
 
       {/* Push Notification Center & Dropdown Toast */}
-      <PushNotificationCenter
+      {publicDataMode === 'prototype' && <PushNotificationCenter
         isOpen={isNotificationOpen}
         onClose={() => setIsNotificationOpen(false)}
         notifications={notifications}
@@ -1739,7 +1753,7 @@ export default function App() {
         }}
         activeToast={activeToast}
         onDismissToast={() => setActiveToast(null)}
-      />
+      />}
 
       {/* AI Tools Modal */}
       <AIToolsModal

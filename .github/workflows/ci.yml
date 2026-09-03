@@ -17,7 +17,7 @@ env:
 
 jobs:
   source-quality:
-    name: Source quality and unit tests
+    name: Full source closure gates
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,18 +44,36 @@ jobs:
           else
             node scripts/git/validate-commit-message.mjs "$(git log -1 --format=%s)"
           fi
-      - name: Source architecture and accessibility gate
+      - name: Source quality and cycle/accessibility gate
         run: npm run quality:source
+      - name: Architecture and static-security guards
+        run: npm run phase11:guards:verify
       - name: W0-W16 remediation source contract
         run: npm run remediation:verify
-      - name: Typecheck
+      - name: P7-P11 source-closure contracts
+        run: npm run closure:plan:verify
+      - name: Prisma source schema validate and client generation
+        run: npm run db:source:verify
+      - name: Typecheck all referenced workspaces
         run: npm run typecheck
-      - name: Lint
+      - name: Lint source
         run: npm run lint
-      - name: Build
+      - name: Build all required applications and packages
         run: npm run build
       - name: Unit and source integration tests
         run: npm run test:unit
+      - name: P12 full-source CI contract
+        run: npm run phase12:plan:verify
+      - name: P13 final source closure audit
+        run: npm run phase13:plan:verify
+      - name: Write P12 source CI evidence
+        run: npm run ci:source:evidence
+      - name: Upload P12 source CI evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: p12-full-source-ci-closure
+          path: p12-ci-evidence/SOURCE_CI_CLOSURE.json
+          if-no-files-found: error
 
   translation-quality:
     name: Translation quality gates
@@ -79,8 +97,10 @@ jobs:
           test -z "${DATABASE_URL+x}"
           npm run translation:ci
 
-  # PostgreSQL integration and browser E2E remain implemented in the repository,
-  # but Google Studio owns their disposable-runtime execution after handoff.
+  # P12 source closure intentionally excludes DB-backed integration and browser E2E.
+  # They are classified in docs/remediation/p12/P12_RUNTIME_PENDING_CHECKS.md and
+  # run only after a disposable runtime/database is supplied. No source gate is skipped
+  # merely because DATABASE_URL is absent.
 
   configuration:
     name: Deployment configuration

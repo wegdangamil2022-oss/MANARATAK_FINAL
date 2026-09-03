@@ -163,3 +163,4 @@ export * from './services-platform';
 
 export * from './career-alumni';
 export * from './students/StudentSavedItemHydrationGateways';
+export * from './students/StudentDashboardOwnerReadGateways';

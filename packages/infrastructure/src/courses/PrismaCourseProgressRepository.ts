@@ -77,6 +77,14 @@ export class PrismaCourseProgressRepository implements ITransactionalCourseProgr
     return row ? this.enrollment(row) : null;
   }
 
+  public async listEnrollmentsByStudent(studentReferenceId: string): Promise<CourseEnrollmentDto[]> {
+    const rows = await this.prisma.courseEnrollment.findMany({
+      where: { studentReferenceId },
+      orderBy: [{ lastAccessedAt: 'desc' }, { enrolledAt: 'desc' }],
+    });
+    return rows.map((row) => this.enrollment(row));
+  }
+
   public async countActiveEnrollments(courseId: string): Promise<number> {
     return this.prisma.courseEnrollment.count({
       where: { courseId, status: { in: [CourseEnrollmentStatus.ACTIVE, CourseEnrollmentStatus.PENDING] } },

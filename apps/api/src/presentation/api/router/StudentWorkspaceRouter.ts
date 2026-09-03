@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { ISessionManager, ITokenProvider } from '@manaratak/core';
-import { FinanceStudentUseCases, StudentWorkspaceUseCases, StudentSavedItemHydrationService, StudentServiceRequestUseCases } from '@manaratak/application';
+import { FinanceStudentUseCases, StudentWorkspaceUseCases, StudentSavedItemHydrationService, StudentDashboardHydrationService, StudentServiceRequestUseCases } from '@manaratak/application';
 import { ServiceRequestStatus, StudentSavedItemType } from '@manaratak/domain';
 import { AuthMiddleware } from '../../middleware/AuthMiddleware';
 
@@ -10,12 +10,13 @@ export class StudentWorkspaceRouter {
     studentWorkspaceUseCases: StudentWorkspaceUseCases;
     financeStudentUseCases: FinanceStudentUseCases;
     studentSavedItemHydrationService: StudentSavedItemHydrationService;
+    studentDashboardHydrationService: StudentDashboardHydrationService;
     studentServiceRequestUseCases: StudentServiceRequestUseCases;
     tokenProvider: ITokenProvider;
     sessionManager?: ISessionManager;
   }): Router {
     const router = Router();
-    const { studentWorkspaceUseCases, financeStudentUseCases, studentSavedItemHydrationService, studentServiceRequestUseCases, tokenProvider, sessionManager } = cradle;
+    const { studentWorkspaceUseCases, financeStudentUseCases, studentSavedItemHydrationService, studentDashboardHydrationService, studentServiceRequestUseCases, tokenProvider, sessionManager } = cradle;
 
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
@@ -124,7 +125,7 @@ export class StudentWorkspaceRouter {
     router.get(
       '/dashboard',
       asyncHandler(async (req: Request, res: Response) => {
-        res.json(await studentWorkspaceUseCases.getDashboard(ownStudent(req)));
+        res.json(await studentDashboardHydrationService.getDashboard(ownStudent(req)));
       }),
     );
     router.get(
@@ -320,7 +321,7 @@ export class StudentWorkspaceRouter {
     router.get(
       '/:studentReferenceId/dashboard',
       asyncHandler(async (req: Request, res: Response) => {
-        res.json(await studentWorkspaceUseCases.getDashboard(req.params.studentReferenceId));
+        res.json(await studentDashboardHydrationService.getDashboard(req.params.studentReferenceId));
       }),
     );
 

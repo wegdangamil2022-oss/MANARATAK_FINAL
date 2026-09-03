@@ -1,5 +1,8 @@
 # MANARATAK 2.0: Phase 24 (Enterprise Public Platform) Architecture Specification
 
+> **P13 Final Source Alignment — 2026-09-03:** The current source implements session/API-backed live Student Workspace composition and canonical owner-read hydration. Prototype/local preview behavior is explicit-only and is not a live source of truth. Runtime/DB/E2E validation remains pending; this note does not assert production certification.
+
+
 **Document ID:** PHASE-24-01-ARCH-SPEC  
 **Status:** Baselined & Approved  
 **Phase:** 24  

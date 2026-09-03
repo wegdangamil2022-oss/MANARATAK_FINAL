@@ -2,6 +2,7 @@ import React, { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ApiClient,
+  HydratedStudentSavedItemDto,
   MoneyAmountDto,
   StudentDashboardSummaryDto,
   StudentFinanceInvoiceDto,
@@ -18,20 +19,21 @@ const tabs: Array<{ id: WorkspaceTab; label: string; icon: string }> = [
   { id: 'SETTINGS', label: 'التحكم والخصوصية', icon: '⚙' },
 ];
 
-export function StudentWorkspacePage() {
+export function StudentWorkspacePage({ initialTab = 'HOME' }: { initialTab?: WorkspaceTab } = {}) {
   const [studentReferenceId, setStudentReferenceId] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<StudentDashboardSummaryDto | null>(null);
   const [invoices, setInvoices] = useState<StudentFinanceInvoiceDto[]>([]);
   const [paymentsByInvoice, setPaymentsByInvoice] = useState<
     Record<string, StudentFinancePaymentDto[]>
   >({});
-  const [tab, setTab] = useState<WorkspaceTab>('HOME');
+  const [tab, setTab] = useState<WorkspaceTab>(initialTab);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [snapshots, setSnapshots] = useState<StudentWorkspaceSnapshotDto[]>([]);
+  const [hydratedSavedItems, setHydratedSavedItems] = useState<HydratedStudentSavedItemDto[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -42,16 +44,18 @@ export function StudentWorkspacePage() {
         const identity = await ApiClient.getCurrentStudentIdentity();
         if (!active) return;
         setStudentReferenceId(identity.principalId);
-        const [dashboardResult, invoiceResult, snapshotResult] = await Promise.allSettled([
+        const [dashboardResult, invoiceResult, snapshotResult, hydratedSavedResult] = await Promise.allSettled([
           ApiClient.getMyStudentDashboard(),
           ApiClient.getStudentInvoices(identity.principalId),
           ApiClient.listMyStudentWorkspaceSnapshots(),
+          ApiClient.listMyHydratedStudentSavedItems(),
         ]);
         if (!active) return;
         if (dashboardResult.status === 'rejected') throw dashboardResult.reason;
         setDashboard(dashboardResult.value);
         setInvoices(invoiceResult.status === 'fulfilled' ? invoiceResult.value.data : []);
         setSnapshots(snapshotResult.status === 'fulfilled' ? snapshotResult.value : []);
+        setHydratedSavedItems(hydratedSavedResult.status === 'fulfilled' ? hydratedSavedResult.value : []);
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : 'تعذر تحميل مساحة الطالب');
       } finally {
@@ -193,7 +197,12 @@ export function StudentWorkspacePage() {
     setSaving(true);
     try {
       await ApiClient.moveMyStudentSavedItem(itemId, collectionId);
-      setDashboard(await ApiClient.getMyStudentDashboard());
+      const [refreshedDashboard, refreshedHydration] = await Promise.all([
+        ApiClient.getMyStudentDashboard(),
+        ApiClient.listMyHydratedStudentSavedItems(),
+      ]);
+      setDashboard(refreshedDashboard);
+      setHydratedSavedItems(refreshedHydration);
       setNotice('تم نقل العنصر إلى المجموعة المختارة.');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر نقل العنصر'); }
     finally { setSaving(false); }
@@ -243,6 +252,19 @@ export function StudentWorkspacePage() {
       setNotice('مُسح سجل البحث الشخصي.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'تعذر مسح سجل البحث');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function logout() {
+    setSaving(true);
+    setError(null);
+    try {
+      await ApiClient.logoutStudent();
+      window.location.assign('/');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'تعذر تسجيل الخروج');
     } finally {
       setSaving(false);
     }
@@ -310,10 +332,13 @@ export function StudentWorkspacePage() {
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/15 bg-black/10 p-2 backdrop-blur">
-              <HeroMetric label="التقدم" value={`${statistics.averageCourseProgress}%`} />
-              <HeroMetric label="الدورات" value={String(statistics.activeCourses)} />
-              <HeroMetric label="الشهادات" value={String(statistics.certificates)} />
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/15 bg-black/10 p-2 backdrop-blur">
+                <HeroMetric label="التقدم" value={`${statistics.averageCourseProgress}%`} />
+                <HeroMetric label="الدورات" value={String(statistics.activeCourses)} />
+                <HeroMetric label="الشهادات" value={String(statistics.certificates)} />
+              </div>
+              <button type="button" disabled={saving} onClick={() => void logout()} className="w-full rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/15 disabled:opacity-60">تسجيل الخروج</button>
             </div>
           </div>
         </div>
@@ -359,7 +384,7 @@ export function StudentWorkspacePage() {
         )}
         {tab === 'JOURNEY' && <JourneyView dashboard={dashboard} />}
         {tab === 'VAULT' && (
-          <VaultView dashboard={dashboard} saving={saving} onCreateCollection={createCollection} onRenameCollection={renameCollection} onDeleteCollection={deleteCollection} onMoveSavedItem={moveSavedItem} />
+          <VaultView dashboard={dashboard} hydratedSavedItems={hydratedSavedItems} saving={saving} onCreateCollection={createCollection} onRenameCollection={renameCollection} onDeleteCollection={deleteCollection} onMoveSavedItem={moveSavedItem} />
         )}
         {tab === 'SETTINGS' && (
           <SettingsView
@@ -478,6 +503,18 @@ function HomeView({
             ))}
           </div>
         </Panel>
+        <Panel title="إشعاراتك">
+          {dashboard.notifications.length ? (
+            <div className="space-y-2">
+              {dashboard.notifications.slice(0, 5).map((item) => (
+                <div key={item.id} className="rounded-xl bg-slate-50 p-3">
+                  <p className="text-sm font-bold text-slate-800">{item.title}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">{item.message}</p>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-sm text-slate-500">لا توجد إشعارات جديدة.</p>}
+        </Panel>
         <Panel title="شاهدته مؤخرًا">
           {dashboard.recentlyViewed.length ? <div className="space-y-2">{dashboard.recentlyViewed.slice(0, 5).map((item) => (
             <Link key={item.id} to={item.entitySlug ? buildEntityLink(item.entityType, item.entitySlug) : '#'} className="block rounded-xl bg-slate-50 p-3 text-sm font-bold hover:bg-emerald-50">
@@ -535,6 +572,7 @@ function JourneyView({ dashboard }: { dashboard: StudentDashboardSummaryDto }) {
 
 function VaultView({
   dashboard,
+  hydratedSavedItems,
   saving,
   onCreateCollection,
   onRenameCollection,
@@ -542,12 +580,14 @@ function VaultView({
   onMoveSavedItem,
 }: {
   dashboard: StudentDashboardSummaryDto;
+  hydratedSavedItems: HydratedStudentSavedItemDto[];
   saving: boolean;
   onCreateCollection: (event: FormEvent<HTMLFormElement>) => void;
   onRenameCollection: (collectionId: string, currentName: string) => void;
   onDeleteCollection: (collectionId: string, name: string) => void;
   onMoveSavedItem: (itemId: string, collectionId: string | null) => void;
 }) {
+  const hydratedBySavedItemId = new Map(hydratedSavedItems.map((item) => [item.savedItem.id, item.owner]));
   return (
     <div className="space-y-6">
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -616,7 +656,12 @@ function VaultView({
         >
           {dashboard.savedItems.length ? (
             <div className="divide-y divide-slate-100">
-              {dashboard.savedItems.map((item) => (
+              {dashboard.savedItems.map((item) => {
+                const owner = hydratedBySavedItemId.get(item.id);
+                const displayName = owner?.displayName || item.displayName || item.entityId;
+                const slug = owner?.slug || item.entitySlug || undefined;
+                const available = owner ? owner.available : false;
+                return (
                 <div key={item.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
                   <span className="grid h-11 w-11 place-items-center rounded-xl bg-amber-50 text-amber-700">
                     ★
@@ -625,12 +670,13 @@ function VaultView({
                     <span className="text-xs font-bold text-emerald-700">
                       {arabicEntityType(item.entityType)}
                     </span>
-                    <h3 className="truncate font-bold">{item.displayName || item.entityId}</h3>
+                    <h3 className="truncate font-bold">{displayName}</h3>
+                    {!available && <p className="mt-1 text-xs font-bold text-amber-700">المرجع غير متاح حاليًا لدى المصدر المالك.</p>}
                     {item.notes && <p className="mt-1 text-sm text-slate-500">{item.notes}</p>}
                   </div>
-                  {item.entitySlug && (
+                  {available && slug && (
                     <Link
-                      to={buildEntityLink(item.entityType, item.entitySlug)}
+                      to={buildEntityLink(item.entityType, slug)}
                       className="rounded-lg border px-3 py-2 text-sm font-bold text-slate-600 hover:border-emerald-300"
                     >
                       فتح
@@ -642,7 +688,8 @@ function VaultView({
                     {dashboard.collections.map((collection) => <option key={collection.id} value={collection.id}>{collection.name}</option>)}
                   </select>
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <EmptyState

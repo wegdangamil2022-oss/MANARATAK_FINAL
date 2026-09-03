@@ -102,3 +102,9 @@ Whenever multiple governance or design documents reference or overlap on the sam
 - It changes no existing domain, package, or service ownership boundaries.
 - It creates no new compliance rules.
 - It exists solely to improve governance, discoverability, consistency, and maintainability of the architectural landscape.
+
+---
+
+## P13 Final Source Closure Reference — 2026-09-03
+
+For the post-remediation source state, use `docs/remediation/p13/P13_FINAL_SOURCE_CLOSURE_REPORT_2026-09-03.md` together with the active Cross-Phase Relationship Closure Matrix v2.0.0. This index remains navigational only; Roadmap v6.0 retains architecture authority. Runtime/DB/E2E evidence remains separately pending.

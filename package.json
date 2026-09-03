@@ -83,7 +83,17 @@
     "phase7:plan:verify": "node scripts/verify-p7-plan-closure.mjs",
     "phase8:plan:verify": "node scripts/verify-p8-plan-closure.mjs",
     "phase9:plan:verify": "node scripts/verify-p9-plan-closure.mjs",
-    "phase10:plan:verify": "node scripts/verify-p10-plan-closure.mjs"
+    "phase10:plan:verify": "node scripts/verify-p10-plan-closure.mjs",
+    "phase11:guards:test": "node --test tests/architecture/source-architecture-guard-contracts.test.mjs",
+    "phase11:guards:verify": "node scripts/architecture/verify-source-architecture-guards.mjs && npm run phase11:guards:test && node scripts/quality/verify-source-quality.mjs",
+    "phase11:plan:verify": "node scripts/verify-p11-plan-closure.mjs",
+    "db:source:verify": "node scripts/ci/prisma-source-gate.mjs",
+    "closure:plan:verify": "npm run phase7:plan:verify && npm run phase8:plan:verify && npm run phase9:plan:verify && npm run phase10:plan:verify && npm run phase11:plan:verify",
+    "ci:source:contracts": "npm run phase11:guards:verify && npm run remediation:verify && npm run closure:plan:verify",
+    "ci:source:full": "npm run ci:source:contracts && npm run db:source:verify && npm run typecheck && npm run lint && npm run build && npm run test:unit && npm run phase12:plan:verify && npm run phase13:plan:verify",
+    "ci:source:evidence": "node scripts/ci/write-source-ci-evidence.mjs",
+    "phase12:plan:verify": "node scripts/verify-p12-plan-closure.mjs",
+    "phase13:plan:verify": "node scripts/verify-p13-final-source-closure.mjs"
   },
   "dependencies": {
     "@e965/xlsx": "0.20.3",

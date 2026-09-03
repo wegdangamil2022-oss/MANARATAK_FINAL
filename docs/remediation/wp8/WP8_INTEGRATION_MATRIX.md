@@ -1,3 +1,5 @@
+> **HISTORICAL / SUPERSEDED — 2026-09-03:** This report is evidence only. The active authority is `docs/remediation/CROSS_PHASE_RELATIONSHIP_CLOSURE_MATRIX.md` v2.0.0 and the P13 Final Source Closure Report.
+
 # WP8 Cross-Domain Integration Matrix
 
 Status date: 2026-08-12

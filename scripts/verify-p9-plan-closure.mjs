@@ -128,7 +128,7 @@ for (const [id, page, router] of [
 
 // Matrix and closure record are conservative: source-closed, runtime proof still pending.
 const matrixText = read(matrix);
-check('P9-MATRIX-001 active matrix is P9 v1.4.0 or later', /\*\*Status:\*\* ACTIVE — P(?:9|10|11|12|13) Source Closure checklist/.test(matrixText) && /\*\*Version:\*\* 1\.(?:[4-9]|[1-9]\d+)\.0/.test(matrixText));
+check('P9-MATRIX-001 active matrix is P9 v1.4.0 or later', /\*\*Status:\*\* ACTIVE — P(?:9|10|11|12|13)\b[^\n]*/.test(matrixText) && /\*\*Version:\*\* (?:1\.(?:[4-9]|[1-9]\d+)\.0|[2-9]\d*\.\d+\.\d+)/.test(matrixText));
 for (let n = 42; n <= 55; n += 1) {
   const id = `R-${String(n).padStart(3, '0')}`;
   const line = read(matrix).split('\n').find((value) => value.startsWith(`| ${id} |`)) ?? '';

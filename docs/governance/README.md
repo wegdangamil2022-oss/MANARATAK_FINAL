@@ -124,3 +124,9 @@ When modifying or introducing new governance files:
 2. **Logical Subdirectories:** Save documents in their designated subdirectories (`blueprint/`, `roadmap/`, or `audits/`) to preserve folder taxonomy.
 3. **Link Persistence:** Avoid duplicating statements across different files. Prefer referencing active sections in the Master Blueprint or Roadmap using clear, descriptive Markdown links.
 4. **Synchronize downstream references:** When a governance document is updated, perform a repository-wide check to ensure that dependent architecture and phase documents remain fully synchronized and compile successfully.
+
+---
+
+## Final Source Closure (P13)
+
+The active post-remediation source evidence is `docs/remediation/p13/P13_FINAL_SOURCE_CLOSURE_REPORT_2026-09-03.md`, with relationship-level status in `docs/remediation/CROSS_PHASE_RELATIONSHIP_CLOSURE_MATRIX.md` v2.0.0. Roadmap v6.0 remains the roadmap authority. The source closure does not certify database/runtime/E2E execution; those items are frozen in the P13 Runtime Pending Register.

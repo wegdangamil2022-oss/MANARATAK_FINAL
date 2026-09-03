@@ -16,6 +16,7 @@ export interface ICourseProgressRepository {
   enroll(data: CreateCourseEnrollmentDto): Promise<CourseEnrollmentDto>;
   enrollWithCapacity(data: CreateCourseEnrollmentDto, maximumSeats: number | null, waitlistEnabled: boolean): Promise<CourseEnrollmentDto>;
   findEnrollment(courseId: string, studentReferenceId: string): Promise<CourseEnrollmentDto | null>;
+  listEnrollmentsByStudent(studentReferenceId: string): Promise<CourseEnrollmentDto[]>;
   countActiveEnrollments(courseId: string): Promise<number>;
   updateEnrollmentProgress(courseId: string, studentReferenceId: string, progressPercentage: number): Promise<CourseEnrollmentDto>;
   markEnrollmentCompleted(courseId: string, studentReferenceId: string): Promise<CourseEnrollmentDto>;

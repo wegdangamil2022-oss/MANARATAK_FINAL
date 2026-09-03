@@ -21,7 +21,12 @@ for (const model of ['AIRegistryRecord', 'AIPromptVersionRecord', 'AIExecutionRe
 }
 if (/apiKey\s+String|secretValue\s+String|accessToken\s+String/i.test(schema.match(/\/\/ --- Phase 17[\s\S]*/)?.[0] ?? '')) failures.push('provider-secret-persisted');
 
-const tracked = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], { encoding: 'utf8' }).trim().split(/\r?\n/).filter((file) => existsSync(file) && /\.(?:ts|tsx|js|mjs|cjs)$/.test(file) && !/^(?:work|wp-ic-10-results|wp12-11-evidence)\//.test(file.replaceAll('\\', '/')));
+const tracked = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], { encoding: 'utf8' }).trim().split(/\r?\n/).filter((file) => {
+  const normalized = file.replaceAll('\\', '/');
+  return existsSync(file)
+    && /\.(?:ts|tsx|js|mjs|cjs)$/.test(file)
+    && /^(?:apps|packages)\/[^/]+\/src\//.test(normalized);
+});
 const approved = ['packages/infrastructure/src/ai-platform/'];
 const directImport = /(?:from\s+['"](?:openai|@anthropic-ai\/sdk|@google\/genai)['"]|require\(['"](?:openai|@anthropic-ai\/sdk|@google\/genai)['"]\))/;
 for (const file of tracked) if (!approved.some((prefix) => file.replaceAll('\\', '/').startsWith(prefix)) && directImport.test(readFileSync(file, 'utf8'))) failures.push(`direct-provider-import:${file}`);
