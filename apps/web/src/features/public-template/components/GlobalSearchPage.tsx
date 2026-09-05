@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeft,
+  ArrowRight,
   BookOpen,
   BriefcaseBusiness,
   Building2,
@@ -13,7 +13,7 @@ import {
   Stethoscope,
   Wrench,
 } from 'lucide-react';
-import {
+import type {
   CategoryType,
   Exam,
   FavoriteKey,
@@ -28,19 +28,14 @@ import {
   StudentToolPreview,
   CareerOpportunityPreview,
 } from '../types';
+import {
+  buildGlobalSearchDocuments,
+  rankGlobalSearchDocuments,
+  type GlobalResultKind,
+  type GlobalSearchTarget,
+  type RankedGlobalSearchResult,
+} from '../globalSearchIndex';
 import { FavoriteButton } from './FavoriteButton';
-
-type GlobalResultKind =
-  | 'scholarships'
-  | 'universities'
-  | 'majors'
-  | 'countries'
-  | 'courses'
-  | 'exams'
-  | 'articles'
-  | 'services'
-  | 'tools'
-  | 'jobs';
 
 interface GlobalSearchPageProps {
   query: string;
@@ -56,41 +51,31 @@ interface GlobalSearchPageProps {
   careers: CareerOpportunityPreview[];
   onBack: () => void;
   onOpenSmartSearch: () => void;
-  onOpenScholarship: (item: Scholarship) => void;
-  onOpenUniversity: (item: University) => void;
-  onOpenMajor: (item: Major) => void;
-  onOpenExam: (item: Exam) => void;
-  onOpenCourse: (item: ImportedCourse) => void;
-  onOpenArticle: (item: PublicArticle) => void;
-  onOpenService: (item: Service) => void;
-  onOpenCountry: (countryId: string) => void;
-  onNavigateCategory: (category: CategoryType) => void;
+  onOpenScholarship: (item: Scholarship, target?: GlobalSearchTarget) => void;
+  onOpenUniversity: (item: University, target?: GlobalSearchTarget) => void;
+  onOpenMajor: (item: Major, target?: GlobalSearchTarget) => void;
+  onOpenExam: (item: Exam, target?: GlobalSearchTarget) => void;
+  onOpenCourse: (item: ImportedCourse, target?: GlobalSearchTarget) => void;
+  onOpenArticle: (item: PublicArticle, target?: GlobalSearchTarget) => void;
+  onOpenService: (item: Service, target?: GlobalSearchTarget) => void;
+  onOpenCountry: (countryId: string, target?: GlobalSearchTarget) => void;
+  onNavigateCategory: (category: CategoryType, targetId?: string, target?: GlobalSearchTarget) => void;
   favoriteKeys?: FavoriteKey[];
   onToggleFavorite?: (kind: FavoriteKind, id: string) => void;
 }
 
-interface GlobalSearchResult {
-  key: string;
-  kind: GlobalResultKind;
-  title: string;
-  subtitle: string;
-  meta?: string;
-  raw: any;
-}
-
 const CATEGORY_META: Record<GlobalResultKind, { label: string; icon: React.ReactNode }> = {
-  scholarships: { label: 'المنح', icon: <GraduationCap className="w-4 h-4" /> },
-  universities: { label: 'الجامعات', icon: <Building2 className="w-4 h-4" /> },
-  majors: { label: 'التخصصات', icon: <BookOpen className="w-4 h-4" /> },
-  countries: { label: 'الدول', icon: <Landmark className="w-4 h-4" /> },
-  courses: { label: 'الدورات', icon: <BookOpen className="w-4 h-4" /> },
-  exams: { label: 'الاختبارات', icon: <FileText className="w-4 h-4" /> },
-  articles: { label: 'المقالات', icon: <FileText className="w-4 h-4" /> },
-  services: { label: 'الخدمات', icon: <Stethoscope className="w-4 h-4" /> },
-  tools: { label: 'الأدوات', icon: <Wrench className="w-4 h-4" /> },
-  jobs: { label: 'الوظائف والتدريب', icon: <BriefcaseBusiness className="w-4 h-4" /> },
+  scholarships: { label: 'المنح', icon: <GraduationCap className="h-4 w-4" /> },
+  universities: { label: 'الجامعات', icon: <Building2 className="h-4 w-4" /> },
+  majors: { label: 'التخصصات', icon: <BookOpen className="h-4 w-4" /> },
+  countries: { label: 'الدول', icon: <Landmark className="h-4 w-4" /> },
+  courses: { label: 'الدورات', icon: <BookOpen className="h-4 w-4" /> },
+  exams: { label: 'الاختبارات', icon: <FileText className="h-4 w-4" /> },
+  articles: { label: 'المقالات', icon: <FileText className="h-4 w-4" /> },
+  services: { label: 'الخدمات', icon: <Stethoscope className="h-4 w-4" /> },
+  tools: { label: 'الأدوات', icon: <Wrench className="h-4 w-4" /> },
+  jobs: { label: 'الوظائف والتدريب', icon: <BriefcaseBusiness className="h-4 w-4" /> },
 };
-
 
 const favoriteKindForResult = (kind: GlobalResultKind): FavoriteKind => {
   if (kind === 'scholarships') return 'scholarship';
@@ -104,11 +89,6 @@ const favoriteKindForResult = (kind: GlobalResultKind): FavoriteKind => {
   if (kind === 'tools') return 'tool';
   return 'career';
 };
-
-const favoriteIdForResult = (result: GlobalSearchResult): string => String(result.raw?.id ?? '');
-
-const normalize = (value: unknown) => String(value ?? '').toLocaleLowerCase('ar').trim();
-const searchable = (value: unknown) => normalize(JSON.stringify(value));
 
 export const GlobalSearchPage: React.FC<GlobalSearchPageProps> = ({
   query,
@@ -137,281 +117,124 @@ export const GlobalSearchPage: React.FC<GlobalSearchPageProps> = ({
   onToggleFavorite,
 }) => {
   const [selectedKind, setSelectedKind] = useState<'all' | GlobalResultKind>('all');
-
-  const allResults = useMemo<GlobalSearchResult[]>(() => {
-    const results: GlobalSearchResult[] = [];
-
-    scholarships.forEach((item) =>
-      results.push({
-        key: `scholarship-${item.id}`,
-        kind: 'scholarships',
-        title: item.title,
-        subtitle: `${item.countryFlag} ${item.country} · ${item.university}`,
-        meta: item.fundingType,
-        raw: item,
-      }),
-    );
-
-    universities.forEach((item: any) =>
-      results.push({
-        key: `university-${item.id}`,
-        kind: 'universities',
-        title: item.name,
-        subtitle: [item.city, item.country].filter(Boolean).join(' · '),
-        meta: item.type || 'جامعة',
-        raw: item,
-      }),
-    );
-
-    majors.forEach((item: any) =>
-      results.push({
-        key: `major-${item.id}`,
-        kind: 'majors',
-        title: item.name,
-        subtitle: item.nameEn || item.faculty || 'تخصص أكاديمي',
-        meta: Array.isArray(item.degreeLevels) ? item.degreeLevels.slice(0, 2).join(' · ') : undefined,
-        raw: item,
-      }),
-    );
-
-    countries.forEach((item: any) =>
-      results.push({
-        key: `country-${item.id}`,
-        kind: 'countries',
-        title: `${item.flagEmoji || item.flag || ''} ${item.name}`.trim(),
-        subtitle: item.continent || 'وجهة دراسية',
-        meta: item.languageOfStudy?.slice?.(0, 2)?.join?.(' · '),
-        raw: item,
-      }),
-    );
-
-    importedCourses.forEach((item: any) =>
-      results.push({
-        key: `course-${item.id}`,
-        kind: 'courses',
-        title: item.courseName || item.title,
-        subtitle: item.platform || item.provider || 'دورة تدريبية',
-        meta: item.language,
-        raw: item,
-      }),
-    );
-
-    exams.forEach((item: any) =>
-      results.push({
-        key: `exam-${item.id}`,
-        kind: 'exams',
-        title: item.name,
-        subtitle: item.nameEn || item.category || 'اختبار دولي',
-        meta: item.category,
-        raw: item,
-      }),
-    );
-
-    articles.forEach((item: any) =>
-      results.push({
-        key: `article-${item.id}`,
-        kind: 'articles',
-        title: item.titleAr,
-        subtitle: item.excerptAr || item.summary || 'مقال ودليل دراسي',
-        meta: item.contentTypeLabelAr || item.contentType,
-        raw: item,
-      }),
-    );
-
-    services.forEach((item: any) =>
-      results.push({
-        key: `service-${item.id}`,
-        kind: 'services',
-        title: item.name || item.title,
-        subtitle: item.shortDescription || item.description,
-        meta: item.category,
-        raw: item,
-      }),
-    );
-
-    tools.forEach((item: any) =>
-      results.push({
-        key: `tool-${item.id}`,
-        kind: 'tools',
-        title: item.title,
-        subtitle: item.shortDescription,
-        meta: `${item.category} · ${item.availability}`,
-        raw: item,
-      }),
-    );
-
-    careers.forEach((item: any) =>
-      results.push({
-        key: `career-${item.id}`,
-        kind: 'jobs',
-        title: item.title,
-        subtitle: `${item.countryFlag || ''} ${item.country} · ${item.employerName}`.trim(),
-        meta: `${item.kind} · ${item.workMode}`,
-        raw: item,
-      }),
-    );
-
-    return results;
-  }, [scholarships, universities, majors, countries, importedCourses, exams, articles, services, tools, careers]);
-
-  const baseMatchedResults = useMemo(() => {
-    const q = normalize(query);
-    const tokens = q.split(/\s+/).filter((token) => token.length > 1);
-
-    return allResults
-      .map((item) => {
-        if (!q) return { item, score: 1 };
-        const haystack = searchable(item.raw) + ' ' + normalize(item.title) + ' ' + normalize(item.subtitle);
-        const score = tokens.reduce((total, token) => total + (haystack.includes(token) ? 1 : 0), 0);
-        const exactBoost = haystack.includes(q) ? 4 : 0;
-        return { item, score: score + exactBoost };
-      })
-      .filter(({ score }) => score > 0)
-      .sort((a, b) => b.score - a.score)
-      .map(({ item }) => item);
-  }, [allResults, query]);
-
-  const filteredResults = useMemo(
-    () => (selectedKind === 'all' ? baseMatchedResults : baseMatchedResults.filter((item) => item.kind === selectedKind)),
-    [baseMatchedResults, selectedKind],
+  const documents = useMemo(
+    () => buildGlobalSearchDocuments({ scholarships, universities, majors, countries, importedCourses, exams, articles, services, tools, careers }),
+    [scholarships, universities, majors, countries, importedCourses, exams, articles, services, tools, careers],
   );
+  const rankedResults = useMemo(() => rankGlobalSearchDocuments(documents, query), [documents, query]);
 
   const counts = useMemo(() => {
-    const base = Object.keys(CATEGORY_META).reduce((acc, kind) => {
+    const value = Object.keys(CATEGORY_META).reduce((acc, kind) => {
       acc[kind as GlobalResultKind] = 0;
       return acc;
     }, {} as Record<GlobalResultKind, number>);
+    rankedResults.forEach((result) => { value[result.kind] += 1; });
+    return value;
+  }, [rankedResults]);
 
-    const q = normalize(query);
-    const tokens = q.split(/\s+/).filter((token) => token.length > 1);
-    allResults.forEach((item) => {
-      if (!q || tokens.some((token) => searchable(item.raw).includes(token))) base[item.kind] += 1;
-    });
-    return base;
-  }, [allResults, query]);
+  useEffect(() => {
+    if (selectedKind !== 'all' && counts[selectedKind] === 0) setSelectedKind('all');
+  }, [counts, selectedKind]);
 
-  const openResult = (result: GlobalSearchResult) => {
-    if (result.kind === 'scholarships') return onOpenScholarship(result.raw as Scholarship);
-    if (result.kind === 'universities') return onOpenUniversity(result.raw as University);
-    if (result.kind === 'majors') return onOpenMajor(result.raw as Major);
-    if (result.kind === 'exams') return onOpenExam(result.raw as Exam);
-    if (result.kind === 'courses') return onOpenCourse(result.raw as ImportedCourse);
-    if (result.kind === 'articles') return onOpenArticle(result.raw as PublicArticle);
-    if (result.kind === 'services') return onOpenService(result.raw as Service);
-    if (result.kind === 'countries') return onOpenCountry(result.raw.id);
-    if (result.kind === 'tools') return onNavigateCategory('tools');
-    return onNavigateCategory('jobs');
+  const filteredResults = selectedKind === 'all' ? rankedResults : rankedResults.filter((item) => item.kind === selectedKind);
+
+  const openResult = (result: RankedGlobalSearchResult) => {
+    const target = { anchor: result.anchor, searchTerm: query };
+    if (result.kind === 'scholarships') return onOpenScholarship(result.raw as Scholarship, target);
+    if (result.kind === 'universities') return onOpenUniversity(result.raw as University, target);
+    if (result.kind === 'majors') return onOpenMajor(result.raw as Major, target);
+    if (result.kind === 'exams') return onOpenExam(result.raw as Exam, target);
+    if (result.kind === 'courses') return onOpenCourse(result.raw as ImportedCourse, target);
+    if (result.kind === 'articles') return onOpenArticle(result.raw as PublicArticle, target);
+    if (result.kind === 'services') return onOpenService(result.raw as Service, target);
+    if (result.kind === 'countries') return onOpenCountry(result.targetId, target);
+    if (result.kind === 'tools') return onNavigateCategory('tools', result.targetId, target);
+    return onNavigateCategory('jobs', result.targetId, target);
   };
 
   return (
-    <div className="min-h-screen bg-[var(--mn-page)] pb-24 mn-panel " dir="rtl">
-      <section className="mn-search-hero text-white mn-inverse ">
-        <div className="max-w-5xl mx-auto px-4 py-5 sm:py-7">
-          <div className="flex items-center justify-between gap-3">
-            <button
-              onClick={onBack}
-              className="w-9 h-9 rounded-xl border border-white/20 bg-white/10 flex items-center justify-center active:scale-95 cursor-pointer"
-              aria-label="رجوع"
-            >
-              <ArrowLeft className="w-4 h-4" />
+    <div className="mn-page-shell pb-24" dir="rtl">
+      <section className="mn-search-hero text-white mn-inverse">
+        <div className="mn-public-container py-5 sm:py-7">
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={onBack} className="h-10 w-10 shrink-0 rounded-xl border border-white/20 bg-white/10 flex items-center justify-center" aria-label="العودة">
+              <ArrowRight className="h-4 w-4" />
             </button>
-            <div className="text-right flex-1">
-              <div className="text-[10px] sm:text-xs text-white font-bold">بحث موحّد في جميع أقسام منارتك</div>
-              <h1 className="mt-0.5 text-xl sm:text-2xl font-black font-['Cairo',sans-serif]">نتائج البحث العام</h1>
+            <div className="min-w-0 flex-1 text-right">
+              <div className="text-[11px] font-medium text-white/80 sm:text-xs">بحث موحّد في بيانات منارتك المخصصة للمستخدم</div>
+              <h1 className="mt-0.5 text-[22px] font-bold leading-tight sm:text-[28px]">نتائج البحث العام</h1>
             </div>
           </div>
-
-          <button
-            onClick={onOpenSmartSearch}
-            className="mt-4 w-full rounded-2xl border border-[var(--mn-accent)]/50 bg-white/10 px-3.5 py-3 flex items-center justify-between gap-3 text-right active:scale-[0.99] transition-transform cursor-pointer"
-          >
-            <div>
-              <div className="flex items-center gap-1.5 text-[12px] font-black text-[var(--mn-accent)]">
-                <Sparkles className="w-4 h-4" />
-                جرّب البحث الذكي
-              </div>
-              <div className="mt-0.5 text-[9px] sm:text-[10px] text-white">حوّل نفس عبارتك إلى طلب مفهوم عبر أكثر من قسم.</div>
+          <button type="button" onClick={onOpenSmartSearch} className="mt-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-[var(--mn-accent)]/50 bg-white/10 px-3.5 py-3 text-right transition hover:bg-white/15">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-[12px] font-semibold text-[var(--mn-accent-soft)]"><Sparkles className="h-4 w-4" />جرّب البحث الذكي</div>
+              <div className="mt-0.5 text-[10px] text-white/80">استخدمه عندما تحتاج استكشافًا عبر أكثر من مجال، وليس بدل النتائج المباشرة.</div>
             </div>
-            <ChevronLeft className="w-4 h-4 text-[var(--mn-accent)] shrink-0" />
+            <ChevronLeft className="h-4 w-4 shrink-0 text-[var(--mn-accent-soft)]" />
           </button>
         </div>
       </section>
 
-      <div className="max-w-5xl mx-auto px-3.5 sm:px-5 py-4 space-y-4">
-        <div className="rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)] px-3.5 py-3 shadow-2xs mn-panel ">
+      <div className="mn-public-container space-y-4 py-4">
+        <div className="mn-card px-3.5 py-3">
           <div className="flex items-center gap-2">
-            <Search className="w-4 h-4 text-[var(--mn-accent-text)] shrink-0" />
+            <Search className="h-4 w-4 shrink-0 text-[var(--mn-accent-text)]" />
             <div className="min-w-0">
-              <div className="text-[10px] text-[var(--mn-text-muted)] font-bold">بحثك الحالي</div>
-              <div className="text-xs sm:text-sm font-black text-[var(--mn-heading)] truncate">{query || 'اكتب في شريط البحث أعلى الصفحة'}</div>
+              <div className="mn-meta">بحثك الحالي</div>
+              <div className="truncate text-[13px] font-semibold text-[var(--mn-heading)] sm:text-sm">{query || 'اكتب في شريط البحث أعلى الصفحة'}</div>
             </div>
           </div>
         </div>
 
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
-          <button
-            onClick={() => setSelectedKind('all')}
-            className={`px-3 py-2 rounded-xl whitespace-nowrap text-[10px] sm:text-[11px] font-black border cursor-pointer ${
-              selectedKind === 'all'
-                ? 'bg-[var(--mn-primary)] text-white border-[var(--mn-primary)] mn-inverse '
-                : 'bg-[var(--mn-surface)] text-[var(--mn-text-muted)] border-[var(--mn-border)] mn-panel '
-            }`}
-          >
-            الكل · {baseMatchedResults.length}
-          </button>
-          {(Object.keys(CATEGORY_META) as GlobalResultKind[]).map((kind) => (
-            <button
-              key={kind}
-              onClick={() => setSelectedKind(kind)}
-              className={`px-3 py-2 rounded-xl whitespace-nowrap text-[10px] sm:text-[11px] font-black border flex items-center gap-1.5 cursor-pointer ${
-                selectedKind === kind
-                  ? 'bg-[var(--mn-primary)] text-white border-[var(--mn-primary)] mn-inverse '
-                  : 'bg-[var(--mn-surface)] text-[var(--mn-text-muted)] border-[var(--mn-border)] mn-panel '
-              }`}
-            >
-              {CATEGORY_META[kind].icon}
-              {CATEGORY_META[kind].label} · {counts[kind]}
-            </button>
-          ))}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 hide-scrollbar">
+          <button type="button" onClick={() => setSelectedKind('all')} aria-pressed={selectedKind === 'all'} className={`mn-filter-chip whitespace-nowrap ${selectedKind === 'all' ? 'is-selected' : ''}`}>الكل · {rankedResults.length}</button>
+          {(Object.keys(CATEGORY_META) as GlobalResultKind[])
+            .filter((kind) => !query.trim() || counts[kind] > 0)
+            .map((kind) => (
+              <button type="button" key={kind} onClick={() => setSelectedKind(kind)} aria-pressed={selectedKind === kind} className={`mn-filter-chip flex items-center gap-1.5 whitespace-nowrap ${selectedKind === kind ? 'is-selected' : ''}`}>
+                {CATEGORY_META[kind].icon}{CATEGORY_META[kind].label} · {counts[kind]}
+              </button>
+            ))}
         </div>
 
         {query.trim() && filteredResults.length > 0 ? (
           <div className="space-y-2.5">
-            {filteredResults.slice(0, 30).map((result) => {
+            {filteredResults.slice(0, 40).map((result) => {
               const favoriteKind = favoriteKindForResult(result.kind);
-              const favoriteId = favoriteIdForResult(result);
+              const favoriteId = result.targetId;
               const favoriteKey = `${favoriteKind}:${favoriteId}` as FavoriteKey;
-              const isFavorite = favoriteKeys.includes(favoriteKey);
-
               return (
                 <article
-                  key={result.key}
+                  key={`${result.key}:${result.anchor || 'top'}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`فتح ${result.title}${result.matchedSection ? `، القسم: ${result.matchedSection}` : ''}`}
                   onClick={() => openResult(result)}
-                  className="w-full rounded-3xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-3.5 text-right shadow-2xs hover:border-[var(--mn-accent)]/60 hover:shadow-sm transition-all active:scale-[0.99] cursor-pointer mn-panel "
+                  onKeyDown={(event) => {
+                    if (event.currentTarget !== event.target) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      openResult(result);
+                    }
+                  }}
+                  className="mn-card w-full cursor-pointer p-3.5 text-right transition hover:-translate-y-0.5 hover:border-[var(--mn-accent)]/60 hover:shadow-md active:translate-y-0"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-[var(--mn-primary)] text-white flex items-center justify-center shrink-0 mn-inverse ">
-                      {CATEGORY_META[result.kind].icon}
-                    </div>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--mn-primary)] text-white mn-inverse">{CATEGORY_META[result.kind].icon}</div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[9px] font-black text-[var(--mn-accent-text)]">{CATEGORY_META[result.kind].label}</span>
-                        {result.meta && <span className="text-[9px] text-[var(--mn-text-muted)] font-bold truncate max-w-[45%]">{result.meta}</span>}
+                      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                        <span className="text-[10px] font-semibold text-[var(--mn-accent-text)]">{result.category}</span>
+                        {result.meta && <span className="max-w-[55%] truncate text-[10px] font-medium text-[var(--mn-text-muted)]">{result.meta}</span>}
                       </div>
-                      <h2 className="mt-0.5 text-[13px] sm:text-sm leading-snug font-black text-[var(--mn-heading)]">{result.title}</h2>
-                      <p className="mt-1 text-[10px] sm:text-[11px] leading-5 text-[var(--mn-text-muted)] line-clamp-2">{result.subtitle}</p>
-                    </div>
-                    <div className="flex flex-col items-center gap-1.5 shrink-0">
-                      {favoriteId && onToggleFavorite && (
-                        <FavoriteButton
-                          active={isFavorite}
-                          onToggle={(event) => {
-                            event.stopPropagation();
-                            onToggleFavorite(favoriteKind, favoriteId);
-                          }}
-                        />
+                      <h2 className="mt-0.5 text-[14px] font-semibold leading-snug text-[var(--mn-heading)] sm:text-[15px]">{result.title}</h2>
+                      {result.matchedSection && (
+                        <div className="mt-1 inline-flex rounded-full border border-[var(--mn-border-gold)] bg-[var(--mn-gold-surface)] px-2 py-0.5 text-[10px] font-semibold text-[var(--mn-accent-text)]">المطابقة في: {result.matchedSection}</div>
                       )}
-                      <ChevronLeft className="w-4 h-4 text-[var(--mn-accent-text)]" />
+                      <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-[var(--mn-text-muted)] sm:text-xs">{result.excerpt || result.subtitle}</p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-center gap-1.5">
+                      {favoriteId && onToggleFavorite && <FavoriteButton active={favoriteKeys.includes(favoriteKey)} onToggle={(event) => { event.stopPropagation(); onToggleFavorite(favoriteKind, favoriteId); }} />}
+                      <ChevronLeft className="mn-card-arrow h-4 w-4" />
                     </div>
                   </div>
                 </article>
@@ -419,23 +242,19 @@ export const GlobalSearchPage: React.FC<GlobalSearchPageProps> = ({
             })}
           </div>
         ) : query.trim() ? (
-          <div className="py-14 text-center rounded-3xl border border-dashed border-[var(--mn-border)] bg-[var(--mn-surface)] mn-panel ">
-            <Search className="w-9 h-9 mx-auto text-[var(--mn-text-muted)]" />
-            <div className="mt-2 text-xs font-black text-[var(--mn-heading)]">لا توجد نتائج مباشرة بهذه العبارة.</div>
-            <button onClick={onOpenSmartSearch} className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[var(--mn-primary)] text-white text-[10px] font-black cursor-pointer mn-inverse ">
-              <Sparkles className="w-3.5 h-3.5 text-[var(--mn-accent)]" />
-              جرّب البحث الذكي
-            </button>
+          <div className="mn-card py-14 text-center border-dashed">
+            <Search className="mx-auto h-9 w-9 text-[var(--mn-text-muted)]" />
+            <div className="mt-2 text-xs font-semibold text-[var(--mn-heading)]">لا توجد نتيجة مخصصة للمستخدم بهذه العبارة.</div>
+            <button type="button" onClick={onOpenSmartSearch} className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[var(--mn-primary)] px-4 py-2 text-[11px] font-semibold text-white mn-inverse"><Sparkles className="h-3.5 w-3.5 text-[var(--mn-accent-soft)]" />جرّب البحث الذكي</button>
           </div>
         ) : (
-          <div className="py-14 text-center rounded-3xl border border-dashed border-[var(--mn-border)] bg-[var(--mn-surface)] mn-panel ">
-            <Search className="w-9 h-9 mx-auto text-[var(--mn-text-muted)]" />
-            <div className="mt-2 text-xs font-black text-[var(--mn-heading)]">ابدأ بكتابة اسم منحة، جامعة، تخصص، دورة أو فرصة في الأعلى.</div>
-            <div className="mt-1 text-[10px] text-[var(--mn-text-muted)]">البحث العام لا يستخدم الذكاء الاصطناعي؛ يعرض نتائج مباشرة من فهرس المنصة.</div>
+          <div className="mn-card py-14 text-center border-dashed">
+            <Search className="mx-auto h-9 w-9 text-[var(--mn-text-muted)]" />
+            <div className="mt-2 text-xs font-semibold text-[var(--mn-heading)]">ابدأ باسم منحة، جامعة، تخصص، دورة، اختبار أو فرصة.</div>
+            <div className="mt-1 text-[11px] text-[var(--mn-text-muted)]">الفهرس يبحث فقط في الحقول العامة المخصصة للمستخدم.</div>
           </div>
         )}
       </div>
     </div>
   );
 };
-

@@ -71,7 +71,12 @@ describe('Phase 20 service request ownership and finance handoff', () => {
       })),
       assignProvider: vi.fn(),
     };
-    finance = { createDraftInvoice: vi.fn().mockResolvedValue({ id: 'fin-1', publicId: 'fin-public-1' }) };
+    finance = {
+      createDraftInvoice: vi.fn().mockResolvedValue({ id: 'fin-1', publicId: 'fin-public-1' }),
+      getInvoiceClearance: vi.fn().mockResolvedValue({
+        invoiceId: 'fin-1', invoiceStatus: 'PAID', amountDueMinorUnits: '0', financiallyCleared: true,
+      }),
+    };
   });
 
   it('allows a student request only for a published owner service', async () => {
@@ -98,4 +103,36 @@ describe('Phase 20 service request ownership and finance handoff', () => {
     expect(requests.linkFinanceInvoice).toHaveBeenCalledWith('req-1', 'fin-1', 'fin-public-1');
     expect(result.financeInvoiceId).toBe('fin-1');
   });
+  it('blocks paid-service fulfillment until Finance proves clearance', async () => {
+    vi.mocked(requests.findRequestById).mockResolvedValueOnce({
+      ...request,
+      status: ServiceRequestStatus.AWAITING_PAYMENT,
+      financeInvoiceId: 'fin-1',
+      financeInvoicePublicId: 'fin-public-1',
+    });
+    vi.mocked(finance.getInvoiceClearance).mockResolvedValueOnce({
+      invoiceId: 'fin-1', invoiceStatus: 'ISSUED', amountDueMinorUnits: '12500', financiallyCleared: false,
+    });
+    const useCases = new AdminServiceFulfillmentUseCases(catalog, requests, finance);
+
+    await expect(useCases.transitionRequest('req-1', ServiceRequestStatus.IN_PROGRESS))
+      .rejects.toThrow('SERVICE_FINANCIAL_CLEARANCE_REQUIRED:ISSUED');
+    expect(requests.updateRequestStatus).not.toHaveBeenCalled();
+  });
+
+  it('allows fulfillment only after Finance-owned clearance is proven', async () => {
+    vi.mocked(requests.findRequestById).mockResolvedValueOnce({
+      ...request,
+      status: ServiceRequestStatus.AWAITING_PAYMENT,
+      financeInvoiceId: 'fin-1',
+      financeInvoicePublicId: 'fin-public-1',
+    });
+    const useCases = new AdminServiceFulfillmentUseCases(catalog, requests, finance);
+
+    await useCases.transitionRequest('req-1', ServiceRequestStatus.IN_PROGRESS);
+
+    expect(finance.getInvoiceClearance).toHaveBeenCalledWith('fin-1');
+    expect(requests.updateRequestStatus).toHaveBeenCalledWith('req-1', ServiceRequestStatus.IN_PROGRESS, undefined);
+  });
+
 });

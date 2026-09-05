@@ -1,22 +1,44 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Cairo", system-ui, -apple-system, sans-serif;
-  --font-display: "Playfair Display", serif;
-  --color-primary: #0F4B3A;
-  --color-secondary: #C8A24A;
+  --font-sans: "Cairo", "Noto Sans Arabic", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Cairo", "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --color-primary: #142B5F;
+  --color-secondary: #0E7C86;
+  --color-accent: #D6A43B;
 }
 
 :root {
   color-scheme: light;
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
+  background: #FAF7F0;
+  color: #203442;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
 }
 
 body {
-  background: #f8fafc;
-  color: #0f172a;
+  margin: 0;
+  background: #FAF7F0;
+  color: #203442;
   font-family: var(--font-sans);
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+:focus-visible {
+  outline-color: #21A7B4;
 }
 
 @media (max-width: 640px) {

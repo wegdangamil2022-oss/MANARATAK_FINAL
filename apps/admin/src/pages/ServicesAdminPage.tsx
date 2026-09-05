@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { adminApiClient } from '../api/client';
 import { Archive, CheckCircle2, Edit3, Filter, Loader2, Plus, Send, XCircle } from 'lucide-react';
 import { useTranslation } from "../i18n/I18nProvider";
+import { useSearchParams } from 'react-router-dom';
 import { CanonicalMultiPicker } from '../components/CanonicalPicker';
 import { canonicalPickerApi } from '../api/canonicalPickers';
 
@@ -46,6 +47,17 @@ interface ServiceListResponse {
   totalPages: number;
 }
 
+interface LinkedServiceRequest {
+  id: string;
+  publicId: string;
+  studentReferenceId: string;
+  serviceId: string;
+  status: string;
+  providerReferenceId?: string | null;
+  financeInvoicePublicId?: string | null;
+  updatedAt: string;
+}
+
 const serviceCategories: ServiceCategory[] = ['STUDENT_SERVICES', 'DOCUMENT_SERVICES', 'VISA_SERVICES', 'TRAVEL_SERVICES', 'ACADEMIC_SERVICES', 'AUXILIARY_PROFESSIONAL_SERVICES', 'ENTERPRISE_OPERATIONAL_SERVICES'];
 const fulfillmentTypes: ServiceFulfillmentType[] = ['CONSULTATION', 'DOCUMENT_PROCESSING', 'BOOKING_OR_APPOINTMENT', 'DIGITAL_DELIVERABLE', 'MANUAL_FULFILLMENT', 'HYBRID_WORKFLOW'];
 const deliveryModes: ServiceDeliveryMode[] = ['ONLINE', 'IN_PERSON', 'HYBRID', 'EXTERNAL_COORDINATION'];
@@ -71,6 +83,10 @@ const emptyForm = {
 
 export function ServicesAdminPage() {
     const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const linkedRequestReference = searchParams.get('request')?.trim() || '';
+  const [linkedRequest, setLinkedRequest] = useState<LinkedServiceRequest | null>(null);
+  const [linkedRequestError, setLinkedRequestError] = useState<string | null>(null);
   const [services, setServices] = useState<ServiceListResponse | null>(null);
   const [selectedService, setSelectedService] = useState<ServiceCatalogItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -100,6 +116,17 @@ export function ServicesAdminPage() {
   useEffect(() => {
     loadServices();
   }, [statusFilter, categoryFilter]);
+
+  useEffect(() => {
+    if (!linkedRequestReference) { setLinkedRequest(null); setLinkedRequestError(null); return; }
+    setLinkedRequestError(null);
+    adminApiClient.request<LinkedServiceRequest>(`/admin/services/requests/${encodeURIComponent(linkedRequestReference)}`)
+      .then(setLinkedRequest)
+      .catch((cause: unknown) => {
+        setLinkedRequest(null);
+        setLinkedRequestError(cause instanceof Error ? cause.message : 'Unable to load linked service request.');
+      });
+  }, [linkedRequestReference]);
 
   const createService = async (event: FormEvent) => {
     event.preventDefault();
@@ -216,6 +243,16 @@ export function ServicesAdminPage() {
         </div>
       </div>
 
+      {linkedRequestReference && (
+        <section aria-label="Linked service request" className="rounded-2xl border border-[#DDEFF2] bg-[#FAF7F0] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div><p className="text-xs font-black text-[#0E7C86]">SERVICE REQUEST · FINANCE DEEP LINK</p><h3 className="mt-1 font-black text-[#142B5F]">{linkedRequest?.publicId || linkedRequestReference}</h3></div>
+            {linkedRequest && <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">{linkedRequest.status}</span>}
+          </div>
+          {linkedRequest && <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4"><div><dt className="text-xs text-slate-500">Student</dt><dd className="break-all font-mono text-xs">{linkedRequest.studentReferenceId}</dd></div><div><dt className="text-xs text-slate-500">Service</dt><dd className="break-all font-mono text-xs">{linkedRequest.serviceId}</dd></div><div><dt className="text-xs text-slate-500">Finance invoice</dt><dd className="break-all font-mono text-xs">{linkedRequest.financeInvoicePublicId || '—'}</dd></div><div><dt className="text-xs text-slate-500">Updated</dt><dd className="text-xs">{new Date(linkedRequest.updatedAt).toLocaleString('ar')}</dd></div></dl>}
+          {linkedRequestError && <p role="alert" className="mt-3 text-sm font-bold text-red-700">{linkedRequestError}</p>}
+        </section>
+      )}
       {message && <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">{message}</div>}
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>}
 

@@ -145,7 +145,10 @@ describe('InternationalTestAdminUseCases', () => {
 
       await useCases.markReadyToPublish('test-1');
 
-      expect(mockRepository.updateStatus).toHaveBeenCalledWith('test-1', InternationalTestStatus.READY_TO_PUBLISH);
+      expect(mockRepository.update).toHaveBeenCalledWith('test-1', {
+        status: InternationalTestStatus.READY_TO_PUBLISH,
+        isPubliclyVisible: false,
+      });
     });
   });
 
@@ -192,7 +195,10 @@ describe('InternationalTestAdminUseCases', () => {
 
       await useCases.publish('test-1');
 
-      expect(mockRepository.updateStatus).toHaveBeenCalledWith('test-1', InternationalTestStatus.PUBLISHED);
+      expect(mockRepository.update).toHaveBeenCalledWith('test-1', {
+        status: InternationalTestStatus.PUBLISHED,
+        isPubliclyVisible: true,
+      });
     });
   });
 
@@ -206,7 +212,10 @@ describe('InternationalTestAdminUseCases', () => {
 
       await useCases.archive('test-1');
 
-      expect(mockRepository.updateStatus).toHaveBeenCalledWith('test-1', InternationalTestStatus.ARCHIVED);
+      expect(mockRepository.update).toHaveBeenCalledWith('test-1', {
+        status: InternationalTestStatus.ARCHIVED,
+        isPubliclyVisible: false,
+      });
     });
   });
 

@@ -25,7 +25,7 @@ export const FeaturedCourses: React.FC<FeaturedCoursesProps> = ({
   return (
     <section
       id="featured-courses-section"
-      className="px-0.5 sm:px-1 py-3 w-full font-['Cairo',sans-serif]"
+      className="px-0 py-3 w-full font-['Cairo',sans-serif]"
     >
       {/* Standard Framed Container with top accent border only */}
       <div className="relative rounded-3xl p-3.5 sm:p-4 bg-gradient-to-b from-[var(--mn-surface)] to-[var(--mn-page)]/80 border border-[var(--mn-border)] shadow-sm border-t-2 border-t-[var(--mn-primary)]/40 overflow-hidden mn-panel ">
@@ -119,11 +119,11 @@ export const FeaturedCourses: React.FC<FeaturedCoursesProps> = ({
                     {/* Badge & Rating Row */}
                     <div className="flex items-center justify-between gap-1 mb-1.5">
                       {activeTab === 'internal' ? (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-[var(--mn-accent)]/10 text-[var(--mn-accent-text)] border border-[var(--mn-accent)]/20 rounded text-[9px] font-black uppercase tracking-wider">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-[var(--mn-accent)]/10 text-[var(--mn-accent-text)] border border-[var(--mn-accent)]/20 rounded text-[9px] font-bold uppercase tracking-wider">
                           <CheckCircle2 className="w-2.5 h-2.5" /> حصري
                         </span>
                       ) : (
-                        <span className="inline-block px-1.5 py-0.5 bg-[var(--mn-surface-muted)] text-[var(--mn-link)] border border-[var(--mn-border-brand)] rounded text-[9px] font-black mn-panel ">
+                        <span className="inline-block px-1.5 py-0.5 bg-[var(--mn-surface-muted)] text-[var(--mn-link)] border border-[var(--mn-border-brand)] rounded text-[9px] font-bold mn-panel ">
                           شريك معتمد
                         </span>
                       )}

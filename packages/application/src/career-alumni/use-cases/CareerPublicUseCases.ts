@@ -1,4 +1,5 @@
 import {
+  CareerEmployerStatus,
   CareerJobFilters,
   CareerJobPostingDto,
   CareerJobStatus,
@@ -31,7 +32,16 @@ export class CareerPublicUseCases {
 
   public async getPublishedJobBySlug(slug: string): Promise<CareerJobPostingDto> {
     const job = await this.repository.findJobBySlug(slug);
-    if (!job || job.status !== CareerJobStatus.PUBLISHED) throw new Error('Career opportunity not found');
+    const expired = job?.applicationDeadline
+      ? new Date(job.applicationDeadline).getTime() <= Date.now()
+      : false;
+    if (
+      !job
+      || job.status !== CareerJobStatus.PUBLISHED
+      || job.employer?.verificationStatus !== CareerEmployerStatus.VERIFIED
+      || expired
+    )
+      throw new Error('Career opportunity not found');
     return job;
   }
 }

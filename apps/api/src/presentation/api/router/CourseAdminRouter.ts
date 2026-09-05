@@ -131,6 +131,7 @@ export class CourseAdminRouter {
 
     const nativeCreateBodySchema = z.object({
       titleAr: z.string().trim().min(2),
+      accessType: z.nativeEnum(CourseAccessType).optional(),
       titleEn: z.string().trim().optional(),
       learningLanguage: z.string().trim().optional(),
       category: z.string().trim().optional(),
@@ -158,6 +159,19 @@ export class CourseAdminRouter {
       })).default([]),
     });
 
+    const taxonomyRelationshipBodySchema = z.object({
+      taxonomyNodeId: z.string().trim().min(1),
+      relationshipType: z.enum(['PRIMARY', 'SECONDARY', 'RELATED']).default('PRIMARY'),
+    });
+    const majorRelationshipBodySchema = z.object({
+      majorId: z.string().trim().min(1),
+      relationshipType: z.enum(['PRIMARY', 'SECONDARY', 'RELATED']).default('PRIMARY'),
+    });
+    const testRelationshipBodySchema = z.object({
+      internationalTestId: z.string().trim().min(1),
+      relationshipType: z.enum(['PREPARATION', 'PRACTICE', 'EXAM_READINESS', 'RELATED']),
+    });
+
     const reorderBodySchema = z.object({
       positions: z.array(z.object({ id: z.string().min(1), position: z.number().int().positive() })).min(1)
     });
@@ -173,6 +187,9 @@ export class CourseAdminRouter {
       res.json(result);
     }));
 
+    router.get('/learning-paths', asyncHandler(async (_req: Request, res: Response) => {
+      res.json({ data: await learningPathUseCases.list() });
+    }));
     router.post('/learning-paths', asyncHandler(async (req: Request, res: Response) => {
       res.status(201).json(await learningPathUseCases.create(learningPathSchema.parse(req.body)));
     }));
@@ -184,6 +201,9 @@ export class CourseAdminRouter {
     }));
     router.post('/learning-paths/:pathId/publish', asyncHandler(async (req: Request, res: Response) => {
       res.json(await learningPathUseCases.publish(req.params.pathId));
+    }));
+    router.post('/learning-paths/:pathId/archive', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await learningPathUseCases.archive(req.params.pathId));
     }));
 
     router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
@@ -204,6 +224,13 @@ export class CourseAdminRouter {
       res.json(await courseRelationshipResolutionService.analyzeCourse(req.params.id));
     }));
 
+    router.post('/:id/relationships/taxonomy', asyncHandler(async (req: Request, res: Response) => {
+      const body = taxonomyRelationshipBodySchema.parse(req.body);
+      res.status(201).json(await courseRelationshipResolutionService.proposeManualTaxonomyLink(
+        req.params.id, body.taxonomyNodeId, body.relationshipType, mutationContext(req).actorId,
+      ));
+    }));
+
     router.post('/:id/relationships/taxonomy/:linkId/approve', asyncHandler(async (req: Request, res: Response) => {
       res.json(await courseRelationshipResolutionService.approveTaxonomyLink(req.params.id, req.params.linkId, mutationContext(req).actorId));
     }));
@@ -222,12 +249,38 @@ export class CourseAdminRouter {
       res.json({ data: await courseRelationshipResolutionService.projectMajors(req.params.id) });
     }));
 
+    router.post('/:id/relationships/majors', asyncHandler(async (req: Request, res: Response) => {
+      const body = majorRelationshipBodySchema.parse(req.body);
+      res.status(201).json(await courseRelationshipResolutionService.proposeDirectMajorProjection(
+        req.params.id, body.majorId, body.relationshipType, mutationContext(req).actorId,
+      ));
+    }));
+
     router.post('/:id/relationships/majors/:projectionId/approve', asyncHandler(async (req: Request, res: Response) => {
       res.json(await courseRelationshipResolutionService.approveMajorProjection(req.params.id, req.params.projectionId, mutationContext(req).actorId));
     }));
 
     router.post('/:id/relationships/majors/:projectionId/reject', asyncHandler(async (req: Request, res: Response) => {
       res.json(await courseRelationshipResolutionService.rejectMajorProjection(req.params.id, req.params.projectionId, mutationContext(req).actorId));
+    }));
+
+    router.post('/:id/relationships/tests', asyncHandler(async (req: Request, res: Response) => {
+      const body = testRelationshipBodySchema.parse(req.body);
+      res.status(201).json(await courseRelationshipResolutionService.proposeInternationalTestRelationship(
+        req.params.id, body.internationalTestId, body.relationshipType, mutationContext(req).actorId,
+      ));
+    }));
+
+    router.post('/:id/relationships/tests/:relationshipId/approve', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await courseRelationshipResolutionService.approveInternationalTestRelationship(
+        req.params.id, req.params.relationshipId, mutationContext(req).actorId,
+      ));
+    }));
+
+    router.post('/:id/relationships/tests/:relationshipId/reject', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await courseRelationshipResolutionService.rejectInternationalTestRelationship(
+        req.params.id, req.params.relationshipId, mutationContext(req).actorId,
+      ));
     }));
 
     router.get('/:id/enrollment-policy', asyncHandler(async (req: Request, res: Response) => {

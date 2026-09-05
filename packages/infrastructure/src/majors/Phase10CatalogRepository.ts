@@ -111,7 +111,8 @@ export class Phase10CatalogRepository {
     filters: MajorFilters & { catalog?: string },
   ): Promise<PaginatedMajorResult<CatalogItemDto>> {
     const rawCatalog = this.loadCatalog();
-    let filtered = rawCatalog;
+    const supplemental = await this.loadSupplementalCatalogItems(new Set(rawCatalog.map(item => item.code)));
+    let filtered = [...rawCatalog, ...supplemental];
 
     if (filters.degreeLevel) {
       const targetDeg = filters.degreeLevel.toUpperCase();
@@ -242,6 +243,75 @@ export class Phase10CatalogRepository {
       pageSize,
       totalPages: Math.ceil(filtered.length / pageSize),
     };
+  }
+
+  public maxCodeNumber(prefix: 'MJR' | 'MAS' | 'DOC' | 'FEL'): number {
+    let max = 0;
+    for (const item of this.loadCatalog()) {
+      const match = item.code?.match(new RegExp(`^${prefix}-(\\d+)$`));
+      if (match) max = Math.max(max, Number(match[1]));
+    }
+    return max;
+  }
+
+  private async loadSupplementalCatalogItems(catalogCodes: Set<string>): Promise<CatalogItemDto[]> {
+    try {
+      const profiles = await this.prisma.majorLevelProfile.findMany({
+        where: { code: { not: null }, major: { is: { status: { not: 'ARCHIVED' } } } },
+        include: {
+          major: {
+            select: {
+              id: true,
+              displayName: true,
+              localizedNameAr: true,
+              localizedNameEn: true,
+              status: true,
+              completenessStatus: true,
+              academicField: { select: { canonicalName: true } },
+              discipline: { select: { canonicalName: true } },
+              optionalFields: true,
+              updatedAt: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return profiles
+        .filter(profile => Boolean(profile.code) && !catalogCodes.has(profile.code as string))
+        .map(profile => {
+          const optional = profile.major.optionalFields && typeof profile.major.optionalFields === 'object' && !Array.isArray(profile.major.optionalFields)
+            ? profile.major.optionalFields as Record<string, unknown>
+            : {};
+          const metadata = profile.metadata && typeof profile.metadata === 'object' && !Array.isArray(profile.metadata)
+            ? profile.metadata as Record<string, unknown>
+            : {};
+          return {
+            id: profile.major.id,
+            profileId: profile.id,
+            displayName: profile.displayName || profile.localizedNameAr || profile.major.displayName,
+            nameAr: profile.localizedNameAr || profile.major.localizedNameAr || undefined,
+            nameEn: profile.localizedNameEn || profile.major.localizedNameEn || undefined,
+            code: profile.code as string,
+            degreeLevel: profile.level,
+            catalogKind: profile.level,
+            targetDomain: 'MAJORS',
+            collegeOrField: profile.collegeContext || profile.major.academicField?.canonicalName || profile.major.discipline?.canonicalName || undefined,
+            academicFieldOrDiscipline: profile.major.academicField?.canonicalName || profile.major.discipline?.canonicalName || undefined,
+            collegeOrFaculty: profile.collegeContext || (typeof optional.collegeOrFaculty === 'string' ? optional.collegeOrFaculty : undefined),
+            classificationCode: profile.code as string,
+            status: profile.major.status,
+            completenessStatus: profile.major.completenessStatus,
+            sourceType: typeof metadata.sourceImportMode === 'string' ? metadata.sourceImportMode : 'DISCOVERY_QUEUE',
+            updatedAt: profile.major.updatedAt.toISOString().split('T')[0],
+            hasDbDetails: true,
+          };
+        });
+    } catch (error) {
+      if (this.options.productionLike === true) throw error;
+      console.warn('Supplemental Major catalog projection unavailable', error);
+      return [];
+    }
   }
 
   public getCatalogItem(id: string): CatalogItemDto | null {

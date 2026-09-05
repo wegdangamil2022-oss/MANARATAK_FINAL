@@ -115,12 +115,12 @@ const r028 = files.matrix.split('\n').find(line => line.startsWith('| R-028 |'))
 const r063 = files.matrix.split('\n').find(line => line.startsWith('| R-063 |')) ?? '';
 check('P6-MATRIX-001', r023.includes('| Runtime Pending | P6 CLOSED |'), 'R-023 is source-closed and runtime-pending under P6.');
 check('P6-MATRIX-002', all(r023, ['CertificateCompletionOutboxWorker', 'CertificateCompletionOutboxDeliveryGateway', 'CertificateIssuanceInbox']), 'R-023 records the actual delivery/idempotency implementation.');
-check('P6-MATRIX-003', r028.includes('| Partial | P7 |'), 'R-028 remains explicitly deferred to P7; P6 does not overreach.');
-check('P6-MATRIX-004', all(r028, ['CertificateReadModelService.listForStudent', 'delivery caller remains absent']), 'R-028 records completed P14 read boundary and remaining P7 delivery gap.');
+check('P6-MATRIX-003', r028.includes('| Runtime Pending | P13 FINAL |'), 'R-028 has since been source-closed by the later P13 owner-read hydration step; P6 issuance ownership remains unchanged.');
+check('P6-MATRIX-004', all(r028, ['CertificateReadModelService.listForStudent', 'StudentDashboardHydrationService', 'IStudentCertificateReadGateway']), 'R-028 records the completed P14-owned read boundary and its later student-dashboard composition adapter.');
 check('P6-MATRIX-005', r063.includes('CertificateReadModelService.verifyPublic') && /\| Runtime Pending \| P10(?: CLOSED)? \|/.test(r063), 'R-063 preserves P14 verification authority before or after subsequent P10 source closure.');
 check('P6-MATRIX-006', files.matrix.includes('### Current snapshot after P6 source closure'), 'Matrix includes a P6 measurement snapshot.');
 check('P6-MATRIX-007', all(files.matrix, ['`Runtime Pending`: **38**', '`Partial`: **27**', '`Missing`: **2**', '`Source Closed`: **1**']), 'P6 matrix counts reflect exactly one Partial→Runtime Pending closure.');
-check('P6-SCOPE-002', files.matrix.includes('R-028 remains `Partial | P7`'), 'P7 boundary is explicitly not started.');
+check('P6-SCOPE-002', files.matrix.includes('R-024→R-028 and R-033 were re-audited and closed at source'), 'Verifier recognizes the current post-P13 matrix without rewriting the historical P6 snapshot.');
 
 let passed = 0;
 const failures = [];

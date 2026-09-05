@@ -13,6 +13,8 @@ import {
   Globe,
   Moon,
   Sun,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Language, UserProfile } from '../types';
 
@@ -63,13 +65,13 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
     },
     {
       id: 'ai-tools',
-      label: 'أدوات منارتك ⚡',
+      label: 'أدوات منارتك',
       icon: <Sparkles className="w-4 h-4 text-[var(--mn-accent-text)]" />,
     },
     {
       id: 'favorites',
       label: 'المفضلة والمحفوظات',
-      icon: <Heart className="w-4 h-4 text-[var(--mn-danger-text)]" />,
+      icon: <Heart className="w-4 h-4 text-[var(--mn-accent-text)]" />,
     },
     {
       id: 'countries',
@@ -112,7 +114,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
           <button
             aria-label="إغلاق القائمة"
             onClick={onClose}
-            className="absolute top-4 left-4 w-7 h-7 rounded-full bg-[var(--mn-primary)] mn-dark:bg-[var(--mn-surface-elevated)] hover:bg-black/30 text-[var(--mn-text-muted)] hover:text-white flex items-center justify-center transition-colors cursor-pointer mn-inverse mn-dark:mn-panel "
+            className="absolute top-3 left-3 h-10 w-10 rounded-xl bg-[var(--mn-primary)] mn-dark:bg-[var(--mn-surface-elevated)] hover:bg-black/30 text-[var(--mn-text-muted)] hover:text-white flex items-center justify-center transition-colors cursor-pointer mn-inverse mn-dark:mn-panel "
           >
             <X className="w-4 h-4" />
           </button>
@@ -124,7 +126,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
             </div>
             {userProfile ? (
               <div>
-                <h3 className="text-sm font-black text-white">{userProfile.name}</h3>
+                <h3 className="text-sm font-bold text-white">{userProfile.name}</h3>
                 <p className="text-[11px] text-[var(--mn-accent-text)] font-bold">
                   {userProfile.email}
                 </p>
@@ -134,13 +136,13 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
               </div>
             ) : (
               <div>
-                <h3 className="text-sm font-black text-white mb-1">زائر جديد</h3>
+                <h3 className="text-sm font-bold text-white mb-1">زائر جديد</h3>
                 <button
                   onClick={() => {
                     onNavigate('auth');
                     onClose();
                   }}
-                  className="px-3 py-1 bg-[var(--mn-accent)] hover:bg-[var(--mn-accent)] text-[var(--mn-on-accent)] text-[11px] font-black rounded-lg transition-colors cursor-pointer mn-gold hover:mn-gold "
+                  className="min-h-10 px-3 py-2 bg-[var(--mn-accent)] hover:bg-[var(--mn-accent)] text-[var(--mn-on-accent)] text-[11px] font-bold rounded-lg transition-colors cursor-pointer mn-gold hover:mn-gold "
                 >
                   تسجيل الدخول / حساب جديد
                 </button>
@@ -164,7 +166,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                 {item.icon}
                 <span>{item.label}</span>
               </div>
-              <span className="text-[var(--mn-text-muted)] mn-dark:text-[var(--mn-text-muted)] text-[10px]">❯</span>
+              {language === 'ar' ? <ChevronLeft className="h-3.5 w-3.5 text-[var(--mn-text-muted)]" /> : <ChevronRight className="h-3.5 w-3.5 text-[var(--mn-text-muted)]" />}
             </button>
           ))}
 
@@ -183,9 +185,10 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
               </div>
               <button
                 onClick={onToggleDarkMode}
-                className="px-2.5 py-1 bg-[var(--mn-surface)] mn-dark:bg-[var(--mn-surface)] border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] rounded-lg text-xs font-bold text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)] cursor-pointer flex items-center gap-1 mn-panel mn-dark:mn-panel "
+                aria-label={isDarkMode ? 'التبديل إلى الوضع النهاري' : 'التبديل إلى الوضع الليلي'}
+                className="min-h-10 px-3 py-2 bg-[var(--mn-surface)] mn-dark:bg-[var(--mn-surface)] border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] rounded-xl text-xs font-bold text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)] cursor-pointer flex items-center gap-1 mn-panel mn-dark:mn-panel "
               >
-                {isDarkMode ? '🌙 ليلي' : '☀️ نهاري'}
+                {isDarkMode ? 'ليلي' : 'نهاري'}
               </button>
             </div>
           )}
@@ -198,9 +201,10 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
             </div>
             <button
               onClick={onToggleLanguage}
-              className="px-2.5 py-1 bg-[var(--mn-surface)] mn-dark:bg-[var(--mn-surface)] border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] rounded-lg text-xs font-bold text-[var(--mn-heading)] mn-dark:text-[var(--mn-text)] cursor-pointer mn-panel mn-dark:mn-panel "
+              aria-label="تبديل لغة الواجهة"
+              className="min-h-10 px-3 py-2 bg-[var(--mn-surface)] mn-dark:bg-[var(--mn-surface)] border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] rounded-xl text-xs font-bold text-[var(--mn-heading)] mn-dark:text-[var(--mn-text)] cursor-pointer mn-panel mn-dark:mn-panel "
             >
-              {language === 'ar' ? 'العربية 🇸🇦' : 'English 🇬🇧'}
+              {language === 'ar' ? 'العربية' : 'English'}
             </button>
           </div>
         </div>

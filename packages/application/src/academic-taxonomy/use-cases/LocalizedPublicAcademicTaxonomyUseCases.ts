@@ -3,6 +3,7 @@ import {
   AcademicTaxonomyFilters,
   AcademicTaxonomyNodeDto,
   AcademicTaxonomyNodeType,
+  AcademicTaxonomyStatus,
   IAcademicTaxonomyRepository,
 } from '@manaratak/domain';
 import { DEFAULT_LOCALE, type SupportedLocale } from '@manaratak/shared';
@@ -22,7 +23,7 @@ export class LocalizedPublicAcademicTaxonomyUseCases {
     filters: AcademicTaxonomyFilters = {},
     locale: SupportedLocale = DEFAULT_LOCALE,
   ): Promise<LocalizedAcademicTaxonomyNodeDto[]> {
-    const records = await this.repository.listNodes(filters);
+    const records = await this.repository.listNodes({ ...filters, status: AcademicTaxonomyStatus.ACTIVE });
     return records.map((record) => this.project(record, locale));
   }
 
@@ -31,7 +32,7 @@ export class LocalizedPublicAcademicTaxonomyUseCases {
     locale: SupportedLocale = DEFAULT_LOCALE,
   ): Promise<LocalizedAcademicTaxonomyNodeDto | null> {
     const record = await this.repository.getNode(nodeId);
-    return record ? this.project(record, locale) : null;
+    return record?.status === AcademicTaxonomyStatus.ACTIVE ? this.project(record, locale) : null;
   }
 
   public async getNodeByCanonicalKey(
@@ -43,7 +44,7 @@ export class LocalizedPublicAcademicTaxonomyUseCases {
     locale: SupportedLocale = DEFAULT_LOCALE,
   ): Promise<LocalizedAcademicTaxonomyNodeDto | null> {
     const record = await this.repository.getNodeByCanonicalKey(input);
-    return record ? this.project(record, locale) : null;
+    return record?.status === AcademicTaxonomyStatus.ACTIVE ? this.project(record, locale) : null;
   }
 
   public async searchNodes(
@@ -54,6 +55,7 @@ export class LocalizedPublicAcademicTaxonomyUseCases {
     const trimmed = (query ?? '').trim();
     const records = await this.repository.listNodes({
       ...filters,
+      status: AcademicTaxonomyStatus.ACTIVE,
       ...(trimmed ? { q: trimmed } : {}),
     });
     return records.map((record) => this.project(record, locale));
@@ -63,16 +65,20 @@ export class LocalizedPublicAcademicTaxonomyUseCases {
     parentNodeId: string,
     locale: SupportedLocale = DEFAULT_LOCALE,
   ): Promise<LocalizedAcademicTaxonomyNodeDto[]> {
+    const parent = await this.repository.getNode(parentNodeId);
+    if (parent?.status !== AcademicTaxonomyStatus.ACTIVE) return [];
     const records = await this.repository.listChildren(parentNodeId);
-    return records.map((record) => this.project(record, locale));
+    return records.filter((record) => record.status === AcademicTaxonomyStatus.ACTIVE).map((record) => this.project(record, locale));
   }
 
   public async listParents(
     childNodeId: string,
     locale: SupportedLocale = DEFAULT_LOCALE,
   ): Promise<LocalizedAcademicTaxonomyNodeDto[]> {
+    const child = await this.repository.getNode(childNodeId);
+    if (child?.status !== AcademicTaxonomyStatus.ACTIVE) return [];
     const records = await this.repository.listParents(childNodeId);
-    return records.map((record) => this.project(record, locale));
+    return records.filter((record) => record.status === AcademicTaxonomyStatus.ACTIVE).map((record) => this.project(record, locale));
   }
 
   private project(

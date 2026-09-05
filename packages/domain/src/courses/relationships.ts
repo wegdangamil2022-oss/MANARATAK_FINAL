@@ -49,6 +49,40 @@ export type CourseLanguageResolutionMethod =
   | 'EXACT_ARABIC_NAME'
   | 'ADMIN_REVIEW';
 
+
+export type CourseInternationalTestRelationshipType =
+  | 'PREPARATION'
+  | 'PRACTICE'
+  | 'EXAM_READINESS'
+  | 'RELATED';
+
+export type CourseInternationalTestRelationshipState =
+  | 'PROPOSED'
+  | 'APPROVED'
+  | 'REJECTED';
+
+export interface CourseInternationalTestRelationshipDto {
+  id: string;
+  courseId: string;
+  internationalTestId: string;
+  relationshipType: CourseInternationalTestRelationshipType;
+  reviewState: CourseInternationalTestRelationshipState;
+  sourceType: 'ADMIN_AUTHORED';
+  createdBy?: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  internationalTest?: {
+    id: string;
+    publicId: string;
+    slug: string;
+    displayName: string;
+    abbreviation?: string | null;
+    status: string;
+  } | null;
+}
+
 export interface CourseRelationshipSourceDto {
   courseId: string;
   status: string;
@@ -117,6 +151,7 @@ export interface CourseAcademicTaxonomyLinkDto {
   reviewedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  taxonomyNode?: { id: string; canonicalCode: string; canonicalName: string; nodeType: string } | null;
 }
 
 export interface CourseMajorMappingCandidateDto {
@@ -145,6 +180,7 @@ export interface CourseMajorProjectionDto {
   reviewedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  major?: { id: string; publicId: string; slug: string; displayName: string; status: string } | null;
 }
 
 export interface CourseLanguageCandidateDto {
@@ -188,6 +224,8 @@ export interface CourseRelationshipPublicCourseDto {
   isFreeCertificate?: boolean | null;
   certificateType?: string | null;
   category?: string | null;
+  /** Internal localization carrier; stripped before the public response. */
+  localizedNames?: Record<string, string>;
 }
 
 export interface CourseRelationshipPublicFilters extends PublicCourseFilters {
@@ -195,6 +233,7 @@ export interface CourseRelationshipPublicFilters extends PublicCourseFilters {
   taxonomyNodeId?: string;
   learningLanguageReferenceId?: string;
   providerHeadquartersCountryReferenceId?: string;
+  internationalTestId?: string;
 }
 
 export interface CourseRelationshipReviewReadModel {
@@ -212,11 +251,13 @@ export interface CourseRelationshipReviewReadModel {
   >;
   taxonomyLinks: CourseAcademicTaxonomyLinkDto[];
   majorProjections: CourseMajorProjectionDto[];
+  internationalTestRelationships: CourseInternationalTestRelationshipDto[];
   geography: CourseGeographySemanticsDto;
   closure: {
     languageCanonical: boolean;
     approvedTaxonomyLinks: number;
     approvedMajorProjections: number;
+    approvedInternationalTestRelationships: number;
     reviewRequired: boolean;
   };
 }
@@ -275,6 +316,12 @@ export interface ICourseRelationshipRepository {
     decision: 'APPROVED' | 'REJECTED';
     actorId: string;
   }): Promise<CourseAcademicTaxonomyLinkDto>;
+  createManualTaxonomyLink(input: {
+    courseId: string;
+    taxonomyNodeId: string;
+    relationshipType: CourseAcademicTaxonomyRelationshipType;
+    actorId: string;
+  }): Promise<CourseAcademicTaxonomyLinkDto>;
 
   resolveLanguageCandidates(raw: string): Promise<CourseLanguageCandidateDto[]>;
   setLanguageResolution(input: {
@@ -315,12 +362,40 @@ export interface ICourseRelationshipRepository {
     decision: 'APPROVED' | 'REJECTED';
     actorId: string;
   }): Promise<CourseMajorProjectionDto>;
+  createDirectMajorProjection(input: {
+    courseId: string;
+    majorId: string;
+    relationshipType: 'PRIMARY' | 'SECONDARY' | 'RELATED';
+    actorId: string;
+  }): Promise<CourseMajorProjectionDto>;
+
+  createInternationalTestRelationship(input: {
+    courseId: string;
+    internationalTestId: string;
+    relationshipType: CourseInternationalTestRelationshipType;
+    actorId: string;
+  }): Promise<CourseInternationalTestRelationshipDto>;
+  listInternationalTestRelationships(
+    courseId: string,
+    state?: CourseInternationalTestRelationshipState,
+  ): Promise<CourseInternationalTestRelationshipDto[]>;
+  reviewInternationalTestRelationship(input: {
+    courseId: string;
+    relationshipId: string;
+    decision: 'APPROVED' | 'REJECTED';
+    actorId: string;
+  }): Promise<CourseInternationalTestRelationshipDto>;
 
   listPublishedRelatedCourses(
     filters: CourseRelationshipPublicFilters,
   ): Promise<PaginatedCourseResult<CourseRelationshipPublicCourseDto>>;
   listPublishedCoursesForMajor(
     majorId: string,
+    filters?: PublicCourseFilters,
+  ): Promise<PaginatedCourseResult<CourseRelationshipPublicCourseDto>>;
+
+  listPublishedCoursesForInternationalTest(
+    internationalTestId: string,
     filters?: PublicCourseFilters,
   ): Promise<PaginatedCourseResult<CourseRelationshipPublicCourseDto>>;
 

@@ -37,6 +37,9 @@ export function AcademicTaxonomyAdminPage() {
   const [loadingNodes, setLoadingNodes] = useState(false);
   const [nodesError, setNodesError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const pageSize = 50;
   const [filters, setFilters] = useState({
     nodeType: 'all',
     standardType: 'all',
@@ -90,12 +93,14 @@ export function AcademicTaxonomyAdminPage() {
             ...node,
             nodeId: AcademicTaxonomyDeterministicKey.create(node),
           }));
-        setNodes(previewNodes);
+        const start = (page - 1) * pageSize;
+        setNodes(previewNodes.slice(start, start + pageSize));
+        setHasNextPage(previewNodes.length > start + pageSize);
         return;
       }
       const params = new URLSearchParams();
-      params.set('page', '1');
-      params.set('pageSize', '50');
+      params.set('page', String(page));
+      params.set('pageSize', String(pageSize));
       if (searchQuery) params.append('q', searchQuery);
       if (filters.nodeType !== 'all') params.append('nodeType', filters.nodeType);
       if (filters.standardType !== 'all') params.append('standardType', filters.standardType);
@@ -104,7 +109,9 @@ export function AcademicTaxonomyAdminPage() {
       // Using the authorized admin endpoint
       const endpoint = `${localReadOnly ? '/academic-taxonomy' : '/admin/academic-taxonomy'}/nodes?${params.toString()}`;
       const response = await adminApiClient.request<{ data: AcademicTaxonomyNode[] }>(endpoint);
-      setNodes(response.data || []);
+      const received = response.data || [];
+      setNodes(received);
+      setHasNextPage(received.length === pageSize);
     } catch (err) {
       console.error(err);
       setNodesError(isAr 
@@ -146,7 +153,7 @@ export function AcademicTaxonomyAdminPage() {
     } else {
       fetchDegreeLevels();
     }
-  }, [activeMainTab, filters, searchQuery]);
+  }, [activeMainTab, filters, searchQuery, page]);
 
   // --- Handle Add Node Submit ---
   const handleAddNodeSubmit = async (e: React.FormEvent) => {
@@ -276,7 +283,7 @@ export function AcademicTaxonomyAdminPage() {
           {activeMainTab === 'taxonomy' && !localReadOnly && (
             <button
               onClick={() => setShowAddNodeModal(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-2 text-xs"
+              className="bg-[#142B5F] hover:bg-[#0E7C86] text-white font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-2 text-xs"
             >
               <Plus className="h-4 w-4" />
               {isAr ? 'إضافة عقدة تصنيف جديدة' : 'Add Taxonomy Node'}
@@ -320,17 +327,17 @@ export function AcademicTaxonomyAdminPage() {
                 <input
                   type="text"
                   placeholder={isAr ? 'البحث عن طريق الرمز أو الاسم المعتمد...' : 'Search by canonical code or name...'}
-                  className={`w-full ${isAr ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-800 text-xs font-medium`}
+                  className={`w-full ${isAr ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0E7C86] text-xs font-medium`}
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
                 />
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Filter className="h-4 w-4 text-slate-400 shrink-0" />
                 <select
-                  className="border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-800 text-xs font-bold"
+                  className="border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0E7C86] text-xs font-bold"
                   value={filters.nodeType}
-                  onChange={(e) => setFilters(f => ({ ...f, nodeType: e.target.value }))}
+                  onChange={(e) => { setFilters(f => ({ ...f, nodeType: e.target.value })); setPage(1); }}
                 >
                   <option value="all">{isAr ? 'جميع أنواع العقد' : 'All Node Types'}</option>
                   <option value="ACADEMIC_FIELD">{isAr ? 'مجال أكاديمي' : 'Academic Field'}</option>
@@ -340,9 +347,9 @@ export function AcademicTaxonomyAdminPage() {
                   <option value="STANDARD_CLASSIFICATION">{isAr ? 'تصنيف معياري' : 'Standard Classification'}</option>
                 </select>
                 <select
-                  className="border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-800 text-xs font-bold"
+                  className="border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0E7C86] text-xs font-bold"
                   value={filters.standardType}
-                  onChange={(e) => setFilters(f => ({ ...f, standardType: e.target.value }))}
+                  onChange={(e) => { setFilters(f => ({ ...f, standardType: e.target.value })); setPage(1); }}
                 >
                   <option value="all">{isAr ? 'جميع المعايير' : 'All Standards'}</option>
                   <option value="ISCED">ISCED</option>
@@ -350,9 +357,9 @@ export function AcademicTaxonomyAdminPage() {
                   <option value="CUSTOM_NATIONAL">{isAr ? 'معيار وطني مخصص' : 'CUSTOM_NATIONAL'}</option>
                 </select>
                 <select
-                  className="border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-800 text-xs font-bold"
+                  className="border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0E7C86] text-xs font-bold"
                   value={filters.status}
-                  onChange={(e) => setFilters(f => ({ ...f, status: e.target.value }))}
+                  onChange={(e) => { setFilters(f => ({ ...f, status: e.target.value })); setPage(1); }}
                 >
                   <option value="all">{isAr ? 'جميع الحالات' : 'All Statuses'}</option>
                   <option value="DRAFT">{isAr ? 'مسودة' : 'DRAFT'}</option>
@@ -364,6 +371,7 @@ export function AcademicTaxonomyAdminPage() {
                   onClick={() => {
                     setSearchQuery('');
                     setFilters({ nodeType: 'all', standardType: 'all', status: 'all' });
+                    setPage(1);
                   }}
                   className="text-slate-500 hover:text-slate-800 font-bold text-xs px-2.5 py-2.5 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
                 >
@@ -428,7 +436,7 @@ export function AcademicTaxonomyAdminPage() {
                         <td className={`px-6 py-4 ${isAr ? 'text-left' : 'text-right'}`}>
                           <Link
                             to={`/academic-taxonomy/${node.nodeId}`}
-                            className="text-emerald-700 hover:text-emerald-950 font-bold bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-100 px-3 py-1.5 rounded-lg transition-all"
+                            className="text-[#142B5F] hover:text-[#0E7C86] font-bold bg-[#DDEFF2]/45 hover:bg-[#DDEFF2]/75 border border-[#0E7C86]/15 px-3 py-1.5 rounded-lg transition-all"
                           >
                             {isAr ? 'إدارة وتفاصيل' : 'Manage & Details'}
                           </Link>
@@ -440,6 +448,13 @@ export function AcademicTaxonomyAdminPage() {
               </div>
             )}
           </div>
+          {!loadingNodes && !nodesError && nodes.length > 0 && (page > 1 || hasNextPage) ? (
+            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-600">
+              <button disabled={page === 1} onClick={() => setPage((value) => Math.max(1, value - 1))} className="rounded-lg border border-slate-200 px-3 py-2 disabled:opacity-40">{isAr ? 'السابق' : 'Previous'}</button>
+              <span>{isAr ? `الصفحة ${page}` : `Page ${page}`}</span>
+              <button disabled={!hasNextPage} onClick={() => setPage((value) => value + 1)} className="rounded-lg border border-[#0E7C86]/20 px-3 py-2 text-[#142B5F] disabled:opacity-40">{isAr ? 'التالي' : 'Next'}</button>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -547,7 +562,7 @@ export function AcademicTaxonomyAdminPage() {
                     {isAr ? 'نوع العقدة' : 'Node Type'} *
                   </label>
                   <select
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={nodeFormData.nodeType}
                     onChange={(e) => setNodeFormData(d => ({ ...d, nodeType: e.target.value }))}
                   >
@@ -567,7 +582,7 @@ export function AcademicTaxonomyAdminPage() {
                     type="text"
                     required
                     placeholder="e.g. ISC-0111"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={nodeFormData.canonicalCode}
                     onChange={(e) => setNodeFormData(d => ({ ...d, canonicalCode: e.target.value }))}
                   />
@@ -582,7 +597,7 @@ export function AcademicTaxonomyAdminPage() {
                   type="text"
                   required
                   placeholder="e.g. Education"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                   value={nodeFormData.canonicalName}
                   onChange={(e) => setNodeFormData(d => ({ ...d, canonicalName: e.target.value }))}
                 />
@@ -596,7 +611,7 @@ export function AcademicTaxonomyAdminPage() {
                   <input
                     type="text"
                     placeholder="الترجمة العربية"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={nodeFormData.nameAr}
                     onChange={(e) => setNodeFormData(d => ({ ...d, nameAr: e.target.value }))}
                   />
@@ -609,7 +624,7 @@ export function AcademicTaxonomyAdminPage() {
                   <input
                     type="text"
                     placeholder="English Translation"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={nodeFormData.nameEn}
                     onChange={(e) => setNodeFormData(d => ({ ...d, nameEn: e.target.value }))}
                   />
@@ -622,7 +637,7 @@ export function AcademicTaxonomyAdminPage() {
                     {isAr ? 'نوع المعيار' : 'Standard Type'}
                   </label>
                   <select
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={nodeFormData.standardType}
                     onChange={(e) => setNodeFormData(d => ({ ...d, standardType: e.target.value }))}
                   >
@@ -639,7 +654,7 @@ export function AcademicTaxonomyAdminPage() {
                   <input
                     type="text"
                     placeholder="0111"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={nodeFormData.standardCode}
                     onChange={(e) => setNodeFormData(d => ({ ...d, standardCode: e.target.value }))}
                   />
@@ -650,7 +665,7 @@ export function AcademicTaxonomyAdminPage() {
                     {isAr ? 'الحالة' : 'Status'}
                   </label>
                   <select
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={nodeFormData.status}
                     onChange={(e) => setNodeFormData(d => ({ ...d, status: e.target.value }))}
                   >
@@ -669,7 +684,7 @@ export function AcademicTaxonomyAdminPage() {
                 <textarea
                   rows={2}
                   placeholder={isAr ? 'أدخل تفاصيل ووصف هذا المستوى...' : 'Enter node details/descriptions...'}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                   value={nodeFormData.description}
                   onChange={(e) => setNodeFormData(d => ({ ...d, description: e.target.value }))}
                 />
@@ -686,7 +701,7 @@ export function AcademicTaxonomyAdminPage() {
                 <button
                   type="submit"
                   disabled={savingNode}
-                  className="bg-slate-900 hover:bg-slate-850 text-white font-bold px-5 py-2 rounded-xl text-xs transition-all flex items-center gap-2"
+                  className="bg-[#142B5F] hover:bg-[#0E7C86] text-white font-bold px-5 py-2 rounded-xl text-xs transition-all flex items-center gap-2"
                 >
                   {savingNode ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   {isAr ? 'حفظ العقدة' : 'Save Node'}
@@ -740,7 +755,7 @@ export function AcademicTaxonomyAdminPage() {
                   type="text"
                   required
                   placeholder="e.g. Bachelor"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                   value={degreeFormData.nameEn}
                   onChange={(e) => setDegreeFormData(d => ({ ...d, nameEn: e.target.value }))}
                 />
@@ -754,7 +769,7 @@ export function AcademicTaxonomyAdminPage() {
                   type="text"
                   required
                   placeholder="مثال: بكالوريوس"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                   value={degreeFormData.nameAr}
                   onChange={(e) => setDegreeFormData(d => ({ ...d, nameAr: e.target.value }))}
                 />
@@ -768,7 +783,7 @@ export function AcademicTaxonomyAdminPage() {
                   <input
                     type="number"
                     required
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={degreeFormData.displayRank}
                     onChange={(e) => setDegreeFormData(d => ({ ...d, displayRank: Number(e.target.value) }))}
                   />
@@ -779,7 +794,7 @@ export function AcademicTaxonomyAdminPage() {
                     {isAr ? 'الحالة' : 'Status'}
                   </label>
                   <select
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={degreeFormData.status}
                     onChange={(e) => setDegreeFormData(d => ({ ...d, status: e.target.value }))}
                   >
@@ -801,7 +816,7 @@ export function AcademicTaxonomyAdminPage() {
                 <button
                   type="submit"
                   disabled={savingDegree}
-                  className="bg-slate-900 hover:bg-slate-850 text-white font-bold px-5 py-2 rounded-xl text-xs transition-all flex items-center gap-2"
+                  className="bg-[#142B5F] hover:bg-[#0E7C86] text-white font-bold px-5 py-2 rounded-xl text-xs transition-all flex items-center gap-2"
                 >
                   {savingDegree ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   {isAr ? 'تحديث البيانات' : 'Update Degree'}

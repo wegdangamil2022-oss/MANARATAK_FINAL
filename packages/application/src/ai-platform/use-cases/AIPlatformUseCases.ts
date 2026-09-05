@@ -54,7 +54,24 @@ const ASYNC_LEASE_MS = 120_000;
 export class AIPlatformAdminUseCases {
   constructor(private readonly repository: IAIPlatformRepository, private readonly providers: IAIProviderRegistry) {}
 
-  overview() { return this.repository.overview(); }
+  async overview() {
+    const base = await this.repository.overview();
+    const counts: Record<AIProviderOperationalStatus, number> = {
+      NOT_CONFIGURED: 0, RUNTIME_PENDING: 0, READY: 0, DEGRADED: 0, UNAVAILABLE: 0, DISABLED: 0,
+    };
+    for (const adapter of this.providers.list()) counts[adapter.status()] += 1;
+
+    let overallStatus = base.overallStatus;
+    if (overallStatus !== 'DISABLED') {
+      if (base.activeModels === 0 || base.activePrompts === 0 || (counts.READY + counts.RUNTIME_PENDING) === 0)
+        overallStatus = 'NOT_CONFIGURED';
+      else if (base.openIncidents > 0 || counts.DEGRADED > 0 || counts.UNAVAILABLE > 0) overallStatus = 'DEGRADED';
+      else if (counts.READY > 0) overallStatus = 'READY';
+      else overallStatus = 'RUNTIME_PENDING';
+    }
+
+    return { ...base, providers: counts, overallStatus };
+  }
   list<T>(resource: AIRegistryResource, filters?: Record<string, unknown>) { return this.repository.list<T>(resource, filters); }
   find<T>(resource: AIRegistryResource, key: string) { return this.repository.find<T>(resource, key); }
 
@@ -141,10 +158,23 @@ export class AIExecutionOrchestrator {
     const consumerKey = request.consumerKey ?? request.sourceDomain ?? 'default';
     const capabilityKey = request.capabilityKey ?? request.purpose;
     const dataClassification = normalizeDataClassification(request.dataClassification ?? request.metadata?.dataClassification);
-    const idempotencyKeyHash = request.idempotencyKey ? sha256(`${consumerKey}:${request.idempotencyKey}`) : null;
+    const requesterScope = request.requesterReferenceId ?? request.sourceDomain ?? 'system';
+    const requestFingerprint = sha256(stableStringify({
+      capabilityKey,
+      promptKey: request.promptKey,
+      purpose: request.purpose,
+      input: request.input,
+      locale: request.locale ?? 'ar',
+      dataClassification,
+      structuredOutputSchema: request.structuredOutputSchema ?? null,
+    }));
+    const idempotencyKeyHash = request.idempotencyKey ? sha256(`${consumerKey}:${requesterScope}:${request.idempotencyKey}`) : null;
     if (idempotencyKeyHash) {
       const previous = await this.repository.findExecutionByIdempotency(consumerKey, idempotencyKeyHash);
-      if (previous) return toExecutionResponse(previous);
+      if (previous) {
+        if (previous.metadata?.requestFingerprint !== requestFingerprint) throw new Error('AI_IDEMPOTENCY_KEY_REUSED');
+        return toExecutionResponse(previous);
+      }
     }
 
     const [platformSettings, prompt, consumer, capability, routing, models, providerDefinitions, prices, configuredGuardrails] = await Promise.all([
@@ -207,7 +237,7 @@ export class AIExecutionOrchestrator {
       outputTokens: 0,
       requesterReferenceId: request.requesterReferenceId,
       sourceDomain: request.sourceDomain,
-      metadata: sanitizeMetadata({ ...(request.metadata ?? {}), dataClassification, promptChecksum: promptVersion.checksum }),
+      metadata: sanitizeMetadata({ ...(request.metadata ?? {}), dataClassification, promptChecksum: promptVersion.checksum, requestFingerprint }),
     }, {
       reservationKey: idempotencyKeyHash ?? publicId,
       requestsPerMinute: consumer.requestsPerMinute,
@@ -238,7 +268,7 @@ export class AIExecutionOrchestrator {
     for (const candidate of candidates) {
       const adapter = this.providers.get(candidate.provider.key);
       const breakerKey = `${candidate.provider.key}:${candidate.model.key}`;
-      if (!adapter || adapter.status() !== 'READY' || !(await this.repository.providerCircuitCanAttempt(breakerKey))) continue;
+      if (!adapter || !isProviderExecutable(adapter.status()) || !(await this.repository.providerCircuitCanAttempt(breakerKey))) continue;
       const candidateAttempts = Math.max(1, Math.min(candidate.provider.maxRetries + 1, maxAttempts - totalAttempts));
       for (let attempt = 1; attempt <= candidateAttempts && totalAttempts < maxAttempts; attempt += 1) {
         totalAttempts += 1;
@@ -328,7 +358,7 @@ export class AIExecutionOrchestrator {
     let candidateCount = 0;
     for (const candidate of routed) {
       const adapter = this.providers.get(candidate.provider.key);
-      if (!adapter || adapter.status() !== 'READY') continue;
+      if (!adapter || !isProviderExecutable(adapter.status())) continue;
       if (!(await this.repository.providerCircuitCanAttempt(`${candidate.provider.key}:${candidate.model.key}`))) continue;
       candidateCount += 1;
     }
@@ -569,7 +599,7 @@ export class AIKnowledgeUseCases {
     const model = await this.repository.find<AIModelDefinition>('models', index.embeddingModelKey);
     if (!model || model.status !== 'ACTIVE') throw new Error('AI_EMBEDDING_MODEL_NOT_ACTIVE');
     const adapter = this.providers.get(model.providerKey);
-    if (!adapter || adapter.status() !== 'READY' || !adapter.embed) throw new Error('AI_EMBEDDING_PROVIDER_NOT_CONFIGURED');
+    if (!adapter || !isProviderExecutable(adapter.status()) || !adapter.embed) throw new Error('AI_EMBEDDING_PROVIDER_NOT_CONFIGURED');
     const sourceChecksum = sha256(input.content);
     const source: AIKnowledgeSource = { id: '', indexKey: input.indexKey, sourceType: input.sourceType, sourceReferenceId: input.sourceReferenceId, sourceVersion: input.sourceVersion, checksum: sourceChecksum, locale: input.locale, status: 'PENDING', metadata: { canonicalSourceOnly: true } };
     await this.repository.upsert('knowledgeSources', { ...source, key: `${input.indexKey}:${input.sourceType}:${input.sourceReferenceId}` } as any, input.actorReferenceId);
@@ -623,6 +653,8 @@ export class AIProviderCircuitBreaker {
   success(key: string) { this.states.set(key, { failures: 0 }); }
   failure(key: string) { const previous = this.states.get(key) ?? { failures: 0 }; const failures = previous.failures + 1; this.states.set(key, { failures, openedAt: previous.halfOpen || failures >= this.threshold ? Date.now() : previous.openedAt, halfOpen: false }); }
 }
+
+function isProviderExecutable(status: AIProviderOperationalStatus) { return status === 'READY' || status === 'RUNTIME_PENDING'; }
 
 function validateExecutionRequest(request: AIExecutionRequestDto) {
   if (!request.promptKey?.trim()) throw new Error('AI promptKey is required.');

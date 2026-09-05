@@ -9,6 +9,7 @@ import {
   SlidersHorizontal,
   Wallet,
   X,
+  Sparkles,
 } from 'lucide-react';
 import { Service, ServiceAudience } from '../types';
 import { FavoriteButton } from './FavoriteButton';
@@ -59,13 +60,14 @@ export const ServicesDirectoryPage: React.FC<ServicesDirectoryPageProps> = ({
   const isStudent = audience === 'student';
 
   return (
-    <div className="min-h-screen bg-[var(--mn-page)] pb-24 text-[var(--mn-heading)] font-sans select-none mn-panel " dir="rtl">
+    <div className="min-h-screen bg-[var(--mn-page)] pb-24 text-[var(--mn-heading)] font-['Cairo',sans-serif] select-none mn-panel " dir="rtl">
       <div className="relative mn-search-hero overflow-hidden px-3 pb-12 pt-4 text-white shadow-xs sm:px-4 sm:pb-14 mn-inverse ">
         <button
           type="button"
           onClick={onBack}
-          className="absolute right-3 top-3 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/25 text-white shadow-md backdrop-blur-md transition-all hover:bg-black/40 active:scale-95 sm:right-4 sm:top-4 sm:h-10 sm:w-10"
+          className="absolute right-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/25 text-white shadow-md backdrop-blur-md transition-all hover:bg-black/40 active:scale-95 sm:right-4 sm:top-4 sm:h-10 sm:w-10"
           title="العودة"
+          aria-label="العودة"
         >
           <ChevronLeft className="h-4 w-4 rotate-180 sm:h-5 sm:w-5" />
         </button>
@@ -86,9 +88,9 @@ export const ServicesDirectoryPage: React.FC<ServicesDirectoryPageProps> = ({
 
         <div className="relative z-10 mx-auto max-w-md space-y-2 pt-2 text-center sm:max-w-xl">
           <div className="flex justify-center">
-            <span className="text-lg text-[var(--mn-accent-text)] drop-shadow-[0_0_8px_rgba(214,164,59,0.8)]">✦</span>
+            <Sparkles className="h-5 w-5 text-[var(--mn-accent-text)] drop-shadow-[0_0_8px_rgba(214,164,59,0.8)]" aria-hidden="true" />
           </div>
-          <h1 className="font-['Cairo',sans-serif] text-xl font-black leading-tight text-white sm:text-2xl">
+          <h1 className="font-['Cairo',sans-serif] text-xl font-bold leading-tight text-white sm:text-2xl">
             {isStudent ? 'الخدمات الطلابية' : 'الخدمات العامة والدعم'}
           </h1>
           <p className="mx-auto max-w-[90%] text-[11px] font-semibold leading-5 text-[var(--mn-on-dark-muted)] sm:text-xs">
@@ -119,18 +121,18 @@ export const ServicesDirectoryPage: React.FC<ServicesDirectoryPageProps> = ({
         </div>
       </div>
 
-      <div className="relative z-20 mx-auto -mt-5 max-w-md px-3.5 pb-24 sm:max-w-xl sm:px-4">
+      <div className="relative z-20 mx-auto -mt-5 max-w-md mn-inline-gutter pb-24 sm:max-w-xl">
         <div className="mb-3 rounded-[20px] border border-[var(--mn-border)] bg-[var(--mn-surface)] p-2.5 shadow-lg mn-panel ">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--mn-primary)]/10 text-[var(--mn-heading)]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--mn-primary)]/10 text-[var(--mn-heading)]">
               <SlidersHorizontal className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <label className="mb-1 block text-[9px] font-black text-[var(--mn-text-muted)]">نوع الخدمة</label>
+              <label className="mb-1 block text-[9px] font-bold text-[var(--mn-text-muted)]">نوع الخدمة</label>
               <select
                 value={selectedCategory}
                 onChange={(event) => setSelectedCategory(event.target.value)}
-                className="h-9 w-full rounded-xl border border-[var(--mn-border)] bg-[var(--mn-page)] px-2 text-[10px] font-black text-[var(--mn-text)] outline-none mn-panel "
+                className="h-9 w-full rounded-xl border border-[var(--mn-border)] bg-[var(--mn-page)] px-2 text-[10px] font-bold text-[var(--mn-text)] outline-none mn-panel "
               >
                 {categories.map((category) => (
                   <option key={category} value={category}>
@@ -144,10 +146,10 @@ export const ServicesDirectoryPage: React.FC<ServicesDirectoryPageProps> = ({
 
         <div className="mb-2 flex items-center justify-between px-1">
           <div>
-            <h2 className="text-[13px] font-black text-[var(--mn-heading)]">الخدمات المتاحة</h2>
+            <h2 className="text-[13px] font-bold text-[var(--mn-heading)]">الخدمات المتاحة</h2>
             <p className="text-[9px] font-bold text-[var(--mn-text-muted)]">الخدمات المنشورة والمتاحة من كتالوج منارتك</p>
           </div>
-          <span className="rounded-full border border-[var(--mn-accent)]/20 bg-[var(--mn-accent)]/10 px-2 py-1 text-[9px] font-black text-[var(--mn-accent-text)]">
+          <span className="rounded-full border border-[var(--mn-accent)]/20 bg-[var(--mn-accent)]/10 px-2 py-1 text-[9px] font-bold text-[var(--mn-accent-text)]">
             {filteredServices.length} خدمة
           </span>
         </div>
@@ -156,7 +158,7 @@ export const ServicesDirectoryPage: React.FC<ServicesDirectoryPageProps> = ({
           {filteredServices.length === 0 ? (
             <div className="rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-5 text-center shadow-sm mn-panel ">
               <Search className="mx-auto h-6 w-6 text-[var(--mn-text-muted)]" />
-              <h3 className="mt-2 text-xs font-black text-[var(--mn-text)]">لا توجد خدمات مطابقة</h3>
+              <h3 className="mt-2 text-xs font-bold text-[var(--mn-text)]">لا توجد خدمات مطابقة</h3>
               <p className="mt-1 text-[10px] font-semibold text-[var(--mn-text-muted)]">غيّر البحث أو نوع الخدمة.</p>
             </div>
           ) : (
@@ -186,12 +188,12 @@ export const ServicesDirectoryPage: React.FC<ServicesDirectoryPageProps> = ({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-start justify-between gap-1.5">
                       <div className="min-w-0">
-                        <h3 className="font-['Cairo',sans-serif] text-[12.5px] font-black leading-5 text-[var(--mn-heading)] sm:text-[13.5px]">
+                        <h3 className="font-['Cairo',sans-serif] text-[12.5px] font-bold leading-5 text-[var(--mn-heading)] sm:text-[13.5px]">
                           {service.title}
                         </h3>
-                        <p className="mt-0.5 text-[9px] font-black text-[var(--mn-accent-text)]">{service.category}</p>
+                        <p className="mt-0.5 text-[9px] font-bold text-[var(--mn-accent-text)]">{service.category}</p>
                       </div>
-                      <span className="rounded-full bg-[var(--mn-primary)]/10 px-2 py-1 text-[8px] font-black text-[var(--mn-heading)]">
+                      <span className="rounded-full bg-[var(--mn-primary)]/10 px-2 py-1 text-[8px] font-bold text-[var(--mn-heading)]">
                         {service.badge}
                       </span>
                     </div>
@@ -213,7 +215,7 @@ export const ServicesDirectoryPage: React.FC<ServicesDirectoryPageProps> = ({
                   <button
                     type="button"
                     onClick={() => onSelectService?.(service)}
-                    className="col-span-2 flex min-h-8 items-center justify-center gap-1 rounded-lg bg-[var(--mn-primary)] px-2 text-[9.5px] font-black text-white shadow-2xs transition hover:bg-[var(--mn-primary)] active:scale-95 sm:col-span-1 mn-inverse hover:mn-inverse "
+                    className="col-span-2 flex min-h-8 items-center justify-center gap-1 rounded-lg bg-[var(--mn-primary)] px-2 text-[9.5px] font-bold text-white shadow-2xs transition hover:bg-[var(--mn-primary)] active:scale-95 sm:col-span-1 mn-inverse hover:mn-inverse "
                   >
                     عرض التفاصيل
                     <ChevronLeft className="h-3 w-3" />

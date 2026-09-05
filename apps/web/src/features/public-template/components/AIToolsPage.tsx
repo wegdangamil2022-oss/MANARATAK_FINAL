@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
   BookOpenCheck,
@@ -21,6 +22,7 @@ import {
   StudentToolPreview,
 } from '../types';
 import { FavoriteButton } from './FavoriteButton';
+import { DetailBackButton, DetailSectionHeader, useDetailSearchTarget } from './DetailUi';
 
 interface AIToolsPageProps {
   detailId?: string;
@@ -32,6 +34,8 @@ interface AIToolsPageProps {
   favoriteIds?: string[];
   onToggleFavorite?: (id: string) => void;
   initialSelectedId?: string;
+  searchAnchor?: string;
+  searchTerm?: string;
 }
 
 const TOOL_TYPES: Array<'الكل' | StudentToolExecutionLabel> = [
@@ -82,14 +86,14 @@ const StudentToolCard: React.FC<{
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <span className="text-[9px] sm:text-[10px] text-[var(--mn-accent-text)] font-black font-['Cairo',sans-serif]">
+              <span className="text-[9px] sm:text-[10px] text-[var(--mn-accent-text)] font-bold font-['Cairo',sans-serif]">
                 {tool.category}
               </span>
-              <h2 className="mt-0.5 text-[14px] sm:text-[15px] leading-snug font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">
+              <h2 className="mt-0.5 text-[14px] sm:text-[15px] leading-snug font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">
                 {tool.title}
               </h2>
             </div>
-            <span className="shrink-0 rounded-full bg-[var(--mn-success-soft)] border border-[var(--mn-success-border)] px-2 py-1 text-[9px] font-black text-[var(--mn-success-text)] font-['Cairo',sans-serif]">
+            <span className="shrink-0 rounded-full bg-[var(--mn-success-soft)] border border-[var(--mn-success-border)] px-2 py-1 text-[9px] font-bold text-[var(--mn-success-text)] font-['Cairo',sans-serif]">
               {tool.availability}
             </span>
           </div>
@@ -112,7 +116,7 @@ const StudentToolCard: React.FC<{
           </span>
         </div>
 
-        <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-black text-[var(--mn-heading)] font-['Cairo',sans-serif] group-hover:text-[var(--mn-accent-text)] transition-colors shrink-0">
+        <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif] group-hover:text-[var(--mn-accent-text)] transition-colors shrink-0">
           التفاصيل
           <ChevronLeft className="w-3.5 h-3.5" />
         </span>
@@ -128,16 +132,16 @@ const ToolDetailView: React.FC<{
   onOpenService?: (serviceId: string) => void;
   isFavorite?: boolean;
   onToggleFavorite?: (id: string) => void;
-}> = ({ tool, onBack, onNavigateCategory, onOpenService, isFavorite = false, onToggleFavorite }) => (
+  searchAnchor?: string;
+  searchTerm?: string;
+}> = ({ tool, onBack, onNavigateCategory, onOpenService, isFavorite = false, onToggleFavorite, searchAnchor, searchTerm }) => {
+  useDetailSearchTarget(searchAnchor, searchTerm);
+  return (
   <div className="min-h-screen bg-[var(--mn-page)] pb-24 mn-panel " dir="rtl">
     <div className="relative mn-search-hero text-white px-3 sm:px-4 pt-4 pb-10 overflow-hidden shadow-sm mn-inverse ">
-      <button
-        onClick={onBack}
-        className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/30 backdrop-blur-md rounded-full transition-all z-20 cursor-pointer text-white"
-        title="العودة إلى الأدوات"
-      >
-        <ChevronLeft className="w-5 h-5 rotate-180" />
-      </button>
+      <div className="absolute top-4 right-4 z-20">
+        <DetailBackButton onBack={onBack} />
+      </div>
 
       {onToggleFavorite && (
         <FavoriteButton
@@ -161,10 +165,10 @@ const ToolDetailView: React.FC<{
         <div className="w-12 h-12 mx-auto rounded-2xl border border-[var(--mn-accent)]/35 bg-white/10 backdrop-blur flex items-center justify-center text-[var(--mn-accent-text)] mb-3">
           {toolIcon(tool)}
         </div>
-        <span className="text-[10px] font-black text-[var(--mn-accent-text)] font-['Cairo',sans-serif]">
+        <span className="text-[10px] font-bold text-[var(--mn-accent-text)] font-['Cairo',sans-serif]">
           {tool.category}
         </span>
-        <h1 className="mt-1 text-xl sm:text-2xl font-black text-white font-['Cairo',sans-serif]">
+        <h1 className="mt-1 text-xl sm:text-2xl font-bold text-white font-['Cairo',sans-serif]">
           {tool.title}
         </h1>
         <p className="mt-2 text-[11px] sm:text-xs text-[var(--mn-on-dark-muted)] leading-relaxed max-w-sm mx-auto font-medium font-['Cairo',sans-serif]">
@@ -173,42 +177,42 @@ const ToolDetailView: React.FC<{
       </div>
     </div>
 
-    <div className="max-w-xl mx-auto px-3 sm:px-4 -mt-4 relative z-20 space-y-3">
+    <div className="max-w-xl mx-auto mn-inline-gutter -mt-4 relative z-20 space-y-3">
       <div className="bg-[var(--mn-surface)] border border-[var(--mn-accent)]/45 rounded-3xl p-2 shadow-sm grid grid-cols-3 gap-1.5 mn-panel ">
         <div className="rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-page)]/80 p-2 text-center mn-panel ">
           <div className="text-[9px] text-[var(--mn-text-muted)] font-bold">النوع</div>
-          <div className="mt-1 text-[10px] font-black text-[var(--mn-heading)]">{tool.executionLabel}</div>
+          <div className="mt-1 text-[10px] font-bold text-[var(--mn-heading)]">{tool.executionLabel}</div>
         </div>
         <div className="rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-page)]/80 p-2 text-center mn-panel ">
           <div className="text-[9px] text-[var(--mn-text-muted)] font-bold">التوفر</div>
-          <div className="mt-1 text-[10px] font-black text-[var(--mn-success-text)]">{tool.availability}</div>
+          <div className="mt-1 text-[10px] font-bold text-[var(--mn-success-text)]">{tool.availability}</div>
         </div>
         <div className="rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-page)]/80 p-2 text-center mn-panel ">
           <div className="text-[9px] text-[var(--mn-text-muted)] font-bold">الوقت</div>
-          <div className="mt-1 text-[10px] font-black text-[var(--mn-heading)]">{tool.estimatedTime}</div>
+          <div className="mt-1 text-[10px] font-bold text-[var(--mn-heading)]">{tool.estimatedTime}</div>
         </div>
       </div>
 
       <section className="bg-[var(--mn-surface)] border border-[var(--mn-border)] rounded-3xl p-4 shadow-2xs mn-panel ">
-        <h2 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">ماذا تفعل هذه الأداة؟</h2>
+        <DetailSectionHeader id="tool-purpose" icon={Sparkles} title="ماذا تفعل هذه الأداة؟" />
         <p className="mt-2 text-[11px] sm:text-xs leading-7 text-[var(--mn-text-muted)] font-medium font-['Cairo',sans-serif]">{tool.purpose}</p>
       </section>
 
       <section className="bg-[var(--mn-surface)] border border-[var(--mn-border)] rounded-3xl p-4 shadow-2xs mn-panel ">
-        <h2 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">كيف تعمل؟</h2>
+        <DetailSectionHeader id="tool-how-it-works" icon={Layers3} title="كيف تعمل؟" />
         <div className="mt-3 space-y-2">
           {tool.howItWorks.map((step, index) => (
             <div key={step} className="flex items-start gap-2.5">
-              <span className="w-6 h-6 rounded-full bg-[var(--mn-primary)] text-white text-[10px] font-black flex items-center justify-center shrink-0 mn-inverse ">{index + 1}</span>
+              <span className="w-6 h-6 rounded-full bg-[var(--mn-primary)] text-white text-[10px] font-bold flex items-center justify-center shrink-0 mn-inverse ">{index + 1}</span>
               <p className="pt-0.5 text-[11px] sm:text-xs leading-6 text-[var(--mn-text-muted)] font-medium font-['Cairo',sans-serif]">{step}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div id="tool-io" className="grid grid-cols-2 gap-2 sm:gap-3 scroll-mt-28">
         <section className="bg-[var(--mn-surface)] border border-[var(--mn-border)] rounded-3xl p-4 shadow-2xs mn-panel ">
-          <h2 className="text-xs font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">ما الذي تحتاجه منك؟</h2>
+          <h2 className="text-xs font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">ما الذي تحتاجه منك؟</h2>
           <ul className="mt-2 space-y-1.5">
             {tool.inputs.map((item) => (
               <li key={item} className="text-[10px] sm:text-[11px] leading-5 text-[var(--mn-text-muted)] flex items-start gap-2">
@@ -220,7 +224,7 @@ const ToolDetailView: React.FC<{
         </section>
 
         <section className="bg-[var(--mn-surface)] border border-[var(--mn-border)] rounded-3xl p-4 shadow-2xs mn-panel ">
-          <h2 className="text-xs font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">ماذا تحصل عليه؟</h2>
+          <h2 className="text-xs font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">ماذا تحصل عليه؟</h2>
           <ul className="mt-2 space-y-1.5">
             {tool.outputs.map((item) => (
               <li key={item} className="text-[10px] sm:text-[11px] leading-5 text-[var(--mn-text-muted)] flex items-start gap-2">
@@ -234,7 +238,7 @@ const ToolDetailView: React.FC<{
 
       {tool.notes && tool.notes.length > 0 && (
         <section className="bg-[var(--mn-gold-surface)]/70 border border-[var(--mn-border-gold)] rounded-3xl p-4">
-          <h2 className="text-xs font-black text-[var(--mn-accent-text)] font-['Cairo',sans-serif]">تنبيه مهم</h2>
+          <h2 className="text-xs font-bold text-[var(--mn-accent-text)] font-['Cairo',sans-serif]">تنبيه مهم</h2>
           <ul className="mt-2 space-y-1.5">
             {tool.notes.map((note) => (
               <li key={note} className="text-[10px] sm:text-[11px] leading-5 text-[var(--mn-accent-text)]">• {note}</li>
@@ -246,7 +250,7 @@ const ToolDetailView: React.FC<{
       {tool.contextualLinks && tool.contextualLinks.length > 0 && (
         <section className="bg-[var(--mn-surface)] border border-[var(--mn-border)] rounded-3xl p-4 shadow-2xs mn-panel ">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">استكشف في منارتك</h2>
+            <h2 className="text-sm font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">استكشف في منارتك</h2>
             <span className="text-[9px] text-[var(--mn-text-muted)] font-bold">ظهور سياقي</span>
           </div>
           <div className="mt-3 space-y-2">
@@ -257,7 +261,7 @@ const ToolDetailView: React.FC<{
                 className="w-full flex items-center justify-between gap-3 rounded-2xl border border-[var(--mn-border)] hover:border-[var(--mn-accent)]/60 bg-[var(--mn-page)]/70 hover:bg-[var(--mn-accent)]/5 p-3 text-right transition-all cursor-pointer"
               >
                 <div>
-                  <div className="text-[11px] font-black text-[var(--mn-heading)]">{link.label}</div>
+                  <div className="text-[11px] font-bold text-[var(--mn-heading)]">{link.label}</div>
                   <div className="mt-0.5 text-[9px] sm:text-[10px] leading-5 text-[var(--mn-text-muted)]">{link.description}</div>
                 </div>
                 <ArrowLeft className="w-4 h-4 text-[var(--mn-accent-text)] shrink-0" />
@@ -269,7 +273,7 @@ const ToolDetailView: React.FC<{
 
       {tool.serviceSuggestions && tool.serviceSuggestions.length > 0 && (
         <section className="bg-[var(--mn-surface)] border border-[var(--mn-accent)]/35 rounded-3xl p-4 shadow-2xs mn-panel ">
-          <h2 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">خدمات قد تساعدك</h2>
+          <h2 className="text-sm font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">خدمات قد تساعدك</h2>
           <p className="mt-1 text-[9px] sm:text-[10px] text-[var(--mn-text-muted)] leading-5">اقتراح سياقي فقط؛ الأداة والخدمة كيانان مستقلان.</p>
           <div className="mt-3 space-y-2">
             {tool.serviceSuggestions.map((service) => (
@@ -279,7 +283,7 @@ const ToolDetailView: React.FC<{
                 className="w-full flex items-center justify-between gap-3 rounded-2xl border border-[var(--mn-border)] hover:border-[var(--mn-accent)]/60 bg-[var(--mn-surface)] p-3 text-right transition-all cursor-pointer mn-panel "
               >
                 <div>
-                  <div className="text-[11px] font-black text-[var(--mn-heading)]">{service.label}</div>
+                  <div className="text-[11px] font-bold text-[var(--mn-heading)]">{service.label}</div>
                   <div className="mt-0.5 text-[9px] sm:text-[10px] leading-5 text-[var(--mn-text-muted)]">{service.note}</div>
                 </div>
                 <ArrowLeft className="w-4 h-4 text-[var(--mn-accent-text)] shrink-0" />
@@ -290,17 +294,27 @@ const ToolDetailView: React.FC<{
       )}
 
       <div className="rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-page)]/80 p-3 text-center mn-panel ">
-        <div className="text-xs font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">تشغيل الأداة</div>
-        <p className="mt-1 text-[9px] sm:text-[10px] leading-5 text-[var(--mn-text-muted)] font-medium">
-          واجهة التشغيل الفعلية ستتصل لاحقًا بسجل Phase 18 والـ API؛ هذه النسخة تختبر العرض والتفاصيل والترابط فقط.
-        </p>
+        <div className="text-xs font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">تشغيل الأداة</div>
+        {tool.availability === 'متاحة الآن' ? (
+          <>
+            <p className="mt-1 text-[9px] sm:text-[10px] leading-5 text-[var(--mn-text-muted)] font-medium">
+              التنفيذ يتم عبر سجل Phase 18 والـ API الرسمي؛ نتيجة الذكاء الاصطناعي لا تمنح صلاحيات ولا تغيّر بيانات المجالات المالكة تلقائيًا.
+            </p>
+            <Link to={`/tools/${encodeURIComponent(tool.toolKey)}`} className="mt-3 inline-flex min-h-10 items-center justify-center rounded-xl bg-[var(--mn-primary)] px-5 py-2 text-xs font-bold text-white hover:opacity-90 mn-inverse">
+              فتح الأداة
+            </Link>
+          </>
+        ) : (
+          <p className="mt-1 text-[9px] sm:text-[10px] leading-5 text-[var(--mn-text-muted)] font-medium">هذه الأداة غير مفعلة للعامة بعد، ولا يوجد تشغيل تجريبي بديل.</p>
+        )}
       </div>
     </div>
   </div>
 );
+};
 
 export const AIToolsPage: React.FC<AIToolsPageProps> = ({
-  detailId, onDetailChange,
+  detailId, onDetailChange, searchAnchor, searchTerm,
   tools,
   onBack,
   onNavigateCategory,
@@ -377,18 +391,21 @@ export const AIToolsPage: React.FC<AIToolsPageProps> = ({
         onOpenService={onOpenService}
         isFavorite={favoriteIds.includes(selectedTool.id)}
         onToggleFavorite={onToggleFavorite}
+        searchAnchor={searchAnchor}
+        searchTerm={searchTerm}
       />
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-sans select-none mn-panel " dir="rtl">
+    <div className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-['Cairo',sans-serif] select-none mn-panel " dir="rtl">
       <div className="relative mn-search-hero text-white px-3 sm:px-4 pt-4 pb-12 sm:pb-14 overflow-hidden shadow-sm mn-inverse ">
         {onBack && (
           <button
             onClick={onBack}
-            className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/30 backdrop-blur-md rounded-full transition-all z-20 cursor-pointer text-white"
+            className="absolute top-4 right-4 h-10 w-10 bg-black/20 hover:bg-black/30 backdrop-blur-md rounded-full transition-all z-20 cursor-pointer text-white flex items-center justify-center"
             title="العودة"
+            aria-label="العودة"
           >
             <ChevronLeft className="w-5 h-5 rotate-180" />
           </button>
@@ -406,10 +423,10 @@ export const AIToolsPage: React.FC<AIToolsPageProps> = ({
 
         <div className="max-w-xl mx-auto text-center relative z-10 space-y-2.5">
           <div className="flex justify-center -mb-1">
-            <span className="text-[var(--mn-accent-text)] text-sm">✦</span>
+            <Sparkles className="h-4 w-4 text-[var(--mn-accent-text)]" aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-white font-['Cairo',sans-serif] tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-white font-['Cairo',sans-serif] tracking-tight">
               <span>استكشف </span>
               <span className="relative inline-block text-white">
                 أدوات منارتك
@@ -455,7 +472,7 @@ export const AIToolsPage: React.FC<AIToolsPageProps> = ({
         )}
       </div>
 
-      <div className="max-w-xl mx-auto px-3 sm:px-4 -mt-7 sm:-mt-8 relative z-20">
+      <div className="max-w-xl mx-auto mn-inline-gutter -mt-7 sm:-mt-8 relative z-20">
         <div className="bg-[var(--mn-surface)] border border-[var(--mn-accent)]/50 rounded-3xl p-2 sm:p-2.5 shadow-md mn-panel ">
           <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
             <div className="relative bg-[var(--mn-surface)] hover:bg-[var(--mn-page)]/80 border border-[var(--mn-border)] rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-2xs transition-colors min-w-0 mn-panel hover:mn-panel ">
@@ -495,10 +512,10 @@ export const AIToolsPage: React.FC<AIToolsPageProps> = ({
         </div>
       </div>
 
-      <div className="w-full max-w-xl mx-auto px-3 sm:px-4 pt-3 space-y-2.5">
+      <div className="w-full max-w-xl mx-auto mn-inline-gutter pt-3 space-y-2.5">
         <div className="flex items-center justify-between px-1">
           <div>
-            <span className="text-xs sm:text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">الأدوات المتاحة ({filteredTools.length})</span>
+            <span className="text-xs sm:text-sm font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">الأدوات المتاحة ({filteredTools.length})</span>
             <p className="mt-0.5 text-[9px] sm:text-[10px] text-[var(--mn-text-muted)] font-medium">البيانات المعروضة تأتي من كتالوج الأدوات المنشور في منارتك.</p>
           </div>
           <span className="text-[9px] sm:text-[10px] text-[var(--mn-accent-text)] font-bold font-['Cairo',sans-serif]">Phase 18</span>
@@ -508,7 +525,7 @@ export const AIToolsPage: React.FC<AIToolsPageProps> = ({
           {filteredTools.length === 0 ? (
             <div className="bg-[var(--mn-surface)] border border-[var(--mn-border)] rounded-3xl p-8 text-center flex flex-col items-center justify-center gap-2 shadow-2xs mn-panel ">
               <div className="w-12 h-12 rounded-full bg-[var(--mn-surface-muted)] flex items-center justify-center text-[var(--mn-text-muted)] mn-panel "><Search className="w-6 h-6" /></div>
-              <h3 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">لا توجد أداة مطابقة</h3>
+              <h3 className="text-sm font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">لا توجد أداة مطابقة</h3>
               <p className="text-xs text-[var(--mn-text-muted)] max-w-xs font-['Cairo',sans-serif]">غيّر الفلاتر أو أعد البحث في كتالوج الأدوات المنشور.</p>
               <button onClick={resetFilters} className="mt-2 px-4 py-1.5 bg-[var(--mn-primary)] text-white rounded-xl text-xs font-bold cursor-pointer font-['Cairo',sans-serif] mn-inverse ">إلغاء التصفية</button>
             </div>

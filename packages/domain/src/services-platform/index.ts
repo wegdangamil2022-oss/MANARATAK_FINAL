@@ -197,6 +197,12 @@ export interface IServiceFinanceGateway {
     scale: number;
     actorId: string;
   }): Promise<{ id: string; publicId: string }>;
+  getInvoiceClearance(invoiceId: string): Promise<{
+    invoiceId: string;
+    invoiceStatus: string;
+    amountDueMinorUnits: string;
+    financiallyCleared: boolean;
+  }>;
 }
 
 export interface ServiceRequestedEvent {

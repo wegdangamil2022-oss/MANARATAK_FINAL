@@ -7,6 +7,7 @@ import {
   FilePenLine,
   FolderTree,
   Loader2,
+  Link2,
   Plus,
   Search,
   Send,
@@ -47,11 +48,13 @@ interface Localized {
   version: number;
   scheduledAt?: string | null;
 }
+interface DomainLink { id?: string; targetType: string; targetId: string; relationType: string; sortOrder: number }
 interface Detail extends Content {
   localizedPayloads: Localized[];
   tags: Tag[];
   revisions: Array<{ id: string; versionNumber: number; reason: string; capturedAt: string }>;
   readiness: Record<string, { ready: boolean; missing: string[]; warnings: string[] }>;
+  domainLinks: DomainLink[];
 }
 interface Category {
   id: string;
@@ -135,9 +138,7 @@ const contentTypes = [
   'STUDY_GUIDE',
   'FAQ',
   'CHECKLIST',
-  'ANNOUNCEMENT',
   'LANDING_PAGE',
-  'CONTENT_BLOCK',
 ];
 const workflow = [
   'قائمة المحتوى',
@@ -173,6 +174,7 @@ export function CmsAdminPage() {
     categoryId: '',
     featuredAssetId: '',
   });
+  const [domainLinks, setDomainLinks] = useState<DomainLink[]>([]);
   const [taxonomy, setTaxonomy] = useState({
     categorySlug: '',
     categoryAr: '',
@@ -214,6 +216,7 @@ export function CmsAdminPage() {
     try {
       const detail = await adminApiClient.request<Detail>(`/admin/cms/content/${id}`);
       setSelected(detail);
+      setDomainLinks(detail.domainLinks ?? []);
       setEditors({
         ar: toEditor(
           detail.localizedPayloads.find((entry) => entry.locale === 'ar'),
@@ -256,7 +259,7 @@ export function CmsAdminPage() {
         categoryId: '',
         featuredAssetId: '',
       });
-      setNotice('تم إنشاء المسودة. أكمل النسختين العربية والإنجليزية ثم أرسلها للمراجعة.');
+      setNotice('تم إنشاء المسودة. أكمل اللغة المطلوبة واربطها بالكيانات ذات الصلة ثم أرسلها للمراجعة.');
       await Promise.all([openContent(created.id), loadDashboard()]);
     } catch (reason) {
       setError(messageOf(reason));
@@ -362,6 +365,19 @@ export function CmsAdminPage() {
     }
   };
 
+  const saveDomainLinks = async () => {
+    if (!selected) return;
+    setBusy(true); setError(null); setNotice(null);
+    try {
+      await adminApiClient.request(`/admin/cms/content/${selected.id}/domain-links`, {
+        method: 'PUT',
+        body: JSON.stringify({ links: domainLinks.map((link, index) => ({ ...link, sortOrder: index })) }),
+      });
+      setNotice('تم حفظ روابط المحتوى مع أقسام المنصة باستخدام المعرّفات Canonical.');
+      await openContent(selected.id);
+    } catch (reason) { setError(messageOf(reason)); } finally { setBusy(false); }
+  };
+
   const createTaxonomy = async (kind: 'category' | 'tag') => {
     setBusy(true);
     setError(null);
@@ -405,13 +421,13 @@ export function CmsAdminPage() {
   );
 
   return (
-    <main dir="rtl" className="mx-auto max-w-[1500px] space-y-6 font-sans text-slate-900">
-      <header className="overflow-hidden rounded-3xl bg-gradient-to-l from-emerald-950 via-emerald-800 to-teal-700 p-6 text-white shadow-xl sm:p-8">
+    <main dir={locale === 'ar' ? 'rtl' : 'ltr'} className="mx-auto max-w-[1500px] space-y-6 font-sans text-slate-900">
+      <header className="overflow-hidden rounded-3xl bg-gradient-to-l from-[#142B5F] via-[#0E7C86] to-[#21A7B4] p-6 text-white shadow-xl sm:p-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="mb-2 text-sm font-bold text-emerald-200">منصة المحتوى المؤسسية</p>
+            <p className="mb-2 text-sm font-bold text-[#F2CD78]">منصة المحتوى المؤسسية</p>
             <h1 className="text-3xl font-black">إدارة المحتوى والنشر</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-emerald-50">
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-white/85">
               تحرير ثنائي اللغة، وسائط من منصة الأصول، SEO، مراجعة مستقلة، وجدولة ونشر موثوق.
             </p>
           </div>
@@ -431,14 +447,14 @@ export function CmsAdminPage() {
 
       <nav
         aria-label="مسار النشر"
-        className="grid grid-cols-2 gap-2 rounded-2xl border border-emerald-100 bg-white p-3 shadow-sm sm:grid-cols-4 xl:grid-cols-8"
+        className="grid grid-cols-2 gap-2 rounded-2xl border border-[#DDEFF2] bg-white p-3 shadow-sm sm:grid-cols-4 xl:grid-cols-8"
       >
         {workflow.map((label, index) => (
           <div
             key={label}
-            className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-900"
+            className="flex items-center gap-2 rounded-xl bg-[#DDEFF2]/55 px-3 py-2 text-xs font-bold text-[#142B5F]"
           >
-            <span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-700 text-white">
+            <span className="grid h-6 w-6 place-items-center rounded-full bg-[#0E7C86] text-white">
               {index + 1}
             </span>
             {label}
@@ -490,7 +506,7 @@ export function CmsAdminPage() {
                     type="button"
                     key={item.id}
                     onClick={() => void openContent(item.id)}
-                    className={`w-full rounded-xl border p-3 text-right transition hover:border-emerald-400 hover:bg-emerald-50 ${selected?.id === item.id ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'}`}
+                    className={`w-full rounded-xl border p-3 text-right transition hover:border-[#21A7B4] hover:bg-[#DDEFF2]/55 ${selected?.id === item.id ? 'border-[#0E7C86] bg-[#DDEFF2]/55' : 'border-slate-200'}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -565,7 +581,7 @@ export function CmsAdminPage() {
             </Panel>
           ) : (
             <>
-              <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
+              <div className="rounded-2xl border border-[#DDEFF2] bg-white p-4 shadow-sm">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="flex items-center gap-2">
@@ -668,6 +684,7 @@ export function CmsAdminPage() {
                       </fieldset>
                     </div>
                   </Panel>
+                  <DomainLinksPanel links={domainLinks} setLinks={setDomainLinks} busy={busy} onSave={saveDomainLinks} />
                   <Panel title="تهيئة محركات البحث" icon={<Search className="h-5 w-5" />}>
                     <div className="space-y-4">
                       <Field
@@ -734,7 +751,7 @@ export function CmsAdminPage() {
               <div className="grid gap-6 2xl:grid-cols-2">
                 <Panel title="المعاينة" icon={<Eye className="h-5 w-5" />}>
                   <article className="rounded-2xl border bg-slate-50 p-6">
-                    <p className="text-xs font-bold text-emerald-700">معاينة مسودة غير عامة</p>
+                    <p className="text-xs font-bold text-[#0E7C86]">معاينة مسودة غير عامة</p>
                     <h3 className="mt-3 text-3xl font-black">{preview.title || 'العنوان'}</h3>
                     {preview.summary && <p className="mt-3 text-slate-600">{preview.summary}</p>}
                     <div className="mt-6 whitespace-pre-wrap leading-8 text-slate-800">
@@ -746,7 +763,7 @@ export function CmsAdminPage() {
                   <div className="space-y-4">
                     {readiness ? (
                       <div
-                        className={`rounded-xl border p-4 ${readiness.ready ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}
+                        className={`rounded-xl border p-4 ${readiness.ready ? 'border-[#DDEFF2] bg-[#DDEFF2]/55' : 'border-amber-200 bg-amber-50'}`}
                       >
                         <p className="font-bold">
                           {readiness.ready ? 'جاهز للإرسال للمراجعة' : 'توجد حقول مطلوبة'}
@@ -811,7 +828,7 @@ export function CmsAdminPage() {
           )}
         </section>
       </section>
-      <CmsOperationsPanels contents={list?.data ?? []} />
+      <CmsOperationsPanels contents={list?.data ?? []} locale={locale} />
     </main>
   );
 }
@@ -827,7 +844,7 @@ function Panel({
 }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="mb-5 flex items-center gap-2 text-lg font-black text-emerald-950">
+      <h2 className="mb-5 flex items-center gap-2 text-lg font-black text-[#142B5F]">
         {icon}
         {title}
       </h2>
@@ -847,7 +864,7 @@ function Alert({ tone, children }: { tone: 'success' | 'error'; children: React.
   return (
     <div
       role="alert"
-      className={`rounded-xl border p-4 text-sm font-bold ${tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'}`}
+      className={`rounded-xl border p-4 text-sm font-bold ${tone === 'success' ? 'border-[#DDEFF2] bg-[#DDEFF2]/55 text-[#0E7C86]' : 'border-red-200 bg-red-50 text-red-800'}`}
     >
       {children}
     </div>
@@ -953,7 +970,7 @@ function PrimaryButton({ children, disabled }: { children: React.ReactNode; disa
     <button
       type="submit"
       disabled={disabled}
-      className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 font-bold text-white hover:bg-emerald-800 disabled:opacity-40"
+      className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0E7C86] px-4 py-2 font-bold text-white hover:bg-emerald-800 disabled:opacity-40"
     >
       {children}
     </button>
@@ -973,7 +990,7 @@ function Action({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-50 disabled:opacity-40"
+      className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#DDEFF2] bg-white px-3 text-sm font-bold text-[#0E7C86] hover:bg-[#DDEFF2]/55 disabled:opacity-40"
     >
       {children}
     </button>
@@ -992,7 +1009,7 @@ function LocaleButton({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-xl px-5 py-2 text-sm font-bold ${active ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600'}`}
+      className={`rounded-xl px-5 py-2 text-sm font-bold ${active ? 'bg-[#0E7C86] text-white' : 'bg-slate-100 text-slate-600'}`}
     >
       {children}
     </button>
@@ -1001,7 +1018,7 @@ function LocaleButton({
 function Status({ value }: { value: string }) {
   const color =
     value === 'PUBLISHED'
-      ? 'bg-emerald-100 text-emerald-800'
+      ? 'bg-emerald-100 text-[#0E7C86]'
       : value === 'IN_REVIEW' || value === 'READY_TO_PUBLISH'
         ? 'bg-amber-100 text-amber-800'
         : value === 'ARCHIVED'
@@ -1016,7 +1033,7 @@ function Status({ value }: { value: string }) {
 function Loading() {
   return (
     <div className="grid min-h-40 place-items-center">
-      <Loader2 className="h-7 w-7 animate-spin text-emerald-700" />
+      <Loader2 className="h-7 w-7 animate-spin text-[#0E7C86]" />
     </div>
   );
 }
@@ -1027,6 +1044,40 @@ function Empty({ text }: { text: string }) {
     </div>
   );
 }
+function DomainLinksPanel({ links, setLinks, busy, onSave }: {
+  links: DomainLink[];
+  setLinks: (value: DomainLink[]) => void;
+  busy: boolean;
+  onSave: () => Promise<void>;
+}) {
+  const add = () => setLinks([...links, { targetType: 'UNIVERSITY', targetId: '', relationType: 'RELATED', sortOrder: links.length }]);
+  return (
+    <Panel title="الربط مع أقسام المنصة" icon={<Link2 className="h-5 w-5" />}>
+      <p className="mb-4 text-xs leading-6 text-slate-500">
+        اربط المادة بالـOwner UUID للكيان Canonical فقط. لا تستخدم الاسم أو slug أو publicId، ولا تنسخ بيانات الجامعة أو المنحة أو التخصص داخل CMS؛ العرض العام يجلبها من المجال المالك. عند تشغيل Runtime يُستبدل الإدخال اليدوي بمحددات Canonical.
+      </p>
+      <div className="space-y-3">
+        {links.map((link, index) => (
+          <div key={`${link.targetType}-${index}`} className="grid gap-2 rounded-xl border border-[#DDEFF2] bg-[#FAF7F0]/50 p-3 md:grid-cols-[1fr_1.4fr_1fr_auto]">
+            <select className="input" value={link.targetType} onChange={(e) => setLinks(links.map((item, i) => i === index ? { ...item, targetType: e.target.value } : item))}>
+              <option value="UNIVERSITY">جامعة</option><option value="ACADEMIC_PROGRAM">برنامج جامعي</option><option value="SCHOLARSHIP">منحة</option><option value="MAJOR">تخصص</option><option value="INTERNATIONAL_TEST">اختبار دولي</option><option value="COURSE">دورة</option><option value="REFERENCE_COUNTRY">دولة / وجهة دراسية</option>
+            </select>
+            <input dir="ltr" className="input" value={link.targetId} onChange={(e) => setLinks(links.map((item, i) => i === index ? { ...item, targetId: e.target.value } : item))} placeholder="Canonical owner UUID" />
+            <select className="input" value={link.relationType} onChange={(e) => setLinks(links.map((item, i) => i === index ? { ...item, relationType: e.target.value } : item))}>
+              <option value="RELATED">مرتبط</option><option value="FEATURED">مميز</option><option value="GUIDE">دليل</option><option value="APPLICATION">التقديم</option><option value="REQUIREMENTS">المتطلبات</option><option value="ELIGIBILITY">الأهلية</option>
+            </select>
+            <button type="button" className="rounded-lg px-3 text-sm font-bold text-red-600 hover:bg-red-50" onClick={() => setLinks(links.filter((_, i) => i !== index))}>حذف</button>
+          </div>
+        ))}
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={add} className="rounded-xl border border-[#0E7C86] px-4 py-2 text-sm font-bold text-[#0E7C86] hover:bg-[#DDEFF2]/50">+ إضافة رابط</button>
+          <button type="button" disabled={busy || links.some((link) => !link.targetId.trim())} onClick={() => void onSave()} className="rounded-xl bg-[#142B5F] px-4 py-2 text-sm font-bold text-white hover:bg-[#0E7C86] disabled:opacity-50">حفظ الروابط</button>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
 function TaxonomyPanel({
   taxonomy,
   setTaxonomy,

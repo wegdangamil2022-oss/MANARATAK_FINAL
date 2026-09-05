@@ -11,6 +11,7 @@ import {
   Tag,
   UserRound,
   X,
+  Sparkles,
 } from 'lucide-react';
 import { PublicArticle } from '../types';
 import { FavoriteButton } from './FavoriteButton';
@@ -65,7 +66,7 @@ export const ArticlesSearchPage: React.FC<ArticlesSearchPageProps> = ({ articles
   }, [articles, searchQuery, selectedType]);
 
   return (
-    <main dir="rtl" className="min-h-screen bg-[var(--mn-surface)] pb-16 font-['Cairo',sans-serif] mn-panel ">
+    <main dir="rtl" className="min-h-screen bg-[var(--mn-page)] pb-16 font-['Cairo',sans-serif] mn-panel ">
       <section className="relative overflow-hidden bg-gradient-to-b from-[var(--mn-primary)] via-[var(--mn-primary)] to-[var(--mn-primary)] px-4 pb-12 pt-5 text-white shadow-sm mn-inverse ">
         <div className="pointer-events-none absolute -left-20 -top-24 h-64 w-64 rounded-full border border-[var(--mn-border-gold)]" />
         <div className="pointer-events-none absolute -right-24 bottom-0 h-56 w-56 rounded-full border border-white/10" />
@@ -75,19 +76,20 @@ export const ArticlesSearchPage: React.FC<ArticlesSearchPageProps> = ({ articles
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 text-[11px] font-extrabold text-[var(--mn-on-dark-muted)] backdrop-blur-sm transition hover:bg-white/10"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-[var(--mn-on-dark-muted)] backdrop-blur-sm transition hover:bg-white/10"
+              aria-label="العودة"
+              title="العودة"
             >
-              <ArrowRight className="h-3.5 w-3.5" />
-              العودة
+              <ArrowRight className="h-4 w-4" />
             </button>
-            <span className="rounded-full border border-[var(--mn-border-gold)] bg-[var(--mn-accent)]/10 px-3 py-1 text-[10px] font-black text-[var(--mn-accent-text)]">
+            <span className="rounded-full border border-[var(--mn-border-gold)] bg-[var(--mn-accent)]/10 px-3 py-1 text-[10px] font-bold text-[var(--mn-accent-text)]">
               منصة المعرفة
             </span>
           </div>
 
           <div className="text-center">
-            <span className="mb-1 inline-block text-sm text-[var(--mn-accent-text)]">✦</span>
-            <h1 className="text-[22px] font-black leading-9 sm:text-[26px]">المقالات والأدلة الدراسية</h1>
+            <Sparkles className="mb-1 h-4 w-4 text-[var(--mn-accent-text)]" aria-hidden="true" />
+            <h1 className="text-[22px] font-bold leading-9 sm:text-[26px]">المقالات والأدلة الدراسية</h1>
             <p className="mx-auto mt-1.5 max-w-sm text-[11px] font-medium leading-6 text-[var(--mn-on-dark-muted)] sm:text-xs">
               أدلة عملية ومقالات تحريرية تساعدك على فهم المنح والقبول والدراسة والاختبارات واتخاذ قرار أوضح.
             </p>
@@ -116,7 +118,7 @@ export const ArticlesSearchPage: React.FC<ArticlesSearchPageProps> = ({ articles
         </div>
       </section>
 
-      <div className="relative z-10 mx-auto -mt-7 max-w-xl space-y-3 px-3 sm:px-4">
+      <div className="relative z-10 mx-auto -mt-7 max-w-xl space-y-3 mn-inline-gutter">
         <div className="rounded-3xl border border-[var(--mn-border-gold)] bg-[var(--mn-surface)] p-2 shadow-md mn-panel ">
           <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
             {[
@@ -132,7 +134,7 @@ export const ArticlesSearchPage: React.FC<ArticlesSearchPageProps> = ({ articles
                   key={item.value}
                   type="button"
                   onClick={() => setSelectedType(item.value as 'ALL' | ArticleType)}
-                  className={`min-h-9 shrink-0 rounded-2xl px-3 text-[10px] font-black transition sm:text-[11px] ${
+                  className={`min-h-9 shrink-0 rounded-2xl px-3 text-[10px] font-bold transition sm:text-[11px] ${
                     active
                       ? 'bg-[var(--mn-primary)] text-white shadow-sm mn-inverse '
                       : 'border border-[var(--mn-border)] bg-[var(--mn-page)] text-[var(--mn-text-muted)] hover:bg-[var(--mn-surface-muted)] mn-panel hover:mn-panel '
@@ -177,7 +179,7 @@ export const ArticlesSearchPage: React.FC<ArticlesSearchPageProps> = ({ articles
                         {typeStyle.icon}
                       </div>
                       <div>
-                        <span className="block text-[9px] font-black text-[var(--mn-accent-text)]">MANARATAK</span>
+                        <span className="block text-[9px] font-bold text-[var(--mn-accent-text)]">MANARATAK</span>
                         <span className="mt-0.5 block text-[9px] font-bold leading-4 text-[var(--mn-on-dark-muted)]">المعرفة والإرشاد</span>
                       </div>
                     </div>
@@ -185,20 +187,20 @@ export const ArticlesSearchPage: React.FC<ArticlesSearchPageProps> = ({ articles
 
                   <div className="min-w-0 p-3 sm:p-4">
                     <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[9px] font-black ${typeStyle.className}`}>
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[9px] font-bold ${typeStyle.className}`}>
                         {typeStyle.icon}
                         {article.contentTypeLabelAr}
                       </span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--mn-surface)] px-2 py-1 text-[9px] font-black text-[var(--mn-accent-text)] mn-panel ">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--mn-surface)] px-2 py-1 text-[9px] font-bold text-[var(--mn-accent-text)] mn-panel ">
                         <Tag className="h-2.5 w-2.5" />
                         {article.categoryAr}
                       </span>
                       {index === 0 && (
-                        <span className="rounded-full bg-[var(--mn-primary)]/7 px-2 py-1 text-[9px] font-black text-[var(--mn-heading)]">مميز</span>
+                        <span className="rounded-full bg-[var(--mn-primary)]/7 px-2 py-1 text-[9px] font-bold text-[var(--mn-heading)]">مميز</span>
                       )}
                     </div>
 
-                    <h2 className="line-clamp-2 text-[13px] font-black leading-6 text-[var(--mn-heading)] sm:text-[14px]">
+                    <h2 className="line-clamp-2 text-[13px] font-bold leading-6 text-[var(--mn-heading)] sm:text-[14px]">
                       {article.titleAr}
                     </h2>
                     <p className="mt-0.5 line-clamp-1 text-left text-[9px] font-semibold text-[var(--mn-text-muted)]" dir="ltr">
@@ -216,7 +218,7 @@ export const ArticlesSearchPage: React.FC<ArticlesSearchPageProps> = ({ articles
                         {article.linkedEntities.slice(0, 3).map((entity) => (
                           <span
                             key={`${entity.type}-${entity.name}`}
-                            className="rounded-lg border border-[var(--mn-border-brand)] bg-[var(--mn-surface-muted)]/60 px-1.5 py-1 text-[8px] font-extrabold text-[var(--mn-heading)]"
+                            className="rounded-lg border border-[var(--mn-border-brand)] bg-[var(--mn-surface-muted)]/60 px-1.5 py-1 text-[8px] font-semibold text-[var(--mn-heading)]"
                           >
                             {entity.name}
                           </span>
@@ -238,7 +240,7 @@ export const ArticlesSearchPage: React.FC<ArticlesSearchPageProps> = ({ articles
                       <button
                         type="button"
                         onClick={() => onSelectArticle?.(article)}
-                        className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-xl bg-[var(--mn-primary)] px-3 text-[10px] font-black text-white shadow-sm transition hover:bg-[var(--mn-primary-hover)] active:scale-[0.99] mn-inverse hover:mn-inverse"
+                        className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-xl bg-[var(--mn-primary)] px-3 text-[10px] font-bold text-white shadow-sm transition hover:bg-[var(--mn-primary-hover)] active:scale-[0.99] mn-inverse hover:mn-inverse"
                       >
                         اقرأ المقال
                         <ChevronLeft className="h-3.5 w-3.5" />

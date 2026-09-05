@@ -214,7 +214,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
   ];
 
   return (
-    <section id="categories-section" className="px-5 py-3 w-full">
+    <section id="categories-section" className="w-full py-3">
       {/* Section Title */}
       <div className="flex items-center justify-between mb-3 px-1">
         <h3 className="text-sm font-bold text-[var(--mn-heading)] flex items-center gap-1.5">
@@ -231,7 +231,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
       </div>
 
       {/* Grid of 10 Category Cards */}
-      <div className="grid grid-cols-5 gap-2 text-center">
+      <div className="grid grid-cols-5 gap-1.5 sm:gap-2 text-center">
         {categories.map((cat) => {
           const isActive = selectedCategory === cat.id;
 
@@ -239,7 +239,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
             <button
               key={cat.id}
               onClick={() => onSelectCategory(isActive ? 'all' : cat.id)}
-              className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all active:scale-95 group cursor-pointer ${
+              className={`flex min-w-0 flex-col items-center justify-center p-1.5 sm:p-2 rounded-2xl transition-all active:scale-95 group cursor-pointer ${
                 isActive
                   ? 'bg-[var(--mn-primary)] text-[var(--mn-accent-text)] shadow-sm ring-2 ring-[var(--mn-focus)] mn-inverse '
                   : 'bg-[var(--mn-surface)] hover:bg-[var(--mn-page)] border border-[var(--mn-border)] shadow-2xs hover:border-[var(--mn-accent)]/50 mn-panel hover:mn-panel '
@@ -247,7 +247,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
             >
               {/* Circular Icon Container */}
               <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center mb-1.5 transition-transform group-hover:scale-110 ${
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mb-1 sm:mb-1.5 transition-transform group-hover:scale-110 ${
                   isActive
                     ? 'bg-[var(--mn-primary)] border border-[var(--mn-accent)] mn-inverse '
                     : 'bg-[var(--mn-page)] border border-[var(--mn-border)] group-hover:bg-[var(--mn-accent)]/10 mn-panel '
@@ -258,8 +258,8 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ selectedCategory, onSe
 
               {/* Label */}
               <span
-                className={`text-[11px] font-bold leading-tight ${
-                  isActive ? 'text-[var(--mn-accent-text)] font-black' : 'text-[var(--mn-text)]'
+                className={`text-[10px] sm:text-[11px] font-bold leading-tight break-words ${
+                  isActive ? 'text-[var(--mn-accent-text)] font-bold' : 'text-[var(--mn-text)]'
                 }`}
               >
                 {cat.label}

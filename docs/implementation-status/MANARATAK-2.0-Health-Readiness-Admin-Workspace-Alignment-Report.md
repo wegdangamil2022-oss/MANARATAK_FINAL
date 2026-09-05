@@ -1,84 +1,51 @@
-# MANARATAK 2.0 - Health & Readiness Admin Workspace Alignment Report
+# MANARATAK 2.0 — Health & Readiness Admin Workspace Alignment
 
-**Date:** July 28, 2026  
-**Phase Target:** Phase 23 (Enterprise Administration Portal)  
-**Related Domain Phases:** Phase 05 (EAP Assets), Phase 06 (Import Foundation), Phase 17 (AI Platform), Phase 19 (Commercial Platform / Payment Gateway), Phase 24 (Public Web App)  
-**Status:** COMPLETE & VERIFIED  
+**Current baseline:** 2026-09-05  
+**Admin route:** `/health-readiness`  
+**Admin API:** `/api/v1/admin/monitoring/overview`  
+**Public monitoring:** `/api/v1/monitoring/health`, `/health/liveness`, `/health/readiness`  
+**Status:** SOURCE-CLOSED; runtime results remain environment-dependent.
 
----
+## Ownership
 
-## 1. Executive Summary
+Health & Readiness is a **read-only control-plane workspace**. It does not repair data, restart queues, mutate finance, rotate secrets, or alter domain records. It only reads sanitized operational probes and the production configuration validator, then links the operator to the owning admin section.
 
-This report documents the design alignment and implementation of the **Health & Readiness Admin Workspace** within MANARATAK 2.0 Enterprise Administration Portal (`@manaratak/admin` / Phase 23) located at `/admin/health` (Arabic: **حالة وجاهزية المنظومة**).
+## Security boundary
 
-The workspace provides non-destructive, read-only operational telemetry and production readiness inspection across all underlying subsystems without permitting destructive reset operations or exposing API secrets.
+The detailed diagnostic overview and production-readiness report are admin-only and require the `admin:platform:manage` capability. Public monitoring exposes only the conventional health/liveness/readiness contracts. Diagnostic payloads sanitize secrets, credentials, connection strings, tokens and URL-bearing detail fields.
 
----
+## Release gate
 
-## 2. Key UI Sections & Workstation Features
+`releaseReady` is deliberately stricter than configuration validation alone. It is true only when all three conditions hold:
 
-The workspace page at `/admin/health` includes:
+1. **Configuration Ready** — `ProductionReadinessValidator` has no blockers.
+2. **Runtime Ready** — required runtime health probes are UP.
+3. **Monitoring Complete** — every expected operational probe is registered.
 
-1. **Preview / Runtime Mode Awareness Banner**:
-   - Arabic: `"وضع معاينة: بعض فحوصات الإنتاج قد تكون غير متصلة"`
-   - English: `"Preview mode: some production checks may be unavailable"`
-2. **Overall Health Summary**: Top KPI cards for:
-   - Overall System Status (`Healthy / Degraded / Down`)
-   - API Server Latency (42ms)
-   - Database / Prisma Latency (18ms)
-   - Redis / Queue Status (In-Memory Safe Fallback in Preview)
-   - AI Center Provider Status (420ms - Masked Keys)
-3. **Health Checks Section**: Component table detailing:
-   - Component Name (Arabic/English)
-   - Owned Phase (e.g. Phase 05, Phase 06, Phase 17, Phase 19, Phase 23, Phase 24)
-   - Operational Status (`Healthy`, `Warning`, `Down`, `Not Configured`)
-   - Latency (ms)
-   - Last Checked Timestamp
-   - Error Summary & Detailed Modal ("View Details")
-   - Safe Navigation ("Open Domain")
-   - *Components included:* API Server, Database/Prisma, Redis/BullMQ, Import Foundation, EAP Assets Storage, Auth/Admin Access, Public Web App, AI Center Providers, Payment Gateway, Notification Gateway.
-4. **Readiness Checklist**: 10-point production/development readiness checklist:
-   - Environment variables configured (`ENV Declared`)
-   - Database schema generated & synced (`Prisma Schema Synced`)
-   - Redis safely handled in preview (`Redis Fallback`)
-   - Import pipeline reachable
-   - Public site & Admin portal reachable
-   - Arabic RTL / English LTR fully active
-   - No API secrets exposed in UI
-   - File storage uses EAP asset handles (`eap_asset_...`)
-   - Payment gateway production mode disabled (`Sandbox Guard`)
-   - Clean build & lint compilation status
-5. **Incident & Error Log (Non-destructive)**:
-   - Incident ID, Affected Component, Severity (`Info`, `Warning`, `Critical`), Status (`Open`, `Investigating`, `Resolved`), Timestamps, Error Summaries, and Detailed Incident Modal.
-6. **Readiness Diagnostics & Export**:
-   - Real-time diagnostic console log output
-   - Re-run health checks button
-   - Copy diagnostic summary button
-   - Download readiness report button (`JSON` export)
+This prevents a green release signal when the database/runtime is down or a launch-critical probe is absent.
 
----
+## Expected operational probes
 
-## 3. Strict Boundary Rules & Security Compliance
+- database
+- database-schema (read-only applied migration-history check; not a Prisma drift claim)
+- redis
+- asset-platform
+- import-foundation
+- admin-auth
+- ai-providers
+- payment-gateway
+- notifications
+- background-jobs
+- public-web
 
-- **Safe Actions Only:** Allowed buttons: *Re-run health checks*, *Test connection*, *View logs*, *Download readiness report*, *Copy diagnostic summary*, *Open affected admin section*. Destructive operations (*Delete data*, *Reset database*, *Clear all queues*, *Disable system*, *Rotate secrets*) are strictly prohibited on this page.
-- **No Exposed Secrets:** Raw API keys, connection strings, or JWT secrets are never rendered or returned in UI payloads. AI provider keys display as `Masked` / `Configured`.
-- **Phase Ownership Delegation:**
-  - **Phase 23:** Owns the admin monitoring UI shell, diagnostic report generator, and readiness checklist.
-  - **Infrastructure Packages:** Own actual health check implementations.
-  - **Phase 06:** Owns Import Foundation health details.
-  - **Phase 05:** Owns Enterprise Assets Platform (EAP) storage health.
-  - **Phase 17:** Owns AI Center provider health.
-  - **Phase 19:** Owns Payment Gateway sandbox/production health.
+`database-schema` checks only the database's **applied migration history** for unfinished entries. Full source-vs-database schema drift still belongs to deployment CI/Prisma tooling and is not falsely claimed by this page.
 
----
+`public-web` performs a bounded, read-only reachability probe against `PUBLIC_WEB_URL` (falling back to `CORS_ORIGIN`). It does not accept a user-supplied URL.
 
-## 4. Verification Summary
+## UI
 
-- **Lint Status (`lint_applet`):** PASS - Clean lint with 0 ESLint warnings or errors.
-- **Build Status (`compile_applet`):** PASS - Clean build with 0 TypeScript compilation errors.
-- **RTL & Bilingual Support:** Fully verified with Arabic default RTL layout.
+The workspace uses the current MANARATAK control-plane identity: dark green `#044A37`, secondary green `#235D4E`, gold `#E3B04B`, Cairo typography, and semantic green/amber/red health states. The shared Admin shell/navigation was aligned to the same palette during this closure.
 
----
+## Runtime caveat
 
-**Approval:** Chief Enterprise Architect & ARB  
-**Status:** APPROVED & DEPLOYED IN PREVIEW
+Source closure does not mean a deployment is healthy. Database, Redis, external storage, public-web reachability, payment transport, notifications, AI providers, secrets, and other probes report the truth of the environment in which the API is actually running.

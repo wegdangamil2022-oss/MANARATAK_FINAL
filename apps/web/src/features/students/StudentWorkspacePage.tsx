@@ -1,5 +1,7 @@
 import React, { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowLeft, Award, Bell, BookOpen, Bookmark, CheckCircle2, Compass, Folder, Heart, Home, LockKeyhole, Route, Settings2, Star, X } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import {
   ApiClient,
   HydratedStudentSavedItemDto,
@@ -12,11 +14,11 @@ import {
 
 type WorkspaceTab = 'HOME' | 'JOURNEY' | 'VAULT' | 'SETTINGS';
 
-const tabs: Array<{ id: WorkspaceTab; label: string; icon: string }> = [
-  { id: 'HOME', label: 'الرئيسية', icon: '⌂' },
-  { id: 'JOURNEY', label: 'رحلتي', icon: '↗' },
-  { id: 'VAULT', label: 'خزنتي', icon: '◇' },
-  { id: 'SETTINGS', label: 'التحكم والخصوصية', icon: '⚙' },
+const tabs: Array<{ id: WorkspaceTab; label: string; icon: LucideIcon }> = [
+  { id: 'HOME', label: 'الرئيسية', icon: Home },
+  { id: 'JOURNEY', label: 'رحلتي', icon: Route },
+  { id: 'VAULT', label: 'خزنتي', icon: Heart },
+  { id: 'SETTINGS', label: 'التحكم والخصوصية', icon: Settings2 },
 ];
 
 export function StudentWorkspacePage({ initialTab = 'HOME' }: { initialTab?: WorkspaceTab } = {}) {
@@ -157,7 +159,7 @@ export function StudentWorkspacePage({ initialTab = 'HOME' }: { initialTab?: Wor
       await ApiClient.createMyStudentCollection({
         name,
         description: String(form.get('collectionDescription') || '').trim() || undefined,
-        color: '#087A55',
+        color: '#0E7C86',
       });
       const refreshed = await ApiClient.getMyStudentDashboard();
       setDashboard(refreshed);
@@ -274,30 +276,30 @@ export function StudentWorkspacePage({ initialTab = 'HOME' }: { initialTab?: Wor
 
   if (error && !dashboard) {
     return (
-      <main dir="rtl" className="mx-auto max-w-xl px-4 py-24 text-center">
-        <div className="rounded-[2rem] border border-[#d6ae57]/35 bg-white p-10 shadow-sm">
-          <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-[#eaf1f8] text-3xl">
-            🔒
+      <main dir="rtl" className="mn-page-shell py-24 text-center"><div className="mn-public-container mx-auto max-w-xl">
+        <div className="mn-card rounded-[2rem] p-8 sm:p-10">
+          <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-[var(--mn-surface-muted)] text-[var(--mn-primary)]">
+            <LockKeyhole className="h-7 w-7" />
           </div>
-          <h1 className="text-2xl font-black text-slate-900">مساحة الطالب محمية</h1>
-          <p className="mt-3 leading-7 text-slate-600">{error}</p>
+          <h1 className="text-2xl font-bold text-[var(--mn-heading)]">مساحة الطالب محمية</h1>
+          <p className="mt-3 leading-7 text-[var(--mn-text-muted)]">{error}</p>
           <div className="mt-7 flex justify-center gap-3">
             <Link
               to="/login"
-              className="rounded-xl bg-[#0b3763] px-6 py-3 font-bold text-white hover:bg-[#071d3a]"
+              className="rounded-xl bg-[var(--mn-primary)] px-6 py-3 font-semibold text-white hover:bg-[var(--mn-primary-hover)] mn-inverse"
             >
               تسجيل الدخول
             </Link>
             <button
               type="button"
               onClick={() => setRetryKey((value) => value + 1)}
-              className="rounded-xl border border-slate-200 px-6 py-3 font-bold text-slate-700"
+              className="rounded-xl border border-[var(--mn-border)] px-6 py-3 font-semibold text-[var(--mn-text)] hover:bg-[var(--mn-surface-muted)]"
             >
               إعادة المحاولة
             </button>
           </div>
         </div>
-      </main>
+      </div></main>
     );
   }
 
@@ -308,26 +310,26 @@ export function StudentWorkspacePage({ initialTab = 'HOME' }: { initialTab?: Wor
   const accessibility = (workspace.accessibilityPreferences || {}) as Record<string, unknown>;
 
   return (
-    <main dir="rtl" className="min-h-screen bg-[#f7f9fc] pb-16 text-slate-900">
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#071d3a] via-[#0b3763] to-[#123f6b] text-white">
+    <main dir="rtl" className="mn-page-shell min-h-screen pb-16 text-[var(--mn-text)]">
+      <section className="mn-inverse relative overflow-hidden bg-gradient-to-br from-[var(--mn-primary)] via-[var(--mn-secondary)] to-[var(--mn-primary)] text-white">
         <div
           className="absolute inset-0 opacity-20"
           style={{
-            backgroundImage: 'radial-gradient(circle at 20% 30%, #f1c75b 0 2px, transparent 3px)',
+            backgroundImage: 'radial-gradient(circle at 20% 30%, var(--mn-accent) 0 2px, transparent 3px)',
           }}
         />
-        <div className="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="relative mx-auto max-w-7xl px-[9px] py-10 sm:px-6 lg:px-8">
           <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
             <div className="flex items-center gap-5">
-              <div className="grid h-20 w-20 shrink-0 place-items-center rounded-3xl border border-white/20 bg-white/10 text-3xl font-black shadow-inner">
+              <div className="grid h-20 w-20 shrink-0 place-items-center rounded-3xl border border-white/20 bg-white/10 text-3xl font-bold text-[var(--mn-heading)] shadow-inner">
                 {(workspace.displayName || 'ط').trim().charAt(0)}
               </div>
               <div>
-                <p className="mb-2 text-sm font-bold text-[#e3bd67]">{greeting}</p>
-                <h1 className="text-3xl font-black sm:text-4xl">
+                <p className="mb-2 text-sm font-semibold text-[var(--mn-accent-soft)]">{greeting}</p>
+                <h1 className="text-3xl font-bold text-[var(--mn-heading)] sm:text-4xl">
                   {workspace.displayName || 'طالب مناراتك'}
                 </h1>
-                <p className="mt-2 max-w-2xl text-blue-100/80">
+                <p className="mt-2 max-w-2xl text-[var(--mn-on-dark-muted)]">
                   مساحتك الخاصة لتنظيم التعلم والفرص والشهادات والقرارات المهمة.
                 </p>
               </div>
@@ -344,27 +346,30 @@ export function StudentWorkspacePage({ initialTab = 'HOME' }: { initialTab?: Wor
         </div>
       </section>
 
-      <div className="sticky top-0 z-20 border-b border-blue-100 bg-white/95 shadow-sm backdrop-blur">
+      <div className="sticky top-0 z-20 border-b border-[var(--mn-border)] bg-[var(--mn-surface)]/95 shadow-sm backdrop-blur">
         <nav
           aria-label="أقسام مساحة الطالب"
-          className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-4 py-3 sm:px-6 lg:px-8"
+          className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-[9px] py-3 sm:px-6 lg:px-8"
         >
-          {tabs.map((item) => (
+          {tabs.map((item) => {
+            const TabIcon = item.icon;
+            return (
             <button
               key={item.id}
               type="button"
               onClick={() => setTab(item.id)}
               aria-current={tab === item.id ? 'page' : undefined}
-              className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${tab === item.id ? 'bg-[#0b3763] text-white shadow' : 'text-slate-600 hover:bg-blue-50 hover:text-[#0b3763]'}`}
+              className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${tab === item.id ? 'bg-[var(--mn-primary)] text-white shadow mn-inverse' : 'text-[var(--mn-text-muted)] hover:bg-[var(--mn-surface-muted)] hover:text-[var(--mn-primary)]'}`}
             >
-              <span aria-hidden="true">{item.icon}</span>
+              <TabIcon className="h-4 w-4" aria-hidden="true" />
               {item.label}
             </button>
-          ))}
+            );
+          })}
         </nav>
       </div>
 
-      <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-6 px-[9px] py-8 sm:px-6 lg:px-8">
         {error && <Alert tone="error" message={error} onClose={() => setError(null)} />}
         {notice && <Alert tone="success" message={notice} onClose={() => setNotice(null)} />}
         {dashboard.partialFailures.length > 0 && (
@@ -420,37 +425,37 @@ function HomeView({
   return (
     <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
       <div className="space-y-6">
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="ملخص الإنجاز">
+        <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4" aria-label="ملخص الإنجاز">
           <StatCard
-            icon="▶"
+            icon={<BookOpen className="h-5 w-5" />}
             label="دورات نشطة"
             value={dashboard.statistics.activeCourses}
-            color="emerald"
+            tone="success"
           />
           <StatCard
-            icon="✓"
+            icon={<CheckCircle2 className="h-5 w-5" />}
             label="دورات مكتملة"
             value={dashboard.statistics.completedCourses}
-            color="blue"
+            tone="info"
           />
           <StatCard
-            icon="◇"
+            icon={<Bookmark className="h-5 w-5" />}
             label="عناصر محفوظة"
             value={dashboard.statistics.savedItems}
-            color="amber"
+            tone="warning"
           />
           <StatCard
-            icon="✦"
+            icon={<Bell className="h-5 w-5" />}
             label="إشعارات جديدة"
             value={dashboard.statistics.unreadNotifications}
-            color="violet"
+            tone="accent"
           />
         </section>
 
         <Panel
           title="تابع من حيث توقفت"
           action={
-            <Link to="/courses" className="text-sm font-bold text-emerald-700">
+            <Link to="/courses" className="text-sm font-semibold text-[var(--mn-secondary)]">
               كل الدورات
             </Link>
           }
@@ -463,7 +468,7 @@ function HomeView({
             </div>
           ) : (
             <EmptyState
-              icon="📚"
+              icon={<BookOpen className="h-7 w-7" />}
               title="لم تبدأ دورة بعد"
               text="استكشف الدورات وابنِ أول خطوة في مسارك."
               href="/courses"
@@ -484,21 +489,19 @@ function HomeView({
               <Link
                 key={action.id}
                 to={action.href}
-                className="group flex items-center gap-3 rounded-2xl border border-slate-100 p-4 hover:border-emerald-200 hover:bg-emerald-50/50"
+                className="group flex items-center gap-3 rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-4 hover:border-[var(--mn-border-gold)] hover:bg-[var(--mn-surface-muted)]"
               >
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-100 font-black text-emerald-800">
+                <span className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--mn-gold-surface)] font-bold text-[var(--mn-accent-text)]">
                   {index + 1}
                 </span>
                 <span className="min-w-0 flex-1">
                   <strong className="block text-sm">{action.label}</strong>
-                  <span className="mt-1 block text-xs text-slate-500">{action.description}</span>
+                  <span className="mt-1 block text-xs text-[var(--mn-text-muted)]">{action.description}</span>
                 </span>
-                <span
+                <ArrowLeft
                   aria-hidden="true"
-                  className="text-emerald-700 transition group-hover:-translate-x-1"
-                >
-                  ←
-                </span>
+                  className="h-4 w-4 shrink-0 text-[var(--mn-secondary)] transition group-hover:-translate-x-1"
+                />
               </Link>
             ))}
           </div>
@@ -507,20 +510,20 @@ function HomeView({
           {dashboard.notifications.length ? (
             <div className="space-y-2">
               {dashboard.notifications.slice(0, 5).map((item) => (
-                <div key={item.id} className="rounded-xl bg-slate-50 p-3">
-                  <p className="text-sm font-bold text-slate-800">{item.title}</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">{item.message}</p>
+                <div key={item.id} className="rounded-xl bg-[var(--mn-surface-muted)] p-3">
+                  <p className="text-sm font-semibold text-[var(--mn-heading)]">{item.title}</p>
+                  <p className="mt-1 text-xs leading-5 text-[var(--mn-text-muted)]">{item.message}</p>
                 </div>
               ))}
             </div>
-          ) : <p className="text-sm text-slate-500">لا توجد إشعارات جديدة.</p>}
+          ) : <p className="text-sm text-[var(--mn-text-muted)]">لا توجد إشعارات جديدة.</p>}
         </Panel>
         <Panel title="شاهدته مؤخرًا">
           {dashboard.recentlyViewed.length ? <div className="space-y-2">{dashboard.recentlyViewed.slice(0, 5).map((item) => (
-            <Link key={item.id} to={item.entitySlug ? buildEntityLink(item.entityType, item.entitySlug) : '#'} className="block rounded-xl bg-slate-50 p-3 text-sm font-bold hover:bg-emerald-50">
+            <Link key={item.id} to={item.entitySlug ? buildEntityLink(item.entityType, item.entitySlug) : '#'} className="block rounded-xl bg-[var(--mn-surface-muted)] p-3 text-sm font-bold hover:bg-[var(--mn-gold-surface)]">
               {arabicEntityType(item.entityType)} · {item.entitySlug || item.entityId}
             </Link>
-          ))}</div> : <p className="text-sm text-slate-500">ستظهر هنا العناصر التي تفتحها بعد موافقتك على التحليلات.</p>}
+          ))}</div> : <p className="text-sm text-[var(--mn-text-muted)]">ستظهر هنا العناصر التي تفتحها بعد موافقتك على التحليلات.</p>}
         </Panel>
         <InvoicePanel
           invoices={invoices}
@@ -544,7 +547,7 @@ function JourneyView({ dashboard }: { dashboard: StudentDashboardSummaryDto }) {
           </div>
         ) : (
           <EmptyState
-            icon="🧭"
+            icon={<Compass className="h-7 w-7" />}
             title="مسارك ينتظر البداية"
             text="عند التسجيل في دورة ستظهر هنا نسبة التقدم وآخر وصول."
             href="/courses"
@@ -594,32 +597,32 @@ function VaultView({
         {dashboard.collections.map((collection) => (
           <div
             key={collection.id}
-            className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm"
+            className="mn-card rounded-3xl p-5"
           >
             <div className="mb-5 flex items-start justify-between">
-              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-xl">
-                ◇
+              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--mn-gold-surface)] text-[var(--mn-accent-text)]">
+                <Folder className="h-5 w-5" aria-hidden="true" />
               </span>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+              <span className="rounded-full bg-[var(--mn-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--mn-text-muted)]">
                 {collection.itemCount} عنصر
               </span>
             </div>
-            <h3 className="font-black">{collection.name}</h3>
-            <p className="mt-1 text-sm text-slate-500">
+            <h3 className="font-bold">{collection.name}</h3>
+            <p className="mt-1 text-sm text-[var(--mn-text-muted)]">
               {collection.description || 'مجموعة شخصية لتنظيم اختياراتك'}
             </p>
             {collection.type === 'PERSONAL' && <div className="mt-4 flex gap-2">
-              <button type="button" disabled={saving} onClick={() => onRenameCollection(collection.id, collection.name)} className="rounded-lg border px-3 py-1.5 text-xs font-bold text-emerald-800">تعديل الاسم</button>
-              <button type="button" disabled={saving} onClick={() => onDeleteCollection(collection.id, collection.name)} className="rounded-lg border border-red-100 px-3 py-1.5 text-xs font-bold text-red-700">حذف</button>
+              <button type="button" disabled={saving} onClick={() => onRenameCollection(collection.id, collection.name)} className="rounded-lg border px-3 py-1.5 text-xs font-bold text-[var(--mn-secondary)]">تعديل الاسم</button>
+              <button type="button" disabled={saving} onClick={() => onDeleteCollection(collection.id, collection.name)} className="rounded-lg border border-[var(--mn-danger-border)] bg-[var(--mn-danger-soft)] px-3 py-1.5 text-xs font-bold text-[var(--mn-danger-text)]">حذف</button>
             </div>}
           </div>
         ))}
         <form
           onSubmit={onCreateCollection}
-          className="rounded-3xl border border-dashed border-emerald-300 bg-emerald-50/50 p-5"
+          className="rounded-3xl border border-dashed border-[var(--mn-border-gold)] bg-[var(--mn-gold-surface)] p-5"
         >
-          <h3 className="font-black text-emerald-900">مجموعة جديدة</h3>
-          <label className="mt-4 block text-xs font-bold text-slate-600" htmlFor="collectionName">
+          <h3 className="font-bold text-[var(--mn-heading)]">مجموعة جديدة</h3>
+          <label className="mt-4 block text-xs font-semibold text-[var(--mn-text-muted)]" htmlFor="collectionName">
             اسم المجموعة
           </label>
           <input
@@ -627,18 +630,18 @@ function VaultView({
             name="collectionName"
             required
             maxLength={80}
-            className="mt-2 w-full rounded-xl border border-emerald-100 bg-white px-3 py-2.5 outline-none focus:ring-2 focus:ring-emerald-600"
+            className="mt-2 w-full rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface)] px-3 py-2.5 outline-none focus:ring-2 focus:ring-[var(--mn-focus)]"
             placeholder="مثال: منح أريد التقديم عليها"
           />
           <input
             name="collectionDescription"
             maxLength={240}
-            className="mt-2 w-full rounded-xl border border-emerald-100 bg-white px-3 py-2.5 outline-none focus:ring-2 focus:ring-emerald-600"
+            className="mt-2 w-full rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface)] px-3 py-2.5 outline-none focus:ring-2 focus:ring-[var(--mn-focus)]"
             placeholder="وصف اختياري"
           />
           <button
             disabled={saving}
-            className="mt-3 w-full rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+            className="mt-3 w-full rounded-xl bg-[var(--mn-primary)] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
           >
             إنشاء المجموعة
           </button>
@@ -649,13 +652,13 @@ function VaultView({
         <Panel
           title="محفوظاتي"
           action={
-            <Link to="/scholarships" className="text-sm font-bold text-emerald-700">
+            <Link to="/scholarships" className="text-sm font-semibold text-[var(--mn-secondary)]">
               اكتشف فرصًا
             </Link>
           }
         >
           {dashboard.savedItems.length ? (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-[var(--mn-border)]">
               {dashboard.savedItems.map((item) => {
                 const owner = hydratedBySavedItemId.get(item.id);
                 const displayName = owner?.displayName || item.displayName || item.entityId;
@@ -663,21 +666,21 @@ function VaultView({
                 const available = owner ? owner.available : false;
                 return (
                 <div key={item.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
-                  <span className="grid h-11 w-11 place-items-center rounded-xl bg-amber-50 text-amber-700">
-                    ★
+                  <span className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--mn-border-gold)] bg-[var(--mn-gold-surface)] text-[var(--mn-accent-text)]">
+                    <Star className="h-5 w-5" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <span className="text-xs font-bold text-emerald-700">
+                    <span className="text-xs font-semibold text-[var(--mn-secondary)]">
                       {arabicEntityType(item.entityType)}
                     </span>
                     <h3 className="truncate font-bold">{displayName}</h3>
-                    {!available && <p className="mt-1 text-xs font-bold text-amber-700">المرجع غير متاح حاليًا لدى المصدر المالك.</p>}
-                    {item.notes && <p className="mt-1 text-sm text-slate-500">{item.notes}</p>}
+                    {!available && <p className="mt-1 text-xs font-bold text-[var(--mn-warning-text)]">المرجع غير متاح حاليًا لدى المصدر المالك.</p>}
+                    {item.notes && <p className="mt-1 text-sm text-[var(--mn-text-muted)]">{item.notes}</p>}
                   </div>
                   {available && slug && (
                     <Link
                       to={buildEntityLink(item.entityType, slug)}
-                      className="rounded-lg border px-3 py-2 text-sm font-bold text-slate-600 hover:border-emerald-300"
+                      className="rounded-lg border px-3 py-2 text-sm font-semibold text-[var(--mn-text-muted)] hover:border-[var(--mn-border-gold)]"
                     >
                       فتح
                     </Link>
@@ -693,7 +696,7 @@ function VaultView({
             </div>
           ) : (
             <EmptyState
-              icon="☆"
+              icon={<Star className="h-7 w-7" />}
               title="خزنتك فارغة"
               text="احفظ الدورات والمنح والجامعات والتخصصات للرجوع إليها."
               href="/scholarships"
@@ -707,23 +710,23 @@ function VaultView({
               {dashboard.certificates.map((certificate) => (
                 <div
                   key={certificate.id}
-                  className="rounded-2xl border border-emerald-100 bg-gradient-to-l from-white to-emerald-50 p-4"
+                  className="rounded-2xl border border-[var(--mn-border-gold)] bg-[var(--mn-surface)] p-4"
                 >
                   <div className="flex items-start gap-3">
-                    <span className="text-2xl">🏅</span>
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[var(--mn-border-gold)] bg-[var(--mn-gold-surface)] text-[var(--mn-accent-text)]"><Award className="h-5 w-5" /></span>
                     <div className="min-w-0 flex-1">
                       <h3 className="font-bold">{certificate.courseDisplayName}</h3>
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="mt-1 text-xs text-[var(--mn-text-muted)]">
                         صدرت في {formatDate(certificate.issuedAt)}
                       </p>
-                      <p className="mt-1 truncate font-mono text-xs text-emerald-800">
+                      <p className="mt-1 truncate font-mono text-xs text-[var(--mn-secondary)]">
                         {certificate.serialNumber}
                       </p>
                     </div>
                   </div>
                   <Link
                     to={`/certificates/verify?code=${encodeURIComponent(certificate.verificationCode)}`}
-                    className="mt-3 block rounded-xl bg-emerald-700 px-3 py-2 text-center text-sm font-bold text-white"
+                    className="mt-3 block rounded-xl bg-[var(--mn-primary)] px-3 py-2 text-center text-sm font-bold text-white"
                   >
                     عرض والتحقق
                   </Link>
@@ -732,7 +735,7 @@ function VaultView({
             </div>
           ) : (
             <EmptyState
-              icon="🏅"
+              icon={<Award className="h-7 w-7" />}
               title="لا توجد شهادات بعد"
               text="ستصل شهادات الدورات المكتملة إلى خزنتك تلقائيًا."
             />
@@ -881,7 +884,7 @@ function SettingsView({
       </div>
       <aside className="space-y-6">
         <Panel title="مركز الخصوصية">
-          <p className="mb-4 text-sm leading-6 text-slate-500">
+          <p className="mb-4 text-sm leading-6 text-[var(--mn-text-muted)]">
             بياناتك الشخصية خاصة افتراضيًا. أنت من يقرر ما يُحتفظ به لتحسين تجربتك.
           </p>
           <div className="space-y-3">
@@ -905,13 +908,13 @@ function SettingsView({
             type="button"
             onClick={onClearSearch}
             disabled={saving}
-            className="mt-5 w-full rounded-xl border border-red-200 px-4 py-2.5 text-sm font-bold text-red-700 hover:bg-red-50"
+            className="mt-5 w-full rounded-xl border border-[var(--mn-danger-border)] bg-[var(--mn-danger-soft)] px-4 py-2.5 text-sm font-bold text-[var(--mn-danger-text)] hover:brightness-95"
           >
             مسح سجل البحث الآن
           </button>
         </Panel>
         <Panel title="الأمان والتزامن">
-          <div className="rounded-2xl bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
+          <div className="rounded-2xl border border-[var(--mn-success-border)] bg-[var(--mn-success-soft)] p-4 text-sm leading-6 text-[var(--mn-success-text)]">
             إصدار الإعدادات الحالي: <strong>{dashboard.workspace.version}</strong>
             <br />
             آخر مزامنة: {formatDate(dashboard.workspace.updatedAt)}
@@ -920,16 +923,16 @@ function SettingsView({
             type="button"
             onClick={onSnapshot}
             disabled={saving}
-            className="mt-4 w-full rounded-xl border border-emerald-200 px-4 py-2.5 text-sm font-bold text-emerald-800 hover:bg-emerald-50"
+            className="mt-4 w-full rounded-xl border border-[var(--mn-success-border)] bg-[var(--mn-surface)] px-4 py-2.5 text-sm font-bold text-[var(--mn-success-text)] hover:bg-[var(--mn-success-soft)]"
           >
             حفظ نسخة من الإعدادات
           </button>
-          <button type="button" onClick={onResetLayout} disabled={saving} className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
+          <button type="button" onClick={onResetLayout} disabled={saving} className="mt-2 w-full rounded-xl border border-[var(--mn-border)] px-4 py-2.5 text-sm font-semibold text-[var(--mn-text)] hover:bg-[var(--mn-surface-muted)]">
             إعادة التخطيط الافتراضي
           </button>
           <div className="mt-4 space-y-2" aria-label="نسخ الإعدادات المحفوظة">
-            {snapshots.length === 0 ? <p className="text-xs text-slate-500">لا توجد نسخ محفوظة بعد.</p> : snapshots.slice(0, 5).map((snapshot) => (
-              <button key={snapshot.id} type="button" onClick={() => onRestoreSnapshot(snapshot.id)} disabled={saving} className="flex w-full items-center justify-between rounded-xl bg-slate-50 p-3 text-right text-xs hover:bg-emerald-50">
+            {snapshots.length === 0 ? <p className="text-xs text-[var(--mn-text-muted)]">لا توجد نسخ محفوظة بعد.</p> : snapshots.slice(0, 5).map((snapshot) => (
+              <button key={snapshot.id} type="button" onClick={() => onRestoreSnapshot(snapshot.id)} disabled={saving} className="flex w-full items-center justify-between rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface-muted)] p-3 text-right text-xs hover:border-[var(--mn-border-gold)] hover:bg-[var(--mn-gold-surface)]">
                 <span>{snapshot.label || 'نسخة إعدادات'}</span><span>استعادة</span>
               </button>
             ))}
@@ -937,7 +940,7 @@ function SettingsView({
         </Panel>
         <button
           disabled={saving}
-          className="w-full rounded-2xl bg-emerald-700 px-6 py-4 font-black text-white shadow-lg shadow-emerald-900/10 hover:bg-emerald-800 disabled:opacity-50"
+          className="w-full rounded-2xl bg-[var(--mn-primary)] px-6 py-4 font-bold text-white shadow-lg hover:bg-[var(--mn-primary-hover)] disabled:opacity-50"
         >
           {saving ? 'جارٍ الحفظ…' : 'حفظ جميع التفضيلات'}
         </button>
@@ -950,7 +953,7 @@ function HeroMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-20 rounded-xl px-3 py-2 text-center">
       <strong className="block text-xl">{value}</strong>
-      <span className="text-xs text-emerald-100">{label}</span>
+      <span className="text-xs text-[var(--mn-on-dark-muted)]">{label}</span>
     </div>
   );
 }
@@ -959,28 +962,28 @@ function StatCard({
   icon,
   label,
   value,
-  color,
+  tone,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   value: number;
-  color: string;
+  tone: 'success' | 'info' | 'warning' | 'accent';
 }) {
-  const styles: Record<string, string> = {
-    emerald: 'bg-emerald-50 text-emerald-700',
-    blue: 'bg-blue-50 text-blue-700',
-    amber: 'bg-amber-50 text-amber-700',
-    violet: 'bg-violet-50 text-violet-700',
+  const styles: Record<typeof tone, string> = {
+    success: 'border border-[var(--mn-success-border)] bg-[var(--mn-success-soft)] text-[var(--mn-success-text)]',
+    info: 'border border-[var(--mn-info-border)] bg-[var(--mn-info-soft)] text-[var(--mn-info-text)]',
+    warning: 'border border-[var(--mn-warning-border)] bg-[var(--mn-warning-soft)] text-[var(--mn-warning-text)]',
+    accent: 'border border-[var(--mn-border-gold)] bg-[var(--mn-gold-surface)] text-[var(--mn-accent-text)]',
   };
   return (
-    <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+    <div className="mn-card rounded-3xl p-5">
       <div
-        className={`mb-4 grid h-11 w-11 place-items-center rounded-2xl text-xl ${styles[color]}`}
+        className={`mb-4 grid h-11 w-11 place-items-center rounded-2xl text-xl ${styles[tone]}`}
       >
         {icon}
       </div>
-      <strong className="text-3xl font-black">{value}</strong>
-      <p className="mt-1 text-sm text-slate-500">{label}</p>
+      <strong className="text-3xl font-bold text-[var(--mn-heading)]">{value}</strong>
+      <p className="mt-1 text-sm text-[var(--mn-text-muted)]">{label}</p>
     </div>
   );
 }
@@ -995,9 +998,9 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
+    <section className="mn-card rounded-3xl p-5 sm:p-6">
       <div className="mb-5 flex items-center justify-between gap-4">
-        <h2 className="text-lg font-black">{title}</h2>
+        <h2 className="text-lg font-bold text-[var(--mn-heading)]">{title}</h2>
         {action}
       </div>
       {children}
@@ -1015,30 +1018,33 @@ function CourseCard({
   return (
     <Link
       to={`/courses/${course.courseSlug}`}
-      className={`group block rounded-2xl border border-slate-100 p-4 hover:border-emerald-200 hover:shadow-sm ${wide ? 'sm:p-5' : ''}`}
+      className={`group block rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-4 hover:border-[var(--mn-border-gold)] hover:shadow-sm ${wide ? 'sm:p-5' : ''}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <span className="text-xs font-bold text-emerald-700">
+          <span className="text-xs font-semibold text-[var(--mn-secondary)]">
             {course.status === 'COMPLETED' ? 'مكتملة' : 'قيد التعلم'}
           </span>
-          <h3 className="mt-1 truncate font-black">{course.courseName}</h3>
+          <h3 className="mt-1 truncate font-bold">{course.courseName}</h3>
         </div>
-        <span className="text-sm font-black text-emerald-700">{course.progressPercentage}%</span>
+        <span className="text-sm font-bold text-[var(--mn-success-text)]">{course.progressPercentage}%</span>
       </div>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--mn-surface-muted)]">
         <div
-          className="h-full rounded-full bg-emerald-600"
+          className="h-full rounded-full bg-[var(--mn-secondary)]"
           style={{ width: `${Math.min(100, Math.max(0, course.progressPercentage))}%` }}
         />
       </div>
-      <div className="mt-3 flex justify-between text-xs text-slate-500">
+      <div className="mt-3 flex justify-between text-xs text-[var(--mn-text-muted)]">
         <span>
           {course.lastAccessedAt
             ? `آخر وصول ${formatDate(course.lastAccessedAt)}`
             : `التسجيل ${formatDate(course.enrolledAt)}`}
         </span>
-        <span className="font-bold text-emerald-700 group-hover:-translate-x-1">متابعة ←</span>
+        <span className="inline-flex items-center gap-1 font-semibold text-[var(--mn-secondary)] transition group-hover:-translate-x-1">
+          متابعة
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+        </span>
       </div>
     </Link>
   );
@@ -1049,17 +1055,17 @@ function ActivityList({ items }: { items: StudentDashboardSummaryDto['timeline']
     <ol className="space-y-1">
       {items.map((item) => (
         <li key={item.id} className="relative flex gap-4 pb-5 last:pb-0">
-          <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-emerald-600 ring-4 ring-emerald-50" />
+          <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-[var(--mn-secondary)] ring-4 ring-[var(--mn-gold-surface)]" />
           <div>
             <h3 className="text-sm font-bold">{item.title}</h3>
-            {item.description && <p className="mt-1 text-sm text-slate-500">{item.description}</p>}
-            <time className="mt-1 block text-xs text-slate-400">{formatDate(item.occurredAt)}</time>
+            {item.description && <p className="mt-1 text-sm text-[var(--mn-text-muted)]">{item.description}</p>}
+            <time className="mt-1 block text-xs text-[var(--mn-text-muted)]">{formatDate(item.occurredAt)}</time>
           </div>
         </li>
       ))}
     </ol>
   ) : (
-    <p className="rounded-2xl bg-slate-50 p-5 text-center text-sm text-slate-500">
+    <p className="rounded-2xl bg-[var(--mn-surface-muted)] p-5 text-center text-sm text-[var(--mn-text-muted)]">
       سيظهر هنا سجل إنجازاتك ونشاطك المهم.
     </p>
   );
@@ -1070,11 +1076,11 @@ function ProgressRow({ label, value }: { label: string; value: number }) {
     <div>
       <div className="mb-2 flex justify-between text-sm">
         <span className="font-bold">{label}</span>
-        <span className="text-slate-500">{value}%</span>
+        <span className="text-[var(--mn-text-muted)]">{value}%</span>
       </div>
-      <div className="h-2.5 rounded-full bg-slate-100">
+      <div className="h-2.5 rounded-full bg-[var(--mn-surface-muted)]">
         <div
-          className="h-full rounded-full bg-gradient-to-l from-emerald-700 to-emerald-400"
+          className="h-full rounded-full bg-[var(--mn-secondary)]"
           style={{ width: `${value}%` }}
         />
       </div>
@@ -1096,16 +1102,16 @@ function InvoicePanel({
       {invoices.length ? (
         <div className="space-y-3">
           {invoices.map((invoice) => (
-            <div key={invoice.id} className="rounded-2xl border border-slate-100 p-4">
+            <div key={invoice.id} className="rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-4">
               <div className="flex justify-between gap-3">
                 <div>
                   <h3 className="font-bold">{invoice.invoiceNumber}</h3>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-[var(--mn-text-muted)]">
                     المستحق {formatMoney(invoice.amountDue)}
                   </p>
                 </div>
                 <span
-                  className={`h-fit rounded-full px-3 py-1 text-xs font-bold ${invoice.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}
+                  className={`h-fit rounded-full px-3 py-1 text-xs font-bold ${invoice.status === 'PAID' ? 'border border-[var(--mn-success-border)] bg-[var(--mn-success-soft)] text-[var(--mn-success-text)]' : 'border border-[var(--mn-warning-border)] bg-[var(--mn-warning-soft)] text-[var(--mn-warning-text)]'}`}
                 >
                   {arabicStatus(invoice.status)}
                 </span>
@@ -1113,7 +1119,7 @@ function InvoicePanel({
               <button
                 type="button"
                 onClick={() => onToggle(invoice.id)}
-                className="mt-3 text-xs font-bold text-emerald-700"
+                className="mt-3 text-xs font-semibold text-[var(--mn-secondary)]"
               >
                 {paymentsByInvoice[invoice.id] ? 'إخفاء الدفعات' : 'عرض الدفعات'}
               </button>
@@ -1121,12 +1127,12 @@ function InvoicePanel({
                 <div className="mt-3 space-y-2 border-t pt-3">
                   {paymentsByInvoice[invoice.id].length ? (
                     paymentsByInvoice[invoice.id].map((payment) => (
-                      <p key={payment.id} className="rounded-lg bg-slate-50 p-2 text-xs">
+                      <p key={payment.id} className="rounded-lg bg-[var(--mn-surface-muted)] p-2 text-xs">
                         {formatMoney(payment.amount)} — {arabicStatus(payment.status)}
                       </p>
                     ))
                   ) : (
-                    <p className="text-xs text-slate-500">لا توجد دفعات مسجلة.</p>
+                    <p className="text-xs text-[var(--mn-text-muted)]">لا توجد دفعات مسجلة.</p>
                   )}
                 </div>
               )}
@@ -1134,7 +1140,7 @@ function InvoicePanel({
           ))}
         </div>
       ) : (
-        <p className="rounded-2xl bg-slate-50 p-5 text-center text-sm text-slate-500">
+        <p className="rounded-2xl bg-[var(--mn-surface-muted)] p-5 text-center text-sm text-[var(--mn-text-muted)]">
           لا توجد فواتير حالية.
         </p>
       )}
@@ -1150,10 +1156,10 @@ function Field({
   children: React.ReactElement<{ className?: string }>;
 }) {
   return (
-    <label className="block text-sm font-bold text-slate-700">
+    <label className="block text-sm font-semibold text-[var(--mn-text)]">
       {label}
       {React.cloneElement(children, {
-        className: `${children.props.className || ''} mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-normal outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100`,
+        className: `${children.props.className || ''} mt-2 w-full rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface)] px-3 py-2.5 font-normal outline-none focus:border-[var(--mn-focus)] focus:ring-2 focus:ring-[var(--mn-gold-surface)]`,
       })}
     </label>
   );
@@ -1169,13 +1175,13 @@ function Toggle({
   defaultChecked: boolean;
 }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-slate-100 p-4 hover:bg-slate-50">
+    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-4 hover:bg-[var(--mn-surface-muted)]">
       <span className="text-sm font-bold">{label}</span>
       <input
         type="checkbox"
         name={name}
         defaultChecked={defaultChecked}
-        className="h-5 w-5 accent-emerald-700"
+        className="h-5 w-5 accent-[var(--mn-secondary)]"
       />
     </label>
   );
@@ -1188,21 +1194,21 @@ function EmptyState({
   href,
   action,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   text: string;
   href?: string;
   action?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center">
+    <div className="rounded-2xl border border-dashed border-[var(--mn-border)] bg-[var(--mn-surface-muted)] p-8 text-center">
       <div className="text-3xl">{icon}</div>
-      <h3 className="mt-3 font-black">{title}</h3>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">{text}</p>
+      <h3 className="mt-3 font-bold">{title}</h3>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--mn-text-muted)]">{text}</p>
       {href && action && (
         <Link
           to={href}
-          className="mt-4 inline-block rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-bold text-white"
+          className="mt-4 inline-block rounded-xl bg-[var(--mn-primary)] px-5 py-2.5 text-sm font-bold text-white"
         >
           {action}
         </Link>
@@ -1221,9 +1227,9 @@ function Alert({
   onClose?: () => void;
 }) {
   const styles = {
-    error: 'border-red-200 bg-red-50 text-red-800',
-    success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-    warning: 'border-amber-200 bg-amber-50 text-amber-800',
+    error: 'border-[var(--mn-danger-border)] bg-[var(--mn-danger-soft)] text-[var(--mn-danger-text)]',
+    success: 'border-[var(--mn-success-border)] bg-[var(--mn-success-soft)] text-[var(--mn-success-text)]',
+    warning: 'border-[var(--mn-warning-border)] bg-[var(--mn-warning-soft)] text-[var(--mn-warning-text)]',
   };
   return (
     <div
@@ -1232,8 +1238,13 @@ function Alert({
     >
       <span>{message}</span>
       {onClose && (
-        <button type="button" aria-label="إغلاق الرسالة" onClick={onClose}>
-          ×
+        <button
+          type="button"
+          aria-label="إغلاق الرسالة"
+          onClick={onClose}
+          className="grid min-h-10 min-w-10 place-items-center rounded-xl hover:bg-black/5 dark:hover:bg-white/10"
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
       )}
     </div>
@@ -1242,11 +1253,11 @@ function Alert({
 
 function WorkspaceSkeleton() {
   return (
-    <div dir="rtl" className="min-h-screen bg-[#f4f8f6]">
-      <div className="h-64 animate-pulse bg-emerald-900" />
-      <div className="mx-auto grid max-w-7xl gap-5 px-4 py-8 sm:grid-cols-2 lg:grid-cols-4">
+    <div dir="rtl" className="mn-page-shell min-h-screen">
+      <div className="h-64 animate-pulse bg-[var(--mn-primary)]" />
+      <div className="mx-auto grid max-w-7xl gap-5 px-[9px] py-8 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
         {Array.from({ length: 8 }, (_, index) => (
-          <div key={index} className="h-40 animate-pulse rounded-3xl bg-white" />
+          <div key={index} className="h-40 animate-pulse rounded-3xl bg-[var(--mn-surface)] border border-[var(--mn-border)]" />
         ))}
       </div>
     </div>

@@ -39,9 +39,30 @@ export class PublicUniversityUseCases {
       completenessStatus,
       createdAt,
       optionalFields,
+      sourceRecords,
+      translations,
+      localizedTexts,
+      localizedNames,
       ...publicData
     } = university;
 
-    return { ...sanitizeUniversityOptionalFields(optionalFields), ...publicData } as PublicUniversityDto;
+    const activeOnly = (items: unknown[] | undefined): unknown[] | undefined =>
+      Array.isArray(items)
+        ? items.filter((item) => !item || typeof item !== 'object' || !('status' in item) || (item as { status?: string }).status === 'ACTIVE')
+        : items;
+
+    return {
+      ...sanitizeUniversityOptionalFields(optionalFields),
+      ...publicData,
+      campuses: activeOnly(university.campuses),
+      organizationUnits: activeOnly(university.organizationUnits),
+      academicPrograms: (university.academicPrograms ?? [])
+        .filter((program) => program.status === 'ACTIVE')
+        .map((program) => ({
+          ...program,
+          admissionRequirements: (program.admissionRequirements ?? []).filter((requirement) => requirement.status === 'ACTIVE'),
+        })),
+      admissionRequirements: activeOnly(university.admissionRequirements as unknown[] | undefined),
+    } as PublicUniversityDto;
   }
 }

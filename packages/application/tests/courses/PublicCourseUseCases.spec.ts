@@ -79,12 +79,13 @@ describe('PublicCourseUseCases', () => {
       slug: 'intro-data-science',
       displayName: 'Introduction to Data Science',
       canonicalName: 'Introduction to Data Science',
-      accessType: CourseAccessType.FREE_CERTIFICATE,
+      accessType: CourseAccessType.FREE_STUDY_AND_CERTIFICATE,
       originType: CourseOriginType.EXTERNAL_LINKED_COURSE,
       directCourseUrl: 'https://example.org/course',
       status: CourseStatus.PUBLISHED,
       completenessStatus: CourseImportCompletenessState.COMPLETE,
       isStudyFree: true,
+      isFreeCertificate: true,
       learningLanguageReferenceId: 'lang-en',
       optionalFields: { courseContent: 'Foundations of data science.' },
       updatedAt: new Date()
@@ -110,4 +111,40 @@ describe('PublicCourseUseCases', () => {
 
     await expect(useCases.getCourse('intro-data-science')).rejects.toThrow('Course not found');
   });
+  it('projects localizedNames by requested locale and strips the translation carrier', async () => {
+    mockRepo.findBySlug = vi.fn().mockResolvedValue({
+      id: 'course-1',
+      publicId: 'pub-1',
+      slug: 'data-science',
+      displayName: 'Data Science',
+      canonicalName: 'Data Science',
+      accessType: CourseAccessType.FREE_STUDY_AND_CERTIFICATE,
+      originType: CourseOriginType.EXTERNAL_LINKED_COURSE,
+      directCourseUrl: 'https://example.org/course',
+      status: CourseStatus.PUBLISHED,
+      completenessStatus: CourseImportCompletenessState.COMPLETE,
+      isStudyFree: true,
+      isFreeCertificate: true,
+      optionalFields: { localizedNames: { ar: 'علم البيانات', en: 'Data Science' } },
+      updatedAt: new Date(),
+    });
+
+    const arabic = await useCases.getCourse('data-science', 'ar');
+    const english = await useCases.getCourse('data-science', 'en');
+
+    expect(arabic.displayName).toBe('علم البيانات');
+    expect(english.displayName).toBe('Data Science');
+    expect(arabic).not.toHaveProperty('localizedNames');
+  });
+
+  it('localizes relationship read-model results without leaking alternate names', () => {
+    const localized = useCases.localizeRelationshipPage({
+      data: [{ displayName: 'Data Science', localizedNames: { ar: 'علم البيانات', en: 'Data Science' } }],
+      total: 1, page: 1, pageSize: 20, totalPages: 1,
+    }, 'ar');
+
+    expect(localized.data[0].displayName).toBe('علم البيانات');
+    expect(localized.data[0]).not.toHaveProperty('localizedNames');
+  });
+
 });

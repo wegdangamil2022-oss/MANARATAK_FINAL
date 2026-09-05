@@ -244,6 +244,77 @@ export class FinancePlatformUseCases {
     return this.repository.voidInvoiceAtomic(invoiceId, context(identity));
   }
 
+  async getInvoiceClearance(invoiceId: string) {
+    const invoice = await this.requireInvoice(invoiceId);
+    const financiallyCleared =
+      BigInt(invoice.amountDue.amountMinorUnits) === 0n &&
+      [InvoiceStatus.PAID, InvoiceStatus.CREDITED].includes(invoice.status);
+    return {
+      invoiceId: invoice.id,
+      invoiceStatus: invoice.status,
+      amountDueMinorUnits: invoice.amountDue.amountMinorUnits,
+      financiallyCleared,
+    };
+  }
+
+  async hasFinancialClearanceForOrigin(input: {
+    originDomain: string;
+    originReferenceId: string;
+    studentReferenceId?: string;
+  }): Promise<boolean> {
+    if (!input.originDomain.trim() || !input.originReferenceId.trim()) return false;
+    let page = 1;
+    let hasEffectiveInvoice = false;
+    do {
+      const invoices = await this.repository.listInvoices({
+        originDomain: input.originDomain,
+        originReferenceId: input.originReferenceId,
+        studentReferenceId: input.studentReferenceId,
+        page,
+        pageSize: 100,
+      });
+      for (const invoice of invoices.data) {
+        // Drafts are not obligations and voided invoices are intentionally neutral. Every other
+        // invoice for the same origin/student must be settled so an older PAID invoice cannot
+        // accidentally mask a newer outstanding charge.
+        if ([InvoiceStatus.DRAFT, InvoiceStatus.VOIDED].includes(invoice.status)) continue;
+        hasEffectiveInvoice = true;
+        const cleared =
+          BigInt(invoice.amountDue.amountMinorUnits) === 0n &&
+          [InvoiceStatus.PAID, InvoiceStatus.CREDITED].includes(invoice.status);
+        if (!cleared) return false;
+      }
+      if (page >= invoices.totalPages) return hasEffectiveInvoice;
+      page += 1;
+    } while (true);
+  }
+
+  runtimeReadiness() {
+    const paymentProviders = this.dependencies.paymentGateways.list().map((provider) => ({
+      providerKey: provider.providerKey,
+      status: provider.runtimeStatus(),
+    }));
+    const bankProviders = this.dependencies.bankTransferGateways.list().map((provider) => ({
+      providerKey: provider.providerKey,
+      status: provider.runtimeStatus(),
+    }));
+    const states = [...paymentProviders, ...bankProviders].map((provider) => provider.status);
+    const overall = states.some((state) => state === 'RUNTIME_PENDING')
+      ? 'RUNTIME_PENDING' as const
+      : states.some((state) => state === 'READY')
+        ? 'READY' as const
+        : 'NOT_CONFIGURED' as const;
+    return {
+      overall,
+      paymentProviders,
+      bankProviders,
+      inboundWebhookProcessing: 'NOT_CONFIGURED' as const,
+      manualOfflinePaymentReview: 'NOT_ENABLED' as const,
+      automaticFxProvider: 'NOT_CONFIGURED' as const,
+      note: 'No production provider transport or signed webhook endpoint is enabled in source.',
+    };
+  }
+
   async capturePayment(
     input: {
       invoiceId: string;
@@ -262,22 +333,81 @@ export class FinancePlatformUseCases {
       throw new Error('Payment amount must be positive and cannot exceed amountDue');
     if (/\b(?:\d[ -]*?){13,19}\b/.test(input.paymentMethodToken))
       throw new Error('Raw card PAN is forbidden; provide a provider token');
+
     const gateway = this.requirePaymentGateway(input.gatewayProvider);
-    const paymentReference = `fin_pay_${randomUUID()}`;
-    const authorized = await gateway.authorize({
-      paymentReference,
-      amount: input.amount,
-      paymentMethodToken: input.paymentMethodToken,
-      idempotencyKey: `${identity.idempotencyKey}:authorize`,
-    });
-    if (authorized.status === 'FAILED') throw new Error(`PAYMENT_AUTHORIZATION_FAILED:${authorized.failureCode || 'UNKNOWN'}`);
+    const paymentReference = `fin_pay_${hash(identity.idempotencyKey).slice(0, 32)}`;
+    const pending = await this.repository.preparePaymentAttempt(
+      {
+        publicId: paymentReference,
+        invoiceId: input.invoiceId,
+        idempotencyKey: hash(identity.idempotencyKey),
+        amount: input.amount,
+        status: PaymentStatus.PENDING,
+        paymentMethod: 'PROVIDER_TOKEN',
+        gatewayProvider: gateway.providerKey,
+      },
+      context(identity),
+    );
+    if (pending.status === PaymentStatus.CAPTURED) return pending;
+    if (pending.status === PaymentStatus.FAILED)
+      throw new Error(`PAYMENT_ATTEMPT_ALREADY_FAILED_USE_NEW_IDEMPOTENCY_KEY:${pending.failureReason || 'UNKNOWN'}`);
+
+    let authorized: {
+      status: 'AUTHORIZED' | 'CAPTURED' | 'COMPLETED' | 'FAILED';
+      gatewayReference: string;
+      safeMaskedMetadata?: Record<string, string>;
+      failureCode?: string;
+    };
+    if (pending.status === PaymentStatus.AUTHORIZED) {
+      if (!pending.gatewayReference) throw new Error('AUTHORIZED_PAYMENT_MISSING_PROVIDER_REFERENCE');
+      authorized = {
+        status: 'AUTHORIZED',
+        gatewayReference: pending.gatewayReference,
+        safeMaskedMetadata: pending.metadata as Record<string, string> | undefined,
+      };
+    } else {
+      // Transport exceptions are ambiguous. Keep PENDING so a retry with the same idempotency key
+      // can ask the provider for the same authorization instead of creating a second charge.
+      authorized = await gateway.authorize({
+        paymentReference: pending.publicId,
+        amount: input.amount,
+        paymentMethodToken: input.paymentMethodToken,
+        idempotencyKey: `${identity.idempotencyKey}:authorize`,
+      });
+      if (authorized.status === 'FAILED') {
+        await this.repository.recordPaymentFailure(
+          pending.id,
+          authorized.failureCode || 'AUTHORIZATION_FAILED',
+          context(identity),
+        );
+        throw new Error(`PAYMENT_AUTHORIZATION_FAILED:${authorized.failureCode || 'UNKNOWN'}`);
+      }
+      await this.repository.recordPaymentAuthorization(
+        pending.id,
+        { gatewayReference: authorized.gatewayReference, safeMaskedMetadata: authorized.safeMaskedMetadata },
+        context(identity),
+      );
+    }
+
+    // A transport exception after authorization is also ambiguous. Leave AUTHORIZED and retry
+    // capture with the same provider idempotency key; never fabricate a failed or captured state.
     const captured = authorized.status === 'CAPTURED'
       ? authorized
       : await gateway.capture(authorized.gatewayReference, input.amount, `${identity.idempotencyKey}:capture`);
-    if (captured.status !== 'CAPTURED') throw new Error(`PAYMENT_CAPTURE_NOT_PROVEN:${captured.failureCode || captured.status}`);
+    if (captured.status === 'FAILED') {
+      await this.repository.recordPaymentFailure(
+        pending.id,
+        captured.failureCode || 'CAPTURE_FAILED',
+        context(identity),
+      );
+      throw new Error(`PAYMENT_CAPTURE_FAILED:${captured.failureCode || 'UNKNOWN'}`);
+    }
+    if (captured.status !== 'CAPTURED')
+      throw new Error(`PAYMENT_CAPTURE_NOT_PROVEN:${captured.status}`);
+
     return this.repository.recordCapturedPaymentAtomic(
       {
-        publicId: paymentReference,
+        publicId: pending.publicId,
         invoiceId: input.invoiceId,
         idempotencyKey: hash(identity.idempotencyKey),
         amount: input.amount,
@@ -286,7 +416,7 @@ export class FinancePlatformUseCases {
         gatewayProvider: gateway.providerKey,
         gatewayReference: captured.gatewayReference,
         capturedAt: new Date(),
-        metadata: captured.safeMaskedMetadata,
+        metadata: captured.safeMaskedMetadata || authorized.safeMaskedMetadata,
       },
       context(identity),
     );
@@ -525,13 +655,13 @@ export class FinancePlatformUseCases {
       throw new Error('Exchange-rate effectiveTo must be later than effectiveFrom');
     if (input.source === 'MANUAL_OVERRIDE' && !identity.reason?.trim())
       throw new Error('Manual exchange override reason is required');
-    if (input.source === 'AUTOMATIC_PROVIDER' && !input.providerReference?.trim())
-      throw new Error('Automatic exchange rate requires provider evidence');
+    if (input.source === 'AUTOMATIC_PROVIDER')
+      throw new Error('FX_AUTOMATIC_PROVIDER_RUNTIME_PENDING');
     return this.repository.saveExchangeRate(
       {
         publicId: `fin_rate_${randomUUID()}`,
         ...input,
-        approved: input.source === 'AUTOMATIC_PROVIDER',
+        approved: false,
         makerId: identity.actorId,
         approvalId: null,
         marginBasisPoints: input.marginBasisPoints ?? 0,
@@ -741,13 +871,19 @@ export class FinancePlatformUseCases {
   private requirePaymentGateway(providerKey: string) {
     if (!providerKey?.trim()) throw new Error('Payment gateway provider is required');
     const gateway = this.dependencies.paymentGateways.get(providerKey);
-    if (!gateway || !gateway.isConfigured()) throw new Error(`PAYMENT_PROVIDER_NOT_CONFIGURED:${providerKey}`);
+    if (!gateway) throw new Error(`PAYMENT_PROVIDER_NOT_CONFIGURED:${providerKey}`);
+    const status = gateway.runtimeStatus();
+    if (status === 'NOT_CONFIGURED') throw new Error(`PAYMENT_PROVIDER_NOT_CONFIGURED:${providerKey}`);
+    if (status !== 'READY') throw new Error(`PAYMENT_PROVIDER_RUNTIME_PENDING:${providerKey}`);
     return gateway;
   }
   private requireBankGateway(providerKey: string) {
     if (!providerKey?.trim()) throw new Error('Bank transfer provider is required');
     const gateway = this.dependencies.bankTransferGateways.get(providerKey);
-    if (!gateway || !gateway.isConfigured()) throw new Error(`BANK_PROVIDER_NOT_CONFIGURED:${providerKey}`);
+    if (!gateway) throw new Error(`BANK_PROVIDER_NOT_CONFIGURED:${providerKey}`);
+    const status = gateway.runtimeStatus();
+    if (status === 'NOT_CONFIGURED') throw new Error(`BANK_PROVIDER_NOT_CONFIGURED:${providerKey}`);
+    if (status !== 'READY') throw new Error(`BANK_PROVIDER_RUNTIME_PENDING:${providerKey}`);
     return gateway;
   }
   private async requireBoundApproval(

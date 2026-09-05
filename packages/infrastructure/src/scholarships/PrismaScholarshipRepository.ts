@@ -317,6 +317,7 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
 
     const where: Prisma.ScholarshipWhereInput = {};
     if (filters.status) where.status = filters.status;
+    if (filters.completenessStatus) where.completenessStatus = filters.completenessStatus;
     const constraints: Prisma.ScholarshipWhereInput[] = [];
     if (filters.countryReferenceId) where.countryReferenceId = filters.countryReferenceId;
     if (filters.studyLanguageReferenceId) where.studyLanguageReferenceId = filters.studyLanguageReferenceId;
@@ -410,6 +411,7 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
     if (filters.academicProgramId) constraints.push({ universityLinks: { some: {
       academicProgramId: filters.academicProgramId,
       academicProgram: { is: {
+        status: 'ACTIVE',
         majorMappingState: 'CANONICALLY_MAPPED',
         university: { is: { status: UniversityStatus.PUBLISHED } },
         major: { is: { status: MajorStatus.PUBLISHED } },

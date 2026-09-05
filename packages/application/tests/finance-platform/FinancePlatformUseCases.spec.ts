@@ -143,7 +143,7 @@ describe('FinancePlatformUseCases', () => {
     const sut = new FinancePlatformUseCases(repository, {
       ...dependencies,
       bankTransferGateways: {
-        get: vi.fn(() => ({ providerKey: 'bank-a', isConfigured: () => true, submit: vi.fn(), getStatus: vi.fn(), reverse })),
+        get: vi.fn(() => ({ providerKey: 'bank-a', isConfigured: () => true, runtimeStatus: () => 'READY', submit: vi.fn(), getStatus: vi.fn(), reverse })),
       },
     } as any);
 
@@ -221,6 +221,7 @@ describe('FinancePlatformUseCases', () => {
         get: vi.fn(() => ({
           providerKey: 'pay-a',
           isConfigured: () => true,
+          runtimeStatus: () => 'READY',
           authorize: vi.fn(),
           capture: vi.fn(),
           refund: refundProvider,
@@ -231,6 +232,39 @@ describe('FinancePlatformUseCases', () => {
     await sut.processRefund('refund-db', 'approval-db', { ...identity, actorId: 'checker-executor' });
 
     expect(order).toEqual(['reserve', 'provider', 'complete']);
+  });
+
+  it('persists a failed provider attempt instead of losing payment history', async () => {
+    const repository = {
+      findInvoiceById: vi.fn().mockResolvedValue({ id: 'inv-1', status: 'ISSUED', amountDue: usd('1000') }),
+      preparePaymentAttempt: vi.fn().mockResolvedValue({
+        id: 'pay-db', publicId: 'fin_pay_1', invoiceId: 'inv-1', amount: usd('500'), status: 'PENDING',
+        paymentMethod: 'PROVIDER_TOKEN', gatewayProvider: 'pay-a', createdAt: new Date(), updatedAt: new Date(),
+      }),
+      recordPaymentFailure: vi.fn().mockResolvedValue({ id: 'pay-db', status: 'FAILED' }),
+      recordPaymentAuthorization: vi.fn(),
+      recordCapturedPaymentAtomic: vi.fn(),
+    } as any;
+    const sut = new FinancePlatformUseCases(repository, {
+      ...dependencies,
+      paymentGateways: {
+        get: vi.fn(() => ({
+          providerKey: 'pay-a', isConfigured: () => true, runtimeStatus: () => 'READY',
+          authorize: vi.fn().mockResolvedValue({ status: 'FAILED', gatewayReference: 'auth-failed', failureCode: 'DECLINED' }),
+          capture: vi.fn(), refund: vi.fn(),
+        })),
+        list: vi.fn(() => []),
+      },
+    } as any);
+
+    await expect(sut.capturePayment(
+      { invoiceId: 'inv-1', amount: usd('500'), paymentMethodToken: 'tok_safe', gatewayProvider: 'pay-a' },
+      identity,
+    )).rejects.toThrow('PAYMENT_AUTHORIZATION_FAILED:DECLINED');
+
+    expect(repository.preparePaymentAttempt).toHaveBeenCalled();
+    expect(repository.recordPaymentFailure).toHaveBeenCalledWith('pay-db', 'DECLINED', expect.any(Object));
+    expect(repository.recordCapturedPaymentAtomic).not.toHaveBeenCalled();
   });
 
 });

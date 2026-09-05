@@ -1,6 +1,8 @@
 import { CmsCategoryStatus } from '../enums/CmsCategoryStatus';
 import { CmsContentStatus } from '../enums/CmsContentStatus';
 import { CmsContentType } from '../enums/CmsContentType';
+import { CmsDomainRelationType } from '../enums/CmsDomainRelationType';
+import { CmsDomainTargetType } from '../enums/CmsDomainTargetType';
 
 export interface CmsSeoMetadata {
   title: string;
@@ -160,6 +162,7 @@ export interface CmsContentDetailDto extends CmsContentDto {
   reviews: CmsWorkflowReviewDto[];
   revisions: CmsContentRevisionDto[];
   readiness: Record<string, CmsPublishingReadinessDto>;
+  domainLinks: CmsContentDomainLinkDto[];
 }
 
 export interface CmsContentFilters {
@@ -194,6 +197,27 @@ export interface PublicCmsContentDto {
   seoMetadata: CmsSeoMetadata;
   availableLocales: Array<{ locale: string; slug: string }>;
   localizedPayload?: CmsLocalizedContentDto | null;
+}
+
+
+export interface CmsContentDomainLinkDto {
+  id: string;
+  contentId: string;
+  targetType: CmsDomainTargetType;
+  targetId: string;
+  relationType: CmsDomainRelationType;
+  sortOrder: number;
+  metadata?: Record<string, unknown> | null;
+  createdBy: string;
+  createdAt: Date;
+}
+
+export interface UpsertCmsContentDomainLinkDto {
+  targetType: CmsDomainTargetType;
+  targetId: string;
+  relationType: CmsDomainRelationType;
+  sortOrder?: number;
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface CmsWorkflowCommandDto {

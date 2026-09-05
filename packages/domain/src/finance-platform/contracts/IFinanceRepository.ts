@@ -4,6 +4,7 @@ import {
   FinanceInvoiceDto,
   FinanceInvoiceFilters,
   FinancePaymentDto,
+  FinancePaymentFilters,
   PaginatedFinanceResult,
 } from '../entities';
 import { MoneyAmount } from '../value-objects';
@@ -27,6 +28,7 @@ import {
   WalletDto,
   WalletHoldDto,
 } from '../entities/FinancePlatform';
+
 
 export interface FinanceMutationContext {
   actorId: string;
@@ -57,6 +59,7 @@ export interface IFinanceRepository {
   findInvoiceByNumber(invoiceNumber: string): Promise<FinanceInvoiceDto | null>;
   findPaymentById(id: string): Promise<FinancePaymentDto | null>;
   listInvoices(filters: FinanceInvoiceFilters): Promise<PaginatedFinanceResult<FinanceInvoiceDto>>;
+  listPayments(filters: FinancePaymentFilters): Promise<PaginatedFinanceResult<FinancePaymentDto>>;
   listPaymentsForInvoice(invoiceId: string): Promise<FinancePaymentDto[]>;
 
   createDraftInvoice(
@@ -71,6 +74,20 @@ export interface IFinanceRepository {
   ): Promise<FinanceInvoiceDto>;
   issueDraftInvoice(id: string, context: FinanceMutationContext): Promise<FinanceInvoiceDto>;
   voidInvoiceAtomic(id: string, context: FinanceMutationContext): Promise<FinanceInvoiceDto>;
+  preparePaymentAttempt(
+    data: CreateFinancePaymentDto,
+    context: FinanceMutationContext,
+  ): Promise<FinancePaymentDto>;
+  recordPaymentAuthorization(
+    paymentId: string,
+    evidence: { gatewayReference: string; safeMaskedMetadata?: Record<string, string> },
+    context: FinanceMutationContext,
+  ): Promise<FinancePaymentDto>;
+  recordPaymentFailure(
+    paymentId: string,
+    failureCode: string,
+    context: FinanceMutationContext,
+  ): Promise<FinancePaymentDto>;
   recordCapturedPaymentAtomic(
     data: CreateFinancePaymentDto,
     context: FinanceMutationContext,

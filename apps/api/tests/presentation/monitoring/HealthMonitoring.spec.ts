@@ -231,6 +231,57 @@ describe('Problem P02 - Health and Readiness Checks', () => {
       expect(res.body.status).toBe(HealthStatus.UP);
     });
 
+
+    it('keeps diagnostic overview and production readiness off the public monitoring surface', async () => {
+      const service = new MonitoringService();
+      service.registerIndicator({
+        name: 'database',
+        isOptional: false,
+        checkHealth: async () => ({ status: HealthStatus.UP, timestamp: new Date().toISOString() })
+      });
+      const app = express();
+      app.use('/monitoring', MonitoringRouter.create({ monitoringService: service }));
+
+      expect((await request(app).get('/monitoring/overview')).status).toBe(404);
+      expect((await request(app).get('/monitoring/production-readiness')).status).toBe(404);
+    });
+
+    it('computes the admin release gate from configuration, runtime and monitoring coverage together', async () => {
+      const expected = [
+        'database', 'redis', 'asset-platform', 'import-foundation', 'admin-auth', 'ai-providers',
+        'payment-gateway', 'notifications', 'background-jobs', 'database-schema', 'public-web'
+      ];
+      const service = new MonitoringService();
+      for (const name of expected) {
+        service.registerIndicator({
+          name,
+          isOptional: false,
+          checkHealth: async () => ({ status: HealthStatus.UP, timestamp: new Date().toISOString() })
+        });
+      }
+      const app = express();
+      app.use('/admin-monitoring', MonitoringRouter.create({
+        monitoringService: service,
+        diagnosticsEnabled: true,
+        productionReadinessReport: {
+          ready: true,
+          blockerCount: 0,
+          warningCount: 0,
+          checkedAt: new Date().toISOString(),
+          findings: []
+        }
+      }));
+
+      const response = await request(app).get('/admin-monitoring/overview');
+      expect(response.status).toBe(200);
+      expect(response.body.releaseReady).toBe(true);
+      expect(response.body.releaseGate).toEqual({
+        configurationReady: true,
+        runtimeReady: true,
+        monitoringComplete: true
+      });
+    });
+
     it('Integration test with createApiApp returning HTTP 503 DOWN when DB fails to connect', async () => {
       PrismaConnection.setInstance(null);
       const app = await createApiApp({

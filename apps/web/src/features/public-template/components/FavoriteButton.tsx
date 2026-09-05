@@ -28,7 +28,7 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
     title={active ? 'إزالة من المفضلة' : label}
   >
     <Heart className={`w-4 h-4 ${active ? 'fill-red-500 text-[var(--mn-danger-text)]' : ''}`} />
-    {!compact && <span className="text-[10px] font-black">{active ? 'محفوظ' : 'حفظ'}</span>}
+    {!compact && <span className="text-[10px] font-bold">{active ? 'محفوظ' : 'حفظ'}</span>}
   </button>
 );
 

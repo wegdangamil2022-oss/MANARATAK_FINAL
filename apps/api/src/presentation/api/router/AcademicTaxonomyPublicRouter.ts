@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { LocalizedPublicAcademicTaxonomyUseCases } from '@manaratak/application';
 import {
   AcademicTaxonomyNodeType,
-  AcademicTaxonomyStatus,
   AcademicStandardType,
   IAcademicTaxonomyRepository,
 } from '@manaratak/domain';
@@ -15,16 +14,15 @@ export class AcademicTaxonomyPublicRouter {
     const localized = new LocalizedPublicAcademicTaxonomyUseCases(cradle.academicTaxonomyRepository);
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => Promise.resolve(fn(req, res, next)).catch(next);
     const nodeTypeSchema = z.nativeEnum(AcademicTaxonomyNodeType);
-    const statusSchema = z.nativeEnum(AcademicTaxonomyStatus);
     const standardTypeSchema = z.nativeEnum(AcademicStandardType);
     const listNodesQuerySchema = z.object({
-      nodeType: nodeTypeSchema.optional(), standardType: standardTypeSchema.optional(), status: statusSchema.optional(), q: z.string().optional(),
+      nodeType: nodeTypeSchema.optional(), standardType: standardTypeSchema.optional(), q: z.string().optional(),
     }).merge(localeQuerySchema);
     const getByKeyQuerySchema = z.object({
       nodeType: nodeTypeSchema, canonicalCode: z.string().min(1), standardType: standardTypeSchema.optional(),
     }).merge(localeQuerySchema);
     const searchQuerySchema = z.object({
-      q: z.string().min(1), nodeType: nodeTypeSchema.optional(), standardType: standardTypeSchema.optional(), status: statusSchema.optional(),
+      q: z.string().min(1), nodeType: nodeTypeSchema.optional(), standardType: standardTypeSchema.optional(),
     }).merge(localeQuerySchema);
 
     router.get('/nodes', asyncHandler(async (req: Request, res: Response) => {
@@ -49,8 +47,8 @@ export class AcademicTaxonomyPublicRouter {
       res.json({ data: await localized.listParents(req.params.nodeId, parseRequestLocale(req.query)) });
     }));
     router.get('/search', asyncHandler(async (req: Request, res: Response) => {
-      const { q, locale, nodeType, standardType, status } = searchQuerySchema.parse(req.query);
-      res.json({ data: await localized.searchNodes(q, { nodeType, standardType, status }, locale) });
+      const { q, locale, nodeType, standardType } = searchQuerySchema.parse(req.query);
+      res.json({ data: await localized.searchNodes(q, { nodeType, standardType }, locale) });
     }));
 
     router.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

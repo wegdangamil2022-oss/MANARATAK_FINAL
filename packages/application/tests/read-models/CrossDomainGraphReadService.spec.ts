@@ -8,7 +8,7 @@ const major = {
 const university = {
   id: 'university-1', publicId: 'INS-0001', slug: 'example-university', displayName: 'Example University',
   canonicalName: 'Example University', canonicalDedupKey: 'example-university', status: 'PUBLISHED', completenessStatus: 'COMPLETE', countryReferenceId: 'country-ye',
-  academicPrograms: [{ id: 'program-1', universityId: 'university-1', sourceProgramName: 'BSc Computer Science', normalizedName: 'bsc computer science', degreeLevelId: 'degree-bachelor', majorId: 'major-1', majorMappingState: 'CANONICALLY_MAPPED', status: 'MATCHED', campusIds: [], admissionRequirements: [] }],
+  academicPrograms: [{ id: 'program-1', universityId: 'university-1', sourceProgramName: 'BSc Computer Science', normalizedName: 'bsc computer science', degreeLevelId: 'degree-bachelor', majorId: 'major-1', majorMappingState: 'CANONICALLY_MAPPED', status: 'ACTIVE', campusIds: [], admissionRequirements: [] }],
 };
 const scholarship = {
   id: 'scholarship-1', publicId: 'SCH-0001', slug: 'example-scholarship', displayName: 'Example Scholarship',
@@ -38,9 +38,22 @@ function build() {
     findPublishedBySlug: vi.fn().mockResolvedValue(scholarship),
     listPublished: vi.fn().mockResolvedValue(page([scholarship])),
   };
+  const internationalTestRepository = {
+    findById: vi.fn().mockResolvedValue({
+      id: 'test-1', publicId: 'TST-0001', slug: 'ielts-academic', displayName: 'IELTS Academic',
+      canonicalName: 'IELTS Academic', localizedNameEn: 'IELTS Academic', providerName: 'IELTS', status: 'PUBLISHED',
+    }),
+    listPublished: vi.fn().mockResolvedValue(page([{
+      id: 'test-1', publicId: 'TST-0001', slug: 'ielts-academic', displayName: 'IELTS Academic',
+      canonicalName: 'IELTS Academic', localizedNameEn: 'IELTS Academic', providerName: 'IELTS', status: 'PUBLISHED',
+    }])),
+  };
   const courseRelationshipRepository = {
     listPublishedCoursesForMajor: vi.fn().mockResolvedValue(page([{
       ownerId: 'course-1', publicId: 'CRS-0001', slug: 'intro-cs', displayName: 'Intro CS', accessType: 'FREE_CERTIFICATE', originType: 'EXTERNAL_LINKED_COURSE', directCourseUrl: 'https://example.test/course', providerName: 'Provider', category: 'Computing',
+    }])),
+    listPublishedCoursesForInternationalTest: vi.fn().mockResolvedValue(page([{
+      ownerId: 'course-test-1', publicId: 'CRS-0100', slug: 'ielts-preparation', displayName: 'IELTS Preparation', accessType: 'FREE_STUDY_AND_CERTIFICATE', originType: 'NATIVE_MANARATAK_COURSE', directCourseUrl: '/courses/ielts-preparation', providerName: 'MANARATAK', category: 'Languages',
     }])),
     listPublishedRelatedCourses: vi.fn().mockResolvedValue(page([{
       ownerId: 'course-1', publicId: 'CRS-0001', slug: 'intro-cs', displayName: 'Intro CS', accessType: 'FREE_CERTIFICATE', originType: 'EXTERNAL_LINKED_COURSE', directCourseUrl: 'https://example.test/course', providerName: 'Provider', category: 'Computing',
@@ -50,8 +63,8 @@ function build() {
     getCountry: vi.fn().mockResolvedValue({ id: 'country-ye', iso2Code: 'YE', iso3Code: 'YEM', name: 'Yemen', isActive: true }),
   };
   return {
-    service: new CrossDomainGraphReadService(majorRepository as any, universityRepository as any, scholarshipRepository as any, courseRelationshipRepository as any, referenceDataRepository as any),
-    majorRepository, universityRepository, scholarshipRepository, courseRelationshipRepository, referenceDataRepository,
+    service: new CrossDomainGraphReadService(majorRepository as any, universityRepository as any, scholarshipRepository as any, internationalTestRepository as any, courseRelationshipRepository as any, referenceDataRepository as any),
+    majorRepository, universityRepository, scholarshipRepository, internationalTestRepository, courseRelationshipRepository, referenceDataRepository,
   };
 }
 
@@ -73,7 +86,11 @@ describe('CrossDomainGraphReadService P4 canonical projections', () => {
     const graph = await ctx.service.getCountryGraphByIso2Code('ye');
     expect(ctx.universityRepository.listPublished).toHaveBeenCalledWith(expect.objectContaining({ countryReferenceId: 'country-ye' }));
     expect(ctx.scholarshipRepository.listPublished).toHaveBeenCalledWith(expect.objectContaining({ countryReferenceId: 'country-ye' }));
+    expect(ctx.internationalTestRepository.listPublished).toHaveBeenCalledWith(expect.objectContaining({ countryIso2Code: 'YE' }));
+    expect(ctx.majorRepository.findPublishedByIds).toHaveBeenCalledWith(['major-1']);
     expect(ctx.courseRelationshipRepository.listPublishedRelatedCourses).toHaveBeenCalledWith(expect.objectContaining({ providerHeadquartersCountryReferenceId: 'country-ye' }));
+    expect(graph.relationships.majors[0]).toMatchObject({ ownerId: 'major-1' });
+    expect(graph.relationships.internationalTests.data[0]).toMatchObject({ ownerId: 'test-1' });
     expect(graph.subject).toMatchObject({ ownerId: 'country-ye', canonicalCode: 'YE' });
   });
 
@@ -110,5 +127,23 @@ describe('CrossDomainGraphReadService P4 canonical projections', () => {
     const graph = await ctx.service.getUniversityGraphBySlug('example-university');
     expect(graph.relationships.majors).toEqual([]);
     expect(graph.relationships.academicPrograms).toEqual([]);
+  });
+
+  it('builds International Test reverse relationships from owning University and Scholarship domains', async () => {
+    const ctx = build();
+    ctx.universityRepository.list = vi.fn().mockResolvedValue(page([{
+      ...university,
+      academicPrograms: [{
+        ...university.academicPrograms[0],
+        admissionRequirements: [{ internationalTestId: 'test-1', minimumScore: 6.5, status: 'ACTIVE' }],
+      }],
+    }]));
+    ctx.scholarshipRepository.list = vi.fn().mockResolvedValue(page([scholarship]));
+    const graph = await ctx.service.getInternationalTestGraphById('test-1');
+    expect(ctx.universityRepository.list).toHaveBeenCalledWith(expect.objectContaining({ internationalTestId: 'test-1' }));
+    expect(ctx.scholarshipRepository.list).toHaveBeenCalledWith(expect.objectContaining({ internationalTestId: 'test-1' }));
+    expect(graph.relationships.universities.data[0].matchingPrograms[0]).toMatchObject({ ownerId: 'program-1', minimumScore: 6.5 });
+    expect(ctx.courseRelationshipRepository.listPublishedCoursesForInternationalTest).toHaveBeenCalledWith('test-1', expect.any(Object));
+    expect(graph.relationships.preparationCourses.data[0]).toMatchObject({ ownerId: 'course-test-1', slug: 'ielts-preparation' });
   });
 });

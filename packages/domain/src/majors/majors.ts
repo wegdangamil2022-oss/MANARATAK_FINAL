@@ -473,6 +473,8 @@ export interface IMajorRepository {
   createSource?(data: Omit<MajorSourceDto, 'id' | 'createdAt' | 'updatedAt'>): Promise<MajorSourceDto>;
   listSources?(majorId: string): Promise<MajorSourceDto[]>;
   listByTaxonomyNode?(taxonomyNodeId: string): Promise<TaxonomyMappedMajorDto[]>;
+  /** Allocate the next profile code under the active transaction; floor protects immutable source-catalog ranges. */
+  allocateNextProfileCode?(prefix: MajorSourceIdentityPrefix, floor?: number): Promise<string>;
 }
 
 export interface ITransactionalMajorRepository extends IMajorRepository {

@@ -62,7 +62,12 @@ describe('NativeCourseUseCases', () => {
       listQuestionsByQuizId: vi.fn(),
       getCurriculumSnapshot: vi.fn(),
     };
-    useCases = new NativeCourseUseCases(courses, curriculum);
+    const relationships = {
+      listTaxonomyLinks: vi.fn().mockResolvedValue([{ id: 'tax-link-1', courseId: 'course-1', taxonomyNodeId: 'tax-ai', relationshipType: 'PRIMARY', reviewState: 'APPROVED' }]),
+      listMajorProjections: vi.fn().mockResolvedValue([]),
+      listInternationalTestRelationships: vi.fn().mockResolvedValue([]),
+    } as any;
+    useCases = new NativeCourseUseCases(courses, curriculum, undefined, undefined, relationships);
   });
 
   const nativeCourse = (overrides: Record<string, unknown> = {}) => ({
@@ -80,7 +85,8 @@ describe('NativeCourseUseCases', () => {
     category: 'AI',
     difficultyLevel: 'BEGINNER',
     learningLanguage: 'Arabic',
-    optionalFields: { description: 'وصف مفيد' },
+    learningLanguageReferenceId: 'lang-ar',
+    optionalFields: { description: 'وصف مفيد', learningOutcomes: ['مخرج تعلم'], completionCriteria: { minimumProgress: 100 } },
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

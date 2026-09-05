@@ -2,6 +2,7 @@ import {
   FinanceInvoiceDto,
   FinanceInvoiceFilters,
   FinancePaymentDto,
+  FinancePaymentFilters,
   IFinanceRepository,
   PaginatedFinanceResult,
 } from '@manaratak/domain';
@@ -20,5 +21,8 @@ export class FinanceAdminUseCases {
   async listPaymentsForInvoice(invoiceId: string): Promise<FinancePaymentDto[]> {
     await this.getInvoice(invoiceId);
     return this.repository.listPaymentsForInvoice(invoiceId);
+  }
+  listPayments(filters: FinancePaymentFilters): Promise<PaginatedFinanceResult<FinancePaymentDto>> {
+    return this.repository.listPayments(filters);
   }
 }

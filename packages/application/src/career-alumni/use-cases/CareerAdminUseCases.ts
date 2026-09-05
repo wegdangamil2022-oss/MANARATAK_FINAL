@@ -125,6 +125,14 @@ export class CareerAdminUseCases {
     return this.repository.listEmployers({ ...filters, pageSize: Math.min(filters.pageSize || 50, 50) });
   }
 
+  public async setEmployerStatus(id: string, status: CareerEmployerStatus): Promise<CareerEmployerDto> {
+    const employer = await this.repository.findEmployerById(id);
+    if (!employer) throw new Error('Recruitment employer not found');
+    if (status === CareerEmployerStatus.UNVERIFIED)
+      throw new Error('Employer status cannot be reset to UNVERIFIED after review');
+    return this.repository.updateEmployer(id, { verificationStatus: status });
+  }
+
   public async updateJob(id: string, updates: UpdateCareerJobPostingDto): Promise<CareerJobPostingDto> {
     const existing = await this.getJob(id);
     const canonical: UpdateCareerJobPostingDto = { ...updates };
@@ -180,6 +188,11 @@ export class CareerAdminUseCases {
     const job = await this.getJob(id);
     if (job.status !== CareerJobStatus.READY_TO_PUBLISH)
       throw new Error('Only READY_TO_PUBLISH jobs can be PUBLISHED');
+    const employer = await this.repository.findEmployerById(job.employerId);
+    if (!employer || employer.verificationStatus !== CareerEmployerStatus.VERIFIED)
+      throw new Error('Only jobs from VERIFIED employers can be PUBLISHED');
+    if (job.applicationDeadline && new Date(job.applicationDeadline).getTime() <= Date.now())
+      throw new Error('Expired job opportunities cannot be PUBLISHED');
     await this.repository.updateJobStatus(id, CareerJobStatus.PUBLISHED);
   }
   public async archive(id: string): Promise<void> {

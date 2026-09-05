@@ -140,4 +140,35 @@ describe('W2 Phase 6 durable worker integration', () => {
     expect(replayResult, JSON.stringify(await queue.getJobStatus('batch-durable-1'))).toBe('COMPLETED');
     expect(accept).toHaveBeenCalledTimes(1);
   });
+  it('keeps the handoff envelope and marks the record awaiting integration when no owning-domain consumer is registered', async () => {
+    const repo = statefulImportRepository();
+    const queue = new InMemoryImportQueueGateway();
+    const dispatcher = new ImportHandoffDispatcher({});
+    const worker = new ImportWorkerProtocol(
+      queue,
+      ImportRetryPolicy.create({
+        maxAttempts: 3,
+        dlqAfterAttempts: 3,
+        backoffStrategy: 'fixed',
+        initialDelayMs: 10,
+        maxDelayMs: 10,
+        retryableErrorCodes: [],
+      }),
+      30_000,
+    );
+    const useCase = new ImportAdminUseCases(repo as any, queue, dispatcher, worker);
+
+    await useCase.stageNormalizedRows({
+      ownerDomain: 'UNIVERSITIES',
+      sourceSystem: 'TEST_SOURCE',
+      rows: [{ id: 'university-1', name: 'Example University' }],
+    });
+
+    const stored = [...repo.records.values()][0];
+    expect(stored.status).toBe('NEEDS_REVIEW');
+    expect(stored.rawPayload._phase6HandoffEnvelope).toBeTruthy();
+    expect(stored.rawPayload._phase6HandoffState).toBe('AWAITING_DOMAIN_INTEGRATION');
+    expect(stored.rawPayload._domainHandoff).toBeUndefined();
+  });
+
 });

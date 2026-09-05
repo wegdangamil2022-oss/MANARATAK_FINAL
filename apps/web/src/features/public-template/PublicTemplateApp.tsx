@@ -1,9 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './template.css';
 import {readStored, writeStored, readStoredArray} from './storage';
 import { usePublicNavigation } from './usePublicNavigation';
 import { usePublicLiveData } from './usePublicLiveData';
 import { usePublicRelationshipGraph } from './usePublicRelationshipGraph';
+import { ApiClient, type StablePublicGraphIdentity } from '../../api/client';
+import { mapPublicScholarshipDto } from './publicScholarshipDataSource';
+import {
+  mapArticle, mapCareer, mapCountry, mapCourse, mapExam, mapPublicMajorDto, mapPublicUniversityDto, mapService,
+} from './publicLiveDataSource';
 import { PublicInfoPage } from './components/PublicInfoPage';
 import { CourseTrackPreview } from './components/CourseTrackPreview';
 import {
@@ -23,6 +28,8 @@ import {
   ServiceAudience,
   FavoriteKey,
   FavoriteKind,
+  CountryDestination,
+  CareerOpportunityPreview,
 } from './types';
 import { INITIAL_MILESTONES, INITIAL_NOTIFICATIONS } from './data/personalPreviewData';
 import { Header } from './components/Header';
@@ -60,7 +67,6 @@ import { FaqPreview } from './components/FaqPreview';
 import { ContactSection } from './components/ContactSection';
 import { BottomNavBar, TabType } from './components/BottomNavBar';
 import { LearnerProgressTracker } from './components/LearnerProgressTracker';
-import { AIToolsModal } from './components/AIToolsModal';
 import { PushNotificationCenter } from './components/PushNotificationCenter';
 import { ScholarshipDetailModal } from './components/ScholarshipDetailModal';
 import { MajorDetailModal } from './components/MajorDetailModal';
@@ -88,6 +94,11 @@ import {
   ArrowUpDown,
   AlertTriangle,
   RefreshCw,
+  Building2,
+  ClipboardCheck,
+  BookOpen,
+  BriefcaseBusiness,
+  BadgeDollarSign,
 } from 'lucide-react';
 
 export default function App() {
@@ -99,7 +110,7 @@ export default function App() {
   const unavailableDomains = Object.entries(publicLive.statuses).filter(([, status]) => status === 'unavailable').map(([domain]) => domain);
   const loadingDomains = Object.entries(publicLive.statuses).filter(([, status]) => status === 'loading').map(([domain]) => domain);
   const navigation = usePublicNavigation();
-  const { back: goBack, navigate } = navigation;
+  const { back: goBack, navigate, replace: replaceNavigation } = navigation;
   // UI States
   const [activeTab, setActiveTab] = navigation.field('activeTab');
   const [selectedCategory, setSelectedCategory] = navigation.field('selectedCategory');
@@ -107,13 +118,131 @@ export default function App() {
   const [selectedServiceTrack, setSelectedServiceTrack] = navigation.field('selectedServiceTrack');
   const [courseNavigationField, setCourseNavigationField] = navigation.field('courseNavigationField');
 
+  const [directCountry, setDirectCountry] = useState<CountryDestination | null>(null);
+  const [directCareer, setDirectCareer] = useState<CareerOpportunityPreview | null>(null);
+  const countriesForView = directCountry && !countries.some((item) => item.id === directCountry.id || item.slug === directCountry.slug)
+    ? [directCountry, ...countries]
+    : countries;
+  const careersForView = directCareer && !careers.some((item) => item.id === directCareer.id || item.slug === directCareer.slug)
+    ? [directCareer, ...careers]
+    : careers;
+
+  const directRouteHydrated = useRef(false);
+  const directRouteRequest = useRef('');
   useEffect(() => {
-    if (publicDataMode !== 'api') return;
+    if (directRouteHydrated.current) return;
     const segments = window.location.pathname.split('/').filter(Boolean);
-    const leaf = segments[segments.length - 1];
-    if (leaf === 'student') setActiveTab('account');
-    if (leaf === 'login') setActiveTab('auth');
-  }, [publicDataMode, setActiveTab]);
+    if (segments[0] === 'ar' || segments[0] === 'en') segments.shift();
+    const [section = '', rawKey = ''] = segments;
+    const key = decodeURIComponent(rawKey || '');
+    const params = new URLSearchParams(window.location.search);
+    const searchAnchor = decodeURIComponent(window.location.hash.replace(/^#/, ''));
+    const searchTerm = params.get('match') || '';
+    const matchesKey = (item: any) => [item?.slug, item?.publicId, item?.id, item?.toolKey].filter(Boolean).some((value) => String(value) === key);
+    const finish = (patch: Parameters<typeof replaceNavigation>[0]) => {
+      directRouteHydrated.current = true;
+      directRouteRequest.current = '';
+      replaceNavigation({ ...patch, detailSearchAnchor: searchAnchor, detailSearchTerm: searchTerm });
+    };
+    const fetchOnce = (requestKey: string, request: () => Promise<void>) => {
+      if (directRouteRequest.current === requestKey) return;
+      directRouteRequest.current = requestKey;
+      void request().catch(() => {
+        // A direct owner URL that no longer exists degrades to its public list without inventing fallback data.
+        const category = section === 'international-tests' ? 'exams' : section === 'careers' ? 'jobs' : section as CategoryType;
+        finish({ activeTab: section === 'tools' ? 'ai-tools' : 'search', selectedCategory: category || 'all' });
+      });
+    };
+
+    let patch: Parameters<typeof replaceNavigation>[0] | null = null;
+    if (!section) patch = { activeTab: 'home' };
+    else if (section === 'login') patch = { activeTab: 'auth' };
+    else if (section === 'student') patch = { activeTab: 'account' };
+    else if (section === 'search') patch = { activeTab: 'search', selectedCategory: 'all', globalSearchQuery: params.get('q') || '' };
+    else if (section === 'scholarships') {
+      const selected = key ? scholarships.find(matchesKey) || null : null;
+      if (key && !selected && publicDataMode === 'api') {
+        fetchOnce(`scholarships:${key}`, async () => finish({ activeTab: 'search', selectedCategory: 'scholarships', selectedScholarship: mapPublicScholarshipDto(await ApiClient.getScholarshipBySlug(key)) }));
+        return;
+      }
+      patch = { activeTab: 'search', selectedCategory: 'scholarships', selectedScholarship: selected };
+    } else if (section === 'universities') {
+      const selected = key ? universities.find(matchesKey) || null : null;
+      if (key && !selected && publicDataMode === 'api') {
+        fetchOnce(`universities:${key}`, async () => finish({ activeTab: 'search', selectedCategory: 'universities', selectedUniversity: mapPublicUniversityDto(await ApiClient.getUniversityBySlug(key)) }));
+        return;
+      }
+      patch = { activeTab: 'search', selectedCategory: 'universities', selectedUniversity: selected };
+    } else if (section === 'majors') {
+      const selected = key ? majors.find(matchesKey) || null : null;
+      if (key && !selected && publicDataMode === 'api') {
+        fetchOnce(`majors:${key}`, async () => finish({ activeTab: 'search', selectedCategory: 'majors', selectedMajor: mapPublicMajorDto(await ApiClient.getMajorBySlug(key)) }));
+        return;
+      }
+      patch = { activeTab: 'search', selectedCategory: 'majors', selectedMajor: selected };
+    } else if (section === 'courses') {
+      const selected = key ? importedCourses.find(matchesKey) || null : null;
+      if (key && !selected && publicDataMode === 'api') {
+        fetchOnce(`courses:${key}`, async () => finish({ activeTab: 'search', selectedCategory: 'courses', selectedCourseTrack: 'imported', selectedImportedCourse: mapCourse(await ApiClient.getCourseBySlug(key)).imported }));
+        return;
+      }
+      patch = { activeTab: 'search', selectedCategory: 'courses', selectedCourseTrack: 'imported', selectedImportedCourse: selected };
+    } else if (section === 'articles') {
+      const selected = key ? articles.find(matchesKey) || null : null;
+      if (key && !selected && publicDataMode === 'api') {
+        fetchOnce(`articles:${key}`, async () => finish({ activeTab: 'search', selectedCategory: 'articles', selectedArticle: mapArticle(await ApiClient.getCmsContentBySlug(key, language)) }));
+        return;
+      }
+      patch = { activeTab: 'search', selectedCategory: 'articles', selectedArticle: selected };
+    } else if (section === 'services') {
+      const selected = key ? services.find(matchesKey) || null : null;
+      if (key && !selected && publicDataMode === 'api') {
+        fetchOnce(`services:${key}`, async () => {
+          const service = mapService(await ApiClient.getServiceBySlug(key));
+          finish({ activeTab: 'search', selectedCategory: 'services', selectedServiceTrack: service.audience, selectedService: service });
+        });
+        return;
+      }
+      patch = { activeTab: 'search', selectedCategory: 'services', selectedServiceTrack: selected?.audience || null, selectedService: selected };
+    } else if (section === 'international-tests') {
+      const selected = key ? exams.find(matchesKey) || null : null;
+      if (key && !selected && publicDataMode === 'api') {
+        fetchOnce(`international-tests:${key}`, async () => finish({ activeTab: 'search', selectedCategory: 'exams', selectedExam: mapExam(await ApiClient.getInternationalTestBySlug(key)) }));
+        return;
+      }
+      patch = { activeTab: 'search', selectedCategory: 'exams', selectedExam: selected };
+    } else if (section === 'countries') {
+      const selected = key ? countriesForView.find(matchesKey) || null : null;
+      if (key && !selected && publicDataMode === 'api') {
+        fetchOnce(`countries:${key}`, async () => {
+          directRouteRequest.current = '';
+          setDirectCountry(mapCountry(await ApiClient.getStudyDestinationBySlug(key), language));
+        });
+        return;
+      }
+      patch = { activeTab: 'search', selectedCategory: 'countries', nestedDetailId: selected ? key : '' };
+    } else if (section === 'careers') {
+      const selected = key ? careersForView.find(matchesKey) || null : null;
+      if (key && !selected && publicDataMode === 'api') {
+        fetchOnce(`careers:${key}`, async () => {
+          directRouteRequest.current = '';
+          setDirectCareer(mapCareer(await ApiClient.getCareerJobBySlug(key)));
+        });
+        return;
+      }
+      patch = { activeTab: 'search', selectedCategory: 'jobs', nestedDetailId: selected ? selected.id : '' };
+    } else if (section === 'tools') {
+      const detailKey = params.get('detail') || '';
+      const detail = detailKey ? tools.find((item) => item.id === detailKey || item.toolKey === detailKey) : null;
+      patch = { activeTab: 'ai-tools', selectedCategory: 'all', nestedDetailId: detail?.id || '' };
+    } else {
+      // The host router owns unknown routes; do not rewrite them from the public template.
+      directRouteHydrated.current = true;
+      return;
+    }
+
+    finish(patch);
+  }, [publicDataMode, scholarships, universities, majors, countriesForView, exams, importedCourses, articles, services, careersForView, tools, publicLive.statuses, replaceNavigation, language]);
   useEffect(() => {
     if (selectedCategory !== 'courses') {
       setSelectedCourseTrack(null);
@@ -182,11 +311,6 @@ export default function App() {
   // Modal Dialogs
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
-  const [isAiToolsOpen, setIsAiToolsOpen] = useState<boolean>(false);
-  const [aiToolsInitialTab, setAiToolsInitialTab] = useState<'letter' | 'cv' | 'chat' | 'search'>(
-    'letter',
-  );
-  const [presetAiScholarship, setPresetAiScholarship] = useState<string>('');
   const [selectedScholarship, setSelectedScholarship] = navigation.field('selectedScholarship');
   const [selectedMajor, setSelectedMajor] = navigation.field('selectedMajor');
   const [selectedUniversity, setSelectedUniversity] = navigation.field('selectedUniversity');
@@ -198,12 +322,23 @@ export default function App() {
   const [favoriteLaunch, setFavoriteLaunch] = navigation.field('favoriteLaunch');
   const [countryNavigationName, setCountryNavigationName] = navigation.field('countryNavigationName');
   const [examNavigationQuery, setExamNavigationQuery] = navigation.field('examNavigationQuery');
+  const [detailSearchAnchor, setDetailSearchAnchor] = navigation.field('detailSearchAnchor');
+  const [detailSearchTerm, setDetailSearchTerm] = navigation.field('detailSearchTerm');
   const [activeToast, setActiveToast] = useState<PushNotificationItem | null>(null);
+
+  const activeCountryIdentity = navigation.state.nestedDetailId || countryNavigationName || '';
+  const activeCountryForGraph = countries.find((country) =>
+    country.id === activeCountryIdentity ||
+    country.publicId === activeCountryIdentity ||
+    country.slug === activeCountryIdentity ||
+    country.iso2Code === activeCountryIdentity.toUpperCase(),
+  );
 
   const publicGraph = usePublicRelationshipGraph(publicDataMode, {
     majorSlug: selectedMajor?.slug || (selectedMajor ? selectedMajor.id : undefined),
     universitySlug: selectedUniversity?.slug || (selectedUniversity ? selectedUniversity.id : undefined),
     scholarshipSlug: selectedScholarship?.slug || (selectedScholarship ? selectedScholarship.id : undefined),
+    countryIso2Code: activeCountryForGraph?.iso2Code,
   });
 
   const byIdentity = <T extends { id: string; publicId?: string; slug?: string; ownerId?: string }>(items: T[], identity: string): T | undefined =>
@@ -227,10 +362,100 @@ export default function App() {
     );
   };
 
+  const openPublishedScholarshipByIdentity = async (
+    identity: string,
+    graphIdentities: StablePublicGraphIdentity[] = [],
+  ) => {
+    const local = graphIdentityTarget(scholarships, identity, graphIdentities);
+    if (local) {
+      setCountryNavigationName('');
+      setSelectedUniversity(null);
+      setSelectedMajor(null);
+      setSelectedScholarship(local);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      return;
+    }
+
+    const graphIdentity = graphIdentities.find((item) =>
+      item.ownerId === identity || item.publicId === identity || item.slug === identity,
+    );
+    const slug = graphIdentity?.slug;
+    if (!slug || publicDataMode !== 'api') return;
+    try {
+      const dto = await ApiClient.getScholarshipBySlug(slug);
+      setCountryNavigationName('');
+      setSelectedUniversity(null);
+      setSelectedMajor(null);
+      setSelectedScholarship(mapPublicScholarshipDto(dto));
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    } catch {
+      // Public owner API remains authoritative; do not substitute prototype data.
+    }
+  };
+
+  const openPublishedUniversityByIdentity = async (
+    identity: string,
+    graphIdentities: StablePublicGraphIdentity[] = [],
+  ) => {
+    const local = graphIdentityTarget(universities, identity, graphIdentities);
+    if (local) {
+      setCountryNavigationName('');
+      setSelectedScholarship(null);
+      setSelectedMajor(null);
+      setSelectedUniversity(local);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      return;
+    }
+    const graphIdentity = graphIdentities.find((item) =>
+      item.ownerId === identity || item.publicId === identity || item.slug === identity,
+    );
+    if (!graphIdentity?.slug || publicDataMode !== 'api') return;
+    try {
+      const dto = await ApiClient.getUniversityBySlug(graphIdentity.slug);
+      setCountryNavigationName('');
+      setSelectedScholarship(null);
+      setSelectedMajor(null);
+      setSelectedUniversity(mapPublicUniversityDto(dto));
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    } catch {
+      // Do not invent or substitute a relationship target.
+    }
+  };
+
+  const openPublishedMajorByIdentity = async (
+    identity: string,
+    graphIdentities: StablePublicGraphIdentity[] = [],
+  ) => {
+    const local = graphIdentityTarget(majors, identity, graphIdentities);
+    if (local) {
+      setCountryNavigationName('');
+      setSelectedScholarship(null);
+      setSelectedUniversity(null);
+      setSelectedMajor(local);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      return;
+    }
+    const graphIdentity = graphIdentities.find((item) =>
+      item.ownerId === identity || item.publicId === identity || item.slug === identity,
+    );
+    if (!graphIdentity?.slug || publicDataMode !== 'api') return;
+    try {
+      const dto = await ApiClient.getMajorBySlug(graphIdentity.slug);
+      setCountryNavigationName('');
+      setSelectedScholarship(null);
+      setSelectedUniversity(null);
+      setSelectedMajor(mapPublicMajorDto(dto));
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    } catch {
+      // Do not invent or substitute a relationship target.
+    }
+  };
+
+
+
   const openSection = (target: string) => {
     setIsMenuOpen(false);
     setIsNotificationOpen(false);
-    setIsAiToolsOpen(false);
     if (publicDataMode === 'api' && ['favorites', 'tracker', 'notifications'].includes(target)) {
       navigate({ activeTab: target === 'tracker' ? 'tracker' : target === 'favorites' ? 'favorites' : 'account' });
       return;
@@ -245,13 +470,22 @@ export default function App() {
       navigate({activeTab: target === 'home' ? 'home' : target as TabType});
     }
   };
+  const openStudentTools = (toolKey?: string) => {
+    setIsMenuOpen(false);
+    setIsNotificationOpen(false);
+    navigate({
+      activeTab: 'ai-tools',
+      nestedDetailId: toolKey ?? '',
+      favoriteLaunch: toolKey ? { kind: 'tool', id: toolKey } : null,
+    });
+  };
   const openLanguage = () => {
     setIsMenuOpen(false);
     navigate({auxiliaryPage: 'language'});
   };
   // Close overlays when the user navigates with browser Back/Forward.
   useEffect(() => {
-    const close = () => {setIsMenuOpen(false); setIsNotificationOpen(false); setIsAiToolsOpen(false);};
+    const close = () => {setIsMenuOpen(false); setIsNotificationOpen(false);};
     window.addEventListener('popstate', close);
     return () => window.removeEventListener('popstate', close);
   }, []);
@@ -345,7 +579,7 @@ export default function App() {
     const timer = setTimeout(() => {
       setNotifications(previous => previous.some(item => item.id === 'welcome-v29') ? previous : [{
         id: 'welcome-v29', timestamp: 'الآن', read: false,
-        title: '🔔 مرحباً بك في منصة منارتك للفرص التعليمية!',
+        title: 'مرحباً بك في منصة منارتك للفرص التعليمية!',
         body: 'هذه معاينة محلية للإشعارات. ستُفعّل التنبيهات الحقيقية بعد ربط الخدمة.',
         type: 'system',
       }, ...previous]);
@@ -380,7 +614,7 @@ export default function App() {
           timers.push(setTimeout(
             () => {
               triggerInstantPush({
-                title: '⏳ تنبيه الموعد النهائي: 3 أيام متبقية!',
+                title: 'تنبيه الموعد النهائي: 3 أيام متبقية!',
                 body: `باقي 3 أيام فقط على إغلاق التقديم لمنحة ${m.scholarshipTitle}. تأكد من إكمال جميع المتطلبات في نظام المتابعة.`,
                 type: 'deadline',
                 actionType: 'tracker',
@@ -518,7 +752,7 @@ export default function App() {
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>تعذر تحميل بعض البيانات الحية ({unavailableDomains.join(', ')}). لم يتم استبدالها ببيانات تجريبية.</span>
             </div>
-            <button type="button" onClick={publicLive.reload} className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-current px-2.5 py-1.5 font-black">
+            <button type="button" onClick={publicLive.reload} className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-current px-2.5 py-1.5 font-bold">
               <RefreshCw className="h-3.5 w-3.5" /> إعادة المحاولة
             </button>
           </div>
@@ -564,6 +798,8 @@ export default function App() {
         ) : selectedService ? (
           <ServiceDetail
             service={selectedService}
+            searchAnchor={detailSearchAnchor}
+            searchTerm={detailSearchTerm}
             isFavorite={isFavorite('service', selectedService.id)}
             onToggleFavorite={(id) => handleToggleFavorite('service', id)}
             onBack={goBack}
@@ -587,6 +823,8 @@ export default function App() {
         ) : selectedArticle ? (
           <ArticleDetail
             article={selectedArticle}
+            searchAnchor={detailSearchAnchor}
+            searchTerm={detailSearchTerm}
             isFavorite={isFavorite('article', selectedArticle.id)}
             onToggleFavorite={(id) => handleToggleFavorite('article', id)}
             onBack={goBack}
@@ -661,27 +899,24 @@ export default function App() {
         ) : selectedScholarship ? (
           <ScholarshipDetailModal
             scholarship={selectedScholarship}
+            searchAnchor={detailSearchAnchor}
+            searchTerm={detailSearchTerm}
             onClose={goBack}
             onToggleFavorite={(id) => handleToggleFavorite('scholarship', id)}
             isFavorite={isFavorite('scholarship', selectedScholarship.id)}
             onAddToTracker={handleAddToTracker}
-            onOpenAiLetter={(title) => {
-              setPresetAiScholarship(title);
-              setAiToolsInitialTab('letter');
-              setIsAiToolsOpen(true);
-            }}
+            onOpenAiLetter={() => openStudentTools('motivation-letter-generator')}
             onOpenUniversity={(universityId) => {
-              const university = graphIdentityTarget(universities, universityId, publicGraph.scholarship?.relationships.universities);
-              if (!university) return;
-              setSelectedScholarship(null);
-              setSelectedUniversity(university);
+              void openPublishedUniversityByIdentity(
+                universityId,
+                publicGraph.scholarship?.relationships.universities ?? [],
+              );
             }}
             onOpenMajor={(majorId) => {
-              const major = graphIdentityTarget(majors, majorId, publicGraph.scholarship?.relationships.majors);
-              if (!major) return;
-              setSelectedScholarship(null);
-              setSelectedUniversity(null);
-              setSelectedMajor(major);
+              void openPublishedMajorByIdentity(
+                majorId,
+                publicGraph.scholarship?.relationships.majors ?? [],
+              );
             }}
             onOpenCountry={() => {
               if (!selectedScholarship.countryReferenceId) return;
@@ -720,6 +955,8 @@ export default function App() {
         ) : selectedUniversity ? (
           <UniversityDetailModal
             university={selectedUniversity}
+            searchAnchor={detailSearchAnchor}
+            searchTerm={detailSearchTerm}
             onClose={goBack}
             isSaved={isFavorite('university', selectedUniversity.id)}
             onToggleSave={(e) => {
@@ -782,6 +1019,8 @@ export default function App() {
         ) : selectedMajor ? (
           <MajorDetailModal
             major={selectedMajor}
+            searchAnchor={detailSearchAnchor}
+            searchTerm={detailSearchTerm}
             relationshipGraph={publicGraph.majorView}
             relationshipGraphStatus={publicGraph.loading ? 'loading' : publicGraph.error ? 'unavailable' : 'ready'}
             isFavorite={isFavorite('major', selectedMajor.id)}
@@ -848,6 +1087,8 @@ export default function App() {
         ) : selectedImportedCourse ? (
           <ImportedCourseDetail
             course={selectedImportedCourse}
+            searchAnchor={detailSearchAnchor}
+            searchTerm={detailSearchTerm}
             isFavorite={isFavorite('course', selectedImportedCourse.id)}
             onToggleFavorite={(id) => handleToggleFavorite('course', id)}
             onBack={goBack}
@@ -906,6 +1147,8 @@ export default function App() {
         ) : selectedExam ? (
           <ExamDetailModal
             exam={selectedExam}
+            searchAnchor={detailSearchAnchor}
+            searchTerm={detailSearchTerm}
             isFavorite={isFavorite('exam', selectedExam.id)}
             onToggleFavorite={(id) => handleToggleFavorite('exam', id)}
             onClose={goBack}
@@ -950,7 +1193,7 @@ export default function App() {
           <>
             {/* TAB 1: HOME VIEW (Exactly as in Reference Screenshot) */}
             {activeTab === 'home' && selectedCategory === 'all' && (
-              <div className="flex flex-col items-center w-full px-3 sm:px-4 pt-2 sm:pt-3">
+              <div className="mn-public-container flex flex-col items-center pt-2 sm:pt-3">
                 <div className="w-full space-y-1">
                   {/* Global Search + Smart Search now live persistently in the Header. */}
                   {/* Hero Banner matching Mockup */}
@@ -959,10 +1202,7 @@ export default function App() {
                       setActiveTab('search');
                       setSelectedCategory('scholarships');
                     }}
-                    onOpenAiHelper={() => {
-                      setAiToolsInitialTab('chat');
-                      setIsAiToolsOpen(true);
-                    }}
+                    onOpenAiHelper={() => openStudentTools()}
                   />
 
                   {/* 3. Category Icons matching Mockup */}
@@ -974,12 +1214,12 @@ export default function App() {
 
                 {/* --- Timeline Container for All Sections --- */}
                 <div className="w-full relative mt-2 pb-4">
-                  {/* 🌟 The Glowing Scroll Track (Yellow line only) pushed to exact right edge */}
+                  {/* Subtle gold timeline track */}
                   <div className="absolute right-0 sm:-right-2 top-8 bottom-12 w-[3px] z-0">
                     <div className="sticky top-1/2 w-full h-24 -mt-12 bg-gradient-to-b from-transparent via-[var(--mn-accent-soft)]/80 to-transparent rounded-full animate-pulse-subtle shadow-[0_0_8px_rgba(214,164,59,0.6)]"></div>
                   </div>
 
-                  <div className="space-y-5 relative z-10 w-full px-1 sm:px-2">
+                  <div className="space-y-5 relative z-10 w-full">
                     {/* 1. Featured Scholarships */}
                     <div className="relative w-full">
                       <FeaturedScholarships
@@ -1037,12 +1277,21 @@ export default function App() {
 
                     {/* 5. AI Tools Section */}
                     <div className="relative w-full">
-                      <AIToolsBanner onOpenAiTools={() => setActiveTab('ai-tools')} />
+                      <AIToolsBanner onOpenAiTools={openStudentTools} />
                     </div>
 
                     {/* 6. Roadmap Preview */}
                     <div className="relative w-full pb-2">
-                      <RoadmapPreview onOpen={() => openSection('tracker')} />
+                      <RoadmapPreview
+                        onNavigate={(target) => {
+                          if (target === 'smart-search') { setGlobalSearchQuery(''); setSelectedCategory('all'); setActiveTab('search'); setIsSmartSearchOpen(true); }
+                          if (target === 'scholarships') { setSearchQuery(''); setSelectedCategory('scholarships'); setActiveTab('search'); }
+                          if (target === 'exams') { setSearchQuery(''); setSelectedCategory('exams'); setActiveTab('search'); }
+                          if (target === 'tools') { openStudentTools(); }
+                          if (target === 'student') { setActiveTab('account'); }
+                          window.scrollTo({ top: 0, behavior: 'instant' });
+                        }}
+                      />
                     </div>
 
                     {/* 7. Featured Exams */}
@@ -1140,7 +1389,7 @@ export default function App() {
                 scholarships={scholarships}
                 universities={universities}
                 majors={majors}
-                countries={countries}
+                countries={countriesForView}
                 importedCourses={importedCourses}
                 exams={exams}
                 articles={articles}
@@ -1149,27 +1398,21 @@ export default function App() {
                 careers={careers}
                 onBack={goBack}
                 onOpenSmartSearch={() => setIsSmartSearchOpen(true)}
-                onOpenScholarship={(item) => setSelectedScholarship(item)}
-                onOpenUniversity={(item) => setSelectedUniversity(item)}
-                onOpenMajor={(item) => setSelectedMajor(item)}
-                onOpenExam={(item) => setSelectedExam(item)}
-                onOpenCourse={(item) => setSelectedImportedCourse(item)}
-                onOpenArticle={(item) => setSelectedArticle(item)}
-                onOpenService={(item) => {
-                  setServiceReturnTab(null);
-                  setSelectedServiceTrack(item.audience);
-                  setSelectedService(item);
-                }}
-                onOpenCountry={(countryId) => {
-                  setCountryNavigationName(countryId);
-                  setSelectedCategory('countries');
-                  setActiveTab('search');
-                }}
-                onNavigateCategory={(category) => {
-                  setFavoriteLaunch(null);
-                  setSelectedCategory(category);
-                  setActiveTab(category === 'tools' ? 'ai-tools' : 'search');
-                }}
+                onOpenScholarship={(item, target) => navigate({ activeTab: 'search', selectedCategory: 'all', selectedScholarship: item, detailSearchAnchor: target?.anchor || '', detailSearchTerm: target?.searchTerm || '' })}
+                onOpenUniversity={(item, target) => navigate({ activeTab: 'search', selectedCategory: 'all', selectedUniversity: item, detailSearchAnchor: target?.anchor || '', detailSearchTerm: target?.searchTerm || '' })}
+                onOpenMajor={(item, target) => navigate({ activeTab: 'search', selectedCategory: 'all', selectedMajor: item, detailSearchAnchor: target?.anchor || '', detailSearchTerm: target?.searchTerm || '' })}
+                onOpenExam={(item, target) => navigate({ activeTab: 'search', selectedCategory: 'all', selectedExam: item, detailSearchAnchor: target?.anchor || '', detailSearchTerm: target?.searchTerm || '' })}
+                onOpenCourse={(item, target) => navigate({ activeTab: 'search', selectedCategory: 'all', selectedImportedCourse: item, detailSearchAnchor: target?.anchor || '', detailSearchTerm: target?.searchTerm || '' })}
+                onOpenArticle={(item, target) => navigate({ activeTab: 'search', selectedCategory: 'all', selectedArticle: item, detailSearchAnchor: target?.anchor || '', detailSearchTerm: target?.searchTerm || '' })}
+                onOpenService={(item, target) => navigate({ activeTab: 'search', selectedCategory: 'all', selectedServiceTrack: item.audience, selectedService: item, detailSearchAnchor: target?.anchor || '', detailSearchTerm: target?.searchTerm || '' })}
+                onOpenCountry={(countryId, target) => navigate({ activeTab: 'search', selectedCategory: 'countries', nestedDetailId: countryId, detailSearchAnchor: target?.anchor || '', detailSearchTerm: target?.searchTerm || '' })}
+                onNavigateCategory={(category, targetId, target) => navigate({
+                  activeTab: category === 'tools' ? 'ai-tools' : 'search',
+                  selectedCategory: category,
+                  nestedDetailId: targetId || '',
+                  detailSearchAnchor: target?.anchor || '',
+                  detailSearchTerm: target?.searchTerm || '',
+                })}
                 favoriteKeys={favoriteKeys}
                 onToggleFavorite={handleToggleFavorite}
               />
@@ -1196,7 +1439,10 @@ export default function App() {
             ) : (activeTab === 'search' || (activeTab === 'home' && selectedCategory !== 'all')) &&
               selectedCategory === 'countries' ? (
               <CountriesSearchPage detailId={navigation.state.nestedDetailId} onDetailChange={(id) => navigation.field('nestedDetailId')[1](id)}
-                countries={countries}
+                searchAnchor={detailSearchAnchor}
+                searchTerm={detailSearchTerm}
+                countries={countriesForView}
+                relationshipGraph={publicGraph.country}
                 initialCountryIdentity={countryNavigationName}
                 onBack={goBack}
                 onSelectCountryScholarships={(countryId) => {
@@ -1206,31 +1452,19 @@ export default function App() {
                   setActiveTab('search');
                 }}
                 onOpenUniversity={(universityId) => {
-                  const university = universities.find((item) => item.id === universityId);
-                  if (!university) return;
-                  setCountryNavigationName('');
-                  setSelectedScholarship(null);
-                  setSelectedMajor(null);
-                  setSelectedUniversity(university);
-                  window.scrollTo({ top: 0, behavior: 'instant' });
+                  void openPublishedUniversityByIdentity(
+                    universityId,
+                    publicGraph.country?.relationships.universities.data ?? [],
+                  );
                 }}
                 onOpenScholarship={(scholarshipId) => {
-                  const scholarship = scholarships.find((item) => item.id === scholarshipId);
-                  if (!scholarship) return;
-                  setCountryNavigationName('');
-                  setSelectedUniversity(null);
-                  setSelectedMajor(null);
-                  setSelectedScholarship(scholarship);
-                  window.scrollTo({ top: 0, behavior: 'instant' });
+                  void openPublishedScholarshipByIdentity(
+                    scholarshipId,
+                    publicGraph.country?.relationships.scholarships.data ?? [],
+                  );
                 }}
                 onOpenMajor={(majorId) => {
-                  const major = majors.find((item) => item.id === majorId);
-                  if (!major) return;
-                  setCountryNavigationName('');
-                  setSelectedUniversity(null);
-                  setSelectedScholarship(null);
-                  setSelectedMajor(major);
-                  window.scrollTo({ top: 0, behavior: 'instant' });
+                  void openPublishedMajorByIdentity(majorId);
                 }}
                 onOpenExam={(examId) => {
                   const exam = exams.find((item) => item.id === examId);
@@ -1290,7 +1524,7 @@ export default function App() {
               />
             ) : (activeTab === 'search' || (activeTab === 'home' && selectedCategory !== 'all')) &&
               selectedCategory === 'jobs' ? (
-              <CareersSearchPage opportunities={careers} detailId={navigation.state.nestedDetailId} onDetailChange={(id) => navigation.field('nestedDetailId')[1](id)}
+              <CareersSearchPage opportunities={careersForView} detailId={navigation.state.nestedDetailId} onDetailChange={(id) => navigation.field('nestedDetailId')[1](id)} searchAnchor={detailSearchAnchor} searchTerm={detailSearchTerm}
                 onBack={goBack}
                 onNavigateCategory={(category) => {
                   setFavoriteLaunch(null);
@@ -1365,7 +1599,7 @@ export default function App() {
               )
             ) : (
               (activeTab === 'search' || (activeTab === 'home' && selectedCategory !== 'all')) && (
-                <div className="w-full max-w-4xl lg:max-w-5xl mx-auto px-4 py-2 sm:pt-3 space-y-3">
+                <div className="w-full max-w-4xl lg:max-w-5xl mx-auto mn-inline-gutter py-2 sm:pt-3 space-y-3">
                   {/* Search Bar at Top */}
                   <SmartSearchBar
                     searchQuery={searchQuery}
@@ -1373,21 +1607,20 @@ export default function App() {
                     onSelectTag={setSearchQuery}
                     selectedCountry={selectedCountry}
                     onSelectCountry={setSelectedCountry}
-                    onOpenAiTools={(tab) => {
-                      setAiToolsInitialTab(tab || 'search');
-                      setIsAiToolsOpen(true);
-                    }}
+                    onOpenAiTools={() => openStudentTools()}
                   />
 
                   {/* Category Quick Filter Pills */}
                   <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
                     {[
-                      { id: 'scholarships', label: '🎓 المنح الدراسية' },
-                      { id: 'universities', label: '🏛️ الجامعات' },
-                      { id: 'exams', label: '📝 الاختبارات' },
-                      { id: 'courses', label: '📚 الدورات' },
-                      { id: 'majors', label: '💼 التخصصات' },
-                    ].map((item) => (
+                      { id: 'scholarships', label: 'المنح الدراسية', icon: GraduationCap },
+                      { id: 'universities', label: 'الجامعات', icon: Building2 },
+                      { id: 'exams', label: 'الاختبارات', icon: ClipboardCheck },
+                      { id: 'courses', label: 'الدورات', icon: BookOpen },
+                      { id: 'majors', label: 'التخصصات', icon: BriefcaseBusiness },
+                    ].map((item) => {
+                      const ItemIcon = item.icon;
+                      return (
                       <button
                         key={item.id}
                         onClick={() => {
@@ -1395,16 +1628,18 @@ export default function App() {
                           setExamNavigationQuery('');
                           setSelectedCategory(item.id as any);
                         }}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all inline-flex items-center gap-1.5 ${
                           selectedCategory === item.id ||
                           (selectedCategory === 'all' && item.id === 'scholarships')
                             ? 'bg-[var(--mn-primary)] text-[var(--mn-accent-soft)] shadow-xs mn-inverse '
                             : 'bg-[var(--mn-surface-muted)] border border-[var(--mn-border)] text-[var(--mn-text)] hover:bg-[var(--mn-page)] mn-panel hover:mn-panel '
                         }`}
                       >
+                        <ItemIcon className="h-3.5 w-3.5 shrink-0" />
                         {item.label}
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Specific Category View Dispatcher */}
@@ -1436,7 +1671,7 @@ export default function App() {
                     </div>
                   ) : selectedCategory === 'tools' ? (
                     <div className="pt-2">
-                      <AIToolsBanner onOpenAiTools={() => setActiveTab('ai-tools')} />
+                      <AIToolsBanner onOpenAiTools={openStudentTools} />
                     </div>
                   ) : (
                     /* Scholarships Cards List */
@@ -1454,7 +1689,7 @@ export default function App() {
                               : 'bg-[var(--mn-surface-muted)] text-[var(--mn-text)] border-[var(--mn-border)] mn-panel '
                           }`}
                         >
-                          ⭐ ممولة بالكامل فقط
+                          <span className="inline-flex items-center gap-1.5"><BadgeDollarSign className="h-3.5 w-3.5" aria-hidden="true" />ممولة بالكامل فقط</span>
                         </button>
                       </div>
 
@@ -1501,14 +1736,14 @@ export default function App() {
                                   />
                                   <div>
                                     <div className="flex items-center gap-1.5">
-                                      <span className="px-2 py-0.5 rounded-full bg-[var(--mn-gold-surface)] text-[var(--mn-heading)] font-black text-[9px] mn-panel ">
+                                      <span className="px-2 py-0.5 rounded-full bg-[var(--mn-gold-surface)] text-[var(--mn-heading)] font-bold text-[9px] mn-panel ">
                                         {sch.fundingType}
                                       </span>
                                       <span className="text-xs">
                                         {sch.countryFlag} {sch.country}
                                       </span>
                                     </div>
-                                    <h3 className="text-xs font-black text-[var(--mn-heading)] mt-1 leading-snug">
+                                    <h3 className="text-xs font-bold text-[var(--mn-heading)] mt-1 leading-snug">
                                       {sch.title}
                                     </h3>
                                     <p className="text-[10px] text-[var(--mn-text-muted)] font-semibold mt-0.5">
@@ -1544,7 +1779,7 @@ export default function App() {
                                   <span>{sch.degreeLevel.join(', ')}</span>
                                 </div>
 
-                                <span className="text-[11px] font-extrabold text-[var(--mn-heading)] flex items-center gap-1">
+                                <span className="text-[11px] font-semibold text-[var(--mn-heading)] flex items-center gap-1">
                                   <span>التفاصيل والشروط</span>
                                   <ChevronLeft className="w-3 h-3 text-[var(--mn-accent-text)]" />
                                 </span>
@@ -1569,7 +1804,7 @@ export default function App() {
                 scholarships={scholarships}
                 universities={universities}
                 majors={majors}
-                countries={countries}
+                countries={countriesForView}
                 importedCourses={importedCourses}
                 exams={exams}
                 articles={articles}
@@ -1614,7 +1849,7 @@ export default function App() {
 
             {/* TAB 4: SMART AI TOOLS VIEW */}
             {activeTab === 'ai-tools' && (
-              <AIToolsPage tools={tools} detailId={navigation.state.nestedDetailId} onDetailChange={(id) => navigation.field('nestedDetailId')[1](id)}
+              <AIToolsPage tools={tools} detailId={navigation.state.nestedDetailId} onDetailChange={(id) => navigation.field('nestedDetailId')[1](id)} searchAnchor={detailSearchAnchor} searchTerm={detailSearchTerm}
                 onBack={goBack}
                 onNavigateCategory={(category) => {
                   setFavoriteLaunch(null);
@@ -1665,7 +1900,14 @@ export default function App() {
 
             {activeTab === 'auth' && (
               publicDataMode === 'api' ? (
-                <LiveStudentAuthPage onAuthenticated={() => { setActiveTab('account'); window.history.replaceState(null, '', '/student'); }} />
+                <LiveStudentAuthPage onAuthenticated={(destination) => {
+                  if (destination.kind === 'admin') {
+                    window.location.assign(destination.path);
+                    return;
+                  }
+                  setActiveTab('account');
+                  window.history.replaceState({...window.history.state}, '', '/student');
+                }} />
               ) : (
                 <div className="w-full max-w-4xl lg:max-w-5xl mx-auto flex items-center justify-center min-h-[70vh]">
                   <PrototypeAuthPage onBackToWorkspace={goBack} />
@@ -1692,11 +1934,7 @@ export default function App() {
                   }}
                   allScholarships={scholarships}
                   courses={courses}
-                  onOpenAiLetterForScholarship={(schTitle) => {
-                    setPresetAiScholarship(schTitle);
-                    setAiToolsInitialTab('letter');
-                    setIsAiToolsOpen(true);
-                  }}
+                  onOpenAiLetterForScholarship={() => openStudentTools('motivation-letter-generator')}
                   onOpenScholarshipDetails={(sch) => setSelectedScholarship(sch)}
                 />
               </div>
@@ -1755,18 +1993,6 @@ export default function App() {
         onDismissToast={() => setActiveToast(null)}
       />}
 
-      {/* AI Tools Modal */}
-      <AIToolsModal
-        isOpen={isAiToolsOpen}
-        onClose={() => setIsAiToolsOpen(false)}
-        initialTab={aiToolsInitialTab}
-        allScholarships={scholarships}
-        onSelectScholarship={(sch) => {
-          setSelectedScholarship(sch);
-          setIsAiToolsOpen(false);
-        }}
-        presetScholarshipTitle={presetAiScholarship}
-      />
     </div>
   );
 }

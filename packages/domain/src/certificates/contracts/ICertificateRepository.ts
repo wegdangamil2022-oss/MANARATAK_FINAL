@@ -1,4 +1,5 @@
 import {
+  AttachCertificateArtifactsDto,
   CertificateAnalyticsDto,
   CertificateDto,
   CertificateIssuerDto,
@@ -32,6 +33,7 @@ export interface ICertificateRepository {
   listTemplates(): Promise<CertificateTemplateDto[]>;
 
   issue(data: IssueCertificateDto): Promise<CertificateDto>;
+  attachArtifacts(data: AttachCertificateArtifactsDto): Promise<CertificateDto>;
   findById(id: string): Promise<CertificateDto | null>;
   findBySourceEventId(sourceEventId: string): Promise<CertificateDto | null>;
   findBySourceCompletionId(sourceCompletionId: string): Promise<CertificateDto | null>;

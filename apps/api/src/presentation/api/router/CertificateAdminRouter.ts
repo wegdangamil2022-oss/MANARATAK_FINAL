@@ -99,6 +99,7 @@ export class CertificateAdminRouter {
       })),
     ));
     router.get('/analytics', permit('admin:certificates:view'), asyncHandler(async (_req: Request, res: Response) => res.json(await useCases.analytics())));
+    router.get('/readiness', permit('admin:certificates:view'), asyncHandler(async (_req: Request, res: Response) => res.json(await useCases.readiness())));
 
     router.get('/issuers', permit('admin:certificates:view'), asyncHandler(async (_req: Request, res: Response) => res.json({ data: await useCases.listIssuers() })));
     router.post('/issuers', permit('admin:certificates:issuers:manage'), asyncHandler(async (req: Request, res: Response) =>
@@ -109,6 +110,10 @@ export class CertificateAdminRouter {
     ));
 
     router.get('/templates', permit('admin:certificates:view'), asyncHandler(async (_req: Request, res: Response) => res.json({ data: await useCases.listTemplates() })));
+    router.post('/templates/bootstrap-default', permit('admin:certificates:templates:author'), asyncHandler(async (req: Request, res: Response) => {
+      const body = z.object({ issuerId: z.string().min(1) }).parse(req.body);
+      res.status(201).json(await useCases.bootstrapDefaultCourseTemplateDraft(body.issuerId, mutationContext(req)));
+    }));
     router.post('/templates', permit('admin:certificates:templates:author'), asyncHandler(async (req: Request, res: Response) =>
       res.status(201).json(await useCases.createTemplate(templateBody.parse(req.body), mutationContext(req))),
     ));

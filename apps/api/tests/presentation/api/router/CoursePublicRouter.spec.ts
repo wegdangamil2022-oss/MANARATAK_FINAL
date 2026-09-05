@@ -8,6 +8,7 @@ describe('CoursePublicRouter', () => {
   const createMockUseCases = () => ({
     listCourses: vi.fn(),
     getCourse: vi.fn(),
+    localizeRelationshipPage: vi.fn((result) => result),
   });
 
   const createRelationshipQueryService = () => ({ listPublishedRelatedCourses: vi.fn() });
@@ -33,7 +34,7 @@ describe('CoursePublicRouter', () => {
       platformName: 'Global Learning',
       page: 2,
       pageSize: 50
-    });
+    }, 'ar');
   });
 
 
@@ -64,7 +65,7 @@ describe('CoursePublicRouter', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ slug: 'intro-data-science', displayName: 'Introduction to Data Science' });
-    expect(useCases.getCourse).toHaveBeenCalledWith('intro-data-science');
+    expect(useCases.getCourse).toHaveBeenCalledWith('intro-data-science', 'ar');
   });
 
   it('GET /public/courses/:slug returns 404 when hidden or missing', async () => {
@@ -77,4 +78,21 @@ describe('CoursePublicRouter', () => {
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: 'Not found' });
   });
+  it('forwards locale to normal and relationship course projections', async () => {
+    const useCases = createMockUseCases();
+    const relationshipQueryService = createRelationshipQueryService();
+    relationshipQueryService.listPublishedRelatedCourses.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
+    const res = await request(createApp(useCases, relationshipQueryService)).get('/public/courses?majorId=major-1&locale=en');
+
+    expect(res.status).toBe(200);
+    expect(useCases.localizeRelationshipPage).toHaveBeenCalledWith(expect.any(Object), 'en');
+  });
+
+  it('rejects unsupported locales using the common locale error contract', async () => {
+    const useCases = createMockUseCases();
+    const res = await request(createApp(useCases)).get('/public/courses?locale=fr');
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('UNSUPPORTED_LOCALE');
+  });
+
 });

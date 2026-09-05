@@ -1,10 +1,20 @@
 import { CsrfClientManager } from '@manaratak/shared';
 
+function currentPublicLocale(): 'ar' | 'en' {
+  if (typeof window !== 'undefined') {
+    const routeLocale = window.location.pathname.split('/').filter(Boolean)[0];
+    if (routeLocale === 'ar' || routeLocale === 'en') return routeLocale;
+  }
+  if (typeof document !== 'undefined' && document.documentElement.lang === 'en') return 'en';
+  return 'ar';
+}
+
 export interface ReferenceCountryDto {
   id: string;
   iso2Code: string;
   iso3Code: string;
   name: string;
+  nameAr?: string | null;
   officialName?: string | null;
   region?: string | null;
   subregion?: string | null;
@@ -14,6 +24,44 @@ export interface ReferenceCountryDto {
   flagAssetId?: string | null;
   isActive: boolean;
   metadata?: Record<string, unknown>;
+}
+
+export interface PublicStudyDestinationDto {
+  id: string;
+  publicId: string;
+  slug: string;
+  countryReferenceId: string;
+  status: 'PUBLISHED';
+  completenessStatus: 'COMPLETE' | 'READY_TO_PUBLISH' | string;
+  overviewAr?: string | null;
+  overviewEn?: string | null;
+  studySystemSummaryAr?: string | null;
+  studySystemSummaryEn?: string | null;
+  admissionHighlightsAr: string[];
+  admissionHighlightsEn: string[];
+  visaSummaryAr?: string | null;
+  visaSummaryEn?: string | null;
+  visaRequirementsAr: string[];
+  visaRequirementsEn: string[];
+  visaOfficialUrl?: string | null;
+  livingCostTier?: 'LOW' | 'MODERATE' | 'HIGH' | 'VERY_HIGH' | null;
+  averageMonthlyLivingCostMin?: number | null;
+  averageMonthlyLivingCostMax?: number | null;
+  livingCostCurrencyReferenceId?: string | null;
+  costHighlightsAr: Array<{ label: string; value: string }>;
+  costHighlightsEn: Array<{ label: string; value: string }>;
+  studentLifeHighlightsAr: string[];
+  studentLifeHighlightsEn: string[];
+  officialLinks: Array<{ labelAr: string; labelEn?: string; url: string; category: string; noteAr?: string; noteEn?: string }>;
+  sourceVerificationStatus: 'VERIFIED';
+  sourceAuditDate?: string | null;
+  imageAssetId?: string | null;
+  studyLanguageReferenceIds: string[];
+  isFeatured: boolean;
+  publishedAt?: string | null;
+  country: ReferenceCountryDto;
+  studyLanguages: Array<{ id: string; name: string; nameAr?: string | null; languageCode?: string; iso6391Code?: string | null }>;
+  livingCostCurrency: { id: string; name: string; nameAr?: string | null; isoCode?: string; currencyCode?: string } | null;
 }
 
 export interface AdministrativeRegionDto {
@@ -101,8 +149,14 @@ export interface AcademicStandardMappingDto {
 }
 
 export interface ScholarshipFilters {
-  studyCountry?: string;
-  degreeLevel?: string;
+  countryReferenceId?: string;
+  studyLanguageReferenceId?: string;
+  currencyReferenceId?: string;
+  degreeLevelId?: string;
+  majorId?: string;
+  internationalTestId?: string;
+  universityId?: string;
+  academicProgramId?: string;
   fundingCoverage?: string;
   sponsorName?: string;
   applicationDeadlineFrom?: string;
@@ -135,9 +189,13 @@ export interface AdminScholarshipSummary {
 
 export interface UniversityFilters {
   locale?: 'ar' | 'en';
-  country?: string;
+  countryReferenceId?: string;
+  countryIso2Code?: string;
+  regionReferenceId?: string;
+  cityReferenceId?: string;
   institutionType?: string;
-  city?: string;
+  majorId?: string;
+  search?: string;
   page?: number;
   pageSize?: number;
 }
@@ -171,8 +229,10 @@ export interface NativeCourseDto {
   canonicalName: string;
   originType: 'NATIVE_MANARATAK_COURSE';
   status: NativeCourseStatus;
+  accessType: 'FREE_STUDY' | 'FREE_CERTIFICATE' | 'FREE_STUDY_AND_CERTIFICATE' | 'PAID';
   directCourseUrl: string;
   learningLanguage?: string;
+  learningLanguageReferenceId?: string | null;
   category?: string;
   difficultyLevel?: string;
   studyDuration?: string;
@@ -185,12 +245,14 @@ export interface NativeCourseDto {
 export interface CreateNativeCourseInput {
   titleAr: string;
   titleEn?: string;
+  accessType?: 'FREE_STUDY' | 'FREE_CERTIFICATE' | 'FREE_STUDY_AND_CERTIFICATE' | 'PAID';
   learningLanguage?: string;
   category?: string;
   difficultyLevel?: string;
 }
 export interface UpdateNativeCourseInput {
   displayName?: string;
+  accessType?: 'FREE_STUDY' | 'FREE_CERTIFICATE' | 'FREE_STUDY_AND_CERTIFICATE' | 'PAID';
   learningLanguage?: string | null;
   category?: string | null;
   difficultyLevel?: string | null;
@@ -207,6 +269,69 @@ export interface UpdateNativeCourseInput {
   promotionalVideoAssetId?: string;
   completionCriteria?: Record<string, unknown>;
 }
+
+export interface CourseEnrollmentPolicyDto {
+  courseId: string;
+  isCapacityLimited: boolean;
+  maximumSeats?: number | null;
+  requiresApproval: boolean;
+  waitlistEnabled: boolean;
+  prerequisiteCourseIds: string[];
+  eligibilityRules?: Record<string, unknown> | null;
+  requiresFinancialClearance: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CourseRelationshipReviewModel {
+  courseId: string;
+  source: {
+    status: string;
+    sourceImportRecordId?: string | null;
+    shortCourseTopicsRaw?: string | null;
+    learningLanguageRaw?: string | null;
+    learningLanguageReferenceId?: string | null;
+    learningLanguageResolutionState: string;
+    learningLanguageResolutionMethod?: string | null;
+    externalProviderId?: string | null;
+  };
+  taxonomyLinks: Array<Record<string, any> & { id: string; taxonomyNodeId: string; sourceTerm: string; reviewState: string; taxonomyNode?: { id: string; canonicalCode: string; canonicalName: string; nodeType: string } | null }>;
+  majorProjections: Array<Record<string, any> & { id: string; majorId: string; relationshipType: string; projectionState: string; major?: { id: string; publicId: string; slug: string; displayName: string; status: string } | null }>;
+  internationalTestRelationships: Array<Record<string, any> & {
+    id: string;
+    internationalTestId: string;
+    relationshipType: 'PREPARATION' | 'PRACTICE' | 'EXAM_READINESS' | 'RELATED';
+    reviewState: string;
+    internationalTest?: { id: string; publicId: string; slug: string; displayName: string; abbreviation?: string | null; status: string } | null;
+  }>;
+  geography: {
+    courseId: string;
+    providerId?: string | null;
+    providerName?: string | null;
+    providerHeadquartersCountryReferenceId?: string | null;
+    providerHeadquartersCountry?: { id: string; iso2Code: string; iso3Code: string; name: string } | null;
+    studyCountryReferenceIds: string[];
+    semantics: 'PROVIDER_HEADQUARTERS_ONLY' | 'NO_GEOGRAPHY';
+  };
+  closure: {
+    languageCanonical: boolean;
+    approvedTaxonomyLinks: number;
+    approvedMajorProjections: number;
+    approvedInternationalTestRelationships: number;
+    reviewRequired: boolean;
+  };
+}
+
+export interface AdminReferenceLanguageDto {
+  id: string;
+  isoCode: string;
+  name: string;
+  nameAr?: string | null;
+  nativeName?: string | null;
+  direction: 'LTR' | 'RTL';
+  isActive: boolean;
+}
+
 export interface CourseModuleDto {
   id: string;
   courseId: string;
@@ -513,34 +638,109 @@ export interface PublicCourseDto {
   updatedAt: string;
 }
 
+export interface StudentCourseProgressSnapshotDto {
+  enrollment: {
+    id: string;
+    courseId: string;
+    studentReferenceId: string;
+    status: string;
+    enrolledAt: string;
+    completedAt?: string | null;
+    progressPercentage: number;
+    lastAccessedAt?: string | null;
+  };
+  lessons: Array<{
+    id: string;
+    courseId: string;
+    lessonId: string;
+    studentReferenceId: string;
+    status: string;
+    progressPercentage: number;
+    startedAt?: string | null;
+    completedAt?: string | null;
+  }>;
+  quizAttempts: Array<{
+    id: string;
+    courseId: string;
+    quizId: string;
+    studentReferenceId: string;
+    attemptNumber: number;
+    status: string;
+    score?: number | null;
+    passed?: boolean | null;
+    startedAt: string;
+    submittedAt?: string | null;
+  }>;
+  completion?: { id: string; status: string; completedAt: string; eligibleForCertificate: boolean } | null;
+}
+
+export interface CourseLearnerQuestionDto {
+  id: string;
+  quizId?: string | null;
+  questionType: 'MULTIPLE_CHOICE' | 'TRUE_FALSE' | string;
+  prompt: string;
+  choices?: unknown;
+  points: number;
+  position: number;
+}
+
+export interface CourseLearnerWorkspaceDto {
+  progress: StudentCourseProgressSnapshotDto;
+  curriculum: {
+    modules: CourseModuleDto[];
+    lessons: CourseLessonDto[];
+    assets: Array<{ id: string; lessonId: string; title?: string | null; assetType: string; position: number; isRequired: boolean }>;
+    quizzes: CourseQuizDto[];
+    questions: CourseLearnerQuestionDto[];
+  };
+}
+
+export interface StudentCourseQuizAttemptDto {
+  id: string;
+  courseId: string;
+  quizId: string;
+  studentReferenceId: string;
+  attemptNumber: number;
+  status: string;
+  score?: number | null;
+  passed?: boolean | null;
+  startedAt: string;
+  submittedAt?: string | null;
+}
+
 export interface CertificateVerificationDto {
   publicId: string;
   serialNumber: string;
   verificationCode: string;
+  verificationUrl?: string | null;
   status: string;
-  studentReferenceId: string;
-  recipientDisplayName?: string | null;
-  courseId: string;
-  courseDisplayName: string;
-  courseCompletedAt: string;
-  issuedAt: string;
-  revokedAt?: string | null;
-  revocationReason?: string | null;
-  isValid: boolean;
-  verificationHash: string;
   certificateType: string;
+  recipientDisplayName?: string | null;
+  achievementType: 'COURSE' | 'LEARNING_PATH';
+  achievementDisplayName: string;
+  courseDisplayName?: string | null;
+  learningPathDisplayName?: string | null;
+  completedAt: string;
+  /** Compatibility alias for older admin-preview code; public API uses completedAt. */
+  courseCompletedAt?: string;
+  issuedAt: string;
   expiresAt?: string | null;
+  validityPolicy: string;
   issuerName?: string | null;
   grade?: string | null;
   skills: string[];
   competencies: string[];
   templateVersion?: string | null;
+  revokedAt?: string | null;
+  isValid: boolean;
   integrityVerified: boolean;
 }
 
 export interface AdminCertificateDto extends CertificateVerificationDto {
   id: string;
   studentReferenceId: string;
+  verificationHash?: string;
+  revocationReason?: string | null;
   courseId: string;
   courseCompletionId: string;
   validityPolicy: string;
@@ -874,6 +1074,9 @@ export interface PublicStudentToolDto {
   availability: { publicEnabled: boolean; anonymousEnabled: boolean; authenticatedEnabled: boolean; adminOnly: boolean; maintenanceMode: boolean };
   featureFlags: { globallyEnabled: boolean; anonymousEnabled: boolean; authenticatedEnabled: boolean; maintenanceMode: boolean };
   estimatedMinutes: number;
+  inputSchema?: { fields?: Array<{ key: string; labelAr: string; labelEn?: string; required: boolean; type: string }> };
+  outputSchema?: { fields?: Array<{ key: string; labelAr: string; labelEn?: string; required: boolean; type: string }> };
+  dependencies?: Array<{ phase: string; required: boolean; description: string; capabilityKey?: string | null }>;
   currentVersion: { semanticVersion: string };
   launchOrder: number;
 }
@@ -962,6 +1165,14 @@ export interface PublicInternationalTestOfficialLinkDto {
   description?: string;
 }
 
+export interface PublicInternationalTestReferenceRelationshipDto {
+  id?: string;
+  canonicalReferenceId: string;
+  referenceCode?: string;
+  relationshipType: string;
+  notes?: string;
+}
+
 export interface PublicInternationalTestAvailabilityDto {
   id: string;
   availableCountryIds: string[];
@@ -1008,6 +1219,8 @@ export interface PublicInternationalTestDto {
   accessibilityNotes?: string;
 
   availability?: PublicInternationalTestAvailabilityDto;
+  countryRelationships?: PublicInternationalTestReferenceRelationshipDto[];
+  languageRelationships?: PublicInternationalTestReferenceRelationshipDto[];
   officialLinks?: PublicInternationalTestOfficialLinkDto[];
   preparationMaterials?: PublicInternationalTestPreparationMaterialDto[];
 
@@ -1064,12 +1277,25 @@ export interface StablePublicGraphIdentity {
   displayName: string;
 }
 
+
+export interface PublicEditorialGraphIdentity {
+  contentId: string;
+  publicId: string;
+  slug: string;
+  contentType: string;
+  title: string;
+  summary?: string | null;
+  locale: string;
+  publishedAt: string;
+}
+
 export interface PublicMajorGraphDto {
   subject: StablePublicGraphIdentity;
   relationships: {
     universities: PaginatedResult<StablePublicGraphIdentity & { matchingPrograms?: Array<{ ownerId: string; sourceProgramName: string; degreeLevelId?: string | null; majorOwnerId: string }> }>;
     scholarships: PaginatedResult<StablePublicGraphIdentity>;
     courses: PaginatedResult<StablePublicGraphIdentity & { directCourseUrl: string; providerName?: string | null; category?: string | null }>;
+    editorialContent: PublicEditorialGraphIdentity[];
   };
 }
 
@@ -1080,6 +1306,7 @@ export interface PublicUniversityGraphDto {
     majors: StablePublicGraphIdentity[];
     academicPrograms: Array<{ ownerId: string; sourceProgramName: string; degreeLevelId?: string | null; majorOwnerId: string }>;
     scholarships: PaginatedResult<StablePublicGraphIdentity>;
+    editorialContent: PublicEditorialGraphIdentity[];
   };
 }
 
@@ -1090,6 +1317,7 @@ export interface PublicScholarshipGraphDto {
     universities: StablePublicGraphIdentity[];
     academicPrograms: Array<{ ownerId: string; universityOwnerId: string; universityPublicId: string; universitySlug: string; universityDisplayName: string; sourceProgramName: string; degreeLevelId?: string | null; majorOwnerId?: string | null; majorMappingState: string; status: string }>;
     majors: StablePublicGraphIdentity[];
+    editorialContent: PublicEditorialGraphIdentity[];
   };
 }
 
@@ -1097,8 +1325,14 @@ export interface PublicCountryGraphDto {
   subject: StablePublicGraphIdentity & { canonicalCode: string };
   relationships: {
     universities: PaginatedResult<StablePublicGraphIdentity>;
+    academicPrograms: Array<{ ownerId: string; universityOwnerId: string; universityPublicId: string; universitySlug: string; universityDisplayName: string; sourceProgramName: string; degreeLevelId?: string | null; majorOwnerId?: string | null; majorMappingState: string; status: string }>;
+    majors: StablePublicGraphIdentity[];
     scholarships: PaginatedResult<StablePublicGraphIdentity>;
+    internationalTests: PaginatedResult<StablePublicGraphIdentity & { providerName: string; status: string }>;
+    services: PaginatedResult<StablePublicGraphIdentity & { serviceCategory: string; deliveryMode: string }>;
+    careerJobs: PaginatedResult<StablePublicGraphIdentity & { opportunityType: string; employmentType: string }>;
     providerHeadquartersCourses: PaginatedResult<StablePublicGraphIdentity & { directCourseUrl: string; providerName?: string | null; category?: string | null }>;
+    editorialContent: PublicEditorialGraphIdentity[];
   };
 }
 
@@ -1130,6 +1364,24 @@ export async function apiFetch(
   init?: RequestInit,
 ): Promise<Response> {
   return csrfManager.fetchWithCsrf(input, init);
+}
+
+const STUDENT_TOOLS_SESSION_STORAGE_KEY = 'manaratak_student_tools_session';
+
+async function studentToolFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  try {
+    const token = sessionStorage.getItem(STUDENT_TOOLS_SESSION_STORAGE_KEY);
+    if (token) headers.set('x-student-tools-session', token);
+  } catch {
+    // Storage may be unavailable in privacy-restricted contexts; server-side network limiting still applies.
+  }
+  const response = await apiFetch(input, { ...init, headers });
+  const issued = response.headers.get('x-student-tools-session');
+  if (issued) {
+    try { sessionStorage.setItem(STUDENT_TOOLS_SESSION_STORAGE_KEY, issued); } catch { /* no-op */ }
+  }
+  return response;
 }
 
 function getAdminHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
@@ -1179,7 +1431,49 @@ async function parseErrorMessage(res: Response, fallback: string): Promise<strin
   return fallback;
 }
 
+async function studentCourseRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await apiFetch(`${API_BASE_URL}/student/courses${path}`, {
+    ...init,
+    headers: getStudentHeaders({
+      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(init?.headers as Record<string, string> | undefined),
+    }),
+  });
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('STUDENT_AUTHENTICATION_REQUIRED');
+    throw new Error(await parseErrorMessage(response, `Student course request failed (${response.status})`));
+  }
+  if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
+}
+
 export class ApiClient {
+  static async getAdminHealthOverview(): Promise<any> {
+    const res = await apiFetch(`${API_BASE_URL}/monitoring/overview`, {
+      headers: getAdminHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(await parseErrorMessage(res, 'Failed to fetch health overview'));
+    return res.json();
+  }
+
+  static async getStudyDestinations(filters: { isFeatured?: boolean; page?: number; pageSize?: number } = {}): Promise<PaginatedResult<PublicStudyDestinationDto>> {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => { if (value !== undefined && value !== null) params.set(key, String(value)); });
+    const res = await apiFetch(`${API_BASE_URL}/study-destinations?${params.toString()}`);
+    if (!res.ok) throw new Error(await parseErrorMessage(res, 'Failed to fetch study destinations'));
+    return res.json();
+  }
+
+  static async getStudyDestinationBySlug(slug: string): Promise<PublicStudyDestinationDto> {
+    const res = await apiFetch(`${API_BASE_URL}/study-destinations/${encodeURIComponent(slug)}`);
+    if (!res.ok) {
+      if (res.status === 404) throw new Error('Study destination not found');
+      throw new Error(await parseErrorMessage(res, 'Failed to fetch study destination'));
+    }
+    return res.json();
+  }
+
   static async getReferenceCountries(
     filters: ReferenceCountryFilters = {},
   ): Promise<ReferenceCountryDto[]> {
@@ -1393,6 +1687,7 @@ export class ApiClient {
 
   static async getScholarships(
     filters: ScholarshipFilters,
+    locale: 'ar' | 'en' = currentPublicLocale(),
   ): Promise<PaginatedResult<PublicScholarshipDto>> {
     const params = new URLSearchParams();
 
@@ -1402,6 +1697,7 @@ export class ApiClient {
       }
     });
 
+    params.set('locale', locale);
     const res = await apiFetch(`${API_BASE_URL}/public/scholarships?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -1413,8 +1709,8 @@ export class ApiClient {
     return res.json();
   }
 
-  static async getScholarshipBySlug(slug: string): Promise<PublicScholarshipDto> {
-    const res = await apiFetch(`${API_BASE_URL}/public/scholarships/${slug}`);
+  static async getScholarshipBySlug(slug: string, locale: 'ar' | 'en' = currentPublicLocale()): Promise<PublicScholarshipDto> {
+    const res = await apiFetch(`${API_BASE_URL}/public/scholarships/${encodeURIComponent(slug)}?locale=${encodeURIComponent(locale)}`);
     if (!res.ok) {
       if (res.status === 404) {
         throw new Error('Scholarship not found');
@@ -1439,6 +1735,7 @@ export class ApiClient {
       }
     });
 
+    params.set('locale', filters.locale ?? currentPublicLocale());
     const res = await apiFetch(`${API_BASE_URL}/public/universities?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -1450,8 +1747,11 @@ export class ApiClient {
     return res.json();
   }
 
-  static async getUniversityBySlug(slug: string): Promise<PublicUniversityDto> {
-    const res = await apiFetch(`${API_BASE_URL}/public/universities/${slug}`);
+  static async getUniversityBySlug(
+    slug: string,
+    locale: 'ar' | 'en' = currentPublicLocale(),
+  ): Promise<PublicUniversityDto> {
+    const res = await apiFetch(`${API_BASE_URL}/public/universities/${encodeURIComponent(slug)}?locale=${encodeURIComponent(locale)}`);
     if (!res.ok) {
       if (res.status === 404) {
         throw new Error('University not found');
@@ -1474,6 +1774,7 @@ export class ApiClient {
       }
     });
 
+    params.set('locale', filters.locale ?? currentPublicLocale());
     const res = await apiFetch(`${API_BASE_URL}/public/majors?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -1485,8 +1786,11 @@ export class ApiClient {
     return res.json();
   }
 
-  static async getMajorBySlug(slug: string): Promise<PublicMajorDto> {
-    const res = await apiFetch(`${API_BASE_URL}/public/majors/${slug}`);
+  static async getMajorBySlug(
+    slug: string,
+    locale: 'ar' | 'en' = currentPublicLocale(),
+  ): Promise<PublicMajorDto> {
+    const res = await apiFetch(`${API_BASE_URL}/public/majors/${encodeURIComponent(slug)}?locale=${encodeURIComponent(locale)}`);
     if (!res.ok) {
       if (res.status === 404) {
         throw new Error('Major not found');
@@ -1500,7 +1804,10 @@ export class ApiClient {
     return res.json();
   }
 
-  static async getCourses(filters: CourseFilters): Promise<PaginatedResult<PublicCourseDto>> {
+  static async getCourses(
+    filters: CourseFilters,
+    locale: 'ar' | 'en' = currentPublicLocale(),
+  ): Promise<PaginatedResult<PublicCourseDto>> {
     const params = new URLSearchParams();
 
     Object.entries(filters).forEach(([key, value]) => {
@@ -1509,6 +1816,7 @@ export class ApiClient {
       }
     });
 
+    params.set('locale', locale);
     const res = await apiFetch(`${API_BASE_URL}/public/courses?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -1520,8 +1828,8 @@ export class ApiClient {
     return res.json();
   }
 
-  static async getCourseBySlug(slug: string): Promise<PublicCourseDto> {
-    const res = await apiFetch(`${API_BASE_URL}/public/courses/${slug}`);
+  static async getCourseBySlug(slug: string, locale: 'ar' | 'en' = currentPublicLocale()): Promise<PublicCourseDto> {
+    const res = await apiFetch(`${API_BASE_URL}/public/courses/${encodeURIComponent(slug)}?locale=${encodeURIComponent(locale)}`);
     if (!res.ok) {
       if (res.status === 404) {
         throw new Error('Course not found');
@@ -1533,6 +1841,36 @@ export class ApiClient {
       );
     }
     return res.json();
+  }
+
+  static enrollStudentCourse(courseId: string): Promise<StudentCourseProgressSnapshotDto> {
+    return studentCourseRequest<StudentCourseProgressSnapshotDto>(`/${encodeURIComponent(courseId)}/enroll`, { method: 'POST' });
+  }
+
+  static getStudentCourseWorkspace(courseId: string): Promise<CourseLearnerWorkspaceDto> {
+    return studentCourseRequest<CourseLearnerWorkspaceDto>(`/${encodeURIComponent(courseId)}/workspace`);
+  }
+
+  static markStudentCourseLessonComplete(courseId: string, lessonId: string): Promise<StudentCourseProgressSnapshotDto> {
+    return studentCourseRequest<StudentCourseProgressSnapshotDto>(`/${encodeURIComponent(courseId)}/lessons/${encodeURIComponent(lessonId)}/progress`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'COMPLETED', progressPercentage: 100 }),
+    });
+  }
+
+  static startStudentCourseQuiz(courseId: string, quizId: string): Promise<StudentCourseQuizAttemptDto> {
+    return studentCourseRequest<StudentCourseQuizAttemptDto>(`/${encodeURIComponent(courseId)}/quizzes/${encodeURIComponent(quizId)}/attempts`, { method: 'POST' });
+  }
+
+  static submitStudentCourseQuiz(courseId: string, attemptId: string, answers: Record<string, unknown>): Promise<StudentCourseQuizAttemptDto> {
+    return studentCourseRequest<StudentCourseQuizAttemptDto>(`/${encodeURIComponent(courseId)}/quiz-attempts/${encodeURIComponent(attemptId)}/submit`, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    });
+  }
+
+  static completeStudentCourse(courseId: string): Promise<StudentCourseProgressSnapshotDto> {
+    return studentCourseRequest<StudentCourseProgressSnapshotDto>(`/${encodeURIComponent(courseId)}/complete`, { method: 'POST' });
   }
 
   static async verifyCertificate(verificationCode: string): Promise<CertificateVerificationDto> {
@@ -1757,14 +2095,14 @@ export class ApiClient {
   static async executeStudentTool(
     toolKey: string,
     input: unknown,
-    locale: 'ar' | 'en' = 'ar',
+    locale: 'ar' | 'en' = currentPublicLocale(),
   ): Promise<StudentToolExecutionResponseDto> {
-    const res = await apiFetch(
+    const res = await studentToolFetch(
       `${API_BASE_URL}/public/student-tools/${encodeURIComponent(toolKey)}/execute`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input, locale }),
+        body: JSON.stringify({ input, locale, idempotencyKey: crypto.randomUUID() }),
       },
     );
     if (!res.ok) {
@@ -1778,10 +2116,10 @@ export class ApiClient {
     return payload.data;
   }
 
-  static async saveStudentToolExecution(executionId: string, result: unknown): Promise<{ savedReference: string }> {
+  static async saveStudentToolExecution(executionId: string): Promise<{ savedReference: string }> {
     const res = await apiFetch(
       `${API_BASE_URL}/public/student-tools/executions/${encodeURIComponent(executionId)}/save`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ result }) },
+      { method: 'POST' },
     );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -1841,6 +2179,7 @@ export class ApiClient {
       }
     });
 
+    params.set('locale', filters.locale ?? currentPublicLocale());
     const res = await apiFetch(`${API_BASE_URL}/public/international-tests?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -1852,9 +2191,12 @@ export class ApiClient {
     return res.json();
   }
 
-  static async getInternationalTestBySlug(slug: string): Promise<PublicInternationalTestDto> {
+  static async getInternationalTestBySlug(
+    slug: string,
+    locale: 'ar' | 'en' = currentPublicLocale(),
+  ): Promise<PublicInternationalTestDto> {
     const res = await apiFetch(
-      `${API_BASE_URL}/public/international-tests/${encodeURIComponent(slug)}`,
+      `${API_BASE_URL}/public/international-tests/${encodeURIComponent(slug)}?locale=${encodeURIComponent(locale)}`,
     );
     if (!res.ok) {
       if (res.status === 404) {
@@ -1874,7 +2216,7 @@ export class ApiClient {
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') params.append(key, String(value));
     });
-    const res = await apiFetch(`${API_BASE_URL}/public/career/jobs?${params.toString()}`);
+    const res = await apiFetch(`${API_BASE_URL}/public/careers/jobs?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error((typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) || 'Failed to fetch career opportunities');
@@ -1883,7 +2225,7 @@ export class ApiClient {
   }
 
   static async getCareerJobBySlug(slug: string): Promise<PublicCareerJobDto> {
-    const res = await apiFetch(`${API_BASE_URL}/public/career/jobs/${encodeURIComponent(slug)}`);
+    const res = await apiFetch(`${API_BASE_URL}/public/careers/jobs/${encodeURIComponent(slug)}`);
     if (!res.ok) {
       if (res.status === 404) throw new Error('Career opportunity not found');
       const errorData = await res.json().catch(() => ({}));
@@ -1893,25 +2235,25 @@ export class ApiClient {
   }
 
   static async getMajorGraph(slug: string, page = 1, pageSize = 12): Promise<PublicMajorGraphDto> {
-    const res = await apiFetch(`${API_BASE_URL}/public/graph/majors/${encodeURIComponent(slug)}?page=${page}&pageSize=${pageSize}`);
+    const res = await apiFetch(`${API_BASE_URL}/public/graph/majors/${encodeURIComponent(slug)}?page=${page}&pageSize=${pageSize}&locale=${currentPublicLocale()}`);
     if (!res.ok) throw new Error(res.status === 404 ? 'Major graph not found' : 'Failed to fetch major graph');
     return res.json();
   }
 
   static async getUniversityGraph(slug: string, page = 1, pageSize = 12): Promise<PublicUniversityGraphDto> {
-    const res = await apiFetch(`${API_BASE_URL}/public/graph/universities/${encodeURIComponent(slug)}?page=${page}&pageSize=${pageSize}`);
+    const res = await apiFetch(`${API_BASE_URL}/public/graph/universities/${encodeURIComponent(slug)}?page=${page}&pageSize=${pageSize}&locale=${currentPublicLocale()}`);
     if (!res.ok) throw new Error(res.status === 404 ? 'University graph not found' : 'Failed to fetch university graph');
     return res.json();
   }
 
   static async getScholarshipGraph(slug: string): Promise<PublicScholarshipGraphDto> {
-    const res = await apiFetch(`${API_BASE_URL}/public/graph/scholarships/${encodeURIComponent(slug)}`);
+    const res = await apiFetch(`${API_BASE_URL}/public/graph/scholarships/${encodeURIComponent(slug)}?locale=${currentPublicLocale()}`);
     if (!res.ok) throw new Error(res.status === 404 ? 'Scholarship graph not found' : 'Failed to fetch scholarship graph');
     return res.json();
   }
 
   static async getCountryGraph(iso2Code: string, page = 1, pageSize = 12): Promise<PublicCountryGraphDto> {
-    const res = await apiFetch(`${API_BASE_URL}/public/graph/countries/${encodeURIComponent(iso2Code)}?page=${page}&pageSize=${pageSize}`);
+    const res = await apiFetch(`${API_BASE_URL}/public/graph/countries/${encodeURIComponent(iso2Code)}?page=${page}&pageSize=${pageSize}&locale=${currentPublicLocale()}`);
     if (!res.ok) throw new Error(res.status === 404 ? 'Country graph not found' : 'Failed to fetch country graph');
     return res.json();
   }
@@ -1931,14 +2273,18 @@ export class ApiClient {
     return res.json();
   }
 
-  static async getCurrentStudentIdentity(): Promise<{ principalId: string; displayName: string }> {
+  static async getCurrentSessionIdentity(): Promise<{ principalId: string; displayName: string; primaryEmail?: string; roles?: string[]; roleNames?: string[]; effectivePermissions?: string[] }> {
     const res = await apiFetch(`${API_BASE_URL}/auth/me`, { headers: getStudentHeaders() });
-    if (!res.ok) throw new Error('يلزم تسجيل الدخول للوصول إلى مساحة الطالب');
+    if (!res.ok) throw new Error('يلزم تسجيل الدخول للوصول إلى الحساب');
     const payload = await res.json();
     return payload.data;
   }
 
-  static async loginStudent(email: string, password: string): Promise<void> {
+  static async getCurrentStudentIdentity(): Promise<{ principalId: string; displayName: string; primaryEmail?: string; roles?: string[]; roleNames?: string[]; effectivePermissions?: string[] }> {
+    return this.getCurrentSessionIdentity();
+  }
+
+  static async login(email: string, password: string): Promise<void> {
     const res = await apiFetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: getStudentHeaders({ 'Content-Type': 'application/json' }),
@@ -1948,6 +2294,10 @@ export class ApiClient {
     if (!res.ok || !body?.data?.authenticated) {
       throw new Error(body?.error?.message || body?.message || 'تعذر تسجيل الدخول بهذه البيانات');
     }
+  }
+
+  static async loginStudent(email: string, password: string): Promise<void> {
+    return this.login(email, password);
   }
 
   static async logoutStudent(): Promise<void> {
@@ -2173,6 +2523,19 @@ export class ApiClient {
     return res.json();
   }
 
+  static async getAdminUniversityOrganizationUnits(filters: any, signal?: AbortSignal): Promise<PaginatedResult<any>> {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') params.append(key, String(value));
+    });
+    const res = await apiFetch(`${API_BASE_URL}/admin/universities/organization-units?${params.toString()}`, { headers: getAdminHeaders(), signal });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error((typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) || 'Failed to fetch university organization units');
+    }
+    return res.json();
+  }
+
   static async getAdminUniversityById(id: string): Promise<any> {
     const res = await apiFetch(`${API_BASE_URL}/admin/universities/${encodeURIComponent(id)}`, {
       headers: getAdminHeaders(),
@@ -2221,6 +2584,19 @@ export class ApiClient {
         (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
           'Failed to fetch admin majors',
       );
+    }
+    return res.json();
+  }
+
+  static async getAdminNewMajorCandidates(filters: any, signal?: AbortSignal): Promise<PaginatedResult<any>> {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') params.append(key, String(value));
+    });
+    const res = await apiFetch(`${API_BASE_URL}/admin/majors/new-candidates?${params.toString()}`, { headers: getAdminHeaders(), signal });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error((typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) || 'Failed to fetch new-major candidates');
     }
     return res.json();
   }
@@ -2852,6 +3228,107 @@ export class ApiClient {
     return adminCourseRequest<void>(`/${encodeURIComponent(id)}/${action}`, { method: 'POST' });
   }
 
+  static getAdminLearningPaths(): Promise<{ data: any[] }> {
+    return adminCourseRequest<{ data: any[] }>('/learning-paths');
+  }
+
+  static createAdminLearningPath(input: {
+    title: string;
+    description?: string;
+    isStrictlyOrdered?: boolean;
+    completionLogic?: 'ALL_REQUIRED' | 'ALL';
+    courses: Array<{ courseId: string; position: number; required: boolean; prerequisiteCourseIds: string[] }>;
+  }): Promise<any> {
+    return adminCourseRequest<any>('/learning-paths', { method: 'POST', body: JSON.stringify(input) });
+  }
+
+  static executeAdminLearningPathAction(pathId: string, action: 'mark-publishable' | 'publish' | 'archive'): Promise<any> {
+    return adminCourseRequest<any>(`/learning-paths/${encodeURIComponent(pathId)}/${action}`, { method: 'POST' });
+  }
+
+  static getAdminCourseRelationships(id: string): Promise<CourseRelationshipReviewModel> {
+    return adminCourseRequest<CourseRelationshipReviewModel>(`/${encodeURIComponent(id)}/relationships`);
+  }
+
+  static analyzeAdminCourseRelationships(id: string): Promise<any> {
+    return adminCourseRequest<any>(`/${encodeURIComponent(id)}/relationships/analyze`, { method: 'POST' });
+  }
+
+  static proposeAdminCourseTaxonomyLink(courseId: string, taxonomyNodeId: string, relationshipType: 'PRIMARY' | 'SECONDARY' | 'RELATED' = 'PRIMARY'): Promise<any> {
+    return adminCourseRequest<any>(`/${encodeURIComponent(courseId)}/relationships/taxonomy`, {
+      method: 'POST',
+      body: JSON.stringify({ taxonomyNodeId, relationshipType }),
+    });
+  }
+
+  static approveAdminCourseTaxonomyLink(courseId: string, linkId: string): Promise<any> {
+    return adminCourseRequest<any>(`/${encodeURIComponent(courseId)}/relationships/taxonomy/${encodeURIComponent(linkId)}/approve`, { method: 'POST' });
+  }
+
+  static rejectAdminCourseTaxonomyLink(courseId: string, linkId: string): Promise<any> {
+    return adminCourseRequest<any>(`/${encodeURIComponent(courseId)}/relationships/taxonomy/${encodeURIComponent(linkId)}/reject`, { method: 'POST' });
+  }
+
+  static approveAdminCourseLanguage(courseId: string, languageReferenceId: string): Promise<CourseRelationshipReviewModel> {
+    return adminCourseRequest<CourseRelationshipReviewModel>(`/${encodeURIComponent(courseId)}/relationships/language`, {
+      method: 'POST',
+      body: JSON.stringify({ languageReferenceId }),
+    });
+  }
+
+  static projectAdminCourseMajors(courseId: string): Promise<{ data: any[] }> {
+    return adminCourseRequest<{ data: any[] }>(`/${encodeURIComponent(courseId)}/relationships/majors/project`, { method: 'POST' });
+  }
+
+  static proposeAdminCourseMajorProjection(courseId: string, majorId: string, relationshipType: 'PRIMARY' | 'SECONDARY' | 'RELATED' = 'PRIMARY'): Promise<any> {
+    return adminCourseRequest<any>(`/${encodeURIComponent(courseId)}/relationships/majors`, {
+      method: 'POST',
+      body: JSON.stringify({ majorId, relationshipType }),
+    });
+  }
+
+  static approveAdminCourseMajorProjection(courseId: string, projectionId: string): Promise<any> {
+    return adminCourseRequest<any>(`/${encodeURIComponent(courseId)}/relationships/majors/${encodeURIComponent(projectionId)}/approve`, { method: 'POST' });
+  }
+
+  static rejectAdminCourseMajorProjection(courseId: string, projectionId: string): Promise<any> {
+    return adminCourseRequest<any>(`/${encodeURIComponent(courseId)}/relationships/majors/${encodeURIComponent(projectionId)}/reject`, { method: 'POST' });
+  }
+
+  static proposeAdminCourseInternationalTest(courseId: string, internationalTestId: string, relationshipType: 'PREPARATION' | 'PRACTICE' | 'EXAM_READINESS' | 'RELATED'): Promise<any> {
+    return adminCourseRequest<any>(`/${encodeURIComponent(courseId)}/relationships/tests`, {
+      method: 'POST',
+      body: JSON.stringify({ internationalTestId, relationshipType }),
+    });
+  }
+
+  static approveAdminCourseInternationalTest(courseId: string, relationshipId: string): Promise<any> {
+    return adminCourseRequest<any>(`/${encodeURIComponent(courseId)}/relationships/tests/${encodeURIComponent(relationshipId)}/approve`, { method: 'POST' });
+  }
+
+  static rejectAdminCourseInternationalTest(courseId: string, relationshipId: string): Promise<any> {
+    return adminCourseRequest<any>(`/${encodeURIComponent(courseId)}/relationships/tests/${encodeURIComponent(relationshipId)}/reject`, { method: 'POST' });
+  }
+
+  static getAdminCourseEnrollmentPolicy(courseId: string): Promise<CourseEnrollmentPolicyDto | null> {
+    return adminCourseRequest<CourseEnrollmentPolicyDto | null>(`/${encodeURIComponent(courseId)}/enrollment-policy`);
+  }
+
+  static updateAdminCourseEnrollmentPolicy(courseId: string, input: Partial<Omit<CourseEnrollmentPolicyDto, 'courseId' | 'createdAt' | 'updatedAt'>>): Promise<CourseEnrollmentPolicyDto> {
+    return adminCourseRequest<CourseEnrollmentPolicyDto>(`/${encodeURIComponent(courseId)}/enrollment-policy`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    });
+  }
+
+  static async getAdminReferenceLanguages(): Promise<AdminReferenceLanguageDto[]> {
+    const res = await apiFetch(`${API_BASE_URL}/admin/reference-data/languages?activeOnly=true`, { headers: getAdminHeaders() });
+    if (!res.ok) throw new Error(await parseErrorMessage(res, 'Failed to fetch reference languages'));
+    const body = await res.json();
+    return Array.isArray(body?.data) ? body.data : [];
+  }
+
+
   static async getAdminScholarships(
     filters: AdminScholarshipFilters,
   ): Promise<PaginatedResult<any>> {
@@ -2974,17 +3451,14 @@ export class ApiClient {
       normalizedDataType = 'TESTS';
     }
 
-    const dataText =
-      payload.dataText ||
-      payload.payloadText ||
-      JSON.stringify({
-        provider: payload.sourceSystem || 'Manual Import Channel',
-        importedAt: new Date().toISOString(),
-      });
+    const dataText = (payload.dataText || payload.payloadText || '').trim();
+    if (!dataText) {
+      throw new Error('Import text or CSV/JSON content is required. The import client does not fabricate placeholder records.');
+    }
 
     const requestBody = {
       dataType: normalizedDataType,
-      sourceSystem: payload.sourceSystem || 'Manual Import Channel',
+      sourceSystem: payload.sourceSystem || 'ADMIN_CONSOLE_MANUAL',
       dataText,
     };
 
@@ -3003,9 +3477,72 @@ export class ApiClient {
     return res.json();
   }
 
-  static async getImportBatches(dataType = 'SCHOLARSHIPS'): Promise<any[]> {
+  static async preflightImportBatch(payload: {
+    dataType?: string;
+    sourceSystem?: string;
+    dataText: string;
+  }): Promise<any> {
+    const res = await apiFetch(`${API_BASE_URL}/admin/imports/preflight`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to preflight import batch',
+      );
+    }
+    return res.json();
+  }
+
+  static async getImportOverview(dataType?: string): Promise<any> {
+    const suffix = dataType ? `?dataType=${encodeURIComponent(dataType)}` : '';
+    const res = await apiFetch(`${API_BASE_URL}/admin/imports/overview${suffix}`);
+    if (!res.ok) throw new Error('Failed to fetch import overview');
+    return res.json();
+  }
+
+  static async getImportOperations(dataType?: string): Promise<any> {
+    const suffix = dataType ? `?dataType=${encodeURIComponent(dataType)}` : '';
+    const res = await apiFetch(`${API_BASE_URL}/admin/imports/operations${suffix}`);
+    if (!res.ok) throw new Error('Failed to fetch import operational diagnostics');
+    return res.json();
+  }
+
+  static async getImportCapabilities(): Promise<any> {
+    const res = await apiFetch(`${API_BASE_URL}/admin/imports/capabilities`);
+    if (!res.ok) throw new Error('Failed to fetch import capabilities');
+    return res.json();
+  }
+
+  static async getImportSources(): Promise<any> {
+    const res = await apiFetch(`${API_BASE_URL}/admin/imports/sources`);
+    if (!res.ok) throw new Error('Failed to fetch import source registry');
+    return res.json();
+  }
+
+  static async updateImportSourceStatus(sourceId: string, status: string, reason?: string): Promise<any> {
+    const res = await apiFetch(`${API_BASE_URL}/admin/imports/sources/${encodeURIComponent(sourceId)}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, reason }),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(
+        (typeof errorData.error === 'string' ? errorData.error : errorData.error?.message) ||
+          'Failed to update import source status',
+      );
+    }
+    return res.json();
+  }
+
+  static async getImportBatches(dataType?: string): Promise<any[]> {
+    const suffix = dataType ? `?dataType=${encodeURIComponent(dataType)}` : '';
     const res = await apiFetch(
-      `${API_BASE_URL}/admin/imports/batches?dataType=${encodeURIComponent(dataType)}`,
+      `${API_BASE_URL}/admin/imports/batches${suffix}`,
     );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -3386,36 +3923,6 @@ export class ApiClient {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || 'Failed to transfer course import batch');
     }
-    return res.json();
-  }
-
-  // Paid Courses API
-  static async getAdminPaidCourses(params?: any): Promise<any[]> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/courses/paid`);
-    if (!res.ok) throw new Error('Failed to fetch paid courses');
-    return res.json();
-  }
-
-  static async getAdminPaidCourseById(id: string): Promise<any> {
-    const res = await apiFetch(`${API_BASE_URL}/admin/courses/paid/${encodeURIComponent(id)}`);
-    if (!res.ok) throw new Error('Failed to fetch paid course');
-    return res.json();
-  }
-
-  static async executeAdminPaidCourseAction(
-    id: string,
-    action: string,
-    payload?: any,
-  ): Promise<any> {
-    const res = await apiFetch(
-      `${API_BASE_URL}/admin/courses/paid/${encodeURIComponent(id)}/${action}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload || {}),
-      },
-    );
-    if (!res.ok) throw new Error(`Failed to execute paid course action ${action}`);
     return res.json();
   }
 

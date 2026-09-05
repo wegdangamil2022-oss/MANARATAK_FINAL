@@ -53,8 +53,8 @@ check('P4-020', files.scholarshipRouter.includes('majorId: z.string().min(1).opt
 check('P4-021', files.scholarshipRouter.includes('universityId: z.string().min(1).optional()'), 'Scholarship public API exposes canonical universityId');
 check('P4-022', files.courseDomain.includes('ownerId: string;'), 'P13 relationship DTO exposes stable ownerId');
 check('P4-023', files.courseRepo.includes("projectionState: 'APPROVED'"), 'P13 public reverse-major read requires approved projection');
-check('P4-024', files.courseRepo.includes("const where: Prisma.CourseWhereInput = { status: 'PUBLISHED' }"), 'P13 public relationship read requires published Course');
-check('P4-025', files.courseRepo.includes('({ id, ...record }) => ({ ownerId: id, ...record })'), 'P13 maps internal id to explicit ownerId without leaking id field');
+check('P4-024', /const where: Prisma\.CourseWhereInput = \{[\s\S]{0,180}status: 'PUBLISHED'/.test(files.courseRepo), 'P13 public relationship read requires published Course');
+check('P4-025', files.courseRepo.includes('records.map(({ id, optionalFields, ...record })') && files.courseRepo.includes('return { ownerId: id, ...record'), 'P13 maps internal id to explicit ownerId without leaking id field');
 check('P4-026', files.courseRouter.includes('courseRelationshipQueryService.listPublishedRelatedCourses'), 'P13 relationship query wired to public Course API');
 check('P4-027', files.courseRouter.includes('majorId: z.string().trim().min(1).optional()'), 'Course public API exposes canonical majorId');
 check('P4-028', files.graph.includes('providerHeadquartersCountryReferenceId: country.id'), 'Country→Course graph preserves provider-headquarters semantics');

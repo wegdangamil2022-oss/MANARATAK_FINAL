@@ -20,7 +20,7 @@ export const FeaturedUniversities: React.FC<FeaturedUniversitiesProps> = ({
   const getRankBadge = (rankIndex: number) => {
     if (rankIndex === 0) {
       return {
-        bg: 'bg-gradient-to-br from-[var(--mn-accent)] via-[var(--mn-accent-soft)] to-[var(--mn-accent)] text-[var(--mn-on-accent)] font-black mn-gold ',
+        bg: 'bg-gradient-to-br from-[var(--mn-accent)] via-[var(--mn-accent-soft)] to-[var(--mn-accent)] text-[var(--mn-on-accent)] font-bold mn-gold ',
         label: '#1',
       };
     }
@@ -37,7 +37,7 @@ export const FeaturedUniversities: React.FC<FeaturedUniversitiesProps> = ({
   };
 
   return (
-    <section id="featured-universities-section" className="px-0.5 sm:px-1 py-3 w-full">
+    <section id="featured-universities-section" className="px-0 py-3 w-full">
       {/* Standard Framed Container with top accent border only */}
       <div className="relative rounded-3xl p-3.5 sm:p-4 bg-gradient-to-b from-[var(--mn-surface)] to-[var(--mn-page)]/80 border border-[var(--mn-border)] shadow-sm border-t-2 border-t-[var(--mn-accent)]/40 overflow-hidden mn-panel ">
         {/* Content Inside the Framed Section */}
@@ -117,7 +117,7 @@ export const FeaturedUniversities: React.FC<FeaturedUniversitiesProps> = ({
 
                   {/* Left Side: QS Global Badge & Navigation Arrow */}
                   <div className="flex flex-col items-end justify-center shrink-0 pl-1">
-                    <span className="px-1.5 py-0.5 rounded-md bg-[var(--mn-accent)]/15 text-[var(--mn-accent-text)] font-black text-[9.5px] sm:text-[10px] border border-[var(--mn-accent)]/30 mb-0.5">
+                    <span className="px-1.5 py-0.5 rounded-md bg-[var(--mn-accent)]/15 text-[var(--mn-accent-text)] font-bold text-[9.5px] sm:text-[10px] border border-[var(--mn-accent)]/30 mb-0.5">
                       ترتيب #{uni.globalRank}
                     </span>
                     <span className="text-[9px] sm:text-[9.5px] font-bold text-[var(--mn-heading)] group-hover:text-[var(--mn-accent-text)] flex items-center gap-0.5 transition-colors">

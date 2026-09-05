@@ -181,28 +181,28 @@ export const FavoritesPage: React.FC<FavoritesPageProps> = ({
   return (
     <div className="min-h-screen bg-[var(--mn-page)] pb-24 mn-panel " dir="rtl">
       <section className="mn-search-hero text-white mn-inverse ">
-        <div className="max-w-5xl mx-auto px-4 py-5 sm:py-7">
+        <div className="max-w-5xl mx-auto mn-inline-gutter py-5 sm:py-7">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
               <Heart className="w-5 h-5 fill-[var(--mn-accent)] text-[var(--mn-accent)]" />
             </div>
             <div>
               <div className="text-[10px] sm:text-xs text-white font-bold">محفوظاتك من جميع أقسام منارتك</div>
-              <h1 className="mt-0.5 text-xl sm:text-2xl font-black font-['Cairo',sans-serif]">المفضلة</h1>
+              <h1 className="mt-0.5 text-xl sm:text-2xl font-bold font-['Cairo',sans-serif]">المفضلة</h1>
             </div>
-            <span className="mr-auto rounded-full bg-white/10 border border-white/20 px-2.5 py-1 text-[10px] font-black">{resolvedItems.length} محفوظة</span>
+            <span className="mr-auto rounded-full bg-white/10 border border-white/20 px-2.5 py-1 text-[10px] font-bold">{resolvedItems.length} محفوظة</span>
           </div>
         </div>
       </section>
 
-      <div className="max-w-5xl mx-auto px-3.5 sm:px-5 py-4 space-y-4">
+      <div className="max-w-5xl mx-auto mn-inline-gutter py-4 space-y-4">
         {resolvedItems.length > 0 && (
           <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
-            <button onClick={() => setSelectedKind('all')} className={`px-3 py-2 rounded-xl whitespace-nowrap text-[10px] font-black border cursor-pointer ${selectedKind === 'all' ? 'bg-[var(--mn-primary)] text-white border-[var(--mn-primary)] mn-inverse ' : 'bg-[var(--mn-surface)] text-[var(--mn-text-muted)] border-[var(--mn-border)] mn-panel '}`}>
+            <button onClick={() => setSelectedKind('all')} className={`px-3 py-2 rounded-xl whitespace-nowrap text-[10px] font-bold border cursor-pointer ${selectedKind === 'all' ? 'bg-[var(--mn-primary)] text-white border-[var(--mn-primary)] mn-inverse ' : 'bg-[var(--mn-surface)] text-[var(--mn-text-muted)] border-[var(--mn-border)] mn-panel '}`}>
               الكل · {resolvedItems.length}
             </button>
             {activeKinds.map((kind) => (
-              <button key={kind} onClick={() => setSelectedKind(kind)} className={`px-3 py-2 rounded-xl whitespace-nowrap text-[10px] font-black border flex items-center gap-1.5 cursor-pointer ${selectedKind === kind ? 'bg-[var(--mn-primary)] text-white border-[var(--mn-primary)] mn-inverse ' : 'bg-[var(--mn-surface)] text-[var(--mn-text-muted)] border-[var(--mn-border)] mn-panel '}`}>
+              <button key={kind} onClick={() => setSelectedKind(kind)} className={`px-3 py-2 rounded-xl whitespace-nowrap text-[10px] font-bold border flex items-center gap-1.5 cursor-pointer ${selectedKind === kind ? 'bg-[var(--mn-primary)] text-white border-[var(--mn-primary)] mn-inverse ' : 'bg-[var(--mn-surface)] text-[var(--mn-text-muted)] border-[var(--mn-border)] mn-panel '}`}>
                 {META[kind].icon}
                 {META[kind].label} · {counts[kind]}
               </button>
@@ -213,9 +213,9 @@ export const FavoritesPage: React.FC<FavoritesPageProps> = ({
         {resolvedItems.length === 0 ? (
           <div className="py-16 text-center rounded-3xl border border-dashed border-[var(--mn-border)] bg-[var(--mn-surface)] mn-panel ">
             <Heart className="w-10 h-10 mx-auto text-[var(--mn-text-muted)]" />
-            <div className="mt-2 text-xs font-black text-[var(--mn-heading)]">لا توجد عناصر محفوظة بعد.</div>
+            <div className="mt-2 text-xs font-bold text-[var(--mn-heading)]">لا توجد عناصر محفوظة بعد.</div>
             <div className="mt-1 text-[10px] text-[var(--mn-text-muted)]">احفظ منحة، جامعة، تخصص، دورة، أداة أو أي فرصة للرجوع إليها من هنا.</div>
-            <button onClick={() => onNavigateCategory('scholarships')} className="mt-3 px-4 py-2 rounded-xl bg-[var(--mn-primary)] text-white text-[10px] font-black cursor-pointer mn-inverse ">ابدأ الاستكشاف</button>
+            <button onClick={() => onNavigateCategory('scholarships')} className="mt-3 px-4 py-2 rounded-xl bg-[var(--mn-primary)] text-white text-[10px] font-bold cursor-pointer mn-inverse ">ابدأ الاستكشاف</button>
           </div>
         ) : visible.length === 0 ? (
           <div className="py-12 text-center text-[11px] text-[var(--mn-text-muted)]">لا توجد عناصر محفوظة في هذا النوع.</div>
@@ -227,10 +227,10 @@ export const FavoritesPage: React.FC<FavoritesPageProps> = ({
                   <div className="w-10 h-10 rounded-2xl bg-[var(--mn-primary)] text-white flex items-center justify-center shrink-0 mn-inverse ">{META[item.kind].icon}</div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-[9px] font-black text-[var(--mn-accent-text)]">{META[item.kind].label}</span>
+                      <span className="text-[9px] font-bold text-[var(--mn-accent-text)]">{META[item.kind].label}</span>
                       {item.meta && <span className="text-[9px] text-[var(--mn-text-muted)] font-bold truncate">{item.meta}</span>}
                     </div>
-                    <h2 className="mt-0.5 text-[13px] sm:text-sm leading-snug font-black text-[var(--mn-heading)]">{item.title}</h2>
+                    <h2 className="mt-0.5 text-[13px] sm:text-sm leading-snug font-bold text-[var(--mn-heading)]">{item.title}</h2>
                     <p className="mt-1 text-[10px] sm:text-[11px] leading-5 text-[var(--mn-text-muted)] line-clamp-2">{item.subtitle}</p>
                   </div>
                   <div className="flex flex-col items-center gap-1.5 shrink-0">

@@ -22,6 +22,7 @@ import {
 import { Exam, ExamEntityRef } from '../types';
 import { RelatedArticlesStrip } from './RelatedArticlesStrip';
 import { FavoriteButton } from './FavoriteButton';
+import { DetailBackButton, DetailSectionHeader, useDetailSearchTarget } from './DetailUi';
 
 interface ExamDetailModalProps {
   exam: Exam;
@@ -32,6 +33,8 @@ interface ExamDetailModalProps {
   onOpenArticle?: (articleId: string) => void;
   isFavorite?: boolean;
   onToggleFavorite?: (id: string) => void;
+  searchAnchor?: string;
+  searchTerm?: string;
 }
 
 export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
@@ -43,7 +46,10 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
   onOpenArticle,
   isFavorite = false,
   onToggleFavorite,
+  searchAnchor,
+  searchTerm,
 }) => {
+  useDetailSearchTarget(searchAnchor, searchTerm);
   const facts = exam.keyFacts?.length
     ? exam.keyFacts
     : [
@@ -64,14 +70,7 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
 
         <div className="relative mx-auto max-w-3xl">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/20 text-white backdrop-blur-sm transition hover:bg-black/30 active:scale-95"
-              aria-label="العودة إلى الاختبارات"
-            >
-              <ChevronLeft className="h-4 w-4 rotate-180" />
-            </button>
+            <DetailBackButton onBack={onClose} mode="close" />
             <div className="flex min-w-0 items-center gap-2">
               {onToggleFavorite && (
                 <FavoriteButton
@@ -83,7 +82,7 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
                   className="bg-[var(--mn-surface)]/95 mn-panel "
                 />
               )}
-              <span className="rounded-full border border-[var(--mn-accent)]/45 bg-[var(--mn-accent)]/10 px-2.5 py-1 text-[9.5px] font-black text-[var(--mn-accent-text)]">
+              <span className="rounded-full border border-[var(--mn-accent)]/45 bg-[var(--mn-accent)]/10 px-2.5 py-1 text-[9.5px] font-bold text-[var(--mn-accent-text)]">
                 {exam.category}
               </span>
               {exam.status && (
@@ -99,8 +98,8 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
               <Award className="h-6 w-6 text-[var(--mn-accent-text)]" />
             </div>
             <div className="min-w-0 flex-1">
-              <h1 className="text-[20px] font-black leading-tight text-white sm:text-2xl">{exam.name}</h1>
-              <p className="mt-0.5 text-[11px] font-extrabold tracking-wide text-[var(--mn-accent-text)]">
+              <h1 className="text-[20px] font-bold leading-tight text-white sm:text-2xl">{exam.name}</h1>
+              <p className="mt-0.5 text-[11px] font-semibold tracking-wide text-[var(--mn-accent-text)]">
                 {exam.nameEn}
                 {exam.testCode && exam.testCode !== exam.nameEn ? ` • ${exam.testCode}` : ''}
               </p>
@@ -116,7 +115,7 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
             {facts.slice(0, 4).map((fact) => (
               <div key={`${fact.label}-${fact.value}`} className="rounded-xl border border-white/10 bg-white/[0.08] px-2.5 py-2 backdrop-blur-sm">
                 <p className="text-[8.5px] font-bold text-[var(--mn-text-muted)]">{fact.label}</p>
-                <p className="mt-0.5 text-[11px] font-black leading-4 text-white">{fact.value}</p>
+                <p className="mt-0.5 text-[11px] font-bold leading-4 text-white">{fact.value}</p>
               </div>
             ))}
           </div>
@@ -133,10 +132,10 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-3xl flex-col gap-4 px-3.5 pt-4 sm:px-5">
+      <main className="mx-auto flex max-w-3xl flex-col gap-4 mn-inline-gutter pt-4">
         {exam.studentUses && exam.studentUses.length > 0 && (
           <section>
-            <SectionTitle icon={<Target className="h-4 w-4" />} title="متى تحتاج هذا الاختبار؟" />
+            <SectionTitle icon={<Target className="h-4 w-4" />} id="exam-about" title="متى تحتاج هذا الاختبار؟" />
             <div className="grid grid-cols-2 gap-1.5">
               {exam.studentUses.map((item, index) => (
                 <CompactTile key={item} index={index + 1} text={item} />
@@ -147,11 +146,11 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
 
         {exam.variants && exam.variants.length > 0 && (
           <section>
-            <SectionTitle icon={<Languages className="h-4 w-4" />} title="النسخ وطرق الاستخدام" subtitle="اختر النسخة حسب هدفك، لا حسب الاسم فقط" />
-            <div className="-mx-3.5 flex snap-x gap-2 overflow-x-auto px-3.5 pb-1 no-scrollbar sm:-mx-5 sm:px-5">
+            <SectionTitle icon={<Languages className="h-4 w-4" />} id="exam-versions" title="النسخ وطرق الاستخدام" subtitle="اختر النسخة حسب هدفك، لا حسب الاسم فقط" />
+            <div className="mn-detail-snap-row no-scrollbar">
               {exam.variants.map((variant) => (
                 <article key={variant.name} className="w-[76%] min-w-[230px] max-w-[290px] snap-start rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-3 shadow-sm mn-panel ">
-                  <p className="text-[11px] font-black text-[var(--mn-heading)]">{variant.name}</p>
+                  <p className="text-[11px] font-bold text-[var(--mn-heading)]">{variant.name}</p>
                   <p className="mt-1 text-[9.5px] font-semibold leading-4 text-[var(--mn-text-muted)]">{variant.meta}</p>
                   {variant.note && <p className="mt-2 rounded-lg bg-[var(--mn-gold-surface)] px-2 py-1.5 text-[8.5px] font-bold leading-4 text-[var(--mn-accent-text)] mn-panel ">{variant.note}</p>}
                 </article>
@@ -162,16 +161,16 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
 
         {exam.sections && exam.sections.length > 0 && (
           <section>
-            <SectionTitle icon={<BookOpen className="h-4 w-4" />} title="بنية الاختبار والأقسام" />
+            <SectionTitle icon={<BookOpen className="h-4 w-4" />} id="exam-structure" title="بنية الاختبار والأقسام" />
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {exam.sections.map((section, index) => (
                 <article key={`${section.name}-${index}`} className="rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-3 shadow-sm mn-panel ">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-[11px] font-black leading-4 text-[var(--mn-heading)]">{section.name}</p>
+                      <p className="text-[11px] font-bold leading-4 text-[var(--mn-heading)]">{section.name}</p>
                       {section.meta && <p className="mt-1 text-[9px] font-semibold leading-4 text-[var(--mn-text-muted)]">{section.meta}</p>}
                     </div>
-                    <span className="rounded-lg bg-[var(--mn-primary)]/8 px-2 py-1 text-[8.5px] font-black text-[var(--mn-heading)]">{index + 1}</span>
+                    <span className="rounded-lg bg-[var(--mn-primary)]/8 px-2 py-1 text-[8.5px] font-bold text-[var(--mn-heading)]">{index + 1}</span>
                   </div>
                   <div className="mt-2 grid grid-cols-3 gap-1">
                     <MiniFact label="الأسئلة" value={section.questionCount || '—'} />
@@ -195,7 +194,7 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
 
         {(exam.registrationSteps?.length || exam.registrationRequirements?.length) && (
           <section>
-            <SectionTitle icon={<FileText className="h-4 w-4" />} title="التسجيل والوثائق" />
+            <SectionTitle icon={<FileText className="h-4 w-4" />} id="exam-registration" title="التسجيل والوثائق" />
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {exam.registrationSteps && exam.registrationSteps.length > 0 && (
                 <NumberedPanel title="خطوات التسجيل" items={exam.registrationSteps} />
@@ -214,7 +213,7 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
           <article className="rounded-2xl border border-[var(--mn-border-brand)]/25 bg-[var(--mn-surface)] p-3 shadow-sm mn-panel ">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-[var(--mn-heading)]" />
-              <h3 className="text-[11px] font-black text-[var(--mn-heading)]">الرسوم والتوفر</h3>
+              <h3 id="exam-scores" className="mn-detail-section-title scroll-mt-28">الرسوم والتوفر</h3>
             </div>
             <div className="mt-2 grid grid-cols-1 gap-1.5">
               <MiniFact label="الرسوم" value={exam.feeSummary || 'تختلف حسب المركز'} wide />
@@ -238,11 +237,11 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
 
         {exam.comparisonCards && exam.comparisonCards.length > 0 && (
           <section>
-            <SectionTitle icon={<Globe2 className="h-4 w-4" />} title="قرارات مهمة قبل الحجز" />
+            <SectionTitle icon={<Globe2 className="h-4 w-4" />} id="exam-preparation" title="قرارات مهمة قبل الحجز" />
             <div className="grid grid-cols-2 gap-1.5">
               {exam.comparisonCards.map((item) => (
                 <article key={item.title} className="rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-2.5 shadow-sm mn-panel ">
-                  <p className="text-[10px] font-black text-[var(--mn-heading)]">{item.title}</p>
+                  <p className="text-[10px] font-bold text-[var(--mn-heading)]">{item.title}</p>
                   <p className="mt-1 text-[8.8px] font-semibold leading-4 text-[var(--mn-text-muted)]">{item.text}</p>
                 </article>
               ))}
@@ -252,7 +251,7 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
 
         {(exam.relatedUniversities?.length || exam.relatedScholarships?.length || exam.relatedCountries?.length) && (
           <section>
-            <SectionTitle icon={<Globe2 className="h-4 w-4" />} title="ارتباطات منارتك" subtitle="روابط هوية مرتبطة بالقبول والمنح والدول عند توفرها" />
+            <SectionTitle icon={<Globe2 className="h-4 w-4" />} id="exam-recognition" title="ارتباطات منارتك" subtitle="روابط هوية مرتبطة بالقبول والمنح والدول عند توفرها" />
             {exam.relatedUniversities && exam.relatedUniversities.length > 0 && (
               <RelatedRow
                 title="جامعات وبرامج مرتبطة"
@@ -284,10 +283,7 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
 
         {exam.importantWarnings && exam.importantWarnings.length > 0 && (
           <section className="rounded-2xl border border-[var(--mn-border-gold)] bg-[var(--mn-gold-surface)]/80 p-3 shadow-sm mn-panel ">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-[var(--mn-accent-text)]" />
-              <h2 className="text-[11px] font-black text-[var(--mn-accent-text)]">تنبيهات قبل الاعتماد على النتيجة</h2>
-            </div>
+            <DetailSectionHeader id="exam-warnings" icon={AlertTriangle} title="تنبيهات قبل الاعتماد على النتيجة" />
             <ul className="mt-2 space-y-1.5">
               {exam.importantWarnings.map((item) => (
                 <li key={item} className="flex items-start gap-1.5 text-[9.5px] font-semibold leading-4 text-[var(--mn-accent-text)]">
@@ -301,7 +297,7 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
 
         {exam.officialLinks && exam.officialLinks.length > 0 && (
           <section>
-            <SectionTitle icon={<ExternalLink className="h-4 w-4" />} title="المصادر والروابط الرسمية" />
+            <SectionTitle icon={<ExternalLink className="h-4 w-4" />} id="exam-official-links" title="المصادر والروابط الرسمية" />
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {exam.officialLinks.map((link) => (
                 <a
@@ -312,7 +308,7 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
                   className="group flex min-h-12 items-center justify-between gap-3 rounded-xl border border-[var(--mn-border-brand)]/30 bg-[var(--mn-surface)] px-3 py-2.5 shadow-sm transition hover:border-[var(--mn-accent)] mn-panel "
                 >
                   <div className="min-w-0">
-                    <p className="text-[10px] font-black text-[var(--mn-heading)]">{link.label}</p>
+                    <p className="text-[10px] font-bold text-[var(--mn-heading)]">{link.label}</p>
                     {link.note && <p className="mt-0.5 text-[8.5px] font-semibold text-[var(--mn-text-muted)]">{link.note}</p>}
                   </div>
                   <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[var(--mn-accent-text)] transition group-hover:-translate-y-0.5" />
@@ -326,23 +322,15 @@ export const ExamDetailModal: React.FC<ExamDetailModalProps> = ({
   );
 };
 
-function SectionTitle({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle?: string }) {
-  return (
-    <div className="mb-2 flex items-start gap-2">
-      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[var(--mn-primary)]/8 text-[var(--mn-heading)]">{icon}</div>
-      <div className="min-w-0">
-        <h2 className="text-[12px] font-black leading-5 text-[var(--mn-heading)]">{title}</h2>
-        {subtitle && <p className="text-[8.8px] font-semibold leading-4 text-[var(--mn-text-muted)]">{subtitle}</p>}
-      </div>
-    </div>
-  );
+function SectionTitle({ id, icon, title, subtitle }: { id?: string; icon: React.ReactNode; title: string; subtitle?: string }) {
+  return <DetailSectionHeader id={id} iconNode={icon} title={title} subtitle={subtitle} />;
 }
 
 function CompactTile({ index, text }: { index: number; text: string }) {
   return (
     <div className="rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-2.5 shadow-sm mn-panel ">
       <div className="flex items-start gap-1.5">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--mn-primary)] text-[8px] font-black text-white mn-inverse ">{index}</span>
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--mn-primary)] text-[8px] font-bold text-white mn-inverse ">{index}</span>
         <p className="text-[9px] font-bold leading-4 text-[var(--mn-text-muted)]">{text}</p>
       </div>
     </div>
@@ -353,7 +341,7 @@ function MiniFact({ label, value, wide = false }: { label: string; value: string
   return (
     <div className={`rounded-lg border border-[var(--mn-border)] bg-[var(--mn-page)] px-2 py-1.5  mn-panel ${wide ? 'text-right' : 'text-center'}`}>
       <p className="text-[7.8px] font-bold text-[var(--mn-text-muted)]">{label}</p>
-      <p className="mt-0.5 text-[8.8px] font-black leading-3.5 text-[var(--mn-text)]">{value}</p>
+      <p className="mt-0.5 text-[8.8px] font-bold leading-3.5 text-[var(--mn-text)]">{value}</p>
     </div>
   );
 }
@@ -373,7 +361,7 @@ function InfoPanel({
     <article className="rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-3 shadow-sm mn-panel ">
       <div className="flex items-center gap-2">
         {icon && <span className="text-[var(--mn-heading)]">{icon}</span>}
-        <h3 className="text-[11px] font-black text-[var(--mn-heading)]">{title}</h3>
+        <h3 className="text-[11px] font-bold text-[var(--mn-heading)]">{title}</h3>
       </div>
       <ul className={`${compact ? 'mt-1.5' : 'mt-2'} space-y-1.5`}>
         {items.map((item) => (
@@ -390,11 +378,11 @@ function InfoPanel({
 function NumberedPanel({ title, items }: { title: string; items: string[] }) {
   return (
     <article className="rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-3 shadow-sm mn-panel ">
-      <h3 className="text-[11px] font-black text-[var(--mn-heading)]">{title}</h3>
+      <h3 className="text-[11px] font-bold text-[var(--mn-heading)]">{title}</h3>
       <ol className="mt-2 space-y-1.5">
         {items.map((item, index) => (
           <li key={item} className="flex items-start gap-1.5 text-[9px] font-semibold leading-4 text-[var(--mn-text-muted)]">
-            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[var(--mn-primary)]/8 text-[7.5px] font-black text-[var(--mn-heading)]">{index + 1}</span>
+            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[var(--mn-primary)]/8 text-[7.5px] font-bold text-[var(--mn-heading)]">{index + 1}</span>
             <span>{item}</span>
           </li>
         ))}
@@ -416,11 +404,11 @@ function RelatedRow({
 }) {
   return (
     <div className="mb-2 last:mb-0">
-      <div className="mb-1.5 flex items-center gap-1.5 text-[9.5px] font-black text-[var(--mn-text-muted)]">
+      <div className="mb-1.5 flex items-center gap-1.5 text-[9.5px] font-bold text-[var(--mn-text-muted)]">
         {icon}
         <span>{title}</span>
       </div>
-      <div className="-mx-3.5 flex snap-x gap-2 overflow-x-auto px-3.5 pb-1 no-scrollbar sm:-mx-5 sm:px-5">
+      <div className="mn-detail-snap-row no-scrollbar">
         {items.map((item) => (
           <button
             type="button"
@@ -428,7 +416,7 @@ function RelatedRow({
             onClick={() => onSelect(item)}
             className="w-[66%] min-w-[205px] max-w-[250px] snap-start rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-2.5 text-right shadow-sm transition hover:border-[var(--mn-accent)] active:scale-[0.99] mn-panel "
           >
-            <p className="text-[10px] font-black leading-4 text-[var(--mn-heading)]">{item.name}</p>
+            <p className="text-[10px] font-bold leading-4 text-[var(--mn-heading)]">{item.name}</p>
             {item.nameEn && <p className="mt-0.5 text-[8px] font-bold text-[var(--mn-accent-text)]">{item.nameEn}</p>}
             {item.meta && <p className="mt-1 text-[8.5px] font-semibold leading-4 text-[var(--mn-text-muted)]">{item.meta}</p>}
           </button>

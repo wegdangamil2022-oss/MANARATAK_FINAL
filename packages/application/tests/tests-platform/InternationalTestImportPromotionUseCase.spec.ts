@@ -206,7 +206,7 @@ describe('InternationalTestImportPromotionUseCase', () => {
           { feeType: 'REGISTRATION', amount: 215, currencyCode: 'USD' }
         ],
         officialLinks: [
-          { linkType: 'REGISTRATION', url: 'https://takeielts.britishcouncil.org', sourceTrustLevel: 'OFFICIAL_PROVIDER' }
+          { linkType: 'REGISTRATION', url: 'https://takeielts.britishcouncil.org', sourceTrustLevel: 'AUTHORITATIVE' }
         ],
         availability: {
           availableCountryIds: ['GB', 'SA'],
@@ -223,7 +223,7 @@ describe('InternationalTestImportPromotionUseCase', () => {
         ],
         importEvidence: {
           confidenceScore: 0.95,
-          sourceTrustLevel: 'OFFICIAL_PROVIDER',
+          sourceTrustLevel: 'AUTHORITATIVE',
           sourceUrl: 'https://www.ielts.org'
         }
       },
@@ -253,10 +253,10 @@ describe('InternationalTestImportPromotionUseCase', () => {
     expect(upsertOfficialLink).toHaveBeenCalledWith('test-1', expect.objectContaining({ url: 'https://takeielts.britishcouncil.org' }));
     expect(upsertAvailability).toHaveBeenCalledWith('test-1', expect.objectContaining({ availableCountryIds: ['GB', 'SA'] }));
     expect(upsertPreparationMaterial).toHaveBeenCalledWith('test-1', expect.objectContaining({ title: 'Official Guide' }));
-    expect(addEvidence).toHaveBeenCalledWith('test-1', expect.objectContaining({ sourceTrustLevel: 'OFFICIAL_PROVIDER', sourceUrl: 'https://www.ielts.org' }));
+    expect(addEvidence).toHaveBeenCalledWith('test-1', expect.objectContaining({ sourceTrustLevel: 'AUTHORITATIVE', sourceUrl: 'https://www.ielts.org' }));
     expect(createImportDraftVersion).toHaveBeenCalledWith('test-1', expect.objectContaining({
       sourceImportRecordId: 'record-rich-1',
-      metadata: expect.objectContaining({ normalizedLifecycle: 'UNIVERSITY_READY_MINIMUM' })
+      metadata: expect.objectContaining({ normalizedLifecycle: 'INTERNATIONAL_TEST_READY_MINIMUM' })
     }));
     expect(upsertCountryRelationship).toHaveBeenCalledWith('test-1', expect.objectContaining({
       referenceCode: 'GB',

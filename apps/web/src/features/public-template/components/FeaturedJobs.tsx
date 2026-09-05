@@ -7,7 +7,7 @@ interface FeaturedJobsProps {
 
 export const FeaturedJobs: React.FC<FeaturedJobsProps> = ({ onViewAllClick }) => {
   return (
-    <section className="px-0.5 sm:px-1 py-3 w-full font-['Cairo',sans-serif]">
+    <section className="px-0 py-3 w-full font-['Cairo',sans-serif]">
       {/* Career Portal Banner - Light/White Theme */}
       <div className="relative rounded-3xl p-4 sm:p-5 bg-gradient-to-b from-[var(--mn-surface)] to-[var(--mn-page)]/80 border border-[var(--mn-border)] shadow-sm overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 border-t-2 border-t-[var(--mn-accent)]/40 min-h-[200px] mn-panel ">
         {/* Background Decorative Elements */}

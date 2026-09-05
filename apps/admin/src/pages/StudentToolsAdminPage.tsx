@@ -141,11 +141,11 @@ function ToolCatalog() {
     [tools, search, status],
   );
   return (
-    <main dir="rtl" className="mx-auto max-w-7xl space-y-6">
-      <header className="rounded-3xl bg-gradient-to-l from-emerald-950 to-emerald-700 p-7 text-white">
-        <p className="text-sm font-bold text-emerald-200">Phase 18</p>
+    <main dir="rtl" className="mx-auto max-w-7xl space-y-6 font-['Cairo',sans-serif]">
+      <header className="rounded-3xl bg-gradient-to-l from-[#142B5F] to-[#0E7C86] p-7 text-white">
+        <p className="text-sm font-bold text-[#D6A43B]">Phase 18</p>
         <h1 className="mt-2 text-3xl font-black">مركز أدوات الطلاب</h1>
-        <p className="mt-3 max-w-3xl leading-7 text-emerald-50">
+        <p className="mt-3 max-w-3xl leading-7 text-white/85">
           تحكم حقيقي في السجل والحالة والإتاحة والتنفيذ. لا توجد مؤشرات تجريبية أو نجاحات مصطنعة.
         </p>
       </header>
@@ -189,7 +189,7 @@ function ToolCatalog() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-emerald-50 text-emerald-950">
+              <thead className="bg-[#FAF7F0] text-[#142B5F]">
                 <tr>
                   {['الأداة', 'الفئة', 'التنفيذ', 'الحالة', 'الإتاحة', 'الإصدار', ''].map(
                     (label) => (
@@ -222,7 +222,7 @@ function ToolCatalog() {
                     <td className="px-5 py-4">{tool.currentVersion.semanticVersion}</td>
                     <td className="px-5 py-4">
                       <Link
-                        className="font-black text-emerald-800"
+                        className="font-black text-[#142B5F]"
                         to={`/student-tools/${tool.toolKey}`}
                       >
                         إدارة
@@ -302,16 +302,16 @@ function ToolDetail({ toolKey }: { toolKey: string }) {
     <main dir="rtl" className="mx-auto max-w-6xl space-y-6">
       <Link
         to="/student-tools"
-        className="inline-flex items-center gap-2 font-bold text-emerald-800"
+        className="inline-flex items-center gap-2 font-bold text-[#142B5F]"
       >
         <ArrowRight className="h-4 w-4" /> سجل الأدوات
       </Link>
       <header className="rounded-3xl bg-emerald-950 p-7 text-white">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-emerald-200">{tool.nameEn}</p>
+            <p className="text-[#D6A43B]">{tool.nameEn}</p>
             <h1 className="mt-1 text-3xl font-black">{tool.nameAr}</h1>
-            <code className="mt-3 block text-emerald-200">{tool.toolKey}</code>
+            <code className="mt-3 block text-[#D6A43B]">{tool.toolKey}</code>
           </div>
           <Badge value={tool.implementationStatus} />
           <Badge value={detail.health} />
@@ -321,7 +321,7 @@ function ToolDetail({ toolKey }: { toolKey: string }) {
       <section
         className={`rounded-3xl border p-5 ${
           detail.readiness.ready
-            ? 'border-emerald-200 bg-emerald-50'
+            ? 'border-emerald-200 bg-[#FAF7F0]'
             : 'border-amber-200 bg-amber-50'
         }`}
       >
@@ -335,14 +335,14 @@ function ToolDetail({ toolKey }: { toolKey: string }) {
                 {detail.readiness.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
               </ul>
             ) : (
-              <p className="mt-1 text-sm text-emerald-800">العقود والمعالج والتبعيات والسياسات اجتازت الفحص.</p>
+              <p className="mt-1 text-sm text-[#142B5F]">العقود والمعالج والتبعيات والسياسات اجتازت الفحص.</p>
             )}
           </div>
           <button
             type="button"
             disabled={!detail.readiness.ready || saving || tool.lifecycle === 'ACTIVE'}
             onClick={() => void activate()}
-            className="min-h-11 rounded-xl bg-emerald-800 px-5 font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="min-h-11 rounded-xl bg-[#142B5F] px-5 font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             {tool.lifecycle === 'ACTIVE' ? 'نشطة حاليًا' : 'تفعيل الأداة'}
           </button>
@@ -377,9 +377,9 @@ function ToolDetail({ toolKey }: { toolKey: string }) {
         </section>
         <form
           onSubmit={saveFlags}
-          className="space-y-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-6"
+          className="space-y-4 rounded-3xl border border-emerald-200 bg-[#FAF7F0] p-6"
         >
-          <h2 className="text-xl font-black text-emerald-950">مفاتيح الإتاحة</h2>
+          <h2 className="text-xl font-black text-[#142B5F]">مفاتيح الإتاحة</h2>
           {Object.entries(tool.featureFlags).map(([key, value]) => (
             <label
               key={key}
@@ -407,7 +407,7 @@ function ToolDetail({ toolKey }: { toolKey: string }) {
           ))}
           <button
             disabled={saving}
-            className="w-full rounded-xl bg-emerald-800 px-4 py-3 font-black text-white"
+            className="w-full rounded-xl bg-[#142B5F] px-4 py-3 font-black text-white"
           >
             {saving ? 'جاري الحفظ...' : 'حفظ الإتاحة'}
           </button>
@@ -508,7 +508,7 @@ function Metric({
 }) {
   return (
     <div className="rounded-2xl border bg-white p-5 shadow-sm">
-      <Icon className="h-5 w-5 text-emerald-700" />
+      <Icon className="h-5 w-5 text-[#142B5F]" />
       <div className="mt-4 text-sm text-slate-500">{label}</div>
       <div className="mt-1 text-3xl font-black text-slate-950">{value ?? '—'}</div>
     </div>
@@ -526,7 +526,7 @@ function Badge({ value }: { value: string }) {
   const good = value === 'IMPLEMENTED' || value === 'ACTIVE';
   return (
     <span
-      className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${good ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}
+      className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${good ? 'bg-[#0E7C86]/10 text-[#142B5F]' : 'bg-amber-100 text-amber-800'}`}
     >
       {labels[value] ?? value}
     </span>

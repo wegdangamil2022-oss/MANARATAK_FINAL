@@ -92,17 +92,17 @@ export const SmartSearchPage: React.FC<SmartSearchPageProps> = ({
   return (
     <div className="min-h-screen bg-[var(--mn-page)] pb-24 mn-panel " dir="rtl">
       <section className="mn-search-hero text-white mn-inverse ">
-        <div className="max-w-5xl mx-auto px-4 py-5 sm:py-7">
+        <div className="max-w-5xl mx-auto mn-inline-gutter py-5 sm:py-7">
           <div className="flex items-center gap-3">
-            <button onClick={onBack} className="w-9 h-9 rounded-xl border border-white/20 bg-white/10 flex items-center justify-center cursor-pointer" aria-label="رجوع">
+            <button onClick={onBack} className="w-10 h-10 rounded-xl border border-white/20 bg-white/10 flex items-center justify-center cursor-pointer" aria-label="رجوع">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="flex-1">
-              <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-[var(--mn-accent)] font-black">
+              <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-[var(--mn-accent)] font-bold">
                 <Sparkles className="w-3.5 h-3.5" />
                 البحث الذكي في منارتك
               </div>
-              <h1 className="mt-0.5 text-xl sm:text-2xl font-black">اسأل منارتك بلغتك الطبيعية</h1>
+              <h1 className="mt-0.5 text-xl sm:text-2xl font-bold">اسأل منارتك بلغتك الطبيعية</h1>
               <p className="mt-1 text-[10px] sm:text-[11px] leading-5 text-white max-w-2xl">اكتب ما تريد الوصول إليه بدل معرفة اسم المنحة أو الجامعة مسبقًا.</p>
             </div>
           </div>
@@ -124,7 +124,7 @@ export const SmartSearchPage: React.FC<SmartSearchPageProps> = ({
             />
             <div className="flex items-center justify-between gap-2 px-1 pb-1">
               <span className="text-[8px] sm:text-[9px] text-[var(--mn-text-muted)]">النتائج الذكية الحقيقية ستتصل بـUniversal Search + Phase 17.</span>
-              <button type="submit" className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-[var(--mn-primary)] px-3.5 py-2 text-[10px] font-black text-white cursor-pointer mn-inverse ">
+              <button type="submit" className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-[var(--mn-primary)] px-3.5 py-2 text-[10px] font-bold text-white cursor-pointer mn-inverse ">
                 <WandSparkles className="w-3.5 h-3.5 text-[var(--mn-accent)]" />
                 حلّل طلبي
               </button>
@@ -133,7 +133,7 @@ export const SmartSearchPage: React.FC<SmartSearchPageProps> = ({
         </div>
       </section>
 
-      <div className="max-w-5xl mx-auto px-3.5 sm:px-5 py-4 space-y-4">
+      <div className="max-w-5xl mx-auto mn-inline-gutter py-4 space-y-4">
         <div className="rounded-2xl border border-[var(--mn-border-gold)] bg-[var(--mn-gold-surface)] px-3 py-2.5 text-[9px] sm:text-[10px] leading-5 text-[var(--mn-accent-text)] mn-panel ">
           <strong>نموذج تجربة فقط:</strong> التحليل في هذه النسخة محلي لتجربة التصميم والربط، ولا يدّعي تشغيل نموذج AI أو RAG قبل ربط Phase 17 وUniversal Search.
         </div>
@@ -143,14 +143,14 @@ export const SmartSearchPage: React.FC<SmartSearchPageProps> = ({
             <section className="rounded-3xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-4 shadow-2xs mn-panel ">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[var(--mn-accent-text)]" />
-                <h2 className="text-sm font-black text-[var(--mn-heading)]">فهمت طلبك بهذه الصورة</h2>
+                <h2 className="text-sm font-bold text-[var(--mn-heading)]">فهمت طلبك بهذه الصورة</h2>
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
-                {analysis.intentions.map((item) => <span key={item} className="px-2.5 py-1.5 rounded-full bg-[var(--mn-primary)]/8 border border-[var(--mn-primary)]/15 text-[9px] font-black text-[var(--mn-heading)]">{item}</span>)}
-                {analysis.degrees.map((item) => <span key={item} className="px-2.5 py-1.5 rounded-full bg-[var(--mn-success-soft)] border border-[var(--mn-success-border)] text-[9px] font-black text-[var(--mn-success-text)]">{item}</span>)}
-                {analysis.countries.map((item) => <span key={item} className="px-2.5 py-1.5 rounded-full bg-[var(--mn-surface-muted)] border border-[var(--mn-border-brand)] text-[9px] font-black text-[var(--mn-link)] mn-panel ">{item}</span>)}
+                {analysis.intentions.map((item) => <span key={item} className="px-2.5 py-1.5 rounded-full bg-[var(--mn-primary)]/8 border border-[var(--mn-primary)]/15 text-[9px] font-bold text-[var(--mn-heading)]">{item}</span>)}
+                {analysis.degrees.map((item) => <span key={item} className="px-2.5 py-1.5 rounded-full bg-[var(--mn-success-soft)] border border-[var(--mn-success-border)] text-[9px] font-bold text-[var(--mn-success-text)]">{item}</span>)}
+                {analysis.countries.map((item) => <span key={item} className="px-2.5 py-1.5 rounded-full bg-[var(--mn-surface-muted)] border border-[var(--mn-border-brand)] text-[9px] font-bold text-[var(--mn-link)] mn-panel ">{item}</span>)}
               </div>
-              <button onClick={() => onOpenNormalSearch(submittedQuery)} className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-black text-[var(--mn-heading)] cursor-pointer">
+              <button onClick={() => onOpenNormalSearch(submittedQuery)} className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-bold text-[var(--mn-heading)] cursor-pointer">
                 <Search className="w-3.5 h-3.5" />
                 عرض نفس العبارة في البحث العادي
               </button>
@@ -159,7 +159,7 @@ export const SmartSearchPage: React.FC<SmartSearchPageProps> = ({
             <section className="space-y-2.5">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-black text-[var(--mn-heading)]">نتائج من بيانات منارتك</h2>
+                  <h2 className="text-sm font-bold text-[var(--mn-heading)]">نتائج من بيانات منارتك</h2>
                   <p className="mt-0.5 text-[9px] text-[var(--mn-text-muted)]">نماذج مرتبة حسب كلمات طلبك من البيانات الموجودة في النسخة الحالية.</p>
                 </div>
               </div>
@@ -169,8 +169,8 @@ export const SmartSearchPage: React.FC<SmartSearchPageProps> = ({
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-2xl bg-[var(--mn-primary)] text-white flex items-center justify-center shrink-0 mn-inverse "><GraduationCap className="w-4 h-4" /></div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[9px] font-black text-[var(--mn-accent-text)]">منحة دراسية</div>
-                      <div className="mt-0.5 text-[13px] font-black text-[var(--mn-heading)]">{item.title}</div>
+                      <div className="text-[9px] font-bold text-[var(--mn-accent-text)]">منحة دراسية</div>
+                      <div className="mt-0.5 text-[13px] font-bold text-[var(--mn-heading)]">{item.title}</div>
                       <div className="mt-1 text-[10px] text-[var(--mn-text-muted)]">{item.countryFlag} {item.country} · {item.university} · {item.fundingType}</div>
                     </div>
                     <ChevronLeft className="w-4 h-4 text-[var(--mn-accent-text)] mt-3" />
@@ -183,8 +183,8 @@ export const SmartSearchPage: React.FC<SmartSearchPageProps> = ({
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-2xl bg-[var(--mn-primary)] text-white flex items-center justify-center shrink-0 mn-inverse "><Building2 className="w-4 h-4" /></div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[9px] font-black text-[var(--mn-accent-text)]">جامعة</div>
-                      <div className="mt-0.5 text-[13px] font-black text-[var(--mn-heading)]">{item.name}</div>
+                      <div className="text-[9px] font-bold text-[var(--mn-accent-text)]">جامعة</div>
+                      <div className="mt-0.5 text-[13px] font-bold text-[var(--mn-heading)]">{item.name}</div>
                       <div className="mt-1 text-[10px] text-[var(--mn-text-muted)]">{[item.city, item.country].filter(Boolean).join(' · ')}</div>
                     </div>
                     <ChevronLeft className="w-4 h-4 text-[var(--mn-accent-text)] mt-3" />
@@ -194,7 +194,7 @@ export const SmartSearchPage: React.FC<SmartSearchPageProps> = ({
             </section>
 
             <section className="rounded-3xl border border-[var(--mn-accent)]/35 bg-[var(--mn-surface)] p-4 mn-panel ">
-              <h2 className="text-sm font-black text-[var(--mn-heading)]">استكشف عبر الأقسام</h2>
+              <h2 className="text-sm font-bold text-[var(--mn-heading)]">استكشف عبر الأقسام</h2>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 {[
                   ['scholarships', 'المنح'],
@@ -204,7 +204,7 @@ export const SmartSearchPage: React.FC<SmartSearchPageProps> = ({
                   ['exams', 'الاختبارات'],
                   ['services', 'الخدمات'],
                 ].map(([category, label]) => (
-                  <button key={category} onClick={() => onNavigateCategory(category as CategoryType)} className="rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-page)] p-3 flex items-center justify-between text-[10px] font-black text-[var(--mn-heading)] cursor-pointer mn-panel ">
+                  <button key={category} onClick={() => onNavigateCategory(category as CategoryType)} className="rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-page)] p-3 flex items-center justify-between text-[10px] font-bold text-[var(--mn-heading)] cursor-pointer mn-panel ">
                     {label}<ChevronLeft className="w-3.5 h-3.5" />
                   </button>
                 ))}
@@ -214,7 +214,7 @@ export const SmartSearchPage: React.FC<SmartSearchPageProps> = ({
         ) : (
           <div className="py-14 text-center rounded-3xl border border-dashed border-[var(--mn-border)] bg-[var(--mn-surface)] mn-panel ">
             <Sparkles className="w-9 h-9 mx-auto text-[var(--mn-accent-text)]" />
-            <div className="mt-2 text-xs font-black text-[var(--mn-heading)]">اكتب هدفك الدراسي أو المهني بجملة طبيعية.</div>
+            <div className="mt-2 text-xs font-bold text-[var(--mn-heading)]">اكتب هدفك الدراسي أو المهني بجملة طبيعية.</div>
             <p className="mt-1 text-[10px] text-[var(--mn-text-muted)]">مثال: أريد ماجستير ممول في علوم البيانات في أوروبا.</p>
           </div>
         )}

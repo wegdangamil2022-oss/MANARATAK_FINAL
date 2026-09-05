@@ -64,6 +64,13 @@ export class StudentToolExecutionUseCases {
       request.anonymousSessionReference ??
       request.requestId ??
       'admin-test';
+    const requestFingerprint = resultDigest({
+      toolKey,
+      toolVersion: tool.currentVersion.semanticVersion,
+      consumerType: request.consumerType,
+      input: request.input,
+      locale: request.locale ?? 'ar',
+    });
     const idempotencyKeyHash = request.idempotencyKey
       ? hash(`${identity}:${request.idempotencyKey}`)
       : null;
@@ -72,7 +79,11 @@ export class StudentToolExecutionUseCases {
         toolKey,
         idempotencyKeyHash,
       );
-      if (previous) return this.replay(previous);
+      if (previous) {
+        if (previous.safeUsageMetadata?.requestFingerprint !== requestFingerprint)
+          throw new Error('TOOL_IDEMPOTENCY_KEY_REUSED');
+        return this.replay(previous);
+      }
     }
 
     const requestLimit =
@@ -139,10 +150,14 @@ export class StudentToolExecutionUseCases {
       traceId: context.traceId,
       isTest: request.isTest === true,
       startedAt,
-      safeUsageMetadata: { locale: context.locale },
+      safeUsageMetadata: { locale: context.locale, requestFingerprint },
       dependencyStatus,
     });
-    if (!claimed.created) return this.replay(claimed.record);
+    if (!claimed.created) {
+      if (claimed.record.safeUsageMetadata?.requestFingerprint !== requestFingerprint)
+        throw new Error('TOOL_IDEMPOTENCY_KEY_REUSED');
+      return this.replay(claimed.record);
+    }
 
     try {
       const unvalidatedResult = await handler.execute(context, input as never);

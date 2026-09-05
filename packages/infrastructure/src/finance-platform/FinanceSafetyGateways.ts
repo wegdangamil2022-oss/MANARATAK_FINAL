@@ -30,6 +30,9 @@ export class FinancePaymentGatewayRegistry implements IPaymentGatewayRegistry {
   get(providerKey: string): IPaymentGateway | null {
     return this.providers.get(providerKey.trim()) ?? null;
   }
+  list(): readonly IPaymentGateway[] {
+    return [...this.providers.values()];
+  }
 }
 
 export class FinanceBankTransferGatewayRegistry implements IBankTransferGatewayRegistry {
@@ -39,5 +42,8 @@ export class FinanceBankTransferGatewayRegistry implements IBankTransferGatewayR
   }
   get(providerKey: string): IBankTransferGateway | null {
     return this.providers.get(providerKey.trim()) ?? null;
+  }
+  list(): readonly IBankTransferGateway[] {
+    return [...this.providers.values()];
   }
 }

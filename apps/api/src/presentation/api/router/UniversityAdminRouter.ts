@@ -38,6 +38,15 @@ export class UniversityAdminRouter {
       pageSize: z.coerce.number().int().min(1).max(100).default(50),
     }).strict();
 
+    const organizationUnitListQuerySchema = z.object({
+      universityId: z.string().min(1).optional(),
+      unitType: z.enum(['FACULTY', 'SCHOOL', 'COLLEGE', 'DEPARTMENT']).optional(),
+      status: z.string().trim().min(1).optional(),
+      search: z.string().trim().min(1).max(200).optional(),
+      page: z.coerce.number().int().min(1).default(1),
+      pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    }).strict();
+
     const updateBodySchema = z.object({
       displayName: z.string().optional(),
       officialWebsite: z.string().url().optional(),
@@ -72,6 +81,9 @@ export class UniversityAdminRouter {
       metadata: z.record(z.string(), z.unknown()).optional(),
     });
 
+    const academicProgramStatusSchema = z.enum(['DRAFT', 'REVIEW_REQUIRED', 'ACTIVE', 'INACTIVE']);
+    const admissionRequirementStatusSchema = z.enum(['DRAFT', 'REVIEW_REQUIRED', 'ACTIVE', 'INACTIVE']);
+
     const academicProgramAuthoringSchema = z.object({
       sourceReferenceId: z.string().min(1).nullable().optional(),
       organizationUnitId: z.string().min(1).nullable().optional(),
@@ -79,7 +91,7 @@ export class UniversityAdminRouter {
       degreeLevelId: z.string().min(1),
       majorId: z.string().min(1).nullable().optional(),
       majorMappingState: z.string().min(1),
-      status: z.string().min(1).optional(),
+      status: academicProgramStatusSchema.optional(),
       campusIds: z.array(z.string().min(1)).optional(),
       metadata: z.record(z.string(), z.unknown()).nullable().optional(),
       admissionRequirements: z.array(z.object({
@@ -90,7 +102,7 @@ export class UniversityAdminRouter {
         sectionScores: z.record(z.string(), z.unknown()).nullable().optional(),
         validityMetadata: z.record(z.string(), z.unknown()).nullable().optional(),
         restrictionMetadata: z.record(z.string(), z.unknown()).nullable().optional(),
-        status: z.string().min(1).optional(),
+        status: admissionRequirementStatusSchema.optional(),
       })).optional(),
     }).strict();
 
@@ -136,7 +148,7 @@ export class UniversityAdminRouter {
               degreeLevelId: z.string().min(1),
               majorId: z.string().optional(),
               majorMappingState: z.string().min(1),
-              status: z.string().optional(),
+              status: academicProgramStatusSchema.optional(),
               campusSourceReferenceIds: z.array(z.string()).optional(),
               metadata: z.record(z.string(), z.unknown()).optional(),
               admissionRequirements: z
@@ -149,7 +161,7 @@ export class UniversityAdminRouter {
                     sectionScores: z.record(z.string(), z.unknown()).optional(),
                     validityMetadata: z.record(z.string(), z.unknown()).optional(),
                     restrictionMetadata: z.record(z.string(), z.unknown()).optional(),
-                    status: z.string().optional(),
+                    status: admissionRequirementStatusSchema.optional(),
                   }),
                 )
                 .optional(),
@@ -209,6 +221,15 @@ export class UniversityAdminRouter {
       asyncHandler(async (req: Request, res: Response) => {
         const filters = listQuerySchema.parse(req.query);
         const result = await adminUniversityUseCases.listUniversities(filters);
+        res.json(result);
+      }),
+    );
+
+    router.get(
+      '/organization-units',
+      asyncHandler(async (req: Request, res: Response) => {
+        const filters = organizationUnitListQuerySchema.parse(req.query);
+        const result = await adminUniversityUseCases.listOrganizationUnits(filters);
         res.json(result);
       }),
     );

@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { z } from 'zod';
 import { AdminCmsUseCases } from '@manaratak/application';
-import { CmsCategoryStatus, CmsContentStatus, CmsContentType } from '@manaratak/domain';
+import { CmsCategoryStatus, CmsContentStatus, CmsContentType, CmsDomainRelationType, CmsDomainTargetType } from '@manaratak/domain';
 
 const slug = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 const nullableAsset = z.string().trim().min(1).nullable().optional();
@@ -132,6 +132,23 @@ export class CmsAdminRouter {
         );
       }),
     );
+
+    router.get('/content/:id/domain-links', asyncHandler(async (req, res) => {
+      res.json({ data: await adminCmsUseCases.listDomainLinks(req.params.id) });
+    }));
+    router.put('/content/:id/domain-links', asyncHandler(async (req, res) => {
+      const body = z.object({
+        links: z.array(z.object({
+          targetType: z.nativeEnum(CmsDomainTargetType),
+          targetId: z.string().trim().uuid(),
+          relationType: z.nativeEnum(CmsDomainRelationType).default(CmsDomainRelationType.RELATED),
+          sortOrder: z.number().int().nonnegative().optional(),
+          metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+        })).max(50),
+      }).parse(req.body);
+      res.json({ data: await adminCmsUseCases.replaceDomainLinks(req.params.id, body.links, actor(req)) });
+    }));
+
     router.get(
       '/content/:id/readiness/:locale',
       asyncHandler(async (req, res) => {

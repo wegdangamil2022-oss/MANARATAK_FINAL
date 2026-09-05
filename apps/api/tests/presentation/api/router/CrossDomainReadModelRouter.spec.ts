@@ -21,7 +21,7 @@ describe('CrossDomainReadModelRouter', () => {
     service.getMajorGraphBySlug.mockResolvedValue({ subject: { ownerId: 'major-1' }, relationships: {} });
     const res = await request(app(service)).get('/public/graph/majors/computer-science?pageSize=50');
     expect(res.status).toBe(200);
-    expect(service.getMajorGraphBySlug).toHaveBeenCalledWith('computer-science', { page: 1, pageSize: 50 });
+    expect(service.getMajorGraphBySlug).toHaveBeenCalledWith('computer-science', { page: 1, pageSize: 50, locale: 'ar' });
   });
 
   it('exposes country graph by canonical ISO2 reference', async () => {
@@ -29,7 +29,7 @@ describe('CrossDomainReadModelRouter', () => {
     service.getCountryGraphByIso2Code.mockResolvedValue({ subject: { ownerId: 'country-ye', canonicalCode: 'YE' }, relationships: {} });
     const res = await request(app(service)).get('/public/graph/countries/YE');
     expect(res.status).toBe(200);
-    expect(service.getCountryGraphByIso2Code).toHaveBeenCalledWith('YE', { page: 1, pageSize: 12 });
+    expect(service.getCountryGraphByIso2Code).toHaveBeenCalledWith('YE', { page: 1, pageSize: 12, locale: 'ar' });
   });
 
   it('returns 404 for hidden or missing graph subjects', async () => {

@@ -81,6 +81,13 @@ export const canonicalPickerApi = {
     const response = await adminApiClient.request<DataEnvelope<Record<string, unknown>>>('/admin/academic-taxonomy/degree-levels');
     return response.data.map((item) => option(item));
   },
+  async taxonomyNodes(nodeType?: 'ACADEMIC_FIELD' | 'DISCIPLINE', query = ''): Promise<CanonicalPickerOption[]> {
+    const params = new URLSearchParams({ page: '1', pageSize: '100' });
+    if (nodeType) params.set('nodeType', nodeType);
+    if (query.trim()) params.set('q', query.trim());
+    const response = await adminApiClient.request<DataEnvelope<Record<string, unknown>>>(`/admin/academic-taxonomy/nodes?${params}`);
+    return response.data.map((item) => option({ ...item, id: item.nodeId ?? item.id }));
+  },
   async majors(query = ''): Promise<CanonicalPickerOption[]> {
     const params = new URLSearchParams({ page: '1', pageSize: '100' });
     if (query.trim()) params.set('search', query.trim());

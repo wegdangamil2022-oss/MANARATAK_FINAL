@@ -7,6 +7,7 @@ import {
   Layers,
   GraduationCap,
   RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import { Major, DegreeLevel } from '../types';
 import { MajorCard } from './MajorCard';
@@ -110,7 +111,7 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
 
   return (
     <div
-      className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-sans select-none mn-panel "
+      className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-['Cairo',sans-serif] select-none mn-panel "
       dir="rtl"
     >
       {/* ========================================================================= */}
@@ -121,8 +122,9 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
         {onBack && (
           <button
             onClick={onBack}
-            className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/30 backdrop-blur-md rounded-full transition-all z-20 cursor-pointer text-white"
+            className="absolute top-4 right-4 h-10 w-10 bg-black/20 hover:bg-black/30 backdrop-blur-md rounded-full transition-all z-20 cursor-pointer text-white flex items-center justify-center"
             title="العودة"
+            aria-label="العودة"
           >
             <ChevronLeft className="w-5 h-5 rotate-180" />
           </button>
@@ -160,12 +162,12 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
         <div className="max-w-xl mx-auto text-center relative z-10 space-y-2.5">
           {/* Little 4-pointed Gold Sparkle Star */}
           <div className="flex justify-center -mb-1">
-            <span className="text-[var(--mn-accent-text)] text-sm animate-pulse">✦</span>
+            <Sparkles className="h-4 w-4 text-[var(--mn-accent-text)]" aria-hidden="true" />
           </div>
 
           {/* Headline with Gold Curve */}
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-white font-['Cairo',sans-serif] tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-white font-['Cairo',sans-serif] tracking-tight">
               <span>ابحث عن </span>
               <span className="relative inline-block text-white">
                 تخصصك الأكاديمي
@@ -231,7 +233,7 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
       {/* ========================================================================= */}
       {/* FLOATING FILTER CARD WITH 2 TILES (الكلية • الدرجة)  */}
       {/* ========================================================================= */}
-      <div className="max-w-xl mx-auto px-3 sm:px-4 -mt-7 sm:-mt-8 relative z-20 space-y-2.5">
+      <div className="max-w-xl mx-auto mn-inline-gutter -mt-7 sm:-mt-8 relative z-20 space-y-2.5">
         {/* Outer Framed Box with Gold Border */}
         <div className="bg-[var(--mn-surface)] border border-[var(--mn-accent)]/50 rounded-3xl p-2 sm:p-2.5 shadow-md mn-panel ">
           <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
@@ -252,7 +254,7 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
               >
                 {faculties.map((c) => (
                   <option key={c} value={c}>
-                    {c === 'الكل' ? '🏛️ جميع الكليات' : c}
+                    {c === 'الكل' ? 'جميع الكليات' : c}
                   </option>
                 ))}
               </select>
@@ -275,7 +277,7 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
               >
                 {degreeLevels.map((lvl) => (
                   <option key={lvl} value={lvl}>
-                    {lvl === 'الكل' ? '🎓 جميع الدرجات' : lvl}
+                    {lvl === 'الكل' ? 'جميع الدرجات' : lvl}
                   </option>
                 ))}
               </select>
@@ -287,10 +289,10 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
       {/* ========================================================================= */}
       {/* RESULTS LIST SECTION */}
       {/* ========================================================================= */}
-      <div ref={resultsRef} className="w-full max-w-4xl mx-auto px-2 sm:px-3 pt-3 space-y-2.5">
+      <div ref={resultsRef} className="w-full max-w-4xl mx-auto mn-inline-gutter pt-3 space-y-2.5">
         {/* Section Header: التخصصات المتاحة */}
         <div className="flex items-center justify-between px-1">
-          <span className="text-xs sm:text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">
+          <span className="text-xs sm:text-sm font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">
             التخصصات المتاحة ({filteredMajors.length})
           </span>
           <span className="text-[10px] sm:text-[11px] text-[var(--mn-accent-text)] font-bold font-['Cairo',sans-serif]">
@@ -305,7 +307,7 @@ export const MajorsSearchPage: React.FC<MajorsSearchPageProps> = ({
               <div className="w-12 h-12 rounded-full bg-[var(--mn-surface-muted)] flex items-center justify-center text-[var(--mn-text-muted)] mn-panel ">
                 <Search className="w-6 h-6" />
               </div>
-              <h3 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">
+              <h3 className="text-sm font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">
                 لا توجد تخصصات مطابقة للبحث
               </h3>
               <p className="text-xs text-[var(--mn-text-muted)] max-w-xs font-['Cairo',sans-serif]">

@@ -28,6 +28,7 @@ import {
   CategoryType,
 } from '../types';
 import { FavoriteButton } from './FavoriteButton';
+import { DetailBackButton, DetailSectionHeader, useDetailSearchTarget } from './DetailUi';
 
 interface CareersSearchPageProps {
   detailId?: string;
@@ -40,11 +41,15 @@ interface CareersSearchPageProps {
   favoriteIds?: string[];
   onToggleFavorite?: (id: string) => void;
   initialSelectedId?: string;
+  searchAnchor?: string;
+  searchTerm?: string;
 }
 
 const opportunityIcon = (kind: CareerOpportunityKind) => {
   if (kind === 'تدريب') return <BookOpen className="w-5 h-5" />;
   if (kind === 'برنامج خريجين') return <GraduationCap className="w-5 h-5" />;
+  if (kind === 'إرشاد مهني') return <Users className="w-5 h-5" />;
+  if (kind === 'فعالية مهنية') return <Sparkles className="w-5 h-5" />;
   return <Briefcase className="w-5 h-5" />;
 };
 
@@ -74,14 +79,14 @@ const CareerOpportunityCard: React.FC<{
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <span className="text-[9px] sm:text-[10px] text-[var(--mn-accent-text)] font-black font-['Cairo',sans-serif]">
+              <span className="text-[9px] sm:text-[10px] text-[var(--mn-accent-text)] font-bold font-['Cairo',sans-serif]">
                 {opportunity.kind} · {opportunity.subtype}
               </span>
-              <h2 className="mt-0.5 text-[14px] sm:text-[15px] leading-snug font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">
+              <h2 className="mt-0.5 text-[14px] sm:text-[15px] leading-snug font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">
                 {opportunity.title}
               </h2>
             </div>
-            <span className="shrink-0 rounded-full bg-[var(--mn-gold-surface)] border border-[var(--mn-border-gold)] px-2 py-1 text-[9px] font-black text-[var(--mn-accent-text)] font-['Cairo',sans-serif] mn-panel ">
+            <span className="shrink-0 rounded-full bg-[var(--mn-gold-surface)] border border-[var(--mn-border-gold)] px-2 py-1 text-[9px] font-bold text-[var(--mn-accent-text)] font-['Cairo',sans-serif] mn-panel ">
               منشور
             </span>
           </div>
@@ -117,7 +122,7 @@ const CareerOpportunityCard: React.FC<{
           {opportunity.industry}
           {opportunity.durationLabel ? ` · ${opportunity.durationLabel}` : ''}
         </div>
-        <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-black text-[var(--mn-heading)] group-hover:text-[var(--mn-accent-text)] transition-colors shrink-0 font-['Cairo',sans-serif]">
+        <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-bold text-[var(--mn-heading)] group-hover:text-[var(--mn-accent-text)] transition-colors shrink-0 font-['Cairo',sans-serif]">
           عرض التفاصيل
           <ChevronLeft className="w-3.5 h-3.5" />
         </span>
@@ -126,13 +131,14 @@ const CareerOpportunityCard: React.FC<{
   </article>
 );
 
-const ListSection: React.FC<{ title: string; items: string[]; tone?: 'success' | 'default' }> = ({
+const ListSection: React.FC<{ title: string; items: string[]; tone?: 'success' | 'default'; id?: string }> = ({
   title,
   items,
   tone = 'default',
+  id,
 }) => (
   <section className="bg-[var(--mn-surface)] border border-[var(--mn-border)] rounded-3xl p-4 shadow-2xs mn-panel ">
-    <h2 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">{title}</h2>
+    <DetailSectionHeader id={id} icon={tone === 'success' ? CheckCircle2 : BookOpen} title={title} />
     <div className="mt-3 space-y-2">
       {items.map((item) => (
         <div key={item} className="flex items-start gap-2.5">
@@ -156,16 +162,16 @@ const CareerOpportunityDetail: React.FC<{
   onOpenTools?: () => void;
   isFavorite?: boolean;
   onToggleFavorite?: (id: string) => void;
-}> = ({ opportunity, onBack, onNavigateCategory, onOpenCountry, onOpenTools, isFavorite = false, onToggleFavorite }) => (
+  searchAnchor?: string;
+  searchTerm?: string;
+}> = ({ opportunity, onBack, onNavigateCategory, onOpenCountry, onOpenTools, isFavorite = false, onToggleFavorite, searchAnchor, searchTerm }) => {
+  useDetailSearchTarget(searchAnchor, searchTerm);
+  return (
   <div className="min-h-screen bg-[var(--mn-page)] pb-24 mn-panel " dir="rtl">
     <div className="relative mn-search-hero text-white px-3 sm:px-4 pt-4 pb-10 overflow-hidden shadow-sm mn-inverse ">
-      <button
-        onClick={onBack}
-        className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/30 backdrop-blur-md rounded-full transition-all z-20 cursor-pointer text-white"
-        title="العودة إلى الفرص"
-      >
-        <ChevronLeft className="w-5 h-5 rotate-180" />
-      </button>
+      <div className="absolute top-4 right-4 z-20">
+        <DetailBackButton onBack={onBack} />
+      </div>
 
       {onToggleFavorite && (
         <FavoriteButton
@@ -189,10 +195,10 @@ const CareerOpportunityDetail: React.FC<{
         <div className="w-12 h-12 mx-auto rounded-2xl border border-[var(--mn-accent)]/35 bg-white/10 backdrop-blur flex items-center justify-center text-[var(--mn-accent-text)] mb-3">
           {opportunityIcon(opportunity.kind)}
         </div>
-        <span className="text-[10px] font-black text-[var(--mn-accent-text)] font-['Cairo',sans-serif]">
+        <span className="text-[10px] font-bold text-[var(--mn-accent-text)] font-['Cairo',sans-serif]">
           {opportunity.kind} · {opportunity.subtype}
         </span>
-        <h1 className="mt-1 text-xl sm:text-2xl font-black text-white font-['Cairo',sans-serif]">
+        <h1 className="mt-1 text-xl sm:text-2xl font-bold text-white font-['Cairo',sans-serif]">
           {opportunity.title}
         </h1>
         <div className="mt-2 inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] text-[var(--mn-on-dark-muted)] font-bold font-['Cairo',sans-serif]">
@@ -202,59 +208,59 @@ const CareerOpportunityDetail: React.FC<{
       </div>
     </div>
 
-    <div className="max-w-xl mx-auto px-3 sm:px-4 -mt-4 relative z-20 space-y-3">
+    <div className="max-w-xl mx-auto mn-inline-gutter -mt-4 relative z-20 space-y-3">
       <div className="bg-[var(--mn-gold-surface)] border border-[var(--mn-border-gold)] rounded-2xl px-3 py-2.5 text-center mn-panel ">
         <p className="text-[9px] sm:text-[10px] leading-5 font-bold text-[var(--mn-accent-text)] font-['Cairo',sans-serif]">
           هذه الفرصة معروضة من كتالوج Career & Alumni المنشور. تحقق من الجهة والموعد والتفاصيل قبل التقديم.
         </p>
       </div>
 
-      <div className="bg-[var(--mn-surface)] border border-[var(--mn-accent)]/45 rounded-3xl p-2 shadow-sm grid grid-cols-3 gap-1.5 mn-panel ">
+      <div id="career-details" className="bg-[var(--mn-surface)] border border-[var(--mn-accent)]/45 rounded-3xl p-2 shadow-sm grid grid-cols-3 gap-1.5 mn-panel scroll-mt-28">
         <div className="rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-page)]/80 p-2 text-center mn-panel ">
           <div className="text-[9px] text-[var(--mn-text-muted)] font-bold">الموقع</div>
-          <div className="mt-1 text-[10px] font-black text-[var(--mn-heading)]">{opportunity.countryFlag} {opportunity.city || opportunity.country}</div>
+          <div className="mt-1 text-[10px] font-bold text-[var(--mn-heading)]">{opportunity.countryFlag} {opportunity.city || opportunity.country}</div>
         </div>
         <div className="rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-page)]/80 p-2 text-center mn-panel ">
           <div className="text-[9px] text-[var(--mn-text-muted)] font-bold">نمط العمل</div>
-          <div className="mt-1 text-[10px] font-black text-[var(--mn-heading)]">{opportunity.workMode}</div>
+          <div className="mt-1 text-[10px] font-bold text-[var(--mn-heading)]">{opportunity.workMode}</div>
         </div>
         <div className="rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-page)]/80 p-2 text-center mn-panel ">
           <div className="text-[9px] text-[var(--mn-text-muted)] font-bold">المستوى</div>
-          <div className="mt-1 text-[10px] font-black text-[var(--mn-heading)]">{opportunity.experienceLevel}</div>
+          <div className="mt-1 text-[10px] font-bold text-[var(--mn-heading)]">{opportunity.experienceLevel}</div>
         </div>
       </div>
 
       <section className="bg-[var(--mn-surface)] border border-[var(--mn-border)] rounded-3xl p-4 shadow-2xs mn-panel ">
-        <h2 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">عن الفرصة</h2>
+        <DetailSectionHeader id="career-about" icon={Briefcase} title="عن الفرصة" />
         <p className="mt-2 text-[11px] sm:text-xs leading-7 text-[var(--mn-text-muted)] font-medium font-['Cairo',sans-serif]">{opportunity.description}</p>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div className="rounded-2xl bg-[var(--mn-page)] border border-[var(--mn-border)] p-2.5 mn-panel ">
             <div className="text-[9px] text-[var(--mn-text-muted)] font-bold">المجال</div>
-            <div className="mt-1 text-[10px] font-black text-[var(--mn-heading)]">{opportunity.industry}</div>
+            <div className="mt-1 text-[10px] font-bold text-[var(--mn-heading)]">{opportunity.industry}</div>
           </div>
           <div className="rounded-2xl bg-[var(--mn-page)] border border-[var(--mn-border)] p-2.5 mn-panel ">
             <div className="text-[9px] text-[var(--mn-text-muted)] font-bold">نوع التوظيف</div>
-            <div className="mt-1 text-[10px] font-black text-[var(--mn-heading)]">{opportunity.employmentType}</div>
+            <div className="mt-1 text-[10px] font-bold text-[var(--mn-heading)]">{opportunity.employmentType}</div>
           </div>
           <div className="rounded-2xl bg-[var(--mn-page)] border border-[var(--mn-border)] p-2.5 mn-panel ">
             <div className="text-[9px] text-[var(--mn-text-muted)] font-bold">التعويض</div>
-            <div className="mt-1 text-[10px] font-black text-[var(--mn-heading)]">{opportunity.salaryLabel}</div>
+            <div className="mt-1 text-[10px] font-bold text-[var(--mn-heading)]">{opportunity.salaryLabel}</div>
           </div>
           <div className="rounded-2xl bg-[var(--mn-page)] border border-[var(--mn-border)] p-2.5 mn-panel ">
             <div className="text-[9px] text-[var(--mn-text-muted)] font-bold">المدة</div>
-            <div className="mt-1 text-[10px] font-black text-[var(--mn-heading)]">{opportunity.durationLabel || 'حسب الجهة'}</div>
+            <div className="mt-1 text-[10px] font-bold text-[var(--mn-heading)]">{opportunity.durationLabel || 'حسب الجهة'}</div>
           </div>
         </div>
       </section>
 
       <ListSection title="المهام والمسؤوليات" items={opportunity.responsibilities} />
-      <ListSection title="المتطلبات" items={opportunity.requirements} tone="success" />
+      <ListSection id="career-requirements" title="المتطلبات" items={opportunity.requirements} tone="success" />
 
       <section className="bg-[var(--mn-surface)] border border-[var(--mn-border)] rounded-3xl p-4 shadow-2xs mn-panel ">
-        <h2 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">المهارات المستهدفة</h2>
+        <DetailSectionHeader id="career-skills" icon={Sparkles} title="المهارات المستهدفة" />
         <div className="mt-3 flex flex-wrap gap-1.5">
           {opportunity.targetSkills.map((skill) => (
-            <span key={skill} className="rounded-full bg-[var(--mn-accent)]/10 border border-[var(--mn-accent)]/30 px-2.5 py-1 text-[9px] sm:text-[10px] font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">
+            <span key={skill} className="rounded-full bg-[var(--mn-accent)]/10 border border-[var(--mn-accent)]/30 px-2.5 py-1 text-[9px] sm:text-[10px] font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">
               {skill}
             </span>
           ))}
@@ -264,24 +270,44 @@ const CareerOpportunityDetail: React.FC<{
       <ListSection title="ما الذي قد تحصل عليه؟" items={opportunity.benefits} tone="success" />
 
       <section className="bg-[var(--mn-surface)] border border-[var(--mn-border)] rounded-3xl p-4 shadow-2xs mn-panel ">
-        <h2 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">مسار التقديم</h2>
+        <DetailSectionHeader id="career-application" icon={CheckCircle2} title="مسار التقديم" />
         <div className="mt-3 space-y-2">
           {opportunity.applicationSteps.map((step, index) => (
             <div key={step} className="flex items-start gap-2.5">
-              <span className="w-6 h-6 rounded-full bg-[var(--mn-primary)] text-white text-[10px] font-black flex items-center justify-center shrink-0 mn-inverse ">{index + 1}</span>
+              <span className="w-6 h-6 rounded-full bg-[var(--mn-primary)] text-white text-[10px] font-bold flex items-center justify-center shrink-0 mn-inverse ">{index + 1}</span>
               <p className="pt-0.5 text-[11px] sm:text-xs leading-6 text-[var(--mn-text-muted)] font-medium font-['Cairo',sans-serif]">{step}</p>
             </div>
           ))}
         </div>
         <div className="mt-3 rounded-2xl bg-[var(--mn-page)] border border-[var(--mn-border)] p-3 text-center mn-panel ">
-          <div className="text-[10px] font-black text-[var(--mn-heading)]">التقديم غير مفعّل في النموذج العام بعد</div>
-          <p className="mt-1 text-[9px] leading-5 text-[var(--mn-text-muted)]">سيتم تفعيله لاحقًا من سجل Phase 21 وCareer Profile وJob Applications الحقيقي.</p>
+          {opportunity.externalPostingUrl ? (
+            <>
+              <a
+                href={opportunity.externalPostingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--mn-primary)] px-5 py-2 text-[10px] font-bold text-white hover:opacity-90 mn-inverse"
+              >
+                التقديم لدى الجهة الناشرة
+                <ArrowLeft className="w-3.5 h-3.5" />
+              </a>
+              <p className="mt-2 text-[9px] leading-5 text-[var(--mn-text-muted)]">سيتم فتح رابط الجهة الخارجية. منارتك لا يغيّر حالة الطلب أو يدّعي نجاح التقديم.</p>
+            </>
+          ) : (
+            <>
+              <div className="text-[10px] font-bold text-[var(--mn-heading)]">رابط التقديم غير متاح حاليًا</div>
+              <p className="mt-1 text-[9px] leading-5 text-[var(--mn-text-muted)]">راجع تفاصيل الفرصة والجهة الناشرة؛ لا يوجد مسار تقديم داخلي وهمي.</p>
+            </>
+          )}
+          {opportunity.applicationDeadline && (
+            <p className="mt-2 text-[9px] font-bold text-[var(--mn-accent-text)]">آخر موعد: {new Date(opportunity.applicationDeadline).toLocaleDateString('ar')}</p>
+          )}
         </div>
       </section>
 
       <section className="bg-[var(--mn-surface)] border border-[var(--mn-accent)]/35 rounded-3xl p-4 shadow-2xs mn-panel ">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">استكشف في منارتك</h2>
+          <h2 className="text-sm font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">استكشف في منارتك</h2>
           <span className="text-[9px] text-[var(--mn-text-muted)] font-bold">ربط مفيد بلا تكرار بيانات</span>
         </div>
 
@@ -293,7 +319,7 @@ const CareerOpportunityDetail: React.FC<{
             <div className="flex items-start gap-2.5">
               <Globe2 className="w-4 h-4 mt-0.5 text-[var(--mn-accent-text)] shrink-0" />
               <div>
-                <div className="text-[11px] font-black text-[var(--mn-heading)]">الدراسة والحياة في {opportunity.country}</div>
+                <div className="text-[11px] font-bold text-[var(--mn-heading)]">الدراسة والحياة في {opportunity.country}</div>
                 <div className="mt-0.5 text-[9px] sm:text-[10px] leading-5 text-[var(--mn-text-muted)]">الدولة هنا مأخوذة من موقع الفرصة نفسها؛ فتح صفحة الدولة لا يغيّر سجل الفرصة.</div>
               </div>
             </div>
@@ -307,7 +333,7 @@ const CareerOpportunityDetail: React.FC<{
               className="w-full flex items-center justify-between gap-3 rounded-2xl border border-[var(--mn-border)] hover:border-[var(--mn-accent)]/60 bg-[var(--mn-page)]/70 hover:bg-[var(--mn-accent)]/5 p-3 text-right transition-all cursor-pointer"
             >
               <div>
-                <div className="text-[11px] font-black text-[var(--mn-heading)]">{link.label}</div>
+                <div className="text-[11px] font-bold text-[var(--mn-heading)]">{link.label}</div>
                 <div className="mt-0.5 text-[9px] sm:text-[10px] leading-5 text-[var(--mn-text-muted)]">{link.description}</div>
               </div>
               <ArrowLeft className="w-4 h-4 text-[var(--mn-accent-text)] shrink-0" />
@@ -322,7 +348,7 @@ const CareerOpportunityDetail: React.FC<{
               <div className="flex items-start gap-2.5">
                 <Sparkles className="w-4 h-4 mt-0.5 text-[var(--mn-accent-text)] shrink-0" />
                 <div>
-                  <div className="text-[11px] font-black text-[var(--mn-heading)]">أدوات تساعدك في تجهيز الطلب</div>
+                  <div className="text-[11px] font-bold text-[var(--mn-heading)]">أدوات تساعدك في تجهيز الطلب</div>
                   <div className="mt-0.5 text-[9px] sm:text-[10px] leading-5 text-[var(--mn-text-muted)]">ظهور سياقي فقط؛ انتقل إلى أدوات منارتك لاستكشاف ما يناسبك.</div>
                 </div>
               </div>
@@ -334,9 +360,10 @@ const CareerOpportunityDetail: React.FC<{
     </div>
   </div>
 );
+};
 
 export const CareersSearchPage: React.FC<CareersSearchPageProps> = ({
-  detailId, onDetailChange,
+  detailId, onDetailChange, searchAnchor, searchTerm,
   opportunities,
   onBack,
   onNavigateCategory,
@@ -453,18 +480,21 @@ export const CareersSearchPage: React.FC<CareersSearchPageProps> = ({
         onOpenTools={onOpenTools}
         isFavorite={favoriteIds.includes(selectedOpportunity.id)}
         onToggleFavorite={onToggleFavorite}
+        searchAnchor={searchAnchor}
+        searchTerm={searchTerm}
       />
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-sans select-none mn-panel " dir="rtl">
+    <div className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-['Cairo',sans-serif] select-none mn-panel " dir="rtl">
       <div className="relative mn-search-hero text-white px-3 sm:px-4 pt-4 pb-12 sm:pb-14 overflow-hidden shadow-sm mn-inverse ">
         {onBack && (
           <button
             onClick={onBack}
-            className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/30 backdrop-blur-md rounded-full transition-all z-20 cursor-pointer text-white"
+            className="absolute top-4 right-4 h-10 w-10 bg-black/20 hover:bg-black/30 backdrop-blur-md rounded-full transition-all z-20 cursor-pointer text-white flex items-center justify-center"
             title="العودة"
+            aria-label="العودة"
           >
             <ChevronLeft className="w-5 h-5 rotate-180" />
           </button>
@@ -481,9 +511,9 @@ export const CareersSearchPage: React.FC<CareersSearchPageProps> = ({
         </div>
 
         <div className="max-w-xl mx-auto text-center relative z-10 space-y-2.5">
-          <div className="flex justify-center -mb-1"><span className="text-[var(--mn-accent-text)] text-sm">✦</span></div>
+          <div className="-mb-1 flex justify-center"><Sparkles className="h-4 w-4 text-[var(--mn-accent-text)]" aria-hidden="true" /></div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-white font-['Cairo',sans-serif] tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-white font-['Cairo',sans-serif] tracking-tight">
               <span>ابحث عن </span>
               <span className="relative inline-block text-white">
                 فرصتك المهنية
@@ -529,7 +559,7 @@ export const CareersSearchPage: React.FC<CareersSearchPageProps> = ({
         )}
       </div>
 
-      <div className="max-w-xl mx-auto px-3 sm:px-4 -mt-7 sm:-mt-8 relative z-20">
+      <div className="max-w-xl mx-auto mn-inline-gutter -mt-7 sm:-mt-8 relative z-20">
         <div className="bg-[var(--mn-surface)] border border-[var(--mn-accent)]/50 rounded-3xl p-2 sm:p-2.5 shadow-md mn-panel ">
           <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
             <div className="relative bg-[var(--mn-surface)] hover:bg-[var(--mn-page)]/80 border border-[var(--mn-border)] rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-2xs transition-colors min-w-0 mn-panel hover:mn-panel ">
@@ -575,28 +605,28 @@ export const CareersSearchPage: React.FC<CareersSearchPageProps> = ({
           <div className="mt-2 bg-[var(--mn-surface)] border border-[var(--mn-border)] rounded-3xl p-2.5 shadow-sm mn-panel ">
             <div className="grid grid-cols-2 gap-2">
               <label className="relative rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-page)] p-2.5 text-center cursor-pointer mn-panel ">
-                <div className="flex items-center justify-center gap-1"><Layers3 className="w-3 h-3 text-[var(--mn-accent-text)]" /><span className="truncate text-[10px] font-extrabold text-[var(--mn-text)]">{selectedIndustry === 'الكل' ? 'المجال' : selectedIndustry}</span></div>
+                <div className="flex items-center justify-center gap-1"><Layers3 className="w-3 h-3 text-[var(--mn-accent-text)]" /><span className="truncate text-[10px] font-semibold text-[var(--mn-text)]">{selectedIndustry === 'الكل' ? 'المجال' : selectedIndustry}</span></div>
                 <select value={selectedIndustry} onChange={(e) => setSelectedIndustry(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer">
                   {industries.map((item) => <option key={item} value={item}>{item === 'الكل' ? 'كل المجالات' : item}</option>)}
                 </select>
               </label>
 
               <label className="relative rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-page)] p-2.5 text-center cursor-pointer mn-panel ">
-                <div className="flex items-center justify-center gap-1"><Laptop className="w-3 h-3 text-[var(--mn-accent-text)]" /><span className="truncate text-[10px] font-extrabold text-[var(--mn-text)]">{selectedWorkMode === 'الكل' ? 'نمط العمل' : selectedWorkMode}</span></div>
+                <div className="flex items-center justify-center gap-1"><Laptop className="w-3 h-3 text-[var(--mn-accent-text)]" /><span className="truncate text-[10px] font-semibold text-[var(--mn-text)]">{selectedWorkMode === 'الكل' ? 'نمط العمل' : selectedWorkMode}</span></div>
                 <select value={selectedWorkMode} onChange={(e) => setSelectedWorkMode(e.target.value as 'الكل' | CareerWorkMode)} className="absolute inset-0 opacity-0 cursor-pointer">
                   {workModes.map((item) => <option key={item} value={item}>{item === 'الكل' ? 'كل الأنماط' : item}</option>)}
                 </select>
               </label>
 
               <label className="relative rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-page)] p-2.5 text-center cursor-pointer mn-panel ">
-                <div className="flex items-center justify-center gap-1"><Users className="w-3 h-3 text-[var(--mn-accent-text)]" /><span className="truncate text-[10px] font-extrabold text-[var(--mn-text)]">{selectedExperience === 'الكل' ? 'الخبرة' : selectedExperience}</span></div>
+                <div className="flex items-center justify-center gap-1"><Users className="w-3 h-3 text-[var(--mn-accent-text)]" /><span className="truncate text-[10px] font-semibold text-[var(--mn-text)]">{selectedExperience === 'الكل' ? 'الخبرة' : selectedExperience}</span></div>
                 <select value={selectedExperience} onChange={(e) => setSelectedExperience(e.target.value as 'الكل' | CareerExperienceLevel)} className="absolute inset-0 opacity-0 cursor-pointer">
                   {experienceLevels.map((item) => <option key={item} value={item}>{item === 'الكل' ? 'كل المستويات' : item}</option>)}
                 </select>
               </label>
 
               <label className="relative rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-page)] p-2.5 text-center cursor-pointer mn-panel ">
-                <div className="flex items-center justify-center gap-1"><Clock3 className="w-3 h-3 text-[var(--mn-accent-text)]" /><span className="truncate text-[10px] font-extrabold text-[var(--mn-text)]">{selectedEmploymentType === 'الكل' ? 'نوع التوظيف' : selectedEmploymentType}</span></div>
+                <div className="flex items-center justify-center gap-1"><Clock3 className="w-3 h-3 text-[var(--mn-accent-text)]" /><span className="truncate text-[10px] font-semibold text-[var(--mn-text)]">{selectedEmploymentType === 'الكل' ? 'نوع التوظيف' : selectedEmploymentType}</span></div>
                 <select value={selectedEmploymentType} onChange={(e) => setSelectedEmploymentType(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer">
                   {employmentTypes.map((item) => <option key={item} value={item}>{item === 'الكل' ? 'كل الأنواع' : item}</option>)}
                 </select>
@@ -606,20 +636,20 @@ export const CareersSearchPage: React.FC<CareersSearchPageProps> = ({
         )}
       </div>
 
-      <div className="w-full max-w-xl mx-auto px-3 sm:px-4 pt-3 space-y-2.5">
+      <div className="w-full max-w-xl mx-auto mn-inline-gutter pt-3 space-y-2.5">
         <div className="flex items-center justify-between px-1">
           <div>
-            <span className="text-xs sm:text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">الفرص المهنية ({filteredOpportunities.length})</span>
-            <p className="mt-0.5 text-[9px] sm:text-[10px] text-[var(--mn-text-muted)] font-medium">ثلاثة نماذج لاختبار الوظائف والتدريب وبرامج الخريجين قبل ربط البيانات الحقيقية.</p>
+            <span className="text-xs sm:text-sm font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">الفرص المهنية ({filteredOpportunities.length})</span>
+            <p className="mt-0.5 text-[9px] sm:text-[10px] text-[var(--mn-text-muted)] font-medium">استخدم البحث والفلاتر للوصول إلى الفرص المهنية المنشورة المناسبة.</p>
           </div>
-          <span className="text-[9px] sm:text-[10px] text-[var(--mn-accent-text)] font-bold font-['Cairo',sans-serif]">Phase 21</span>
+          <span className="text-[9px] sm:text-[10px] text-[var(--mn-accent-text)] font-bold font-['Cairo',sans-serif]">Career</span>
         </div>
 
         <div className="flex flex-col gap-2.5 sm:gap-3">
           {filteredOpportunities.length === 0 ? (
             <div className="bg-[var(--mn-surface)] border border-[var(--mn-border)] rounded-3xl p-8 text-center flex flex-col items-center justify-center gap-2 shadow-2xs mn-panel ">
               <div className="w-12 h-12 rounded-full bg-[var(--mn-surface-muted)] flex items-center justify-center text-[var(--mn-text-muted)] mn-panel "><Search className="w-6 h-6" /></div>
-              <h3 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">لا توجد فرصة مطابقة</h3>
+              <h3 className="text-sm font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">لا توجد فرصة مطابقة</h3>
               <p className="text-xs text-[var(--mn-text-muted)] max-w-xs font-['Cairo',sans-serif]">غيّر الفلاتر أو أعد البحث في الفرص المنشورة.</p>
               <button onClick={resetFilters} className="mt-2 px-4 py-1.5 bg-[var(--mn-primary)] text-white rounded-xl text-xs font-bold cursor-pointer font-['Cairo',sans-serif] mn-inverse ">إلغاء التصفية</button>
             </div>

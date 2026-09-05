@@ -14,6 +14,7 @@ import {
   MajorRelationshipDto,
   MajorSourceDto,
   MajorStatus,
+  MajorSourceIdentityPrefix,
   MajorVersionDto,
   PaginatedMajorResult,
   PublicMajorFilters,
@@ -375,6 +376,20 @@ export class PrismaMajorRepository implements ITransactionalMajorRepository {
     });
 
     return records.map((record) => this.mapLevelProfileToDto(record));
+  }
+
+  async allocateNextProfileCode(prefix: MajorSourceIdentityPrefix, floor = 0): Promise<string> {
+    await this.prisma.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`major-profile-code:${prefix}`}, 0))`;
+    const profiles = await this.prisma.majorLevelProfile.findMany({
+      where: { code: { startsWith: `${prefix}-` } },
+      select: { code: true },
+    });
+    let max = floor;
+    for (const profile of profiles) {
+      const match = profile.code?.match(new RegExp(`^${prefix}-(\\d+)$`));
+      if (match) max = Math.max(max, Number(match[1]));
+    }
+    return `${prefix}-${String(max + 1).padStart(4, '0')}`;
   }
 
   async listByTaxonomyNode(taxonomyNodeId: string): Promise<TaxonomyMappedMajorDto[]> {

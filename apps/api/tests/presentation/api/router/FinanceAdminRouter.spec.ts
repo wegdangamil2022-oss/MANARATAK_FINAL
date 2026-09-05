@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { FinanceAdminRouter } from '../../../../src/presentation/api/router/FinanceAdminRouter';
 
 describe('FinanceAdminRouter', () => {
-  it('issues invoices through the admin route', async () => {
+  it('does not expose arbitrary invoice creation through the admin route', async () => {
     const financeAdminUseCases = {
       issueInvoice: vi.fn().mockResolvedValue({ id: 'inv-1', invoiceNumber: 'INV-1' }),
       listInvoices: vi.fn(),
@@ -46,16 +46,11 @@ describe('FinanceAdminRouter', () => {
         ],
       });
 
-    expect(response.status).toBe(201);
-    expect(financePlatformUseCases.createDraftInvoice).toHaveBeenCalledWith(
-      expect.objectContaining({
-        originDomain: 'SERVICES',
-      }),
-      expect.objectContaining({ actorId: 'admin-1', idempotencyKey: 'invoice-1' }),
-    );
+    expect(response.status).toBe(404);
+    expect(financePlatformUseCases.createDraftInvoice).not.toHaveBeenCalled();
   });
 
-  it('rejects malformed money payloads', async () => {
+  it('keeps invoice creation unavailable even for malformed payloads', async () => {
     const financeAdminUseCases = {
       issueInvoice: vi.fn(),
       listInvoices: vi.fn(),
@@ -94,7 +89,7 @@ describe('FinanceAdminRouter', () => {
         ],
       });
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(404);
     expect(financePlatformUseCases.createDraftInvoice).not.toHaveBeenCalled();
   });
 });

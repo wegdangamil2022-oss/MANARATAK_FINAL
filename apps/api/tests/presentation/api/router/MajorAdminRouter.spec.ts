@@ -8,6 +8,10 @@ import { MajorAdminRouter } from '../../../../src/presentation/api/router/MajorA
 describe('MajorAdminRouter', () => {
   const createMockUseCases = () => ({
     listMajors: vi.fn(),
+    listCollegeFacets: vi.fn().mockReturnValue([]),
+    listNewMajorCandidates: vi.fn(),
+    approveNewMajorCandidate: vi.fn(),
+    linkNewMajorCandidate: vi.fn(),
     getMajor: vi.fn(),
     updateMajor: vi.fn(),
     markReadyToReview: vi.fn(),
@@ -61,6 +65,73 @@ describe('MajorAdminRouter', () => {
       page: 2,
       pageSize: 50,
     });
+  });
+
+
+  it('GET /admin/majors/new-candidates keeps discovery inside the majors API and parses source filters', async () => {
+    const useCases = createMockUseCases();
+    useCases.listNewMajorCandidates.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 25, totalPages: 1 });
+    const app = createApp(useCases);
+
+    const res = await request(app).get('/admin/majors/new-candidates?sourceType=UNIVERSITY_PROGRAM&pageSize=10');
+
+    expect(res.status).toBe(200);
+    expect(useCases.listNewMajorCandidates).toHaveBeenCalledWith({
+      sourceType: 'UNIVERSITY_PROGRAM',
+      page: 1,
+      pageSize: 10,
+    });
+  });
+
+  it('POST /admin/majors/new-candidates/:key/approve rejects faculty context as canonical major data', async () => {
+    const useCases = createMockUseCases();
+    const app = createApp(useCases);
+
+    const res = await request(app).post('/admin/majors/new-candidates/NMC-1/approve').send({
+      canonicalMajorName: 'Computer Science',
+      degreeLevel: 'BACHELOR',
+      degreeLevelId: 'degree-bachelor',
+      collegeOrFaculty: 'Faculty of Engineering',
+    });
+
+    expect(res.status).toBe(400);
+    expect(useCases.approveNewMajorCandidate).not.toHaveBeenCalled();
+  });
+
+  it('POST /admin/majors/new-candidates/:key/approve sends an explicit admin mutation context', async () => {
+    const useCases = createMockUseCases();
+    useCases.approveNewMajorCandidate.mockResolvedValue({
+      type: 'CREATED', majorId: 'major-1', classificationCode: 'MJR-0844',
+      linkedSources: { universityPrograms: 1, scholarshipMajorTargets: 0, scholarshipEligibilityItems: 0 },
+    });
+    const app = createApp(useCases);
+
+    const res = await request(app).post('/admin/majors/new-candidates/NMC-1/approve').send({
+      canonicalMajorName: 'Computer Science',
+      degreeLevel: 'BACHELOR',
+      degreeLevelId: 'degree-bachelor',
+    });
+
+    expect(res.status).toBe(200);
+    expect(useCases.approveNewMajorCandidate).toHaveBeenCalledWith(
+      expect.objectContaining({ candidateKey: 'NMC-1', canonicalMajorName: 'Computer Science', degreeLevelId: 'degree-bachelor' }),
+      expect.objectContaining({ actorId: 'admin-X', source: 'admin-major-api' }),
+    );
+  });
+
+  it('POST /admin/majors/new-candidates/:key/link links only after an explicit admin choice', async () => {
+    const useCases = createMockUseCases();
+    useCases.linkNewMajorCandidate.mockResolvedValue({ universityPrograms: 1, scholarshipMajorTargets: 0, scholarshipEligibilityItems: 0 });
+    const app = createApp(useCases);
+
+    const res = await request(app).post('/admin/majors/new-candidates/NMC-1/link').send({ majorId: 'major-existing' });
+
+    expect(res.status).toBe(200);
+    expect(useCases.linkNewMajorCandidate).toHaveBeenCalledWith(
+      'NMC-1',
+      'major-existing',
+      expect.objectContaining({ actorId: 'admin-X', source: 'admin-major-api' }),
+    );
   });
 
   it('PATCH /admin/majors/:id validates body and strips readonly fields', async () => {

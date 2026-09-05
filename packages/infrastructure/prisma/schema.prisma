@@ -219,6 +219,7 @@ model Course {
   taxonomyResolutions        CourseTaxonomyResolution[]
   academicTaxonomyLinks      CourseAcademicTaxonomyLink[]
   majorProjections           CourseMajorProjection[]
+  internationalTestRelationships CourseInternationalTestRelationship[]
   modules                    CourseModule[]
   lessons                    CourseLesson[]
   lessonAssets               CourseLessonAsset[]
@@ -633,8 +634,8 @@ model CertificateTemplateVersion {
   status               String   @default("DRAFT")
   language             String   @default("BILINGUAL")
   layout               String   @default("LANDSCAPE")
-  accentColor          String   @default("#075E45")
-  secondaryColor       String   @default("#C9A227")
+  accentColor          String   @default("#142B5F")
+  secondaryColor       String   @default("#D6A43B")
   titleAr              String
   titleEn              String
   bodyAr               String
@@ -881,6 +882,27 @@ model CourseMajorProjection {
   @@index([sourceMajorClassificationMappingId])
 }
 
+
+model CourseInternationalTestRelationship {
+  id                  String   @id @default(uuid())
+  courseId            String
+  internationalTestId String
+  relationshipType    String
+  reviewState         String   @default("PROPOSED")
+  sourceType          String   @default("ADMIN_AUTHORED")
+  createdBy           String?
+  reviewedBy          String?
+  reviewedAt          DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  course            Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  internationalTest InternationalTest @relation(fields: [internationalTestId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, internationalTestId, relationshipType])
+  @@index([courseId, reviewState])
+  @@index([internationalTestId, reviewState])
+}
 
 model ExternalCourseProvider {
   id                             String   @id @default(uuid())
@@ -2096,6 +2118,7 @@ model InternationalTest {
   universityAdmissionRequirements    UniversityProgramAdmissionRequirement[]
   scholarshipEligibilityRequirements ScholarshipEligibilityItem[]                    @relation("ScholarshipEligibilityTest")
   scholarshipRequiredDocuments       ScholarshipRequiredDocument[]                   @relation("ScholarshipRequiredDocumentTest")
+  coursePreparationRelationships      CourseInternationalTestRelationship[]
 
   @@index([status])
   @@index([testCategory])
@@ -2945,6 +2968,7 @@ model CmsContentNode {
   localizedPayloads  CmsLocalizedContent[]
   publishedPayloads  CmsPublishedContent[]
   ledger              CmsEditorialLedger[]
+  domainLinks         CmsContentDomainLink[]
 
   @@index([status, updatedAt])
   @@index([contentType, status])
@@ -2953,6 +2977,25 @@ model CmsContentNode {
   @@index([authorId])
   @@index([ownerId])
   @@unique([siteIdentifier, slug])
+}
+
+
+model CmsContentDomainLink {
+  id           String   @id @default(uuid())
+  contentId    String
+  targetType   String
+  targetId     String
+  relationType String   @default("RELATED")
+  sortOrder    Int      @default(0)
+  metadata     Json?
+  createdBy    String
+  createdAt    DateTime @default(now())
+
+  content CmsContentNode @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@unique([contentId, targetType, targetId, relationType])
+  @@index([targetType, targetId, sortOrder])
+  @@index([contentId, sortOrder])
 }
 
 model CmsLocalizedContent {
@@ -3427,6 +3470,7 @@ model ReferenceCountry {
   serviceCatalogCountries ServiceCatalogCountryRecord[]
   careerEmployers CareerEmployerRecord[]
   careerJobs CareerJobPostingRecord[]
+  studyDestinationProfile StudyDestinationProfile?
 
   @@index([region])
   @@index([isActive])
@@ -3450,6 +3494,7 @@ model ReferenceCurrency {
   universityLivingCostProfiles    UniversityAccommodationProfile[] @relation("UniversityAccommodationLivingCostCurrency")
   scholarshipBenefits             ScholarshipBenefit[]             @relation("ScholarshipBenefitCurrency")
   internationalTestFees           InternationalTestFeeMetadata[]
+  studyDestinationLivingCostProfiles StudyDestinationProfile[] @relation("StudyDestinationLivingCostCurrency")
 
   @@index([isActive])
   @@index([name])
@@ -3470,10 +3515,65 @@ model ReferenceLanguage {
   scholarships Scholarship[] @relation("ScholarshipStudyLanguage")
   internationalTestLanguageRelationships InternationalTestLanguageRelationship[]
   serviceCatalogLanguages ServiceCatalogLanguageRecord[]
+  studyDestinationProfiles StudyDestinationStudyLanguage[]
 
   @@index([isActive])
   @@index([name])
   @@index([direction])
+}
+
+model StudyDestinationProfile {
+  id                               String   @id @default(uuid())
+  publicId                         String   @unique
+  slug                             String   @unique
+  countryReferenceId               String   @unique
+  status                           String   @default("DRAFT")
+  completenessStatus               String   @default("INCOMPLETE")
+  overviewAr                       String?
+  overviewEn                       String?
+  studySystemSummaryAr             String?
+  studySystemSummaryEn             String?
+  admissionHighlightsAr            Json?
+  admissionHighlightsEn            Json?
+  visaSummaryAr                    String?
+  visaSummaryEn                    String?
+  visaRequirementsAr               Json?
+  visaRequirementsEn               Json?
+  visaOfficialUrl                  String?
+  livingCostTier                   String?
+  averageMonthlyLivingCostMin      Decimal? @db.Decimal(18, 2)
+  averageMonthlyLivingCostMax      Decimal? @db.Decimal(18, 2)
+  livingCostCurrencyReferenceId    String?
+  costHighlightsAr                 Json?
+  costHighlightsEn                 Json?
+  studentLifeHighlightsAr          Json?
+  studentLifeHighlightsEn          Json?
+  officialLinks                    Json?
+  sourceVerificationStatus         String   @default("UNVERIFIED")
+  sourceAuditDate                  DateTime?
+  evidenceSources                  Json?
+  imageAssetId                     String?
+  isFeatured                      Boolean  @default(false)
+  publishedAt                      DateTime?
+  createdAt                        DateTime @default(now())
+  updatedAt                        DateTime @updatedAt
+  countryReference                 ReferenceCountry @relation(fields: [countryReferenceId], references: [id], onDelete: Restrict)
+  livingCostCurrency               ReferenceCurrency? @relation("StudyDestinationLivingCostCurrency", fields: [livingCostCurrencyReferenceId], references: [id], onDelete: SetNull)
+  studyLanguages                   StudyDestinationStudyLanguage[]
+
+  @@index([status, completenessStatus])
+  @@index([isFeatured, status])
+  @@index([livingCostCurrencyReferenceId])
+}
+
+model StudyDestinationStudyLanguage {
+  profileId           String
+  languageReferenceId String
+  profile             StudyDestinationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  language            ReferenceLanguage @relation(fields: [languageReferenceId], references: [id], onDelete: Restrict)
+
+  @@id([profileId, languageReferenceId])
+  @@index([languageReferenceId])
 }
 
 model ReferenceCity {

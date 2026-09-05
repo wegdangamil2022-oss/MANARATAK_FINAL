@@ -104,3 +104,33 @@ export interface StudentCourseProgressSnapshotDto {
   quizAttempts: CourseQuizAttemptDto[];
   completion?: CourseCompletionDto | null;
 }
+
+export interface CourseLearnerQuestionDto {
+  id: string;
+  quizId?: string | null;
+  questionType: string;
+  prompt: string;
+  choices?: unknown;
+  points: number;
+  position: number;
+}
+
+export interface CourseLearnerAssetDto {
+  id: string;
+  lessonId: string;
+  title?: string | null;
+  assetType: string;
+  position: number;
+  isRequired: boolean;
+}
+
+export interface CourseLearnerWorkspaceDto {
+  progress: StudentCourseProgressSnapshotDto;
+  curriculum: {
+    modules: import('./CourseCurriculum').CourseModuleDto[];
+    lessons: import('./CourseCurriculum').CourseLessonDto[];
+    assets: CourseLearnerAssetDto[];
+    quizzes: import('./CourseCurriculum').CourseQuizDto[];
+    questions: CourseLearnerQuestionDto[];
+  };
+}

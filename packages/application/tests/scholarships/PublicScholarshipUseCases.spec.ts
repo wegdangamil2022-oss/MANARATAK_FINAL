@@ -82,4 +82,23 @@ describe('PublicScholarshipUseCases', () => {
     mockRepo.findPublishedBySlug = vi.fn().mockResolvedValue(null);
     await expect(useCases.getScholarship('legacy')).rejects.toThrow('Scholarship not found');
   });
+  it('projects the requested locale without exposing alternate-language payloads', async () => {
+    mockRepo.findPublishedBySlug = vi.fn().mockResolvedValue({
+      id: 'schol-1',
+      slug: 'global-scholarship',
+      displayName: 'Global Scholarship',
+      sourceLocale: 'en',
+      localizedNames: { ar: 'منحة عالمية', en: 'Global Scholarship' },
+      publicationStatus: ScholarshipPublicationStatus.PUBLISHED,
+      updatedAt: new Date(),
+    });
+
+    const arabic = await useCases.getScholarship('global-scholarship', 'ar');
+    const english = await useCases.getScholarship('global-scholarship', 'en');
+
+    expect(arabic.displayName).toBe('منحة عالمية');
+    expect(english.displayName).toBe('Global Scholarship');
+    expect(arabic).not.toHaveProperty('localizedNames');
+  });
+
 });

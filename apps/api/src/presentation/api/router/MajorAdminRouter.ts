@@ -39,6 +39,30 @@ export class MajorAdminRouter {
       pageSize: z.coerce.number().int().min(1).max(100).default(50),
     });
 
+    const newCandidateListQuerySchema = z.object({
+      search: z.string().trim().min(1).max(200).optional(),
+      sourceType: z.enum(['UNIVERSITY_PROGRAM', 'SCHOLARSHIP_MAJOR_TARGET', 'SCHOLARSHIP_ELIGIBILITY']).optional(),
+      page: z.coerce.number().int().min(1).default(1),
+      pageSize: z.coerce.number().int().min(1).max(100).default(25),
+    }).strict();
+
+    const approveNewCandidateBodySchema = z.object({
+      canonicalMajorName: z.string().trim().min(1).max(300),
+      localizedNameAr: z.string().trim().min(1).max(300).nullable().optional(),
+      localizedNameEn: z.string().trim().min(1).max(300).nullable().optional(),
+      degreeLevel: z.enum(['BACHELOR', 'MASTER', 'DOCTORATE', 'FELLOWSHIP']),
+      degreeLevelId: z.string().min(1),
+      academicFieldId: z.string().min(1).nullable().optional(),
+      disciplineId: z.string().min(1).nullable().optional(),
+      academicFieldOrDiscipline: z.string().trim().min(1).max(300).nullable().optional(),
+      officialSourceUrl: z.union([z.string().url(), z.literal('')]).nullable().optional(),
+      sourceUrl: z.union([z.string().url(), z.literal('')]).nullable().optional(),
+    }).strict();
+
+    const linkNewCandidateBodySchema = z.object({
+      majorId: z.string().min(1),
+    }).strict();
+
     const updateBodySchema = z.object({
       displayName: z.string().optional(),
       localizedNameAr: z.string().trim().min(1).nullable().optional(),
@@ -77,15 +101,6 @@ export class MajorAdminRouter {
       asyncHandler(async (req: Request, res: Response) => {
         const filters = listQuerySchema.parse(req.query);
         const result = await adminMajorUseCases.listMajors(filters);
-        console.log(
-          '[MajorAdminRouter GET /]',
-          'has catalogRepository?',
-          !!adminMajorUseCases['catalogRepository'],
-          'filters:',
-          filters,
-          'total:',
-          result.total,
-        );
         res.json(result);
       }),
     );
@@ -100,10 +115,48 @@ export class MajorAdminRouter {
     );
 
     router.get(
+      '/new-candidates',
+      asyncHandler(async (req: Request, res: Response) => {
+        const filters = newCandidateListQuerySchema.parse(req.query);
+        res.json(await adminMajorUseCases.listNewMajorCandidates(filters));
+      }),
+    );
+
+    router.post(
+      '/new-candidates/:candidateKey/approve',
+      asyncHandler(async (req: Request, res: Response) => {
+        const body = approveNewCandidateBodySchema.parse(req.body);
+        const result = await adminMajorUseCases.approveNewMajorCandidate({
+          candidateKey: req.params.candidateKey,
+          ...body,
+          officialSourceUrl: body.officialSourceUrl === '' ? null : body.officialSourceUrl,
+          sourceUrl: body.sourceUrl === '' ? null : body.sourceUrl,
+        }, mutationContext(req));
+        res.status(200).json(result);
+      }),
+    );
+
+    router.post(
+      '/new-candidates/:candidateKey/link',
+      asyncHandler(async (req: Request, res: Response) => {
+        const body = linkNewCandidateBodySchema.parse(req.body);
+        const result = await adminMajorUseCases.linkNewMajorCandidate(req.params.candidateKey, body.majorId, mutationContext(req));
+        res.status(200).json(result);
+      }),
+    );
+
+    router.get(
       '/:id',
       asyncHandler(async (req: Request, res: Response) => {
         const major = await adminMajorUseCases.getMajor(req.params.id);
         res.json(major);
+      }),
+    );
+
+    router.get(
+      '/:id/publication-readiness',
+      asyncHandler(async (req: Request, res: Response) => {
+        res.json(await adminMajorUseCases.checkPublicationReadiness(req.params.id));
       }),
     );
 

@@ -9,6 +9,7 @@ import {
   LearningPathDto,
   LearningPathEnrollmentStatus,
   LearningPathStatus,
+  CourseOriginType,
 } from '@manaratak/domain';
 import { AtomicDomainMutationCoordinator, AtomicMutationRequestContext } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
 
@@ -24,10 +25,20 @@ export class LearningPathUseCases {
     const courses = input.courses ?? [];
     if (!input.title.trim()) throw new Error('LEARNING_PATH_TITLE_REQUIRED');
     this.assertCourseGraph(courses);
-    for (const item of courses) if (!await this.courseRepository.findById(item.courseId)) throw new Error(`LEARNING_PATH_COURSE_NOT_FOUND:${item.courseId}`);
+    for (const item of courses) {
+      const course = await this.courseRepository.findById(item.courseId);
+      if (!course) throw new Error(`LEARNING_PATH_COURSE_NOT_FOUND:${item.courseId}`);
+      if (course.originType !== CourseOriginType.NATIVE_MANARATAK_COURSE) {
+        throw new Error(`LEARNING_PATH_NATIVE_COURSE_REQUIRED:${item.courseId}`);
+      }
+    }
     const identity = randomUUID().replace(/-/g, '');
     const slug = input.slug?.trim() || `${this.slug(input.title)}-${identity.slice(0, 8)}`;
     return this.repository.create({ ...input, courses, publicId: `LP-${identity.slice(0, 12).toUpperCase()}`, slug });
+  }
+
+  public async list(): Promise<LearningPathDto[]> {
+    return this.repository.list();
   }
 
   public async get(id: string): Promise<LearningPathDto> {
@@ -48,8 +59,15 @@ export class LearningPathUseCases {
     for (const item of path.courses) {
       const course = await this.courseRepository.findById(item.courseId);
       if (!course || course.status !== 'PUBLISHED') throw new Error(`LEARNING_PATH_COURSE_NOT_PUBLISHED:${item.courseId}`);
+      if (course.originType !== CourseOriginType.NATIVE_MANARATAK_COURSE) throw new Error(`LEARNING_PATH_NATIVE_COURSE_REQUIRED:${item.courseId}`);
     }
     return this.repository.updateStatus(id, LearningPathStatus.PUBLISHED);
+  }
+
+  public async archive(id: string): Promise<LearningPathDto> {
+    const path = await this.get(id);
+    if (path.status === LearningPathStatus.ARCHIVED) return path;
+    return this.repository.updateStatus(id, LearningPathStatus.ARCHIVED);
   }
 
   public async enroll(pathId: string, studentReferenceId: string) {

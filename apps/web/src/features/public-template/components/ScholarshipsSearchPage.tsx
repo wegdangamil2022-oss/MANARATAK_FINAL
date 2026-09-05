@@ -10,9 +10,11 @@ import {
   GraduationCap,
   Coins,
   Globe2,
+  Sparkles,
 } from 'lucide-react';
 import { Scholarship, DegreeLevel } from '../types';
-import type { PublicScholarshipDataStatus } from '../publicScholarshipDataSource';
+import { mapPublicScholarshipDto, type PublicScholarshipDataStatus } from '../publicScholarshipDataSource';
+import { ApiClient } from '../../../api/client';
 
 interface ScholarshipsSearchPageProps {
   scholarships?: Scholarship[];
@@ -165,6 +167,7 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
   const [selectedCountryReferenceId, setSelectedCountryReferenceId] = useState('الكل');
   const [selectedDegree, setSelectedDegree] = useState('الكل');
   const [selectedFunding, setSelectedFunding] = useState('الكل');
+  const [countryScopedScholarships, setCountryScopedScholarships] = useState<Scholarship[] | null>(null);
 
   useEffect(() => {
     if (!initialCountryReferenceId) return;
@@ -172,27 +175,61 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
     setSearchQuery('');
   }, [initialCountryReferenceId]);
 
+  useEffect(() => {
+    let active = true;
+    if (dataStatus === 'prototype' || !initialCountryReferenceId) {
+      setCountryScopedScholarships(null);
+      return () => { active = false; };
+    }
+
+    const loadCountryScholarships = async () => {
+      try {
+        const first = await ApiClient.getScholarships({
+          countryReferenceId: initialCountryReferenceId,
+          page: 1,
+          pageSize: 50,
+        });
+        const all = [...first.data];
+        for (let currentPage = 2; currentPage <= first.totalPages; currentPage += 1) {
+          const next = await ApiClient.getScholarships({
+            countryReferenceId: initialCountryReferenceId,
+            page: currentPage,
+            pageSize: 50,
+          });
+          all.push(...next.data);
+        }
+        if (active) setCountryScopedScholarships(all.map((item) => mapPublicScholarshipDto(item)));
+      } catch {
+        if (active) setCountryScopedScholarships(null);
+      }
+    };
+
+    void loadCountryScholarships();
+    return () => { active = false; };
+  }, [dataStatus, initialCountryReferenceId]);
+
+  const scholarshipSource = countryScopedScholarships ?? scholarships;
   const resultsRef = useRef<HTMLDivElement>(null);
 
   // Extract unique countries
   const countryOptions = useMemo(() => {
     const options = new Map<string, string>();
-    scholarships.forEach((scholarship) => {
+    scholarshipSource.forEach((scholarship) => {
       const key = scholarship.countryReferenceId || (dataStatus === 'prototype' ? `prototype:${scholarship.country}` : '');
       if (key) options.set(key, scholarship.country);
     });
     return Array.from(options, ([id, label]) => ({ id, label }));
-  }, [scholarships, dataStatus]);
+  }, [scholarshipSource, dataStatus]);
 
   // Keep filter options aligned with the actual scholarship dataset.
   // This prevents dead options from appearing when the API/data model changes.
   const fundingTypes = useMemo(() => {
     const set = new Set<string>();
-    scholarships.forEach((s) => {
+    scholarshipSource.forEach((s) => {
       if (s.fundingType) set.add(s.fundingType);
     });
     return ['الكل', ...Array.from(set)];
-  }, [scholarships]);
+  }, [scholarshipSource]);
 
   const degreeLevels = useMemo(() => {
     const preferredOrder: DegreeLevel[] = [
@@ -203,13 +240,13 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
       'دورات تدريبية',
     ];
     const available = new Set<DegreeLevel>();
-    scholarships.forEach((s) => s.degreeLevel.forEach((level) => available.add(level)));
+    scholarshipSource.forEach((s) => s.degreeLevel.forEach((level) => available.add(level)));
     return ['الكل', ...preferredOrder.filter((level) => available.has(level))];
-  }, [scholarships]);
+  }, [scholarshipSource]);
 
   // Filter scholarships
   const filteredScholarships = useMemo(() => {
-    return scholarships
+    return scholarshipSource
       .filter((s) => {
         const q = searchQuery.trim().toLowerCase();
         const searchableText = [
@@ -244,7 +281,7 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
         return 0;
       });
   }, [
-    scholarships,
+    scholarshipSource,
     searchQuery,
     selectedCountryReferenceId,
     selectedDegree,
@@ -273,7 +310,7 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
 
   return (
     <div
-      className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-sans select-none mn-panel "
+      className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-['Cairo',sans-serif] select-none mn-panel "
       dir="rtl"
     >
       {/* ========================================================================= */}
@@ -284,8 +321,9 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
         {onBack && (
           <button
             onClick={onBack}
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 w-9 h-9 sm:w-10 sm:h-10 bg-black/25 hover:bg-black/40 border border-white/15 backdrop-blur-md rounded-full flex items-center justify-center transition-all z-30 cursor-pointer text-white shadow-md active:scale-95"
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 w-10 h-10 bg-black/25 hover:bg-black/40 border border-white/15 backdrop-blur-md rounded-full flex items-center justify-center transition-all z-30 cursor-pointer text-white shadow-md active:scale-95"
             title="العودة"
+            aria-label="العودة"
           >
             <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 rotate-180 text-white" />
           </button>
@@ -341,14 +379,12 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
         <div className="max-w-md sm:max-w-xl mx-auto text-center relative z-10 space-y-2 pt-1">
           {/* Top 4-pointed Gold Sparkle Star */}
           <div className="flex justify-center">
-            <span className="text-[var(--mn-accent-text)] text-lg sm:text-xl drop-shadow-[0_0_8px_rgba(214,164,59,0.8)] animate-pulse">
-              ✦
-            </span>
+            <Sparkles className="h-5 w-5 text-[var(--mn-accent-text)] drop-shadow-[0_0_8px_rgba(214,164,59,0.8)]" aria-hidden="true" />
           </div>
 
           {/* Main Title */}
           <div className="space-y-0.5">
-            <h1 className="text-xl sm:text-2xl font-black text-white font-['Cairo',sans-serif] tracking-tight leading-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-white font-['Cairo',sans-serif] tracking-tight leading-tight">
               ابحث عن <span className="text-[var(--mn-accent-text)]">منحتك الدراسية</span>
             </h1>
 
@@ -402,11 +438,11 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
       {/* ========================================================================= */}
       {/* 3 SEPARATE FLOATING FILTER TILES */}
       {/* ========================================================================= */}
-      <div className="max-w-lg mx-auto px-4 -mt-7 sm:-mt-8 relative z-20 pb-4">
+      <div className="max-w-lg mx-auto mn-inline-gutter -mt-7 sm:-mt-8 relative z-20 pb-4">
         <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
           {/* Tile 1: الدولة */}
           <div className="relative bg-[var(--mn-surface)] hover:bg-[var(--mn-gold-surface)]/40 border-1.5 border-[var(--mn-accent)]/70 hover:border-[var(--mn-accent)] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)] transition-all h-[58px] sm:h-[64px] cursor-pointer mn-panel ">
-            <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-extrabold text-[11px] sm:text-xs font-['Cairo',sans-serif] w-full">
+            <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-semibold text-[11px] sm:text-xs font-['Cairo',sans-serif] w-full">
               <span className="truncate">
                 {selectedCountryReferenceId === 'الكل' ? 'الدولة' : (countryOptions.find((item) => item.id === selectedCountryReferenceId)?.label || 'الدولة')}
               </span>
@@ -419,7 +455,7 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
               className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
               title="اختر الدولة"
             >
-              <option value="الكل">🌍 جميع الدول</option>
+              <option value="الكل">جميع الدول</option>
               {countryOptions.map((country) => (
                 <option key={country.id} value={country.id}>{country.label}</option>
               ))}
@@ -428,7 +464,7 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
 
           {/* Tile 2: نوع التمويل */}
           <div className="relative bg-[var(--mn-surface)] hover:bg-[var(--mn-gold-surface)]/40 border-1.5 border-[var(--mn-accent)]/70 hover:border-[var(--mn-accent)] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)] transition-all h-[58px] sm:h-[64px] cursor-pointer mn-panel ">
-            <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-extrabold text-[11px] sm:text-xs font-['Cairo',sans-serif] w-full">
+            <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-semibold text-[11px] sm:text-xs font-['Cairo',sans-serif] w-full">
               <span className="truncate">
                 {selectedFunding === 'الكل' ? 'التمويل' : selectedFunding}
               </span>
@@ -443,7 +479,7 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
             >
               {fundingTypes.map((funding) => (
                 <option key={funding} value={funding}>
-                  {funding === 'الكل' ? '💰 جميع أنواع التمويل' : funding}
+                  {funding === 'الكل' ? 'جميع أنواع التمويل' : funding}
                 </option>
               ))}
             </select>
@@ -451,7 +487,7 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
 
           {/* Tile 3: الدرجة العلمية */}
           <div className="relative bg-[var(--mn-surface)] hover:bg-[var(--mn-gold-surface)]/40 border-1.5 border-[var(--mn-accent)]/70 hover:border-[var(--mn-accent)] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)] transition-all h-[58px] sm:h-[64px] cursor-pointer mn-panel ">
-            <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-extrabold text-[11px] sm:text-xs font-['Cairo',sans-serif] w-full">
+            <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-semibold text-[11px] sm:text-xs font-['Cairo',sans-serif] w-full">
               <span className="truncate">
                 {selectedDegree === 'الكل' ? 'الدرجة' : selectedDegree}
               </span>
@@ -466,7 +502,7 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
             >
               {degreeLevels.map((degree) => (
                 <option key={degree} value={degree}>
-                  {degree === 'الكل' ? '🎓 جميع الدرجات' : degree}
+                  {degree === 'الكل' ? 'جميع الدرجات' : degree}
                 </option>
               ))}
             </select>
@@ -483,7 +519,7 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
       <div ref={resultsRef} className="w-full max-w-2xl mx-auto px-1 sm:px-2 pt-1 space-y-3">
         {/* Section Header: المنح المتاحة (N) • محدثة باستمرار */}
         <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-1.5 text-[var(--mn-heading)] font-extrabold text-xs sm:text-sm font-['Cairo',sans-serif]">
+          <div className="flex items-center gap-1.5 text-[var(--mn-heading)] font-semibold text-xs sm:text-sm font-['Cairo',sans-serif]">
             <GraduationCap className="w-3.5 h-3.5 text-[var(--mn-accent-text)]" />
             <span>المنح المتاحة ({filteredScholarships.length})</span>
           </div>
@@ -509,7 +545,7 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
               <div className="w-12 h-12 rounded-full bg-[var(--mn-surface-muted)] flex items-center justify-center text-[var(--mn-text-muted)] mn-panel ">
                 <Search className="w-6 h-6" />
               </div>
-              <h3 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">
+              <h3 className="text-sm font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">
                 {dataStatus === 'unavailable'
                   ? 'تعذر تحميل المنح المنشورة'
                   : dataStatus === 'loading'

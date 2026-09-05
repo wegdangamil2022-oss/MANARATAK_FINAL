@@ -20,6 +20,7 @@ export class UniversityPublicRouter {
       cityReferenceId: z.string().trim().min(1).optional(),
       institutionType: z.string().optional(),
       majorId: z.string().trim().min(1).optional(),
+      search: z.string().trim().min(1).max(200).optional(),
       page: z.coerce.number().int().min(1).default(1),
       pageSize: z.coerce.number().int().min(1).transform((value) => Math.min(value, 50)).default(20),
     }).merge(localeQuerySchema).strict();

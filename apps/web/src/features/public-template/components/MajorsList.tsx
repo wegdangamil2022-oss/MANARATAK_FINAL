@@ -17,10 +17,10 @@ export const MajorsList: React.FC<MajorsListProps> = ({
   onToggleFavorite,
 }) => {
   return (
-    <div className="w-full px-2 sm:px-4 py-3 space-y-3 pb-20 font-sans select-none" dir="rtl">
+    <div className="w-full px-2 sm:px-4 py-3 space-y-3 pb-20 font-['Cairo',sans-serif] select-none" dir="rtl">
       <div className="flex items-center justify-between px-1">
         <div>
-          <h2 className="text-xs sm:text-sm font-black text-[var(--mn-heading)] flex items-center gap-1.5 font-['Cairo',sans-serif]">
+          <h2 className="text-xs sm:text-sm font-bold text-[var(--mn-heading)] flex items-center gap-1.5 font-['Cairo',sans-serif]">
             <Layers className="w-4 h-4 text-[var(--mn-heading)]" />
             <span>دليل التخصصات الأكاديمية والمهنية</span>
           </h2>

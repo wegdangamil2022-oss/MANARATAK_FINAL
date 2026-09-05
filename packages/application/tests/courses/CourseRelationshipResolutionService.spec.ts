@@ -69,6 +69,7 @@ class FakeRelationshipRepository implements ICourseRelationshipRepository {
   }];
   languageState: any = null;
   projections: CourseMajorProjectionDto[] = [];
+  testRelationships: any[] = [];
   majorMappings: any[] = [{
     mappingId: 'mapping-1',
     taxonomyNodeId: 'tax-cyber',
@@ -152,6 +153,18 @@ class FakeRelationshipRepository implements ICourseRelationshipRepository {
     return link;
   }
 
+  async createManualTaxonomyLink(input: any) {
+    return this.upsertTaxonomyLink({
+      courseId: input.courseId,
+      taxonomyNodeId: input.taxonomyNodeId,
+      relationshipType: input.relationshipType,
+      reviewState: 'PROPOSED',
+      matchMethod: 'ADMIN_REVIEW',
+      sourceTerm: 'Admin selected taxonomy',
+      confidence: 1,
+    });
+  }
+
   async resolveLanguageCandidates() {
     return this.languageCandidates;
   }
@@ -226,6 +239,41 @@ class FakeRelationshipRepository implements ICourseRelationshipRepository {
     return projection;
   }
 
+  async createDirectMajorProjection(input: any) {
+    return this.upsertMajorProjection({
+      projectionKey: `direct:${input.courseId}:${input.majorId}:${input.relationshipType}`,
+      courseId: input.courseId,
+      majorId: input.majorId,
+      sourceType: 'DIRECT_REVIEWED',
+      relationshipType: input.relationshipType,
+      projectionState: 'PROPOSED',
+      confidence: 1,
+    });
+  }
+
+  async createInternationalTestRelationship(input: any) {
+    const existing = this.testRelationships.find((item) => item.courseId === input.courseId && item.internationalTestId === input.internationalTestId && item.relationshipType === input.relationshipType);
+    if (existing) return existing;
+    const dto = { id: `test-rel-${this.testRelationships.length + 1}`, ...input, sourceType: 'ADMIN_AUTHORED', reviewState: 'PROPOSED', createdBy: input.actorId, reviewedBy: null, reviewedAt: null, createdAt: new Date(), updatedAt: new Date(), internationalTest: { id: input.internationalTestId, publicId: 'TST-0001', slug: 'ielts-academic', displayName: 'IELTS Academic', abbreviation: 'IELTS', status: 'PUBLISHED' } };
+    this.testRelationships.push(dto);
+    return dto;
+  }
+
+  async listInternationalTestRelationships(courseId: string, state?: any) {
+    return this.testRelationships.filter((item) => item.courseId === courseId && (!state || item.reviewState === state));
+  }
+
+  async reviewInternationalTestRelationship(input: any) {
+    const item = this.testRelationships.find((relationship) => relationship.id === input.relationshipId && relationship.courseId === input.courseId);
+    if (!item) throw new Error('not-found');
+    item.reviewState = input.decision; item.reviewedBy = input.actorId; item.reviewedAt = new Date();
+    return item;
+  }
+
+  async listPublishedCoursesForInternationalTest(): Promise<any> {
+    return { data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 };
+  }
+
   async listPublishedRelatedCourses(): Promise<any> {
     return { data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 };
   }
@@ -283,6 +331,28 @@ describe('CourseRelationshipResolutionService', () => {
     expect(result.taxonomy.unresolved).toBe(1);
     expect(repository.resolutions[0].status).toBe('UNRESOLVED');
     expect(repository.links).toHaveLength(0);
+  });
+
+  it('supports an explicit admin-reviewed canonical taxonomy proposal when inference is insufficient', async () => {
+    const repository = new FakeRelationshipRepository();
+    const service = new CourseRelationshipResolutionService(repository);
+
+    const link = await service.proposeManualTaxonomyLink('course-1', 'tax-manual', 'PRIMARY', 'admin-1');
+
+    expect(link.taxonomyNodeId).toBe('tax-manual');
+    expect(link.matchMethod).toBe('ADMIN_REVIEW');
+    expect(link.reviewState).toBe('PROPOSED');
+  });
+
+  it('supports a direct reviewed major proposal without inventing a taxonomy mapping', async () => {
+    const repository = new FakeRelationshipRepository();
+    const service = new CourseRelationshipResolutionService(repository);
+
+    const projection = await service.proposeDirectMajorProjection('course-1', 'major-direct', 'PRIMARY', 'admin-1');
+
+    expect(projection.majorId).toBe('major-direct');
+    expect(projection.sourceType).toBe('DIRECT_REVIEWED');
+    expect(projection.projectionState).toBe('PROPOSED');
   });
 
   it('resolves language only on one exact ReferenceLanguage candidate', async () => {
@@ -433,4 +503,16 @@ describe('CourseRelationshipResolutionService', () => {
 
     expect(repository.projections[0].projectionState).toBe('REVIEW_REQUIRED');
   });
+  it('keeps Course-owned International Test relationships proposed until explicit review', async () => {
+    const repository = new FakeRelationshipRepository();
+    const service = new CourseRelationshipResolutionService(repository);
+    const proposed = await service.proposeInternationalTestRelationship('course-1', 'test-1', 'PREPARATION', 'admin-1');
+    expect(proposed.reviewState).toBe('PROPOSED');
+    const modelBefore = await service.getReviewModel('course-1');
+    expect(modelBefore.closure.reviewRequired).toBe(true);
+    const approved = await service.approveInternationalTestRelationship('course-1', proposed.id, 'admin-2');
+    expect(approved.reviewState).toBe('APPROVED');
+    expect((await service.getReviewModel('course-1')).closure.approvedInternationalTestRelationships).toBe(1);
+  });
+
 });

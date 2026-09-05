@@ -8,7 +8,7 @@ describe('UniversityPublicationReadinessPolicy normalized program mappings', () 
       id: 'uni-1', publicId: 'INS-YEM-0001', slug: 'uni', canonicalName: 'University', canonicalDedupKey: 'uni', displayName: 'University',
       countryReferenceId: 'country-ye', status: UniversityStatus.READY_TO_PUBLISH,
       completenessStatus: UniversityImportCompletenessState.COMPLETE,
-      academicPrograms: [{ id: 'program-1', universityId: 'uni-1', sourceProgramName: 'Computer Science', normalizedName: 'computer science', degreeLevelId: null, majorId: null, status: 'PENDING', majorMappingState: 'CANONICALLY_MAPPED', campusIds: [], admissionRequirements: [], metadata: null }],
+      academicPrograms: [{ id: 'program-1', universityId: 'uni-1', sourceProgramName: 'Computer Science', normalizedName: 'computer science', degreeLevelId: null, majorId: null, status: 'ACTIVE', majorMappingState: 'CANONICALLY_MAPPED', campusIds: [], admissionRequirements: [], metadata: null }],
     });
     expect(result.blockingIssues.map(issue => issue.code)).toEqual(expect.arrayContaining([
       'UNIVERSITY_PROGRAM_MAJOR_REFERENCE_MISSING',

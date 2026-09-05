@@ -7,6 +7,7 @@ import {
   CourseLessonType,
   CourseOriginType,
   CourseProgressStatus,
+  CourseQuestionType,
   CourseStatus,
   ICourseCurriculumRepository,
   ICourseProgressRepository,
@@ -82,6 +83,26 @@ describe('CourseProgressUseCases W9 integrity', () => {
   it('rejects foreign lesson progress', async () => {
     await expect(useCases.markLessonProgress({ courseId: 'course-1', lessonId: 'foreign', studentReferenceId: 'student-1', status: CourseProgressStatus.IN_PROGRESS, progressPercentage: 100 }))
       .rejects.toThrow('COURSE_LESSON_SCOPE_MISMATCH');
+  });
+
+
+  it('returns an enrolled learner workspace without answer keys or internal asset handles', async () => {
+    (curriculumRepo.getCurriculumSnapshot as any).mockResolvedValue({
+      modules: [{ id: 'm1', courseId: 'course-1', title: 'Module', position: 1, status: 'PUBLISHED' }],
+      lessons: [{ id: 'lesson-1', courseId: 'course-1', moduleId: 'm1', title: 'Lesson', lessonType: CourseLessonType.ARTICLE, position: 1, status: 'PUBLISHED' }],
+      assets: [{ id: 'la-1', lessonId: 'lesson-1', assetId: 'asset-secret-handle', assetReference: 'internal-ref', title: 'ملف', assetType: 'DOCUMENT', position: 1, isRequired: true, metadata: { private: 'value' } }],
+      quizzes: [{ id: 'quiz-1', courseId: 'course-1', moduleId: 'm1', title: 'Quiz', position: 1, passingScore: 70, status: 'PUBLISHED' }],
+      questionBanks: [],
+      questions: [{ id: 'q1', courseId: 'course-1', quizId: 'quiz-1', questionType: CourseQuestionType.MULTIPLE_CHOICE, prompt: 'Question?', choices: ['A', 'B'], correctAnswer: 'A', explanation: 'secret explanation', points: 1, position: 1, status: 'PUBLISHED' }],
+    });
+
+    const result = await useCases.getLearningWorkspace('course-1', 'student-1');
+    expect(result.curriculum.questions[0]).toEqual(expect.objectContaining({ id: 'q1', prompt: 'Question?' }));
+    expect(result.curriculum.questions[0]).not.toHaveProperty('correctAnswer');
+    expect(result.curriculum.questions[0]).not.toHaveProperty('explanation');
+    expect(result.curriculum.assets[0]).not.toHaveProperty('assetId');
+    expect(result.curriculum.assets[0]).not.toHaveProperty('assetReference');
+    expect(result.curriculum.assets[0]).not.toHaveProperty('metadata');
   });
 
   it('completes and emits through one atomic boundary', async () => {

@@ -1,17 +1,18 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { InternationalTestAdminUseCases } from '@manaratak/application';
+import { CrossDomainGraphReadService, InternationalTestAdminUseCases } from '@manaratak/application';
 import {
   InternationalTestCategory,
   InternationalTestCompletenessStatus,
   InternationalTestStatus,
+  InternationalTestSourceTrustLevel,
   UpsertInternationalTestDto,
 } from '@manaratak/domain';
 
 export class InternationalTestAdminRouter {
-  public static create(cradle: { internationalTestAdminUseCases: InternationalTestAdminUseCases }): Router {
+  public static create(cradle: { internationalTestAdminUseCases: InternationalTestAdminUseCases; crossDomainGraphReadService: CrossDomainGraphReadService }): Router {
     const router = Router();
-    const { internationalTestAdminUseCases } = cradle;
+    const { internationalTestAdminUseCases, crossDomainGraphReadService } = cradle;
     type AsyncRouteHandler = (req: Request, res: Response, next: NextFunction) => Promise<unknown> | unknown;
     const asyncHandler = (fn: AsyncRouteHandler) => (req: Request, res: Response, next: NextFunction) => Promise.resolve(fn(req, res, next)).catch(next);
     const mutationContext = (req: Request) => {
@@ -90,7 +91,48 @@ export class InternationalTestAdminRouter {
       officialLinks: z.array(officialLinkSchema).optional(),
       optionalFields: z.record(z.string(), z.unknown()).optional(),
     }).passthrough();
-    const rootUpdateSchema = rootCreateSchema.partial();
+    const rootUpdateSchema = z.object({
+      testCategory: z.nativeEnum(InternationalTestCategory).optional(),
+      providerName: z.string().min(1).optional(),
+      abbreviation: z.string().optional(),
+      familyId: z.string().optional(),
+      providerId: z.string().optional(),
+      registrationRequirements: z.string().optional(),
+      identificationRequirements: z.string().optional(),
+      retakePolicy: z.string().optional(),
+      cancellationReschedulingNotes: z.string().optional(),
+      accessibilityNotes: z.string().optional(),
+      countryRelationships: z.array(referenceRelationshipSchema).optional(),
+      languageRelationships: z.array(referenceRelationshipSchema).optional(),
+      academicTaxonomyRelationships: z.array(academicTaxonomyRelationshipSchema).optional(),
+      degreeRelationships: z.array(degreeRelationshipSchema).optional(),
+      scoreScale: scoreScaleSchema.optional(),
+      officialLinks: z.array(officialLinkSchema).optional(),
+      optionalFields: z.record(z.string(), z.unknown()).optional(),
+    }).strict();
+    const providerSchema = z.object({
+      id: z.string().optional(),
+      key: z.string().min(1),
+      displayName: z.string().min(1),
+      providerType: z.string().optional(),
+      officialWebsite: z.string().url().optional(),
+      countryIso2Code: z.string().length(2).transform(value => value.toUpperCase()).optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
+    }).strict();
+    const evidenceSchema = z.object({
+      originalImportedName: z.string().optional(),
+      normalizedCanonicalName: z.string().optional(),
+      deterministicKey: z.string().optional(),
+      sourceId: z.string().optional(),
+      sourceUrl: z.string().url().optional(),
+      contentHash: z.string().optional(),
+      retrievedAt: z.coerce.date().optional(),
+      evidenceSnippet: z.string().optional(),
+      duplicateStatus: z.enum(['NEW', 'DUPLICATE_SKIPPED', 'EXISTING_ENRICHED']).optional(),
+      conflictingFields: z.array(z.string()).optional(),
+      mergeSuggestions: z.record(z.string(), z.unknown()).nullable().optional(),
+      sourceTrustLevel: z.nativeEnum(InternationalTestSourceTrustLevel).optional(),
+    }).strict();
 
     const importDraftSchema = z.object({
       sourceImportRecordId: z.string().optional(),
@@ -123,6 +165,16 @@ export class InternationalTestAdminRouter {
       }));
     }));
 
+    router.get('/providers', asyncHandler(async (req: Request, res: Response) => {
+      const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+      res.json(await internationalTestAdminUseCases.listProviders(search));
+    }));
+
+    router.post('/providers', asyncHandler(async (req: Request, res: Response) => {
+      const parsed = providerSchema.parse(req.body);
+      res.status(201).json(await internationalTestAdminUseCases.upsertProvider(parsed, mutationContext(req)));
+    }));
+
     router.post('/', asyncHandler(async (req: Request, res: Response) => {
       const parsed = rootCreateSchema.parse(req.body);
       res.status(201).json(await internationalTestAdminUseCases.createTest(parsed as unknown as UpsertInternationalTestDto, mutationContext(req)));
@@ -140,6 +192,20 @@ export class InternationalTestAdminRouter {
 
     router.get('/:id/import-versions', asyncHandler(async (req: Request, res: Response) => {
       res.json(await internationalTestAdminUseCases.listImportVersions(req.params.id));
+    }));
+
+    router.get('/:id/relationships', asyncHandler(async (req: Request, res: Response) => {
+      const locale = req.query.locale === 'en' ? 'en' : 'ar';
+      res.json(await crossDomainGraphReadService.getInternationalTestGraphById(req.params.id, { locale, page: 1, pageSize: 50 }));
+    }));
+
+    router.get('/:id/readiness', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await internationalTestAdminUseCases.checkPublicationReadiness(req.params.id));
+    }));
+
+    router.post('/:id/verify-source', asyncHandler(async (req: Request, res: Response) => {
+      await internationalTestAdminUseCases.verifySource(req.params.id, mutationContext(req));
+      res.json({ success: true });
     }));
 
     router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
@@ -249,7 +315,8 @@ export class InternationalTestAdminRouter {
     }));
 
     router.post('/:id/evidence', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.addEvidence(req.params.id, req.body, mutationContext(req)));
+      const parsed = evidenceSchema.parse(req.body);
+      res.json(await internationalTestAdminUseCases.addEvidence(req.params.id, parsed, mutationContext(req)));
     }));
 
     router.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

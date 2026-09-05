@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 const required = [
@@ -21,7 +21,23 @@ for (const model of ['AIRegistryRecord', 'AIPromptVersionRecord', 'AIExecutionRe
 }
 if (/apiKey\s+String|secretValue\s+String|accessToken\s+String/i.test(schema.match(/\/\/ --- Phase 17[\s\S]*/)?.[0] ?? '')) failures.push('provider-secret-persisted');
 
-const tracked = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], { encoding: 'utf8' }).trim().split(/\r?\n/).filter((file) => {
+function walkSourceFiles(root) {
+  const out = [];
+  if (!existsSync(root)) return out;
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const path = `${root}/${entry.name}`;
+    if (entry.isDirectory()) out.push(...walkSourceFiles(path));
+    else if (/\.(?:ts|tsx|js|mjs|cjs)$/.test(path)) out.push(path);
+  }
+  return out;
+}
+let tracked = [];
+try {
+  tracked = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim().split(/\r?\n/);
+} catch {
+  tracked = [...walkSourceFiles('apps'), ...walkSourceFiles('packages')];
+}
+tracked = tracked.filter((file) => {
   const normalized = file.replaceAll('\\', '/');
   return existsSync(file)
     && /\.(?:ts|tsx|js|mjs|cjs)$/.test(file)

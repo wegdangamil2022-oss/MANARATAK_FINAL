@@ -4,6 +4,7 @@ import {
   ITransactionalInternationalTestRepository,
   AtomicPersistenceContext,
   InternationalTestDto, 
+  InternationalTestProviderDto,
   UpsertInternationalTestDto,
   InternationalTestFilters,
   PaginatedInternationalTestResult,
@@ -457,6 +458,56 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
     }
 
     return this.create(data);
+  }
+
+  async findProviderById(providerId: string): Promise<InternationalTestProviderDto | null> {
+    const record = await this.prisma.internationalTestProvider.findUnique({ where: { id: providerId } });
+    return record ? this.mapProviderToDto(record) : null;
+  }
+
+  async listProviders(search?: string): Promise<InternationalTestProviderDto[]> {
+    const query = search?.trim();
+    const records = await this.prisma.internationalTestProvider.findMany({
+      where: query
+        ? {
+            OR: [
+              { displayName: { contains: query, mode: 'insensitive' } },
+              { key: { contains: query, mode: 'insensitive' } },
+              { localizedNameAr: { contains: query, mode: 'insensitive' } },
+              { localizedNameEn: { contains: query, mode: 'insensitive' } },
+            ],
+          }
+        : undefined,
+      orderBy: { displayName: 'asc' },
+      take: 250,
+    });
+    return records.map((record: any) => this.mapProviderToDto(record));
+  }
+
+  async upsertProvider(
+    data: Omit<InternationalTestProviderDto, 'id'> & { id?: string },
+  ): Promise<InternationalTestProviderDto> {
+    const key = data.key.trim();
+    const displayName = data.displayName.trim();
+    if (!key || !displayName) throw new Error('INTERNATIONAL_TEST_PROVIDER_KEY_AND_NAME_REQUIRED');
+    const payload = {
+      key,
+      displayName,
+      localizedNameAr: data.localizedNameAr?.trim() || null,
+      localizedNameEn: data.localizedNameEn?.trim() || null,
+      providerType: data.providerType?.trim() || null,
+      officialWebsite: data.officialWebsite?.trim() || null,
+      countryIso2Code: data.countryIso2Code?.trim().toUpperCase() || null,
+      metadata: data.metadata as Prisma.InputJsonObject | undefined,
+    };
+    const record = data.id
+      ? await this.prisma.internationalTestProvider.update({ where: { id: data.id }, data: payload })
+      : await this.prisma.internationalTestProvider.upsert({
+          where: { key },
+          create: payload,
+          update: payload,
+        });
+    return this.mapProviderToDto(record);
   }
 
   // --- Normalized Child Domain Methods ---
@@ -1142,6 +1193,20 @@ export class PrismaInternationalTestRepository implements ITransactionalInternat
       rawContentBlocks: this.asRecordArray(record.rawContentBlocks),
       contentBlocks: this.asRecordArray(record.contentBlocks) as InternationalTestVersionDto['contentBlocks'],
       metadata: this.asRecord(record.metadata)
+    };
+  }
+
+  private mapProviderToDto(record: any): InternationalTestProviderDto {
+    return {
+      id: record.id,
+      key: record.key,
+      displayName: record.displayName,
+      localizedNameAr: record.localizedNameAr ?? undefined,
+      localizedNameEn: record.localizedNameEn ?? undefined,
+      providerType: record.providerType ?? undefined,
+      officialWebsite: record.officialWebsite ?? undefined,
+      countryIso2Code: record.countryIso2Code ?? undefined,
+      metadata: this.asRecord(record.metadata),
     };
   }
 

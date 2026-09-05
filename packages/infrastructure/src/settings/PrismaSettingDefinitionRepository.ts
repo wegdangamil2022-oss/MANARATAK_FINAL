@@ -60,6 +60,13 @@ export class PrismaSettingDefinitionRepository implements ISettingDefinitionRepo
     return record ? this.mapToDomain(record) : null;
   }
 
+  async findAll(): Promise<SettingDefinition[]> {
+    const records = await this.client.settingDefinitionRecord.findMany();
+    return records
+      .map((record) => this.mapToDomain(record))
+      .sort((a, b) => a.key.getValue().localeCompare(b.key.getValue()));
+  }
+
   async save(definition: SettingDefinition): Promise<void> {
     const keyStr = definition.key.getValue();
     const data = {

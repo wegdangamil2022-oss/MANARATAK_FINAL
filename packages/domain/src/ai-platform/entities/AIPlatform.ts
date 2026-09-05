@@ -1,7 +1,7 @@
 import { AIExecutionStatus, AIProviderType, AIRequestPurpose, AISafetyDecision } from '../enums';
 
 export type AIRecordStatus = 'DRAFT' | 'REVIEW' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
-export type AIProviderOperationalStatus = 'NOT_CONFIGURED' | 'READY' | 'DEGRADED' | 'UNAVAILABLE' | 'DISABLED';
+export type AIProviderOperationalStatus = 'NOT_CONFIGURED' | 'RUNTIME_PENDING' | 'READY' | 'DEGRADED' | 'UNAVAILABLE' | 'DISABLED';
 export type AIDataClassification = 'PUBLIC' | 'INTERNAL' | 'CONFIDENTIAL' | 'STUDENT_PRIVATE' | 'HIGHLY_SENSITIVE';
 export type AICapabilityKind = 'TEXT_GENERATION' | 'CHAT' | 'STRUCTURED_OUTPUT' | 'EMBEDDINGS' | 'RERANKING' | 'MODERATION';
 export type AIWorkflowRunStatus = 'QUEUED' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
@@ -350,7 +350,7 @@ export interface AIIncident {
 }
 
 export interface AIPlatformOverview {
-  overallStatus: 'READY' | 'NOT_CONFIGURED' | 'DEGRADED' | 'DISABLED';
+  overallStatus: 'READY' | 'RUNTIME_PENDING' | 'NOT_CONFIGURED' | 'DEGRADED' | 'DISABLED';
   providers: Record<AIProviderOperationalStatus, number>;
   activeModels: number;
   activePrompts: number;

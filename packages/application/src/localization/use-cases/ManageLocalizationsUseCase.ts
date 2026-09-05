@@ -1,3 +1,4 @@
+import { assertTranslationContentAuthoringEnabled } from '@manaratak/shared';
 import {
   Localization,
   LocalizationId,
@@ -35,6 +36,7 @@ export class ManageLocalizationsUseCase {
   ) {}
 
   public async createLocalization(dto: CreateLocalizationDto): Promise<LocalizationResponseDto> {
+    assertTranslationContentAuthoringEnabled();
     const reference = new LocalizationReference(dto.reference);
     const ownerReference = new LocalizationOwnerReference(dto.ownerReference);
     const locale = new LocaleDefinition(dto.locale);
@@ -75,6 +77,7 @@ export class ManageLocalizationsUseCase {
   }
 
   public async activateLocalization(referenceValue: string): Promise<LocalizationResponseDto> {
+    assertTranslationContentAuthoringEnabled();
     const localization = await this.getLocalization(referenceValue);
     const updated = LocalizationLifecycleService.transitionTo(localization, LocalizationLifecycleState.ACTIVATED);
 
@@ -86,6 +89,7 @@ export class ManageLocalizationsUseCase {
   }
 
   public async updateLocalizationDefinition(referenceValue: string, dto: UpdateLocalizationDto): Promise<LocalizationResponseDto> {
+    assertTranslationContentAuthoringEnabled();
     const existing = await this.getLocalization(referenceValue);
     
     const newDefinition = new LocalizationDefinition(
@@ -132,6 +136,7 @@ export class ManageLocalizationsUseCase {
   }
 
   public async deprecateLocalization(referenceValue: string): Promise<LocalizationResponseDto> {
+    assertTranslationContentAuthoringEnabled();
     const localization = await this.getLocalization(referenceValue);
     const updated = LocalizationLifecycleService.transitionTo(localization, LocalizationLifecycleState.DEPRECATED);
 
@@ -143,6 +148,7 @@ export class ManageLocalizationsUseCase {
   }
 
   public async archiveLocalization(referenceValue: string): Promise<LocalizationResponseDto> {
+    assertTranslationContentAuthoringEnabled();
     const localization = await this.getLocalization(referenceValue);
     const updated = LocalizationLifecycleService.transitionTo(localization, LocalizationLifecycleState.ARCHIVED);
 

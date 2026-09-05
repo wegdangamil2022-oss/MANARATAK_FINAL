@@ -6,7 +6,9 @@ import {
   CmsContentBlockDto,
   CmsContentDetailDto,
   CmsContentDto,
+  CmsContentDomainLinkDto,
   CmsContentFilters,
+  CmsDomainTargetType,
   CmsContentRevisionDto,
   CmsContentStatus,
   CmsContentType,
@@ -25,6 +27,7 @@ import {
   PaginatedCmsResult,
   PublicCmsContentDto,
   UpdateCmsContentDto,
+  UpsertCmsContentDomainLinkDto,
   UpsertCmsLocalizedContentDto,
 } from '@manaratak/domain';
 
@@ -232,6 +235,34 @@ export class AdminCmsUseCases {
     return this.repository.listTags();
   }
 
+
+  public async replaceDomainLinks(
+    contentId: string,
+    links: UpsertCmsContentDomainLinkDto[],
+    actorId: string,
+  ): Promise<CmsContentDomainLinkDto[]> {
+    this.ensureActor(actorId);
+    if (!this.repository.replaceDomainLinks) throw new Error('CMS_DOMAIN_LINKS_NOT_SUPPORTED');
+    if (links.length > 50) throw new Error('CMS_DOMAIN_LINK_LIMIT_EXCEEDED');
+    const seen = new Set<string>();
+    const normalized = links.map((link, index) => {
+      const targetId = link.targetId.trim();
+      if (!targetId) throw new Error('CMS_DOMAIN_TARGET_ID_REQUIRED');
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(targetId)) {
+        throw new Error('CMS_DOMAIN_TARGET_OWNER_ID_REQUIRED');
+      }
+      const key = `${link.targetType}:${targetId}:${link.relationType}`;
+      if (seen.has(key)) throw new Error('CMS_DOMAIN_LINK_DUPLICATE');
+      seen.add(key);
+      return { ...link, targetId, sortOrder: link.sortOrder ?? index };
+    });
+    return this.repository.replaceDomainLinks(contentId, normalized, actorId);
+  }
+
+  public async listDomainLinks(contentId: string): Promise<CmsContentDomainLinkDto[]> {
+    return this.repository.listDomainLinks ? this.repository.listDomainLinks(contentId) : [];
+  }
+
   public async changeLocalizedSlug(contentId: string, locale: string, newSlug: string, reason: string, expectedVersion: number, actorId: string): Promise<CmsLocalizedContentDto> {
     this.ensureActor(actorId); CmsPublishingPolicy.assertSlug(newSlug);
     if (!reason.trim()) throw new Error('CMS_SLUG_CHANGE_REASON_REQUIRED');
@@ -348,6 +379,23 @@ export class PublicCmsUseCases {
 
   public async listAnnouncements(siteIdentifier: string, locale: string): Promise<CmsAnnouncementDto[]> {
     return this.repository.listAnnouncements(siteIdentifier, locale, true);
+  }
+
+
+  public async listRelated(
+    targetType: CmsDomainTargetType,
+    targetId: string,
+    locale = 'ar',
+    siteIdentifier = 'manaratak',
+    limit = 6,
+  ): Promise<PublicCmsContentDto[]> {
+    if (!this.repository.listPublishedByDomainTarget) return [];
+    const normalizedTargetId = targetId.trim();
+    if (!normalizedTargetId) throw new Error('CMS_DOMAIN_TARGET_ID_REQUIRED');
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalizedTargetId)) {
+      throw new Error('CMS_DOMAIN_TARGET_OWNER_ID_REQUIRED');
+    }
+    return this.repository.listPublishedByDomainTarget(targetType, normalizedTargetId, locale, siteIdentifier, limit);
   }
 
   public async resolveRedirect(siteIdentifier: string, locale: string, sourcePath: string): Promise<CmsRedirectDto | null> {

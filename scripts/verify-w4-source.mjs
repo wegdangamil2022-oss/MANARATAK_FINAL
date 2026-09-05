@@ -35,7 +35,9 @@ const checks = [
     files.repository.includes('Invalid exchange-rate effective window') &&
     files.migration.includes('FinanceExchangeRateRecord_effective_window_check')],
   ['P19-FX-012',
-    files.useCases.includes("approved: input.source === 'AUTOMATIC_PROVIDER'") &&
+    files.useCases.includes("if (input.source === 'AUTOMATIC_PROVIDER')") &&
+    files.useCases.includes("throw new Error('FX_AUTOMATIC_PROVIDER_RUNTIME_PENDING')") &&
+    files.useCases.includes('approved: false') &&
     files.useCases.includes('activateManualExchangeRate') &&
     files.repository.includes('Manual FX override cannot be approved at creation time') &&
     files.repository.includes('consumeApproval(tx, approval)') &&

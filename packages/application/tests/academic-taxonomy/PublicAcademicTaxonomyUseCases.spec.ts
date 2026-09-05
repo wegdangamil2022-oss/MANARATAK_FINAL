@@ -47,7 +47,7 @@ describe('PublicAcademicTaxonomyUseCases', () => {
     const filters = { nodeType: AcademicTaxonomyNodeType.DISCIPLINE };
     const result = await useCases.listNodes(filters);
 
-    expect(repository.listNodes).toHaveBeenCalledWith(filters);
+    expect(repository.listNodes).toHaveBeenCalledWith({ ...filters, status: AcademicTaxonomyStatus.ACTIVE });
     expect(result).toEqual([mockNode]);
   });
 
@@ -107,6 +107,7 @@ describe('PublicAcademicTaxonomyUseCases', () => {
 
     const result = await useCases.listChildren('parent_123');
 
+    expect(repository.getNode).toHaveBeenCalledWith('parent_123');
     expect(repository.listChildren).toHaveBeenCalledWith('parent_123');
     expect(result).toEqual([mockNode]);
   });
@@ -117,8 +118,18 @@ describe('PublicAcademicTaxonomyUseCases', () => {
 
     const result = await useCases.listParents('child_123');
 
+    expect(repository.getNode).toHaveBeenCalledWith('child_123');
     expect(repository.listParents).toHaveBeenCalledWith('child_123');
     expect(result).toEqual([mockNode]);
+  });
+
+  it('never exposes non-active nodes through public reads', async () => {
+    const repository = createMockRepository();
+    (repository.getNode as any).mockResolvedValue({ ...mockNode, status: AcademicTaxonomyStatus.DRAFT });
+    (repository.getNodeByCanonicalKey as any).mockResolvedValue({ ...mockNode, status: AcademicTaxonomyStatus.ARCHIVED });
+    const useCases = new PublicAcademicTaxonomyUseCases(repository);
+    expect(await useCases.getNode('node_001')).toBeNull();
+    expect(await useCases.getNodeByCanonicalKey({ nodeType: AcademicTaxonomyNodeType.DISCIPLINE, canonicalCode: '0611' })).toBeNull();
   });
 
   it('read-only use case does not call any repository mutation methods', async () => {

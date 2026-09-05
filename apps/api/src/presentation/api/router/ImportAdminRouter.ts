@@ -2,26 +2,14 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { readFile } from 'fs/promises';
 import * as path from 'path';
 import { z } from 'zod';
-import { CourseImportArtifactUseCase, ImportAdminUseCases, MajorImportStagingUseCase } from '@manaratak/application';
+import { CourseImportArtifactUseCase, ImportAdminUseCases, MajorImportStagingUseCase, type ISourceRegistryGateway } from '@manaratak/application';
 import {
   IAssetRecordRepository,
   IAssetStorageGateway,
   IExternalCourseProviderRepository,
-  ImportRecordDto,
-  ImportRecordStatus,
   ImportTargetDomain,
+  SourceStatus,
 } from '@manaratak/domain';
-
-type ImportBatchLike = {
-  id?: string;
-  dataType?: string;
-};
-
-type ImportRecordWithBatch = ImportRecordDto & {
-  batchId?: string;
-  targetDomain?: string;
-  batch?: ImportBatchLike;
-};
 
 export class ImportAdminRouter {
   public static create(cradle: { 
@@ -30,24 +18,28 @@ export class ImportAdminRouter {
     assetRecordRepository: IAssetRecordRepository;
     assetStorageGateway: IAssetStorageGateway;
     externalCourseProviderRepository: IExternalCourseProviderRepository;
-    importRepository?: {
-      getRecordById(id: string): Promise<ImportRecordWithBatch | null>;
-      getBatchById?(id: string): Promise<ImportBatchLike | null>;
-      listRecords?(filters?: { batchId?: string; page?: number; pageSize?: number }): Promise<{ data: ImportRecordWithBatch[]; total: number; page: number; pageSize: number }>;
-      updateRecord?(id: string, updates: { status?: string; validationErrors?: unknown; promotedEntityId?: string; processingNotes?: string }): Promise<ImportRecordWithBatch | null>;
+    sourceRegistryGateway?: ISourceRegistryGateway;
+    auditRecordRepo?: {
+      listRecentImportOperations?(limit?: number): Promise<Array<{
+        id: string;
+        actorId: string;
+        action: string;
+        severity: string;
+        targetId: string;
+        timestamp: Date | string;
+        method?: string;
+        path?: string;
+        httpStatus?: number;
+        result?: 'SUCCESS' | 'FAILURE';
+      }>>;
     };
-    internationalTestImportPromotionUseCase?: { promote(record: ImportRecordWithBatch): Promise<{ type: string }> };
-    majorImportPromotionUseCase?: { promote(record: ImportRecordWithBatch): Promise<{ type: string; majorId?: string; existingId?: string; versionNumber?: number; reason?: string; error?: string }> };
-    fellowshipImportPromotionUseCase?: { promote(record: ImportRecordWithBatch): Promise<{ type: string; fellowshipId?: string; existingId?: string; reason?: string; error?: string }> };
   }): Router {
     const router = Router();
     const {
       importAdminUseCases,
       majorImportStagingUseCase,
-      importRepository,
-      internationalTestImportPromotionUseCase,
-      majorImportPromotionUseCase,
-      fellowshipImportPromotionUseCase,
+      sourceRegistryGateway,
+      auditRecordRepo,
     } = cradle;
 
     const courseImportArtifactUseCase = new CourseImportArtifactUseCase(
@@ -91,7 +83,7 @@ export class ImportAdminRouter {
       dataText: z.string()
         .min(1, 'Import text or CSV content is required')
         .max(INLINE_IMPORT_MAX_LENGTH, 'Import payload is too large. Large imports must use the future artifact/EAP import flow. Inline dataText is only for small/manual imports.'),
-      sourceSystem: z.string().optional(),
+      sourceSystem: z.string().trim().min(1).max(120).optional(),
       dataType: z.nativeEnum(ImportTargetDomain)
         .or(z.literal('INTERNATIONAL_TESTS'))
         .optional()
@@ -135,6 +127,91 @@ export class ImportAdminRouter {
       sourceSystem: z.string().optional(),
       files: z.array(majorTextImportFileSchema).min(1).max(50),
     });
+
+    // GET /admin/imports/overview - exact server-derived counters for the control plane.
+    router.get('/overview', asyncHandler(async (req: Request, res: Response) => {
+      let dataType = req.query.dataType as string | undefined;
+      if (dataType === 'ALL' || !dataType) dataType = undefined;
+      if (dataType === 'INTERNATIONAL_TESTS') dataType = ImportTargetDomain.Tests;
+      if (dataType && !(Object.values(ImportTargetDomain) as string[]).includes(dataType)) {
+        return res.status(400).json({ error: 'Validation Error', details: [{ message: 'Invalid dataType filter' }] });
+      }
+      res.json(await importAdminUseCases.getOverview(dataType ? { dataType } : undefined));
+    }));
+
+    // GET /admin/imports/operations - operational diagnostics for queues, retry/DLQ and stuck batches.
+    router.get('/operations', asyncHandler(async (req: Request, res: Response) => {
+      let dataType = req.query.dataType as string | undefined;
+      if (dataType === 'ALL' || !dataType) dataType = undefined;
+      if (dataType === 'INTERNATIONAL_TESTS') dataType = ImportTargetDomain.Tests;
+      if (dataType && !(Object.values(ImportTargetDomain) as string[]).includes(dataType)) {
+        return res.status(400).json({ error: 'Validation Error', details: [{ message: 'Invalid dataType filter' }] });
+      }
+      res.json(await importAdminUseCases.getOperationalInsights(dataType ? { dataType } : undefined));
+    }));
+
+    // GET /admin/imports/capabilities - explicit truth about staging and owning-domain handoff readiness.
+    router.get('/capabilities', asyncHandler(async (_req: Request, res: Response) => {
+      res.json(importAdminUseCases.getDomainCapabilities([
+        ImportTargetDomain.Scholarships,
+        ImportTargetDomain.Universities,
+        ImportTargetDomain.Majors,
+        ImportTargetDomain.Courses,
+        ImportTargetDomain.Tests,
+        ImportTargetDomain.Services,
+        ImportTargetDomain.Cms,
+      ]));
+    }));
+
+    // GET /admin/imports/error-report - exact FAILED/DLQ rows for review/export; never mutates records.
+    router.get('/error-report', asyncHandler(async (req: Request, res: Response) => {
+      let dataType = req.query.dataType as string | undefined;
+      if (dataType === 'ALL' || !dataType) dataType = undefined;
+      if (dataType === 'INTERNATIONAL_TESTS') dataType = ImportTargetDomain.Tests;
+      if (dataType && !(Object.values(ImportTargetDomain) as string[]).includes(dataType)) {
+        return res.status(400).json({ error: 'Validation Error', details: [{ message: 'Invalid dataType filter' }] });
+      }
+      const limitRaw = Number(req.query.limit ?? 500);
+      const limit = Number.isFinite(limitRaw) ? Math.min(1000, Math.max(1, Math.trunc(limitRaw))) : 500;
+      res.json(await importAdminUseCases.getErrorReport({
+        ...(dataType ? { dataType } : {}),
+        ...(typeof req.query.batchId === 'string' && req.query.batchId ? { batchId: req.query.batchId } : {}),
+        limit,
+      }));
+    }));
+
+    // GET /admin/imports/activity - read-only Import Operations Center audit trail.
+    router.get('/activity', asyncHandler(async (req: Request, res: Response) => {
+      if (!auditRecordRepo?.listRecentImportOperations) {
+        return res.status(503).json({ error: 'IMPORT_AUDIT_ACTIVITY_UNAVAILABLE' });
+      }
+      const limitRaw = Number(req.query.limit ?? 20);
+      const limit = Number.isFinite(limitRaw) ? Math.min(50, Math.max(1, Math.trunc(limitRaw))) : 20;
+      res.json({ data: await auditRecordRepo.listRecentImportOperations(limit) });
+    }));
+
+    // POST /admin/imports/preflight - parse/deduplicate preview only; no persistence and no publication.
+    router.post('/preflight', asyncHandler(async (req: Request, res: Response) => {
+      const payload = importBodySchema.parse(req.body);
+      res.status(200).json(await importAdminUseCases.preflightData(payload));
+    }));
+
+    // Real source registry visibility for the generic import control plane.
+    router.get('/sources', asyncHandler(async (_req: Request, res: Response) => {
+      if (!sourceRegistryGateway) return res.status(503).json({ error: 'IMPORT_SOURCE_REGISTRY_UNAVAILABLE' });
+      res.json({ data: await sourceRegistryGateway.listSources() });
+    }));
+
+    const sourceStatusSchema = z.nativeEnum(SourceStatus);
+    router.patch('/sources/:sourceId/status', asyncHandler(async (req: Request, res: Response) => {
+      if (!sourceRegistryGateway) return res.status(503).json({ error: 'IMPORT_SOURCE_REGISTRY_UNAVAILABLE' });
+      const status = sourceStatusSchema.parse(req.body?.status);
+      const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 500) : undefined;
+      const updated = await sourceRegistryGateway.updateSourceStatus(req.params.sourceId, status, reason);
+      if (!updated) return res.status(404).json({ error: 'IMPORT_SOURCE_NOT_FOUND' });
+      const source = await sourceRegistryGateway.getSource(req.params.sourceId);
+      res.json({ data: source });
+    }));
 
     // POST /admin/imports
     router.post('/', asyncHandler(async (req: Request, res: Response) => {
@@ -401,153 +478,29 @@ export class ImportAdminRouter {
       res.json(records);
     }));
 
-    const promoteRecord = async (record: ImportRecordWithBatch) => {
-      if (process.env.WP1_RECOVERY_GATE !== 'CLOSED' || process.env.ALLOW_DATABASE_MUTATIONS !== 'YES') {
-        return {
-          statusCode: 423,
-          body: {
-            error: 'DATABASE_MUTATION_BLOCKED',
-            required: ['WP1_RECOVERY_GATE=CLOSED', 'ALLOW_DATABASE_MUTATIONS=YES'],
-          },
-        };
-      }
-      const batch = record.batch || (record.batchId ? await importRepository?.getBatchById?.(record.batchId) : undefined);
-      const targetDomain = record.targetDomain || batch?.dataType;
-
-      if (targetDomain === ImportTargetDomain.Tests || targetDomain === 'INTERNATIONAL_TESTS' || targetDomain === 'TESTS') {
-        if (!internationalTestImportPromotionUseCase) {
-           return { statusCode: 500, body: { error: 'International Test promotion use case not available' } };
-        }
-
-        const result = await internationalTestImportPromotionUseCase.promote(record);
-        return { statusCode: result.type === 'REJECTED' || result.type === 'FAILED' ? 422 : 200, body: result };
-      }
-
-      if (targetDomain === ImportTargetDomain.Majors || targetDomain === 'MAJORS') {
-        if (!majorImportPromotionUseCase) {
-          return { statusCode: 500, body: { error: 'Major promotion use case not available' } };
-        }
-
-        const result = await majorImportPromotionUseCase.promote(record);
-        if (importRepository?.updateRecord) {
-          if (result.type === 'CREATED' || result.type === 'VERSION_CREATED' || result.type === 'DUPLICATE') {
-            await importRepository.updateRecord(record.id as string, {
-              status: ImportRecordStatus.PROMOTED,
-              promotedEntityId: result.majorId || result.existingId,
-              processingNotes: result.type === 'VERSION_CREATED'
-                ? `Promoted into existing major as version ${result.versionNumber}.`
-                : `Promoted to majors workspace with result ${result.type}.`,
-            });
-          } else {
-            await importRepository.updateRecord(record.id as string, {
-              status: ImportRecordStatus.FAILED,
-              validationErrors: result.type === 'REJECTED' ? [result.reason] : [result.error],
-              processingNotes: 'Major promotion failed; record remains reviewable from import logs.',
-            });
-          }
-        }
-        return { statusCode: result.type === 'REJECTED' || result.type === 'FAILED' ? 422 : 200, body: result };
-      }
-
-      if (targetDomain === ImportTargetDomain.Fellowships || targetDomain === 'FELLOWSHIPS') {
-        if (!fellowshipImportPromotionUseCase) {
-          return { statusCode: 500, body: { error: 'Fellowship promotion use case not available' } };
-        }
-
-        const result = await fellowshipImportPromotionUseCase.promote(record);
-        if (importRepository?.updateRecord) {
-          if (result.type === 'CREATED' || result.type === 'UPDATED') {
-            await importRepository.updateRecord(record.id as string, {
-              status: ImportRecordStatus.PROMOTED,
-              promotedEntityId: result.fellowshipId || result.existingId,
-              processingNotes: `Promoted to fellowship definitions workspace with result ${result.type}.`,
-            });
-          } else {
-            await importRepository.updateRecord(record.id as string, {
-              status: ImportRecordStatus.FAILED,
-              validationErrors: result.type === 'REJECTED' ? [result.reason] : [result.error],
-              processingNotes: 'Fellowship promotion failed; record remains reviewable from import logs.',
-            });
-          }
-        }
-
-        return { statusCode: result.type === 'REJECTED' || result.type === 'FAILED' ? 422 : 200, body: result };
-      }
-
-      return { statusCode: 422, body: { error: 'Domain promotion is disabled in Phase 06 and must be implemented by the owning domain phase.' } };
+    const phase6PromotionDisabled = {
+      error: 'PHASE6_DOMAIN_PROMOTION_DISABLED',
+      message: 'Import Foundation owns source acquisition, parsing, normalization, validation, staging, execution and handoff only. Semantic promotion belongs to the owning domain.',
+      nextAction: 'Open the owning domain workspace or its dedicated import workflow after domain review.',
     };
 
-    // POST /admin/imports/records/:id/promote
-    router.post('/records/:id/promote', asyncHandler(async (req: Request, res: Response) => {
-      const recordId = req.params.id;
-      if (!importRepository) {
-        return res.status(500).json({ error: 'Import repository not available' });
-      }
-      const record = await importRepository.getRecordById(recordId);
-      if (!record) {
-        return res.status(404).json({ error: 'Record not found' });
-      }
-
-      const result = await promoteRecord(record);
-      res.status(result.statusCode).json(result.body);
+    // Legacy compatibility endpoints. They intentionally never mutate canonical domain records.
+    router.post('/records/:id/promote', asyncHandler(async (_req: Request, res: Response) => {
+      res.status(422).json(phase6PromotionDisabled);
     }));
 
-    router.post('/batches/:id/promote', asyncHandler(async (req: Request, res: Response) => {
-      const batchId = req.params.id;
-      if (!importRepository?.getBatchById || !importRepository.listRecords) {
-        return res.status(500).json({ error: 'Import repository batch promotion support is not available' });
-      }
-
-      const batch = await importRepository.getBatchById(batchId);
-      if (!batch) {
-        return res.status(404).json({ error: 'Batch not found' });
-      }
-      let page = 1;
-      const pageSize = 100;
-      let promoted = 0;
-      let failed = 0;
-      const results: Array<{ recordId?: string; result: unknown }> = [];
-
-      while (true) {
-        const recordsPage = await importRepository.listRecords({ batchId, page, pageSize });
-        for (const record of recordsPage.data) {
-          if (record.status === ImportRecordStatus.PROMOTED) {
-            continue;
-          }
-          const result = await promoteRecord({ ...record, batch });
-          if (result.statusCode >= 200 && result.statusCode < 300) {
-            promoted++;
-          } else {
-            failed++;
-          }
-          if (results.length < 50) {
-            results.push({ recordId: record.id as string | undefined, result: result.body });
-          }
-        }
-
-        if (page * pageSize >= recordsPage.total) {
-          break;
-        }
-        page++;
-      }
-
-      res.status(200).json({
-        batchId,
-        dataType: batch.dataType,
-        promoted,
-        failed,
-        preview: results,
-      });
+    router.post('/batches/:id/promote', asyncHandler(async (_req: Request, res: Response) => {
+      res.status(422).json(phase6PromotionDisabled);
     }));
 
     // POST /admin/imports/records/:id/transfer
-    router.post('/records/:id/transfer', asyncHandler(async (req: Request, res: Response) => {
-      res.status(422).json({ error: 'Domain promotion is disabled in Phase 06 and must be implemented by the owning domain phase.' });
+    router.post('/records/:id/transfer', asyncHandler(async (_req: Request, res: Response) => {
+      res.status(422).json(phase6PromotionDisabled);
     }));
 
     // POST /admin/imports/batches/:id/transfer
-    router.post('/batches/:id/transfer', asyncHandler(async (req: Request, res: Response) => {
-      res.status(422).json({ error: 'Domain promotion is disabled in Phase 06 and must be implemented by the owning domain phase.' });
+    router.post('/batches/:id/transfer', asyncHandler(async (_req: Request, res: Response) => {
+      res.status(422).json(phase6PromotionDisabled);
     }));
 
     router.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

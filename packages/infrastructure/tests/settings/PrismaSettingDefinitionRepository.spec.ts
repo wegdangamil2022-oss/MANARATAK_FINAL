@@ -10,6 +10,7 @@ describe('PrismaSettingDefinitionRepository', () => {
     mockPrisma = {
       settingDefinitionRecord: {
         findUnique: vi.fn(),
+        findMany: vi.fn(),
         upsert: vi.fn()
       }
     };
@@ -25,6 +26,7 @@ describe('PrismaSettingDefinitionRepository', () => {
       defaultValue: 'default',
       isFeatureFlag: false,
       isDeprecated: false,
+      isSecret: false,
       createdAt: new Date(),
       updatedAt: new Date()
     };

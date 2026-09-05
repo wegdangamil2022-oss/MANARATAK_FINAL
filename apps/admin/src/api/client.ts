@@ -51,6 +51,37 @@ export const adminApiClient = {
     return this.request<T>(`/admin/international-tests/${id}`);
   },
 
+  updateInternationalTest<T = unknown>(id: string, payload: unknown) {
+    return this.request<T>(`/admin/international-tests/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  listInternationalTestProviders<T = unknown>(search?: string) {
+    const query = search?.trim() ? `?search=${encodeURIComponent(search.trim())}` : '';
+    return this.request<T>(`/admin/international-tests/providers${query}`);
+  },
+
+  upsertInternationalTestProvider<T = unknown>(payload: unknown) {
+    return this.request<T>('/admin/international-tests/providers', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  getInternationalTestReadiness<T = unknown>(testId: string) {
+    return this.request<T>(`/admin/international-tests/${testId}/readiness`);
+  },
+
+  getInternationalTestRelationships<T = unknown>(testId: string, locale: 'ar' | 'en' = 'ar') {
+    return this.request<T>(`/admin/international-tests/${testId}/relationships?locale=${locale}`);
+  },
+
+  verifyInternationalTestSource(testId: string) {
+    return this.request<unknown>(`/admin/international-tests/${testId}/verify-source`, { method: 'POST' });
+  },
+
   upsertInternationalTestVariant(testId: string, payload: unknown) {
     return this.request<unknown>(`/admin/international-tests/${testId}/variants`, {
       method: 'POST',

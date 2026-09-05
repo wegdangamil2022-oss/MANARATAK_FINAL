@@ -93,6 +93,10 @@ export class ServiceAdminRouter {
       res.json(await adminServiceFulfillmentUseCases.listRequests(requestListQuerySchema.parse(req.query)));
     }));
 
+    router.get('/requests/:requestReference', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await adminServiceFulfillmentUseCases.getRequest(req.params.requestReference));
+    }));
+
     router.post('/requests/:requestId/transition', asyncHandler(async (req: Request, res: Response) => {
       const body = requestTransitionSchema.parse(req.body);
       res.json(await adminServiceFulfillmentUseCases.transitionRequest(req.params.requestId, body.status, body.fulfillmentMetadata));

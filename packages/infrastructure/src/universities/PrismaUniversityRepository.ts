@@ -4,10 +4,12 @@ import {
   ITransactionalUniversityRepository,
   IUniversityRepository,
   PaginatedUniversityResult,
+  PaginatedUniversityOrganizationUnitResult,
   PublicUniversityFilters,
   sanitizeUniversityOptionalFields,
   UniversityDto,
   UniversityFilters,
+  UniversityOrganizationUnitFilters,
   UniversityStatus,
   UniversityNormalizedDetailsUpdate,
   UniversityAcademicProgramAuthoringInput,
@@ -252,13 +254,19 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
     if (filters.regionReferenceId) where.regionReferenceId = filters.regionReferenceId;
     if (filters.cityReferenceId) where.cityReferenceId = filters.cityReferenceId;
     if (filters.institutionType) where.institutionType = filters.institutionType;
-    if (filters.majorId) {
+    if (filters.majorId || filters.internationalTestId) {
       where.academicPrograms = {
         some: {
-          majorId: filters.majorId,
-          degreeLevelId: { not: null },
-          majorMappingState: 'CANONICALLY_MAPPED',
-          major: { is: { status: MajorStatus.PUBLISHED } },
+          ...(filters.majorId ? {
+            status: 'ACTIVE',
+            majorId: filters.majorId,
+            degreeLevelId: { not: null },
+            majorMappingState: 'CANONICALLY_MAPPED',
+            major: { is: { status: MajorStatus.PUBLISHED } },
+          } : {}),
+          ...(filters.internationalTestId ? {
+            admissionRequirements: { some: { internationalTestId: filters.internationalTestId } },
+          } : {}),
         },
       };
     }
@@ -285,6 +293,60 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
 
     return {
       data: data.map((d) => this.mapToDto(d)),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  async listOrganizationUnits(
+    filters: UniversityOrganizationUnitFilters,
+  ): Promise<PaginatedUniversityOrganizationUnitResult> {
+    const page = Math.max(1, filters.page || 1);
+    const pageSize = Math.min(100, Math.max(1, filters.pageSize || 50));
+    const where: Prisma.UniversityOrganizationUnitWhereInput = {};
+    if (filters.universityId) where.universityId = filters.universityId;
+    if (filters.unitType) where.unitType = filters.unitType;
+    else where.unitType = { in: ['FACULTY', 'COLLEGE', 'SCHOOL'] };
+    if (filters.status) where.status = filters.status;
+    if (filters.search?.trim()) {
+      where.OR = [
+        { name: { contains: filters.search.trim(), mode: 'insensitive' } },
+        { university: { is: { displayName: { contains: filters.search.trim(), mode: 'insensitive' } } } },
+      ];
+    }
+
+    const [rows, total] = await Promise.all([
+      this.prisma.universityOrganizationUnit.findMany({
+        where,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: [{ university: { displayName: 'asc' } }, { name: 'asc' }],
+        include: {
+          university: { select: { id: true, publicId: true, displayName: true } },
+          programs: { select: { majorId: true, majorMappingState: true, status: true } },
+        },
+      }),
+      this.prisma.universityOrganizationUnit.count({ where }),
+    ]);
+
+    return {
+      data: rows.map(row => ({
+        id: row.id,
+        universityId: row.universityId,
+        universityPublicId: row.university.publicId,
+        universityDisplayName: row.university.displayName,
+        campusId: row.campusId,
+        parentOrganizationUnitId: row.parentOrganizationUnitId,
+        unitType: row.unitType,
+        name: row.name,
+        status: row.status,
+        programCount: row.programs.length,
+        mappedMajorCount: row.programs.filter(program => program.status !== 'INACTIVE' && program.status !== 'ARCHIVED' && Boolean(program.majorId) && program.majorMappingState === 'CANONICALLY_MAPPED').length,
+        unresolvedMajorCount: row.programs.filter(program => program.status !== 'INACTIVE' && program.status !== 'ARCHIVED' && (!program.majorId || program.majorMappingState !== 'CANONICALLY_MAPPED')).length,
+        activeProgramCount: row.programs.filter(program => program.status === 'ACTIVE').length,
+      })),
       total,
       page,
       pageSize,
@@ -321,6 +383,7 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
     const rows = await this.prisma.universityAcademicProgram.findMany({
       where: {
         id: { in: [...new Set(ids)] },
+        status: 'ACTIVE',
         majorMappingState: 'CANONICALLY_MAPPED',
         majorId: { not: null },
         degreeLevelId: { not: null },

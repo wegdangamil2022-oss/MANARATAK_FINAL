@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
 import {
+  AttachCertificateArtifactsDto,
   CertificateAnalyticsDto,
   CertificateDto,
   CertificateIssuerDto,
@@ -193,6 +194,27 @@ export class PrismaCertificateRepository implements ICertificateRepository {
       await tx.certificateIssuanceInbox.create({ data: { eventId: data.sourceEventId, eventType: data.sourceEventType, eventVersion: data.sourceEventVersion, sourceDomain: 'COURSES', payloadHash: data.sourceEventPayloadHash, certificateId: certificate.id } });
       await this.appendMutation(tx, certificate.id, 'ISSUED', data.actorId ?? 'phase14-system', null, data.correlationId, this.certificateIssuedPayload(certificate), 'CertificateIssued');
       return this.certificate(certificate);
+    });
+  }
+
+  public async attachArtifacts(data: AttachCertificateArtifactsDto): Promise<CertificateDto> {
+    return this.db.$transaction(async (tx: any) => {
+      const current = await tx.certificate.findUnique({ where: { id: data.certificateId } });
+      if (!current) throw new Error('CERTIFICATE_NOT_FOUND');
+      const row = await tx.certificate.update({
+        where: { id: data.certificateId },
+        data: {
+          ...(data.certificatePdfAssetId !== undefined ? { certificatePdfAssetId: data.certificatePdfAssetId } : {}),
+          ...(data.previewImageAssetId !== undefined ? { previewImageAssetId: data.previewImageAssetId } : {}),
+          ...(data.verificationQrAssetId !== undefined ? { verificationQrAssetId: data.verificationQrAssetId } : {}),
+        },
+      });
+      await this.appendMutation(tx, row.id, 'ARTIFACTS_ATTACHED', data.actorId, null, data.correlationId, {
+        certificatePdfAssetId: row.certificatePdfAssetId ?? null,
+        previewImageAssetId: row.previewImageAssetId ?? null,
+        verificationQrAssetId: row.verificationQrAssetId ?? null,
+      }, 'CertificateArtifactsRendered');
+      return this.certificate(row);
     });
   }
 

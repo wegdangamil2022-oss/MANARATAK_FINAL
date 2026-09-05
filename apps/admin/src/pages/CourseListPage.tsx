@@ -88,7 +88,6 @@ export function CourseListPage() {
               <option value="">{t('all_origins')}</option>
               <option value="NATIVE_MANARATAK_COURSE">{t('native_manaratak')}</option>
               <option value="EXTERNAL_LINKED_COURSE">{t('external_linked')}</option>
-              <option value="PAID_COURSE">{t('paid_course')}</option>
             </select>
             <Filter className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
           </div>

@@ -12,6 +12,26 @@ interface ExamsSearchPageProps {
   onToggleFavorite?: (id: string) => void;
 }
 
+const CANONICAL_TEST_CATEGORIES = [
+  'ENGLISH_LANGUAGE',
+  'NON_ENGLISH_LANGUAGE',
+  'GENERAL_UNDERGRADUATE_ADMISSION',
+  'GRADUATE_ADMISSION',
+  'NATIONAL_INTERNATIONAL_ADMISSION',
+  'SPECIALIZED_ADMISSION',
+  'PROFESSIONAL_LICENSING_CERTIFICATION',
+] as const;
+
+const CATEGORY_LABELS: Record<string, string> = {
+  ENGLISH_LANGUAGE: 'اللغة الإنجليزية',
+  NON_ENGLISH_LANGUAGE: 'لغات أخرى',
+  GENERAL_UNDERGRADUATE_ADMISSION: 'قبول البكالوريوس',
+  GRADUATE_ADMISSION: 'الدراسات العليا',
+  NATIONAL_INTERNATIONAL_ADMISSION: 'قبول وطني ودولي',
+  SPECIALIZED_ADMISSION: 'قبول تخصصي',
+  PROFESSIONAL_LICENSING_CERTIFICATION: 'ترخيص وشهادات مهنية',
+};
+
 export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
   exams = [],
   onBack,
@@ -27,7 +47,9 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
   const categories = useMemo(() => {
     const cats = new Set<string>();
     exams.forEach((exam) => cats.add(exam.category));
-    return ['الكل', ...Array.from(cats)];
+    const canonical = CANONICAL_TEST_CATEGORIES.filter((category) => cats.has(category));
+    const additional = Array.from(cats).filter((category) => !CANONICAL_TEST_CATEGORIES.includes(category as (typeof CANONICAL_TEST_CATEGORIES)[number]));
+    return ['الكل', ...canonical, ...additional];
   }, [exams]);
 
   const filteredExams = useMemo(() => {
@@ -56,7 +78,7 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
 
   return (
     <div
-      className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-sans select-none mn-panel "
+      className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-['Cairo',sans-serif] select-none mn-panel "
       dir="rtl"
     >
       {/* ========================================================================= */}
@@ -163,8 +185,9 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
         {onBack && (
           <button
             onClick={onBack}
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 w-9 h-9 sm:w-10 sm:h-10 bg-black/25 hover:bg-black/40 border border-white/15 backdrop-blur-md rounded-full flex items-center justify-center transition-all z-30 cursor-pointer text-white shadow-md active:scale-95"
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 w-10 h-10 bg-black/25 hover:bg-black/40 border border-white/15 backdrop-blur-md rounded-full flex items-center justify-center transition-all z-30 cursor-pointer text-white shadow-md active:scale-95"
             title="العودة"
+            aria-label="العودة"
           >
             <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 rotate-180 text-white" />
           </button>
@@ -175,7 +198,7 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
           {/* Main Title Container */}
           <div className="relative inline-block mb-2">
             <div className="absolute -inset-x-6 -inset-y-3 bg-[var(--mn-accent)]/10 blur-xl rounded-full" />
-            <h1 className="relative text-2xl sm:text-3xl font-black text-white font-['Cairo',sans-serif] tracking-tight leading-tight">
+            <h1 className="relative text-2xl sm:text-3xl font-bold text-white font-['Cairo',sans-serif] tracking-tight leading-tight">
               دليل الاختبارات{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--mn-accent-soft)] to-[var(--mn-accent-soft)] mn-gold ">
                 الدولية
@@ -201,7 +224,7 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
       {/* ========================================================================= */}
       {/* SEARCH & FILTERS SECTION (Overlapping the hero slightly)                  */}
       {/* ========================================================================= */}
-      <div className="max-w-3xl mx-auto px-4 -mt-6 relative z-20">
+      <div className="max-w-3xl mx-auto mn-inline-gutter -mt-6 relative z-20">
         {/* Search Bar Container */}
         <div className="bg-[var(--mn-surface)] rounded-2xl shadow-lg border border-[var(--mn-border)] p-2 sm:p-3 flex flex-col gap-3 mn-panel ">
           {/* Search Input */}
@@ -238,14 +261,14 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
                     : 'bg-[var(--mn-surface)] border border-[var(--mn-border)] text-[var(--mn-text-muted)] hover:bg-[var(--mn-page)] mn-panel hover:mn-panel '
                 }`}
               >
-                {cat}
+                {CATEGORY_LABELS[cat] ?? cat}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 pt-5">
+      <div className="max-w-3xl mx-auto mn-inline-gutter pt-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {filteredExams.map((exam) => (
             <article
@@ -270,14 +293,14 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
                     <Award className="w-[18px] h-[18px] text-[var(--mn-heading)]" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-[14px] font-black leading-5 text-[var(--mn-heading)]">{exam.name}</h3>
-                    <p className="text-[10px] font-black text-[var(--mn-accent-text)] mt-0.5">{exam.nameEn}</p>
+                    <h3 className="text-[14px] font-bold leading-5 text-[var(--mn-heading)]">{exam.name}</h3>
+                    <p className="text-[10px] font-bold text-[var(--mn-accent-text)] mt-0.5">{exam.nameEn}</p>
                     {exam.providerName && (
                       <p className="text-[8.5px] font-semibold text-[var(--mn-text-muted)] mt-1 line-clamp-1">{exam.providerName}</p>
                     )}
                   </div>
                 </div>
-                <span className="px-2 py-1 rounded-full bg-[var(--mn-primary)]/8 text-[8.5px] font-black text-[var(--mn-heading)] whitespace-nowrap">
+                <span className="px-2 py-1 rounded-full bg-[var(--mn-primary)]/8 text-[8.5px] font-bold text-[var(--mn-heading)] whitespace-nowrap">
                   {exam.category}
                 </span>
               </div>
@@ -286,19 +309,19 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
                 <div className="relative grid grid-cols-2 gap-1.5 mt-3">
                   <div className="rounded-lg border border-[var(--mn-border)] bg-[var(--mn-page)] px-2 py-1.5 flex items-center gap-1.5 mn-panel ">
                     <Award className="w-3 h-3 text-[var(--mn-accent-text)] shrink-0" />
-                    <span className="text-[8.5px] font-black text-[var(--mn-text)] truncate">{exam.scoreRange || 'الدرجة حسب الاختبار'}</span>
+                    <span className="text-[8.5px] font-bold text-[var(--mn-text)] truncate">{exam.scoreRange || 'الدرجة حسب الاختبار'}</span>
                   </div>
                   <div className="rounded-lg border border-[var(--mn-border)] bg-[var(--mn-page)] px-2 py-1.5 flex items-center gap-1.5 mn-panel ">
                     <Clock className="w-3 h-3 text-[var(--mn-heading)] shrink-0" />
-                    <span className="text-[8.5px] font-black text-[var(--mn-text)] truncate">{exam.duration || 'مدة متغيرة'}</span>
+                    <span className="text-[8.5px] font-bold text-[var(--mn-text)] truncate">{exam.duration || 'مدة متغيرة'}</span>
                   </div>
                   <div className="rounded-lg border border-[var(--mn-border)] bg-[var(--mn-page)] px-2 py-1.5 flex items-center gap-1.5 mn-panel ">
                     <ShieldCheck className="w-3 h-3 text-[var(--mn-accent-text)] shrink-0" />
-                    <span className="text-[8.5px] font-black text-[var(--mn-text)] truncate">{exam.validity || 'حسب الجهة'}</span>
+                    <span className="text-[8.5px] font-bold text-[var(--mn-text)] truncate">{exam.validity || 'حسب الجهة'}</span>
                   </div>
                   <div className="rounded-lg border border-[var(--mn-border)] bg-[var(--mn-page)] px-2 py-1.5 flex items-center gap-1.5 mn-panel ">
                     <Languages className="w-3 h-3 text-[var(--mn-heading)] shrink-0" />
-                    <span className="text-[8.5px] font-black text-[var(--mn-text)] truncate">{exam.language || exam.category}</span>
+                    <span className="text-[8.5px] font-bold text-[var(--mn-text)] truncate">{exam.language || exam.category}</span>
                   </div>
                 </div>
               )}
@@ -317,7 +340,7 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
                     </span>
                   ))}
                 </div>
-                <span className="text-[9px] font-black text-[var(--mn-heading)] whitespace-nowrap flex items-center gap-0.5">
+                <span className="text-[9px] font-bold text-[var(--mn-heading)] whitespace-nowrap flex items-center gap-0.5">
                   عرض التفاصيل
                   <ChevronLeft className="w-3 h-3" />
                 </span>

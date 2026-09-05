@@ -4,6 +4,9 @@ import {
   CourseGeographySemanticsDto,
   CourseLanguageCandidateDto,
   CourseLanguageResolutionMethod,
+  CourseInternationalTestRelationshipDto,
+  CourseInternationalTestRelationshipState,
+  CourseInternationalTestRelationshipType,
   CourseMajorMappingCandidateDto,
   CourseMajorProjectionDto,
   CourseMajorProjectionState,
@@ -36,6 +39,7 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
         status: true,
         sourceImportRecordId: true,
         shortCourseTopicsRaw: true,
+        category: true,
         learningLanguageRaw: true,
         learningLanguageReferenceId: true,
         learningLanguageResolutionState: true,
@@ -66,7 +70,7 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
       courseId: course.id,
       status: course.status,
       sourceImportRecordId: course.sourceImportRecordId,
-      shortCourseTopicsRaw: course.shortCourseTopicsRaw,
+      shortCourseTopicsRaw: course.shortCourseTopicsRaw ?? course.category,
       learningLanguageRaw: course.learningLanguageRaw,
       learningLanguageReferenceId: course.learningLanguageReferenceId,
       learningLanguageResolutionState: course.learningLanguageResolutionState as CourseRelationshipSourceDto['learningLanguageResolutionState'],
@@ -264,6 +268,7 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
         courseId,
         ...(reviewState ? { reviewState } : {}),
       },
+      include: { taxonomyNode: { select: { id: true, canonicalCode: true, canonicalName: true, nodeType: true } } },
       orderBy: [{ reviewState: 'asc' }, { createdAt: 'asc' }],
     });
     return records.map((record: any) => this.mapTaxonomyLink(record));
@@ -304,6 +309,55 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
     await this.prisma.$transaction(operations);
     const record = await this.prisma.courseAcademicTaxonomyLink.findUniqueOrThrow({
       where: { id: input.linkId },
+      include: { taxonomyNode: { select: { id: true, canonicalCode: true, canonicalName: true, nodeType: true } } },
+    });
+    return this.mapTaxonomyLink(record);
+  }
+
+  public async createManualTaxonomyLink(input: {
+    courseId: string;
+    taxonomyNodeId: string;
+    relationshipType: CourseAcademicTaxonomyLinkDto['relationshipType'];
+    actorId: string;
+  }): Promise<CourseAcademicTaxonomyLinkDto> {
+    const [course, taxonomyNode] = await Promise.all([
+      this.prisma.course.findUnique({ where: { id: input.courseId }, select: { id: true } }),
+      this.prisma.academicTaxonomyNode.findFirst({
+        where: { id: input.taxonomyNodeId, status: 'ACTIVE' },
+        select: { id: true, canonicalCode: true, canonicalName: true, nodeType: true },
+      }),
+    ]);
+    if (!course) throw new Error('COURSE_NOT_FOUND');
+    if (!taxonomyNode) throw new Error('ACADEMIC_TAXONOMY_NODE_NOT_FOUND_OR_INACTIVE');
+
+    const record = await this.prisma.courseAcademicTaxonomyLink.upsert({
+      where: {
+        courseId_taxonomyNodeId_relationshipType: {
+          courseId: input.courseId,
+          taxonomyNodeId: input.taxonomyNodeId,
+          relationshipType: input.relationshipType,
+        },
+      },
+      update: {
+        sourceResolutionId: null,
+        reviewState: 'PROPOSED',
+        matchMethod: 'ADMIN_REVIEW',
+        sourceTerm: taxonomyNode.canonicalName,
+        confidence: 1,
+        reviewedBy: null,
+        reviewedAt: null,
+      },
+      create: {
+        courseId: input.courseId,
+        taxonomyNodeId: input.taxonomyNodeId,
+        sourceResolutionId: null,
+        relationshipType: input.relationshipType,
+        reviewState: 'PROPOSED',
+        matchMethod: 'ADMIN_REVIEW',
+        sourceTerm: taxonomyNode.canonicalName,
+        confidence: 1,
+      },
+      include: { taxonomyNode: { select: { id: true, canonicalCode: true, canonicalName: true, nodeType: true } } },
     });
     return this.mapTaxonomyLink(record);
   }
@@ -485,6 +539,7 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
         projectionState: input.projectionState,
         confidence: input.confidence ?? null,
       },
+      include: { major: { select: { id: true, publicId: true, slug: true, displayName: true, status: true } } },
     });
     return this.mapMajorProjection(record);
   }
@@ -509,10 +564,8 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
     state?: CourseMajorProjectionState,
   ): Promise<CourseMajorProjectionDto[]> {
     const records = await this.prisma.courseMajorProjection.findMany({
-      where: {
-        courseId,
-        ...(state ? { projectionState: state } : {}),
-      },
+      where: { courseId, ...(state ? { projectionState: state } : {}) },
+      include: { major: { select: { id: true, publicId: true, slug: true, displayName: true, status: true } } },
       orderBy: [{ projectionState: 'asc' }, { createdAt: 'asc' }],
     });
     return records.map((record: any) => this.mapMajorProjection(record));
@@ -530,13 +583,142 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
     if (!existing) throw new Error('COURSE_MAJOR_PROJECTION_NOT_FOUND');
     const record = await this.prisma.courseMajorProjection.update({
       where: { id: input.projectionId },
-      data: {
-        projectionState: input.decision,
-        reviewedBy: input.actorId,
-        reviewedAt: new Date(),
-      },
+      data: { projectionState: input.decision, reviewedBy: input.actorId, reviewedAt: new Date() },
+      include: { major: { select: { id: true, publicId: true, slug: true, displayName: true, status: true } } },
     });
     return this.mapMajorProjection(record);
+  }
+
+  public async createDirectMajorProjection(input: {
+    courseId: string;
+    majorId: string;
+    relationshipType: CourseMajorProjectionDto['relationshipType'];
+    actorId: string;
+  }): Promise<CourseMajorProjectionDto> {
+    const [course, major] = await Promise.all([
+      this.prisma.course.findUnique({ where: { id: input.courseId }, select: { id: true } }),
+      this.prisma.major.findFirst({
+        where: { id: input.majorId, status: { not: 'ARCHIVED' } },
+        select: { id: true },
+      }),
+    ]);
+    if (!course) throw new Error('COURSE_NOT_FOUND');
+    if (!major) throw new Error('MAJOR_NOT_FOUND_OR_ARCHIVED');
+
+    const projectionKey = `direct:${input.courseId}:${input.majorId}:${input.relationshipType}`;
+    const record = await this.prisma.courseMajorProjection.upsert({
+      where: { projectionKey },
+      update: {
+        profileId: null,
+        taxonomyNodeId: null,
+        sourceCourseTaxonomyLinkId: null,
+        sourceMajorClassificationMappingId: null,
+        sourceType: 'DIRECT_REVIEWED',
+        relationshipType: input.relationshipType,
+        projectionState: 'PROPOSED',
+        confidence: 1,
+        reviewedBy: null,
+        reviewedAt: null,
+      },
+      create: {
+        projectionKey,
+        courseId: input.courseId,
+        majorId: input.majorId,
+        sourceType: 'DIRECT_REVIEWED',
+        relationshipType: input.relationshipType,
+        projectionState: 'PROPOSED',
+        confidence: 1,
+      },
+      include: { major: { select: { id: true, publicId: true, slug: true, displayName: true, status: true } } },
+    });
+    return this.mapMajorProjection(record);
+  }
+
+  public async createInternationalTestRelationship(input: {
+    courseId: string;
+    internationalTestId: string;
+    relationshipType: CourseInternationalTestRelationshipType;
+    actorId: string;
+  }): Promise<CourseInternationalTestRelationshipDto> {
+    const [course, test] = await Promise.all([
+      this.prisma.course.findUnique({ where: { id: input.courseId }, select: { id: true } }),
+      this.prisma.internationalTest.findUnique({
+        where: { id: input.internationalTestId },
+        select: { id: true, status: true },
+      }),
+    ]);
+    if (!course) throw new Error('COURSE_NOT_FOUND');
+    if (!test || test.status === 'ARCHIVED') throw new Error('INTERNATIONAL_TEST_NOT_FOUND_OR_ARCHIVED');
+
+    const record = await this.prisma.courseInternationalTestRelationship.upsert({
+      where: {
+        courseId_internationalTestId_relationshipType: {
+          courseId: input.courseId,
+          internationalTestId: input.internationalTestId,
+          relationshipType: input.relationshipType,
+        },
+      },
+      update: {
+        reviewState: 'PROPOSED',
+        sourceType: 'ADMIN_AUTHORED',
+        createdBy: input.actorId,
+        reviewedBy: null,
+        reviewedAt: null,
+      },
+      create: {
+        courseId: input.courseId,
+        internationalTestId: input.internationalTestId,
+        relationshipType: input.relationshipType,
+        reviewState: 'PROPOSED',
+        sourceType: 'ADMIN_AUTHORED',
+        createdBy: input.actorId,
+      },
+      include: {
+        internationalTest: {
+          select: { id: true, publicId: true, slug: true, displayName: true, abbreviation: true, status: true },
+        },
+      },
+    });
+    return this.mapInternationalTestRelationship(record);
+  }
+
+  public async listInternationalTestRelationships(
+    courseId: string,
+    state?: CourseInternationalTestRelationshipState,
+  ): Promise<CourseInternationalTestRelationshipDto[]> {
+    const records = await this.prisma.courseInternationalTestRelationship.findMany({
+      where: { courseId, ...(state ? { reviewState: state } : {}) },
+      include: {
+        internationalTest: {
+          select: { id: true, publicId: true, slug: true, displayName: true, abbreviation: true, status: true },
+        },
+      },
+      orderBy: [{ reviewState: 'asc' }, { createdAt: 'asc' }],
+    });
+    return records.map((record: any) => this.mapInternationalTestRelationship(record));
+  }
+
+  public async reviewInternationalTestRelationship(input: {
+    courseId: string;
+    relationshipId: string;
+    decision: 'APPROVED' | 'REJECTED';
+    actorId: string;
+  }): Promise<CourseInternationalTestRelationshipDto> {
+    const existing = await this.prisma.courseInternationalTestRelationship.findFirst({
+      where: { id: input.relationshipId, courseId: input.courseId },
+      select: { id: true },
+    });
+    if (!existing) throw new Error('COURSE_INTERNATIONAL_TEST_RELATIONSHIP_NOT_FOUND');
+    const record = await this.prisma.courseInternationalTestRelationship.update({
+      where: { id: input.relationshipId },
+      data: { reviewState: input.decision, reviewedBy: input.actorId, reviewedAt: new Date() },
+      include: {
+        internationalTest: {
+          select: { id: true, publicId: true, slug: true, displayName: true, abbreviation: true, status: true },
+        },
+      },
+    });
+    return this.mapInternationalTestRelationship(record);
   }
 
   public async listPublishedRelatedCourses(
@@ -544,7 +726,21 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
   ): Promise<PaginatedCourseResult<CourseRelationshipPublicCourseDto>> {
     const page = Math.max(1, filters.page ?? 1);
     const pageSize = Math.min(50, Math.max(1, filters.pageSize ?? 20));
-    const where: Prisma.CourseWhereInput = { status: 'PUBLISHED' };
+    const where: Prisma.CourseWhereInput = {
+      status: 'PUBLISHED',
+      completenessStatus: 'COMPLETE',
+      AND: [{
+        OR: [
+          { originType: { not: 'EXTERNAL_LINKED_COURSE' } },
+          {
+            originType: 'EXTERNAL_LINKED_COURSE',
+            accessType: 'FREE_STUDY_AND_CERTIFICATE',
+            isStudyFree: true,
+            isFreeCertificate: true,
+          },
+        ],
+      }],
+    };
 
     if (filters.accessType) where.accessType = filters.accessType;
     if (filters.originType) where.originType = filters.originType;
@@ -577,6 +773,14 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
         },
       };
     }
+    if (filters.internationalTestId) {
+      where.internationalTestRelationships = {
+        some: {
+          internationalTestId: filters.internationalTestId,
+          reviewState: 'APPROVED',
+        },
+      };
+    }
 
     const [records, total] = await Promise.all([
       this.prisma.course.findMany({
@@ -600,13 +804,23 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
           isFreeCertificate: true,
           certificateType: true,
           category: true,
+          optionalFields: true,
         },
       }),
       this.prisma.course.count({ where }),
     ]);
 
     return {
-      data: records.map(({ id, ...record }) => ({ ownerId: id, ...record })),
+      data: records.map(({ id, optionalFields, ...record }) => {
+        const optional = optionalFields && typeof optionalFields === 'object' && !Array.isArray(optionalFields)
+          ? optionalFields as Record<string, unknown>
+          : {};
+        const rawNames = optional.localizedNames;
+        const localizedNames = rawNames && typeof rawNames === 'object' && !Array.isArray(rawNames)
+          ? Object.fromEntries(Object.entries(rawNames as Record<string, unknown>).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0))
+          : undefined;
+        return { ownerId: id, ...record, ...(localizedNames ? { localizedNames } : {}) };
+      }),
       total,
       page,
       pageSize,
@@ -624,6 +838,16 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
     });
   }
 
+  public listPublishedCoursesForInternationalTest(
+    internationalTestId: string,
+    filters: PublicCourseFilters = {},
+  ): Promise<PaginatedCourseResult<CourseRelationshipPublicCourseDto>> {
+    return this.listPublishedRelatedCourses({
+      ...filters,
+      internationalTestId,
+    });
+  }
+
   public async getGeographySemantics(courseId: string): Promise<CourseGeographySemanticsDto | null> {
     const source = await this.getRelationshipSource(courseId);
     if (!source) return null;
@@ -637,6 +861,32 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
       semantics: source.provider?.headquartersCountryReferenceId
         ? 'PROVIDER_HEADQUARTERS_ONLY'
         : 'NO_GEOGRAPHY',
+    };
+  }
+
+  private mapInternationalTestRelationship(record: any): CourseInternationalTestRelationshipDto {
+    return {
+      id: record.id,
+      courseId: record.courseId,
+      internationalTestId: record.internationalTestId,
+      relationshipType: record.relationshipType as CourseInternationalTestRelationshipType,
+      reviewState: record.reviewState as CourseInternationalTestRelationshipState,
+      sourceType: 'ADMIN_AUTHORED',
+      createdBy: record.createdBy,
+      reviewedBy: record.reviewedBy,
+      reviewedAt: record.reviewedAt,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      internationalTest: record.internationalTest
+        ? {
+            id: record.internationalTest.id,
+            publicId: record.internationalTest.publicId,
+            slug: record.internationalTest.slug,
+            displayName: record.internationalTest.displayName,
+            abbreviation: record.internationalTest.abbreviation,
+            status: record.internationalTest.status,
+          }
+        : null,
     };
   }
 
@@ -675,6 +925,7 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
       reviewedAt: record.reviewedAt,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
+      taxonomyNode: record.taxonomyNode ?? null,
     };
   }
 
@@ -696,6 +947,7 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
       reviewedAt: record.reviewedAt,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
+      major: record.major ?? null,
     };
   }
 }

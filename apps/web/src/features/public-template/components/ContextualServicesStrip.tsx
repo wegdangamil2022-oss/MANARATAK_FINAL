@@ -25,7 +25,7 @@ export const ContextualServicesStrip: React.FC<ContextualServicesStripProps> = (
             <Briefcase className="h-3.5 w-3.5" />
           </span>
           <div>
-            <h2 className="text-[11px] font-black text-[var(--mn-heading)] sm:text-xs mn-dark:text-[var(--mn-accent-text)]">{title}</h2>
+            <h2 className="text-[11px] font-bold text-[var(--mn-heading)] sm:text-xs mn-dark:text-[var(--mn-accent-text)]">{title}</h2>
             <p className="mt-0.5 text-[8px] font-bold leading-4 text-[var(--mn-text-muted)]">{note}</p>
           </div>
         </div>
@@ -42,7 +42,7 @@ export const ContextualServicesStrip: React.FC<ContextualServicesStripProps> = (
                 <GraduationCap className="h-4 w-4" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[9.5px] font-black text-[var(--mn-text)] mn-dark:text-[var(--mn-text)]">{service.title}</span>
+                <span className="block truncate text-[9.5px] font-bold text-[var(--mn-text)] mn-dark:text-[var(--mn-text)]">{service.title}</span>
                 <span className="mt-0.5 block truncate text-[8px] font-bold text-[var(--mn-text-muted)]">{service.category}</span>
               </span>
               <ArrowLeft className="h-3.5 w-3.5 shrink-0 text-[var(--mn-accent-text)] transition-transform group-hover:-translate-x-0.5" />

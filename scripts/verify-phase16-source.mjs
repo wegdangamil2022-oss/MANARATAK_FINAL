@@ -57,7 +57,7 @@ const checks = [
   ['rich text safety', 'packages/domain/src/cms/services/CmsPublishingPolicy.ts', 'CMS_UNSAFE_RICH_TEXT'],
   ['multi-site slug identity', 'packages/infrastructure/prisma/schema.prisma', '@@unique([siteIdentifier, locale, localizedSlug])'],
   ['delivery cache', 'packages/infrastructure/src/cms/RedisCmsDeliveryCache.ts', 'CmsDeliveryInvalidated'],
-  ['operations admin', 'apps/admin/src/features/cms/CmsOperationsPanels.tsx', 'مركز عمليات المحتوى'],
+  ['operations admin', 'apps/admin/src/features/cms/CmsOperationsPanels.tsx', 'عمليات الموقع والنشر'],
   [
     'runtime runbook',
     'docs/implementation-status/MANARATAK-Phase16-CMS-Source-Closure-and-Google-Studio-Runbook.md',

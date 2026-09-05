@@ -11,14 +11,24 @@ describe('SettingsAdminRouter', () => {
     mockManageSettingsUseCase = {
       createDefinition: vi.fn(),
       assignValue: vi.fn(),
-      rollbackValue: vi.fn()
+      rollbackValue: vi.fn(),
+      listDefinitions: vi.fn().mockResolvedValue([]),
+      listAssignments: vi.fn().mockResolvedValue([])
     };
 
     app = express();
     app.use(express.json());
+    app.use((req, _res, next) => { (req as any).authUserId = 'admin-settings-1'; next(); });
     app.use('/api/v1/admin/settings', SettingsAdminRouter.create({
       manageSettingsUseCase: mockManageSettingsUseCase
     }));
+  });
+
+  it('GET /definitions should return sanitized definitions', async () => {
+    mockManageSettingsUseCase.listDefinitions.mockResolvedValue([{ id: 'd1', key: 'feature.test', valueType: 'Boolean', isFeatureFlag: true, isDeprecated: false, isSecret: false }]);
+    const res = await request(app).get('/api/v1/admin/settings/definitions');
+    expect(res.status).toBe(200);
+    expect(res.body.data.definitions).toHaveLength(1);
   });
 
   it('POST /definitions should validate and call use case', async () => {
@@ -72,7 +82,7 @@ describe('SettingsAdminRouter', () => {
 
     expect(res.status).toBe(201);
     expect(mockManageSettingsUseCase.assignValue).toHaveBeenCalledWith(
-      expect.objectContaining(payload)
+      expect.objectContaining({ ...payload, authorId: 'admin-settings-1' })
     );
   });
 
@@ -89,7 +99,7 @@ describe('SettingsAdminRouter', () => {
 
     expect(res.status).toBe(200);
     expect(mockManageSettingsUseCase.rollbackValue).toHaveBeenCalledWith(
-      expect.objectContaining(payload)
+      expect.objectContaining({ ...payload, authorId: 'admin-settings-1' })
     );
   });
 });

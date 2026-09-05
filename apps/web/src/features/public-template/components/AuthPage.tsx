@@ -11,7 +11,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onBackToWorkspace }) => {
   const explainPreview = () => setNotice('هذه معاينة فقط؛ لم تُرسل بياناتك. تسجيل الدخول واستعادة كلمة المرور سيعملان بعد ربط المصادقة.');
 
   return (
-    <div className="w-full max-w-sm mx-auto py-8 px-4">
+    <div className="w-full max-w-sm mx-auto py-8 mn-inline-gutter">
       <div className="bg-[var(--mn-surface)] mn-dark:bg-[var(--mn-surface)] rounded-3xl shadow-2xl overflow-hidden border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] transition-all duration-300 mn-panel mn-dark:mn-panel ">
         {/* Header Section */}
         <div className="bg-[var(--mn-primary)] mn-dark:bg-[var(--mn-surface)] p-6 text-center relative overflow-hidden mn-inverse mn-dark:mn-panel ">
@@ -21,7 +21,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onBackToWorkspace }) => {
             <div className="w-14 h-14 bg-[var(--mn-surface)] mn-dark:bg-[var(--mn-surface-elevated)] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg border-2 border-[var(--mn-accent)] mn-panel mn-dark:mn-panel ">
               <LogIn className="w-7 h-7 text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)]" />
             </div>
-            <h2 className="text-xl font-black text-white mb-1">
+            <h2 className="text-xl font-bold text-white mb-1">
               {isLogin ? 'مرحباً بعودتك!' : 'إنشاء حساب جديد'}
             </h2>
             <p className="text-[var(--mn-accent-text)] text-xs font-bold">
@@ -41,7 +41,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onBackToWorkspace }) => {
             <button
               type="button"
               onClick={explainPreview}
-              className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-[var(--mn-surface)] mn-dark:bg-[var(--mn-surface-elevated)] border-2 border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] hover:bg-[var(--mn-page)] mn-dark:hover:bg-[var(--mn-surface-muted)] text-[var(--mn-text)] mn-dark:text-[var(--mn-text)] font-black rounded-xl shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98] cursor-pointer mn-panel mn-dark:mn-panel hover:mn-panel mn-dark:hover:mn-panel "
+              className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-[var(--mn-surface)] mn-dark:bg-[var(--mn-surface-elevated)] border-2 border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] hover:bg-[var(--mn-page)] mn-dark:hover:bg-[var(--mn-surface-muted)] text-[var(--mn-text)] mn-dark:text-[var(--mn-text)] font-bold rounded-xl shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98] cursor-pointer mn-panel mn-dark:mn-panel hover:mn-panel mn-dark:hover:mn-panel "
             >
               <Chrome className="w-5 h-5 text-[var(--mn-danger-text)]" />
               <span>المتابعة باستخدام Google</span>
@@ -127,7 +127,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onBackToWorkspace }) => {
             <button
               type="button"
               onClick={explainPreview}
-              className="w-full py-3 px-4 bg-[var(--mn-primary)] mn-dark:bg-[var(--mn-accent)] hover:bg-[var(--mn-primary-hover)] mn-dark:hover:bg-[var(--mn-accent-soft)] text-white mn-dark:text-[var(--mn-on-accent)] text-sm font-black rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 active:scale-[0.98] mn-inverse mn-dark:mn-gold hover:mn-inverse mn-dark:hover:mn-gold "
+              className="w-full py-3 px-4 bg-[var(--mn-primary)] mn-dark:bg-[var(--mn-accent)] hover:bg-[var(--mn-primary-hover)] mn-dark:hover:bg-[var(--mn-accent-soft)] text-white mn-dark:text-[var(--mn-on-accent)] text-sm font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 active:scale-[0.98] mn-inverse mn-dark:mn-gold hover:mn-inverse mn-dark:hover:mn-gold "
             >
               {isLogin ? 'تسجيل الدخول' : 'إنشاء حساب جديد'}
             </button>
@@ -138,7 +138,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onBackToWorkspace }) => {
               {isLogin ? 'ليس لديك حساب؟' : 'لديك حساب بالفعل؟'}{' '}
               <button
                 onClick={() => setIsLogin(!isLogin)}
-                className="font-black text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)] hover:underline cursor-pointer"
+                className="font-bold text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)] hover:underline cursor-pointer"
               >
                 {isLogin ? 'إنشاء حساب' : 'تسجيل الدخول'}
               </button>
@@ -147,7 +147,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onBackToWorkspace }) => {
               <button
                 type="button"
                 onClick={onBackToWorkspace}
-                className="mt-3 text-[10px] font-black text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)] hover:underline"
+                className="mt-3 text-[10px] font-bold text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)] hover:underline"
               >
                 العودة إلى معاينة مساحة الطالب
               </button>

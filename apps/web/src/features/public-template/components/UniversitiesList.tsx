@@ -12,7 +12,7 @@ export const UniversitiesList: React.FC<UniversitiesListProps> = ({ universities
     <div className="w-full px-4 py-3 space-y-3 pb-20">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-black text-[var(--mn-heading)] flex items-center gap-1.5">
+          <h2 className="text-sm font-bold text-[var(--mn-heading)] flex items-center gap-1.5">
             <Building2 className="w-4 h-4 text-[var(--mn-heading)]" />
             <span>أفضل الجامعات العالمية والشريكة</span>
           </h2>
@@ -46,7 +46,7 @@ export const UniversitiesList: React.FC<UniversitiesListProps> = ({ universities
                 />
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-black text-[var(--mn-heading)]">
+                    <span className="text-xs font-bold text-[var(--mn-heading)]">
                       {uni.name}{' '}
                       <span className="text-[var(--mn-text-muted)] font-semibold mr-0.5">
                         ({uni.nameEn.replace('University of ', '').replace(' University', '')})
@@ -58,7 +58,7 @@ export const UniversitiesList: React.FC<UniversitiesListProps> = ({ universities
               </div>
 
               {/* Global Rank Badge */}
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[var(--mn-gold-surface)] text-[var(--mn-accent-text)] text-[10px] font-black shrink-0 mn-panel ">
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[var(--mn-gold-surface)] text-[var(--mn-accent-text)] text-[10px] font-bold shrink-0 mn-panel ">
                 <Trophy className="w-3 h-3 text-[var(--mn-accent-text)]" />
                 <span>المرتبة #{uni.globalRank}</span>
               </div>
@@ -79,7 +79,7 @@ export const UniversitiesList: React.FC<UniversitiesListProps> = ({ universities
 
             <div className="flex items-center justify-between pt-2 border-t border-[var(--mn-border)] text-xs">
               <div className="flex items-center gap-3 text-[11px] text-[var(--mn-heading)] font-bold">
-                <span>🎓 {uni.scholarshipCount} منحة معتمدة</span>
+                <span className="inline-flex items-center gap-1"><GraduationCap className="h-3.5 w-3.5 text-[var(--mn-accent-text)]" />{uni.scholarshipCount} منحة معتمدة</span>
                 <span>نسبة القبول: {uni.acceptanceRate}</span>
               </div>
 
@@ -88,7 +88,7 @@ export const UniversitiesList: React.FC<UniversitiesListProps> = ({ universities
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(event) => event.stopPropagation()}
-                className="flex items-center gap-1 text-[11px] font-extrabold text-[var(--mn-accent-text)] hover:text-[var(--mn-accent-text)] hover:underline"
+                className="flex items-center gap-1 text-[11px] font-semibold text-[var(--mn-accent-text)] hover:text-[var(--mn-accent-text)] hover:underline"
               >
                 <span>موقع الجامعة</span>
                 <ExternalLink className="w-3 h-3" />

@@ -15,8 +15,10 @@ import {
   CheckCircle2,
   X,
   ExternalLink,
+  Sparkles,
 } from 'lucide-react';
 import { CountryDestination } from '../types';
+import type { PublicCountryGraphDto } from '../../../api/client';
 import { CountryDetailModal } from './CountryDetailModal';
 import { FavoriteButton } from './FavoriteButton';
 
@@ -34,6 +36,9 @@ interface CountriesSearchPageProps {
   initialCountryIdentity?: string;
   favoriteIds?: string[];
   onToggleFavorite?: (id: string) => void;
+  relationshipGraph?: PublicCountryGraphDto;
+  searchAnchor?: string;
+  searchTerm?: string;
 }
 
 // Bulletproof Vector SVG Flag renderer for guaranteed display matching design
@@ -169,6 +174,9 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
   initialCountryIdentity,
   favoriteIds = [],
   onToggleFavorite,
+  relationshipGraph,
+  searchAnchor,
+  searchTerm,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContinent, setSelectedContinent] = useState('الكل');
@@ -179,7 +187,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
 
 
   useEffect(() => {
-    if (detailId !== undefined || !initialCountryIdentity) return;
+    if (detailId || !initialCountryIdentity) return;
     const target = countries.find((country) =>
       country.id === initialCountryIdentity ||
       country.publicId === initialCountryIdentity ||
@@ -232,9 +240,59 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
     setSelectedCountryName('الكل');
   };
 
+  const graphMatchesActiveCountry = Boolean(
+    activeCountryModal &&
+    relationshipGraph &&
+    (relationshipGraph.subject.ownerId === activeCountryModal.id ||
+      relationshipGraph.subject.canonicalCode === activeCountryModal.iso2Code),
+  );
+  const detailCountry: CountryDestination | null = activeCountryModal
+    ? {
+        ...activeCountryModal,
+        scholarshipsCount: graphMatchesActiveCountry
+          ? relationshipGraph!.relationships.scholarships.total
+          : activeCountryModal.scholarshipsCount,
+        universitiesCount: graphMatchesActiveCountry
+          ? relationshipGraph!.relationships.universities.total
+          : activeCountryModal.universitiesCount,
+        featuredScholarships: graphMatchesActiveCountry
+          ? relationshipGraph!.relationships.scholarships.data.map((item) => ({
+              id: item.slug || item.publicId || item.ownerId,
+              name: item.displayName,
+              nameEn: item.displayName,
+              meta: 'منحة منشورة مرتبطة بهذه الدولة',
+            }))
+          : activeCountryModal.featuredScholarships,
+        featuredUniversities: graphMatchesActiveCountry
+          ? relationshipGraph!.relationships.universities.data.map((item) => ({
+              id: item.slug || item.publicId || item.ownerId,
+              name: item.displayName,
+              nameEn: item.displayName,
+              meta: 'جامعة منشورة في هذه الدولة',
+            }))
+          : activeCountryModal.featuredUniversities,
+        featuredMajors: graphMatchesActiveCountry
+          ? relationshipGraph!.relationships.majors.map((item) => ({
+              id: item.slug || item.publicId || item.ownerId,
+              name: item.displayName,
+              nameEn: item.displayName,
+              meta: 'تخصص Canonical مرتبط عبر برامج جامعات الدولة',
+            }))
+          : activeCountryModal.featuredMajors,
+        requiredExams: graphMatchesActiveCountry
+          ? relationshipGraph!.relationships.internationalTests.data.map((item) => ({
+              id: item.slug || item.publicId || item.ownerId,
+              name: item.displayName,
+              nameEn: item.displayName,
+              meta: item.providerName,
+            }))
+          : activeCountryModal.requiredExams,
+      }
+    : null;
+
   return (
     <div
-      className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-sans select-none mn-panel "
+      className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-['Cairo',sans-serif] select-none mn-panel "
       dir="rtl"
     >
       {/* ========================================================================= */}
@@ -244,8 +302,9 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
         {/* Top-Right Circular Back Button */}
         <button
           onClick={onBack}
-          className="absolute top-3 right-3 sm:top-4 sm:right-4 w-9 h-9 sm:w-10 sm:h-10 bg-black/25 hover:bg-black/40 border border-white/15 backdrop-blur-md rounded-full flex items-center justify-center transition-all z-30 cursor-pointer text-white shadow-md active:scale-95"
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 w-10 h-10 bg-black/25 hover:bg-black/40 border border-white/15 backdrop-blur-md rounded-full flex items-center justify-center transition-all z-30 cursor-pointer text-white shadow-md active:scale-95"
           title="العودة"
+          aria-label="العودة"
         >
           <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 rotate-180 text-white" />
         </button>
@@ -300,14 +359,12 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
         <div className="max-w-md sm:max-w-xl mx-auto text-center relative z-10 space-y-2 pt-1">
           {/* Top 4-pointed Gold Sparkle Star */}
           <div className="flex justify-center">
-            <span className="text-[var(--mn-accent-text)] text-lg sm:text-xl drop-shadow-[0_0_8px_rgba(214,164,59,0.8)] animate-pulse">
-              ✦
-            </span>
+            <Sparkles className="h-5 w-5 text-[var(--mn-accent-text)] drop-shadow-[0_0_8px_rgba(214,164,59,0.8)]" aria-hidden="true" />
           </div>
 
           {/* Main Title */}
           <div className="space-y-0.5">
-            <h1 className="text-xl sm:text-2xl font-black text-white font-['Cairo',sans-serif] tracking-tight leading-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-white font-['Cairo',sans-serif] tracking-tight leading-tight">
               ابحث عن <span className="text-[var(--mn-accent-text)]">وجهتك الدراسية</span>
             </h1>
 
@@ -361,11 +418,11 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
       {/* ========================================================================= */}
       {/* FLOATING FILTER TILES (القارة • الدولة) WITH GOLDEN BORDER & COMPACT SIZE  */}
       {/* ========================================================================= */}
-      <div className="max-w-lg mx-auto px-4 -mt-7 sm:-mt-8 relative z-20">
+      <div className="max-w-lg mx-auto mn-inline-gutter -mt-7 sm:-mt-8 relative z-20">
         <div className="grid grid-cols-2 gap-2 sm:gap-3">
           {/* Tile 1: القارة */}
           <div className="relative bg-[var(--mn-surface)] hover:bg-[var(--mn-gold-surface)]/40 border-1.5 border-[var(--mn-accent)]/70 hover:border-[var(--mn-accent)] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)] transition-all h-[58px] sm:h-[64px] cursor-pointer mn-panel ">
-            <div className="flex items-center justify-center gap-1.5 text-[var(--mn-heading)] font-extrabold text-xs sm:text-[13px] font-['Cairo',sans-serif] w-full">
+            <div className="flex items-center justify-center gap-1.5 text-[var(--mn-heading)] font-semibold text-xs sm:text-[13px] font-['Cairo',sans-serif] w-full">
               <span className="truncate">
                 {selectedContinent === 'الكل' ? 'القارة' : selectedContinent}
               </span>
@@ -380,7 +437,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
             >
               {continents.map((c) => (
                 <option key={c} value={c}>
-                  {c === 'الكل' ? '🌍 جميع القارات' : c}
+                  {c === 'الكل' ? 'جميع القارات' : c}
                 </option>
               ))}
             </select>
@@ -388,7 +445,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
 
           {/* Tile 2: الدولة */}
           <div className="relative bg-[var(--mn-surface)] hover:bg-[var(--mn-gold-surface)]/40 border-1.5 border-[var(--mn-accent)]/70 hover:border-[var(--mn-accent)] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)] transition-all h-[58px] sm:h-[64px] cursor-pointer mn-panel ">
-            <div className="flex items-center justify-center gap-1.5 text-[var(--mn-heading)] font-extrabold text-xs sm:text-[13px] font-['Cairo',sans-serif] w-full">
+            <div className="flex items-center justify-center gap-1.5 text-[var(--mn-heading)] font-semibold text-xs sm:text-[13px] font-['Cairo',sans-serif] w-full">
               <span className="truncate">
                 {selectedCountryName === 'الكل' ? 'الدولة' : selectedCountryName}
               </span>
@@ -403,7 +460,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
             >
               {countryNames.map((cnt) => (
                 <option key={cnt} value={cnt}>
-                  {cnt === 'الكل' ? '📍 جميع الدول' : cnt}
+                  {cnt === 'الكل' ? 'جميع الدول' : cnt}
                 </option>
               ))}
             </select>
@@ -418,9 +475,9 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
       {/* 4. CONTENT & HORIZONTAL COUNTRY CARDS SEAMLESSLY ATTACHED                  */}
       {/* ========================================================================= */}
       <div className="max-w-2xl mx-auto px-1 sm:px-2 pt-3.5 space-y-3">
-        {/* Results Header: "الدول المتاحة (6) 🌐" and "محدثة باستمرار 🔄" */}
+        {/* Results header */}
         <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-1.5 text-[var(--mn-heading)] font-extrabold text-xs sm:text-sm font-['Cairo',sans-serif]">
+          <div className="flex items-center gap-1.5 text-[var(--mn-heading)] font-semibold text-xs sm:text-sm font-['Cairo',sans-serif]">
             <Globe2 className="w-3.5 h-3.5 text-[var(--mn-accent-text)]" />
             <span>الدول المتاحة ({filteredCountries.length})</span>
           </div>
@@ -476,7 +533,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
                   </div>
 
                   <div className="flex flex-col items-start text-right">
-                    <h3 className="text-[15px] sm:text-base font-black text-[var(--mn-heading)] font-['Cairo',sans-serif] leading-tight">
+                    <h3 className="text-[15px] sm:text-base font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif] leading-tight">
                       {country.name}
                     </h3>
                     <span className="text-[11px] sm:text-xs font-semibold text-[var(--mn-accent-text)] font-['Cairo',sans-serif]">
@@ -539,10 +596,12 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
         </div>
       </div>
 
-      {activeCountryModal && (
+      {detailCountry && (
         <CountryDetailModal
-          country={activeCountryModal}
-          isFavorite={favoriteIds.includes(activeCountryModal.id)}
+          country={detailCountry}
+          searchAnchor={searchAnchor}
+          searchTerm={searchTerm}
+          isFavorite={favoriteIds.includes(detailCountry.id)}
           onToggleFavorite={onToggleFavorite}
           onClose={() => onDetailChange ? onBack() : setActiveCountryModal(null)}
           onOpenUniversity={onOpenUniversity}
@@ -551,7 +610,7 @@ export const CountriesSearchPage: React.FC<CountriesSearchPageProps> = ({
           onOpenExam={onOpenExam}
           onOpenArticle={onOpenArticle}
           onBrowseScholarships={() => {
-            const countryId = activeCountryModal.id;
+            const countryId = detailCountry.id;
             setActiveCountryModal(null);
             onSelectCountryScholarships?.(countryId);
           }}

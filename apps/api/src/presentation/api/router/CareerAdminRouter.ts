@@ -12,6 +12,10 @@ export class CareerAdminRouter {
       Promise.resolve(fn(req, res, next)).catch(next);
     };
 
+    const httpUrl = z.string().url().refine((value) => /^https?:\/\//i.test(value), {
+      message: 'Only http/https URLs are allowed',
+    });
+
     const employerSchema = z.object({
       displayName: z.string().min(1),
       employerType: z.string().min(1),
@@ -20,7 +24,7 @@ export class CareerAdminRouter {
       cityReferenceId: z.string().nullable().optional(),
       country: z.string().nullable().optional(),
       city: z.string().nullable().optional(),
-      websiteUrl: z.string().url().nullable().optional(),
+      websiteUrl: httpUrl.nullable().optional(),
       logoAssetId: z.string().nullable().optional(),
       description: z.string().nullable().optional(),
       metadata: z.record(z.string(), z.unknown()).nullable().optional()
@@ -39,7 +43,7 @@ export class CareerAdminRouter {
       employerId: z.string().min(1),
       recruiterContactId: z.string().nullable().optional(),
       applicationDeadline: z.string().datetime().nullable().optional(),
-      externalPostingUrl: z.string().url().nullable().optional(),
+      externalPostingUrl: httpUrl.nullable().optional(),
       salaryRange: z.record(z.string(), z.unknown()).nullable().optional(),
       requiredSkills: z.array(z.string()).nullable().optional(),
       educationRequirement: z.string().nullable().optional(),
@@ -76,6 +80,14 @@ export class CareerAdminRouter {
     router.post('/employers', asyncHandler(async (req: Request, res: Response) => {
       const body = employerSchema.parse(req.body);
       res.status(201).json(await careerAdminUseCases.createEmployer(body));
+    }));
+
+    router.post('/employers/:id/verify', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await careerAdminUseCases.setEmployerStatus(req.params.id, CareerEmployerStatus.VERIFIED));
+    }));
+
+    router.post('/employers/:id/suspend', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await careerAdminUseCases.setEmployerStatus(req.params.id, CareerEmployerStatus.SUSPENDED));
     }));
 
     router.get('/jobs', asyncHandler(async (req: Request, res: Response) => {

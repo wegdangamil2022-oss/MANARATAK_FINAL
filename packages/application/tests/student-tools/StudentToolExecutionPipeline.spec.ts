@@ -99,6 +99,7 @@ describe('Phase 18 governed execution pipeline', () => {
       executionId: 'stx_winner', toolKey: 'gpa-calculator', toolVersion: '1.0.0',
       status: StudentToolExecutionStatus.COMPLETED, consumerType: 'ANONYMOUS', anonymousSessionHash: hash('signed-session-id'),
       startedAt: new Date(), completedAt: new Date(), resultDigest: null,
+      safeUsageMetadata: { requestFingerprint: resultDigest({ toolKey: 'gpa-calculator', toolVersion: '1.0.0', consumerType: 'ANONYMOUS', input: {}, locale: 'ar' }) },
     });
     await expect(useCases.execute('gpa-calculator', { input: {}, idempotencyKey: 'same', ...anonymous }))
       .resolves.toEqual(expect.objectContaining({ executionId: 'stx_winner', warnings: ['IDEMPOTENT_REPLAY'] }));

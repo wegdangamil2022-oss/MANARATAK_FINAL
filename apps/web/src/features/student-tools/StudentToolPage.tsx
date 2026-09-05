@@ -5,8 +5,8 @@ import { ApiClient } from '../../api/client';
 import { Seo } from '../../components/Seo';
 
 type RunState = { loading: boolean; error: string; result: unknown; executionId?: string };
-type UniversityResult = { publicId: string; displayName: string; country?: string; city?: string; institutionType?: string; academicProgramCount?: number };
-type RecommendationResult = { scholarship: { publicId: string; displayName: string }; explanation?: string; constraintSummary?: string[] };
+type UniversityResult = { publicId: string; slug?: string; displayName: string; country?: string; city?: string; institutionType?: string; academicProgramCount?: number };
+type RecommendationResult = { scholarship: { publicId: string; slug?: string; displayName: string }; explanation?: string; constraintSummary?: string[] };
 type ToolResult = { draft?: string; warnings?: string[]; semesterGpa?: number; totalSemesterCredits?: number; projectedCumulativeGpa?: number; universities?: UniversityResult[]; unavailableUniversityIds?: string[]; recommendations?: RecommendationResult[]; disclaimer?: string };
 const initialRun: RunState = { loading: false, error: '', result: null };
 export function StudentToolPage() {
@@ -27,17 +27,17 @@ function Shell({
   children: React.ReactNode;
 }) {
   return (
-    <main dir="rtl" className="mx-auto max-w-5xl space-y-6 rounded-[2rem] bg-[#f7f9fc] p-4 pb-16 sm:p-6">
+    <main dir="rtl" className="manaratak-public mn-page-shell mx-auto min-h-screen max-w-5xl space-y-6 p-3 pb-16 font-['Cairo',sans-serif] sm:p-6">
       <Seo title={`${title} | منارتك`} description={description} />
       <Link
         to="/tools"
-        className="inline-flex items-center gap-2 text-sm font-bold text-[#0b3763]"
+        className="inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-[var(--mn-secondary)]"
       >
         <ArrowRight className="h-4 w-4" /> كل الأدوات
       </Link>
-      <header className="rounded-3xl border border-[#d6ae57]/20 bg-gradient-to-br from-[#071d3a] via-[#0b3763] to-[#123f6b] p-7 text-white shadow-xl">
-        <h1 className="text-3xl font-black">{title}</h1>
-        <p className="mt-3 leading-7 text-blue-100">{description}</p>
+      <header className="mn-search-hero rounded-3xl border border-[var(--mn-border-gold)] p-5 text-white shadow-xl sm:p-7 mn-inverse">
+        <h1 className="text-3xl font-bold">{title}</h1>
+        <p className="mt-3 leading-7 text-white/80">{description}</p>
       </header>
       {children}
     </main>
@@ -45,19 +45,19 @@ function Shell({
 }
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="grid gap-2 text-sm font-bold text-slate-800">
+    <label className="grid gap-2 text-sm font-semibold text-[var(--mn-heading)]">
       <span>{label}</span>
       {children}
     </label>
   );
 }
 const inputClass =
-  'min-h-12 rounded-xl border border-slate-300 bg-white px-3 py-2 font-normal outline-none focus:border-[#0b3763] focus:ring-2 focus:ring-blue-100';
+  'min-h-12 rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface)] px-3 py-2 font-normal text-[var(--mn-text)] outline-none focus:border-[var(--mn-accent)] focus:ring-2 focus:ring-[var(--mn-focus)]';
 function Submit({ loading }: { loading: boolean }) {
   return (
     <button
       disabled={loading}
-      className="rounded-xl bg-[#0b3763] px-6 py-3 font-black text-white hover:bg-[#071d3a] disabled:opacity-60"
+      className="rounded-xl bg-[var(--mn-primary)] px-6 py-3 font-semibold text-white hover:bg-[var(--mn-primary-hover)] disabled:opacity-60 mn-inverse"
     >
       {loading ? 'جاري التنفيذ...' : 'تنفيذ الأداة'}
     </button>
@@ -67,16 +67,16 @@ function Result({ run }: { run: RunState }) {
   const [saveState, setSaveState] = useState<{ loading: boolean; message: string; error: string }>({ loading: false, message: '', error: '' });
   if (run.error)
     return (
-      <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800">
+      <div role="alert" className="rounded-2xl border border-[var(--mn-danger-border)] bg-[var(--mn-danger-soft)] p-4 text-[var(--mn-danger-text)]">
         {translateError(run.error)}
       </div>
     );
   if (!run.result) return null;
   return (
-    <section aria-live="polite" className="rounded-3xl border border-[#d6ae57]/35 bg-[#fbf5e6] p-6">
-      <h2 className="mb-4 text-xl font-black text-[#0b2a50]">النتيجة</h2>
+    <section aria-live="polite" className="mn-card rounded-3xl border-[var(--mn-border-gold)] bg-[var(--mn-gold-surface)]/40 p-5 sm:p-6">
+      <h2 className="mb-4 text-xl font-bold text-[var(--mn-heading)]">النتيجة</h2>
       <ResultBody value={run.result} />
-      {run.executionId ? <div className="mt-5 border-t border-emerald-200 pt-4"><button type="button" disabled={saveState.loading} onClick={async () => { setSaveState({ loading: true, message: '', error: '' }); try { await ApiClient.saveStudentToolExecution(run.executionId!, run.result); setSaveState({ loading: false, message: 'حُفظت النتيجة صراحةً في مساحة الطالب الخاصة.', error: '' }); } catch (error) { setSaveState({ loading: false, message: '', error: error instanceof Error ? translateError(error.message) : 'تعذر الحفظ.' }); } }} className="rounded-xl border border-emerald-700 bg-white px-4 py-2 font-bold text-emerald-800 disabled:opacity-60">{saveState.loading ? 'جاري الحفظ...' : 'حفظ في حسابي'}</button>{saveState.message ? <span className="mr-3 text-sm text-emerald-800">{saveState.message}</span> : null}{saveState.error ? <span role="alert" className="mr-3 text-sm text-red-700">{saveState.error}</span> : null}</div> : null}
+      {run.executionId ? <div className="mt-5 border-t border-[var(--mn-success-border)] pt-4"><button type="button" disabled={saveState.loading} onClick={async () => { setSaveState({ loading: true, message: '', error: '' }); try { await ApiClient.saveStudentToolExecution(run.executionId!); setSaveState({ loading: false, message: 'حُفظت النتيجة صراحةً في مساحة الطالب الخاصة.', error: '' }); } catch (error) { setSaveState({ loading: false, message: '', error: error instanceof Error ? translateError(error.message) : 'تعذر الحفظ.' }); } }} className="rounded-xl border border-[var(--mn-success-border)] bg-[var(--mn-surface)] px-4 py-2 font-semibold text-[var(--mn-success-text)] disabled:opacity-60">{saveState.loading ? 'جاري الحفظ...' : 'حفظ في حسابي'}</button>{saveState.message ? <span className="mr-3 text-sm text-[var(--mn-success-text)]">{saveState.message}</span> : null}{saveState.error ? <span role="alert" className="mr-3 text-sm text-[var(--mn-danger-text)]">{saveState.error}</span> : null}</div> : null}
     </section>
   );
 }
@@ -86,11 +86,11 @@ function ResultBody({ value }: { value: unknown }) {
   if (typeof result.draft === 'string')
     return (
       <div className="space-y-4">
-        <div className="whitespace-pre-wrap rounded-2xl bg-white p-5 leading-8 text-slate-800">
+        <div className="mn-card-subtle whitespace-pre-wrap rounded-2xl p-5 leading-8 text-[var(--mn-text)]">
           {result.draft}
         </div>
         {result.warnings?.length ? (
-          <ul className="list-inside list-disc text-amber-800">
+          <ul className="list-inside list-disc text-[var(--mn-warning-text)]">
             {result.warnings.map((warning) => (
               <li key={warning}>{warning}</li>
             ))}
@@ -109,7 +109,7 @@ function ResultBody({ value }: { value: unknown }) {
   if (Array.isArray(result.universities))
     return (
       <div className="overflow-x-auto">
-        <table className="w-full bg-white text-sm">
+        <table className="w-full bg-[var(--mn-surface)] text-sm text-[var(--mn-text)]">
           <thead>
             <tr>
               {['الجامعة', 'الدولة', 'المدينة', 'النوع', 'البرامج'].map((label) => (
@@ -121,8 +121,8 @@ function ResultBody({ value }: { value: unknown }) {
           </thead>
           <tbody>
             {result.universities.map((item) => (
-              <tr key={item.publicId} className="border-t">
-                <td className="p-3 font-bold">{item.displayName}</td>
+              <tr key={item.publicId} className="border-t border-[var(--mn-border)]">
+                <td className="p-3 font-bold">{item.slug ? <Link className="text-[var(--mn-secondary)] underline-offset-4 hover:underline" to={`/universities/${encodeURIComponent(item.slug)}`}>{item.displayName}</Link> : item.displayName}</td>
                 <td className="p-3">{item.country ?? '—'}</td>
                 <td className="p-3">{item.city ?? '—'}</td>
                 <td className="p-3">{item.institutionType ?? '—'}</td>
@@ -132,7 +132,7 @@ function ResultBody({ value }: { value: unknown }) {
           </tbody>
         </table>
         {result.unavailableUniversityIds?.length ? (
-          <p className="mt-3 text-amber-800">
+          <p className="mt-3 text-[var(--mn-warning-text)]">
             تعذر العثور على: {result.unavailableUniversityIds.join('، ')}
           </p>
         ) : null}
@@ -142,14 +142,14 @@ function ResultBody({ value }: { value: unknown }) {
     return (
       <div className="space-y-3">
         {result.recommendations.map((item) => (
-          <article key={item.scholarship.publicId} className="rounded-2xl bg-white p-4">
-            <h3 className="font-black">{item.scholarship.displayName}</h3>
-            <p className="mt-1 text-sm text-slate-600">
+          <article key={item.scholarship.publicId} className="mn-card-subtle rounded-2xl p-4">
+            <h3 className="font-bold">{item.scholarship.slug ? <Link className="text-[var(--mn-secondary)] underline-offset-4 hover:underline" to={`/scholarships/${encodeURIComponent(item.scholarship.slug)}`}>{item.scholarship.displayName}</Link> : item.scholarship.displayName}</h3>
+            <p className="mt-1 text-sm text-[var(--mn-text-muted)]">
               {item.explanation ?? item.constraintSummary?.join(' • ')}
             </p>
           </article>
         ))}
-        <p className="text-sm text-emerald-900">{result.disclaimer}</p>
+        <p className="text-sm text-[var(--mn-text-muted)]">{result.disclaimer}</p>
       </div>
     );
   return (
@@ -160,9 +160,9 @@ function ResultBody({ value }: { value: unknown }) {
 }
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-2xl bg-white p-5">
-      <div className="text-sm text-slate-500">{label}</div>
-      <div className="mt-2 text-3xl font-black text-emerald-800">{value}</div>
+    <div className="mn-card-subtle rounded-2xl p-5">
+      <div className="text-sm text-[var(--mn-text-muted)]">{label}</div>
+      <div className="mt-2 text-3xl font-bold text-[var(--mn-heading)]">{value}</div>
     </div>
   );
 }
@@ -209,7 +209,7 @@ function GpaTool() {
       title="حاسبة المعدل التراكمي"
       description="حساب دقيق للمعدل الفصلي وتوقع المعدل التراكمي دون تقريب مبكر."
     >
-      <form onSubmit={submit} className="space-y-5 rounded-3xl border bg-white p-6">
+      <form onSubmit={submit} className="mn-card space-y-5 rounded-3xl p-5 sm:p-6">
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label="سلم المعدل">
             <input
@@ -244,7 +244,7 @@ function GpaTool() {
           {courses.map((course, index) => (
             <div
               key={index}
-              className="grid gap-3 rounded-2xl bg-slate-50 p-3 sm:grid-cols-[1fr_140px_140px_44px]"
+              className="grid gap-3 rounded-2xl bg-[var(--mn-surface-muted)] p-3 sm:grid-cols-[1fr_140px_140px_44px]"
             >
               <input
                 aria-label="اسم المقرر"
@@ -312,7 +312,7 @@ function GpaTool() {
           <div className="flex gap-3">
             <button
               type="button"
-              className="rounded-xl border border-slate-300 px-4 py-2 font-bold text-slate-700"
+              className="rounded-xl border border-[var(--mn-border)] px-4 py-2 font-bold text-[var(--mn-text)]"
               onClick={() => {
                 setScale(4);
                 setCourses(defaultCourses());
@@ -352,7 +352,7 @@ function UniversityTool() {
       title="مقارنة الجامعات"
       description="مقارنة من جامعتين إلى أربع جامعات باستخدام معرفاتها العامة وبياناتها المنشورة فقط."
     >
-      <form onSubmit={submit} className="space-y-5 rounded-3xl border bg-white p-6">
+      <form onSubmit={submit} className="mn-card space-y-5 rounded-3xl p-5 sm:p-6">
         <Field label="المعرفات العامة للجامعات">
           <textarea
             required
@@ -362,7 +362,7 @@ function UniversityTool() {
             placeholder="ألصق 2–4 معرفات، وافصل بينها بفاصلة"
           />
         </Field>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-[var(--mn-text-muted)]">
           لن تُعرض الجامعات غير المنشورة، وستظهر المعرفات غير المتاحة بوضوح.
         </p>
         <Submit loading={run.loading} />
@@ -440,12 +440,12 @@ function MotivationTool() {
       title="منشئ خطاب الدافع"
       description="مسودة رسمية منظمة تعتمد على معلوماتك، وتتطلب تسجيل الدخول وإعداد Phase 17 في التشغيل."
     >
-      <form onSubmit={submit} className="grid gap-5 rounded-3xl border bg-white p-6 sm:grid-cols-2">
-        <div className="sm:col-span-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-900">
+      <form onSubmit={submit} className="grid gap-5 rounded-3xl border bg-[var(--mn-surface)] p-6 sm:grid-cols-2">
+        <div className="sm:col-span-2 rounded-2xl border border-[var(--mn-warning-border)] bg-[var(--mn-warning-soft)] p-4 text-sm leading-7 text-[var(--mn-warning-text)]">
           اذكر معلوماتك الحقيقية فقط. المسودة مساعدة أولية وليست بديلًا عن كتابتك ومراجعتك الشخصية، ولا تُحفظ تلقائيًا.
         </div>
         <ol className="sm:col-span-2 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="خطوات إنشاء الخطاب">
-          {steps.map((item, index) => <li key={item.title} className={`rounded-xl px-3 py-2 text-center text-xs font-bold ${index === step ? 'bg-emerald-800 text-white' : index < step ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>{index + 1}. {item.title}</li>)}
+          {steps.map((item, index) => <li key={item.title} className={`rounded-xl px-3 py-2 text-center text-xs font-bold ${index === step ? 'bg-[var(--mn-primary)] text-white' : index < step ? 'bg-[var(--mn-info-soft)] text-[var(--mn-secondary)]' : 'bg-[var(--mn-surface-muted)] text-[var(--mn-text-muted)]'}`}>{index + 1}. {item.title}</li>)}
         </ol>
         {steps[step].fields.map(([key, label]) => (
           <Field key={key} label={label}>
@@ -457,7 +457,7 @@ function MotivationTool() {
             />
           </Field>
         ))}
-        {step === 3 ? <><div className="sm:col-span-2 rounded-2xl bg-slate-50 p-4 text-sm leading-7 text-slate-700">راجع أن المعلومات تعبّر عنك فعلًا. لن تُحفظ المسودة إلا إذا اخترت «حفظ في حسابي» بعد ظهور النتيجة.</div><Field label="عدد الكلمات">
+        {step === 3 ? <><div className="sm:col-span-2 rounded-2xl bg-[var(--mn-surface-muted)] p-4 text-sm leading-7 text-[var(--mn-text)]">راجع أن المعلومات تعبّر عنك فعلًا. لن تُحفظ المسودة إلا إذا اخترت «حفظ في حسابي» بعد ظهور النتيجة.</div><Field label="عدد الكلمات">
           <input
             className={inputClass}
             type="number"
@@ -469,7 +469,7 @@ function MotivationTool() {
         </Field></> : null}
         <div className="sm:col-span-2 flex justify-between gap-3">
           <button type="button" disabled={step === 0} onClick={() => setStep((value) => Math.max(0, value - 1))} className="rounded-xl border px-5 py-2 font-bold disabled:opacity-40">السابق</button>
-          {step < steps.length - 1 ? <button type="button" onClick={(event) => { if (event.currentTarget.form?.reportValidity()) setStep((value) => value + 1); }} className="rounded-xl bg-emerald-700 px-5 py-2 font-bold text-white">التالي</button> : <Submit loading={run.loading} />}
+          {step < steps.length - 1 ? <button type="button" onClick={(event) => { if (event.currentTarget.form?.reportValidity()) setStep((value) => value + 1); }} className="rounded-xl bg-[var(--mn-primary)] px-5 py-2 font-bold text-white">التالي</button> : <Submit loading={run.loading} />}
         </div>
       </form>
       <Result key={run.executionId ?? 'motivation-empty'} run={run} />
@@ -503,7 +503,7 @@ function ScholarshipTool() {
       title="توصية المنح"
       description="مطابقة المنح المنشورة فقط، مع ترتيب إرشادي أو بديل حتمي عند غياب إعداد الذكاء الاصطناعي."
     >
-      <form onSubmit={submit} className="grid gap-5 rounded-3xl border bg-white p-6 sm:grid-cols-2">
+      <form onSubmit={submit} className="grid gap-5 rounded-3xl border bg-[var(--mn-surface)] p-6 sm:grid-cols-2">
         <Field label="الدول المفضلة">
           <input
             className={inputClass}
@@ -551,6 +551,8 @@ function translateError(code: string) {
     TOOL_AI_CAPABILITY_UNAVAILABLE: 'خدمة الذكاء الاصطناعي غير مهيأة حاليًا في بيئة التشغيل.',
     TOOL_RATE_LIMITED: 'تم بلوغ حد الاستخدام المؤقت. حاول لاحقًا.',
     TOOL_INPUT_INVALID: 'راجع المدخلات المطلوبة.',
+    TOOL_IDEMPOTENCY_KEY_REUSED: 'تعذر إعادة الطلب لأن مفتاح التكرار استُخدم مع مدخلات مختلفة.',
+    TOOL_RESULT_PROTECTION_NOT_CONFIGURED: 'حماية نتائج الأدوات غير مهيأة في بيئة التشغيل؛ لم تُنفذ الأداة.',
   };
   return labels[code.split(':')[0]] ?? code;
 }

@@ -14,7 +14,7 @@ export function PublicInfoPage({page, onBack, onServices}: {page: 'faq' | 'conta
   return <div className="min-h-screen bg-[var(--mn-page)] pb-24" dir="rtl">
     <div className="mn-search-hero mn-inverse p-4 text-white">
       <button onClick={onBack} aria-label="رجوع" className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center"><ArrowRight className="w-5 h-5" /></button>
-      <h1 className="text-xl font-black mt-3 flex items-center gap-2"><Icon className="w-5 h-5" />{title}</h1>
+      <h1 className="text-xl font-bold mt-3 flex items-center gap-2"><Icon className="w-5 h-5" />{title}</h1>
     </div>
     <div className="max-w-3xl mx-auto p-4 space-y-3">
       {page === 'faq' ? questions.map(([question, answer]) => <details key={question} className="mn-panel rounded-2xl p-4 border border-[var(--mn-border)] bg-[var(--mn-surface)]">

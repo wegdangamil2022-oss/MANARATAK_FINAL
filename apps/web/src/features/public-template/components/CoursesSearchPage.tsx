@@ -221,7 +221,7 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
 
   return (
     <div
-      className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-sans select-none mn-panel "
+      className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-['Cairo',sans-serif] select-none mn-panel "
       dir="rtl"
     >
       {/* HERO — same visual language as Scholarships / Universities / Majors */}
@@ -266,8 +266,9 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
         {onBack && (
           <button
             onClick={onBack}
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 w-9 h-9 sm:w-10 sm:h-10 bg-black/25 hover:bg-black/40 border border-white/15 backdrop-blur-md rounded-full flex items-center justify-center transition-all z-30 cursor-pointer text-white shadow-md active:scale-95"
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 w-10 h-10 bg-black/25 hover:bg-black/40 border border-white/15 backdrop-blur-md rounded-full flex items-center justify-center transition-all z-30 cursor-pointer text-white shadow-md active:scale-95"
             title="العودة"
+            aria-label="العودة"
           >
             <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 rotate-180 text-white" />
           </button>
@@ -276,7 +277,7 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
         <div className="max-w-md sm:max-w-xl mx-auto text-center relative z-10 space-y-2.5 pt-5">
           <div className="relative inline-block mb-1">
             <div className="absolute -inset-x-6 -inset-y-3 bg-[var(--mn-accent)]/10 blur-xl rounded-full" />
-            <h1 className="relative text-2xl sm:text-3xl font-black text-white font-['Cairo',sans-serif] tracking-tight leading-tight">
+            <h1 className="relative text-2xl sm:text-3xl font-bold text-white font-['Cairo',sans-serif] tracking-tight leading-tight">
               الدورات <span className="text-[var(--mn-accent-soft)]">المستوردة</span>
             </h1>
           </div>
@@ -329,11 +330,11 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
       </div>
 
       {/* Three visible filters only */}
-      <div className="max-w-lg mx-auto px-4 -mt-7 sm:-mt-8 relative z-20 pb-3">
+      <div className="max-w-lg mx-auto mn-inline-gutter -mt-7 sm:-mt-8 relative z-20 pb-3">
         <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
           {/* نوع الدورة */}
           <div className="relative bg-[var(--mn-surface)] hover:bg-[var(--mn-gold-surface)]/40 border-1.5 border-[var(--mn-accent)]/70 hover:border-[var(--mn-accent)] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)] transition-all h-[62px] sm:h-[66px] cursor-pointer mn-panel ">
-            <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-extrabold text-[10.5px] sm:text-xs font-['Cairo',sans-serif] w-full">
+            <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-semibold text-[10.5px] sm:text-xs font-['Cairo',sans-serif] w-full">
               <span className="truncate">{freeCourseMode === 'all' ? 'نوع الدورة' : selectedFreeCourseLabel}</span>
               <Award className="w-3.5 h-3.5 text-[var(--mn-accent-text)] shrink-0" />
             </div>
@@ -352,7 +353,7 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
 
           {/* المنصة */}
           <div className="relative bg-[var(--mn-surface)] hover:bg-[var(--mn-gold-surface)]/40 border-1.5 border-[var(--mn-accent)]/70 hover:border-[var(--mn-accent)] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)] transition-all h-[62px] sm:h-[66px] cursor-pointer mn-panel ">
-            <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-extrabold text-[10.5px] sm:text-xs font-['Cairo',sans-serif] w-full">
+            <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-semibold text-[10.5px] sm:text-xs font-['Cairo',sans-serif] w-full">
               <span className="truncate">{selectedPlatform === 'all' ? 'المنصة' : selectedPlatform}</span>
               <Globe2 className="w-3.5 h-3.5 text-[var(--mn-accent-text)] shrink-0" />
             </div>
@@ -380,7 +381,7 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
                 : 'bg-[var(--mn-surface)] hover:bg-[var(--mn-gold-surface)]/40 border-[var(--mn-accent)]/70 hover:border-[var(--mn-accent)] text-[var(--mn-heading)] mn-panel '
             }`}
           >
-            <div className="flex items-center justify-center gap-1 font-extrabold text-[10.5px] sm:text-xs font-['Cairo',sans-serif] w-full">
+            <div className="flex items-center justify-center gap-1 font-semibold text-[10.5px] sm:text-xs font-['Cairo',sans-serif] w-full">
               <span>{advancedFiltersCount > 0 ? `تصفية (${advancedFiltersCount})` : 'تصفية'}</span>
               <SlidersHorizontal className={`w-3.5 h-3.5 shrink-0 ${showAdvancedFilters || advancedFiltersCount > 0 ? 'text-[var(--mn-accent-soft)]' : 'text-[var(--mn-accent-text)]'}`} />
             </div>
@@ -396,7 +397,7 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
             <div className="grid grid-cols-2 gap-2">
               <label className="relative flex min-h-[50px] items-center rounded-xl border border-[var(--mn-border)] bg-[var(--mn-page)] px-2.5 pr-8 mn-panel ">
                 <BookOpen className="absolute right-2.5 w-3.5 h-3.5 text-[var(--mn-accent-text)]" />
-                <span className="truncate text-[10px] font-extrabold text-[var(--mn-text)]">{selectedField === 'all' ? 'المجال' : selectedField}</span>
+                <span className="truncate text-[10px] font-semibold text-[var(--mn-text)]">{selectedField === 'all' ? 'المجال' : selectedField}</span>
                 <select value={selectedField} onChange={(event) => setSelectedField(event.target.value)} className="absolute inset-0 opacity-0 cursor-pointer">
                   <option value="all">كل المجالات</option>
                   {COURSE_FIELD_OPTIONS.map((field) => <option key={field} value={field}>{field}</option>)}
@@ -405,7 +406,7 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
 
               <label className="relative flex min-h-[50px] items-center rounded-xl border border-[var(--mn-border)] bg-[var(--mn-page)] px-2.5 pr-8 mn-panel ">
                 <Languages className="absolute right-2.5 w-3.5 h-3.5 text-[var(--mn-accent-text)]" />
-                <span className="truncate text-[10px] font-extrabold text-[var(--mn-text)]">{selectedLanguage === 'all' ? 'اللغة' : selectedLanguage}</span>
+                <span className="truncate text-[10px] font-semibold text-[var(--mn-text)]">{selectedLanguage === 'all' ? 'اللغة' : selectedLanguage}</span>
                 <select value={selectedLanguage} onChange={(event) => setSelectedLanguage(event.target.value)} className="absolute inset-0 opacity-0 cursor-pointer">
                   <option value="all">كل اللغات</option>
                   {LANGUAGE_OPTIONS.map((language) => <option key={language} value={language}>{language}</option>)}
@@ -414,7 +415,7 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
 
               <label className="relative flex min-h-[50px] items-center rounded-xl border border-[var(--mn-border)] bg-[var(--mn-page)] px-2.5 pr-8 mn-panel ">
                 <GraduationCap className="absolute right-2.5 w-3.5 h-3.5 text-[var(--mn-accent-text)]" />
-                <span className="truncate text-[10px] font-extrabold text-[var(--mn-text)]">{selectedLevel === 'all' ? 'المستوى' : selectedLevel}</span>
+                <span className="truncate text-[10px] font-semibold text-[var(--mn-text)]">{selectedLevel === 'all' ? 'المستوى' : selectedLevel}</span>
                 <select value={selectedLevel} onChange={(event) => setSelectedLevel(event.target.value)} className="absolute inset-0 opacity-0 cursor-pointer">
                   <option value="all">كل المستويات</option>
                   {LEVEL_OPTIONS.map((level) => <option key={level} value={level}>{level}</option>)}
@@ -423,7 +424,7 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
 
               <label className="relative flex min-h-[50px] items-center rounded-xl border border-[var(--mn-border)] bg-[var(--mn-page)] px-2.5 pr-8 mn-panel ">
                 <Award className="absolute right-2.5 w-3.5 h-3.5 text-[var(--mn-accent-text)]" />
-                <span className="truncate text-[10px] font-extrabold text-[var(--mn-text)]">{selectedCertificate === 'all' ? 'نوع الشهادة' : selectedCertificate}</span>
+                <span className="truncate text-[10px] font-semibold text-[var(--mn-text)]">{selectedCertificate === 'all' ? 'نوع الشهادة' : selectedCertificate}</span>
                 <select value={selectedCertificate} onChange={(event) => setSelectedCertificate(event.target.value)} className="absolute inset-0 opacity-0 cursor-pointer">
                   <option value="all">كل أنواع الشهادات</option>
                   {CERTIFICATE_OPTIONS.map((certificate) => <option key={certificate} value={certificate}>{certificate}</option>)}
@@ -436,7 +437,7 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
 
       {/* Golden imported-course cards — all records use the same reusable detail template. */}
       {visibleImportedCourses.length > 0 ? (
-        <section className="max-w-lg mx-auto px-4 pt-2 pb-5 space-y-3">
+        <section className="max-w-lg mx-auto mn-inline-gutter pt-2 pb-5 space-y-3">
           {visibleImportedCourses.map((course) => (
             <article key={course.id} className="relative overflow-hidden rounded-[22px] border border-[var(--mn-border)] bg-[var(--mn-surface)] shadow-[0_8px_24px_rgba(20,43,95,0.08)] mn-panel ">
               {onToggleFavorite && (
@@ -459,12 +460,12 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
 
                   <div className="min-w-0 flex-1">
                     <div className="mb-1 flex items-center gap-1.5">
-                      <span className="truncate text-[10px] font-extrabold text-[var(--mn-heading)] font-['Cairo',sans-serif]">{course.provider}</span>
+                      <span className="truncate text-[10px] font-semibold text-[var(--mn-heading)] font-['Cairo',sans-serif]">{course.provider}</span>
                       <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--mn-accent)] mn-gold " />
-                      <span className="shrink-0 rounded-full bg-[var(--mn-gold-surface)] px-2 py-0.5 text-[9px] font-black text-[var(--mn-accent-text)] border border-[var(--mn-border-gold)] font-['Cairo',sans-serif] mn-panel ">مستوردة</span>
+                      <span className="shrink-0 rounded-full bg-[var(--mn-gold-surface)] px-2 py-0.5 text-[9px] font-bold text-[var(--mn-accent-text)] border border-[var(--mn-border-gold)] font-['Cairo',sans-serif] mn-panel ">مستوردة</span>
                     </div>
 
-                    <h2 className="line-clamp-2 text-[14px] font-black leading-6 text-[var(--mn-heading)] font-['Cairo',sans-serif]">
+                    <h2 className="line-clamp-2 text-[14px] font-bold leading-6 text-[var(--mn-heading)] font-['Cairo',sans-serif]">
                       {course.title}
                     </h2>
                     <p className="mt-0.5 truncate text-[10px] font-bold text-[var(--mn-text-muted)] font-['Cairo',sans-serif]">
@@ -478,7 +479,7 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
                     <Globe2 className="h-3.5 w-3.5 shrink-0 text-[var(--mn-heading)]" />
                     <div className="min-w-0">
                       <div className="text-[8px] font-bold text-[var(--mn-text-muted)] font-['Cairo',sans-serif]">اللغة</div>
-                      <div className="truncate text-[10px] font-extrabold text-[var(--mn-text)] font-['Cairo',sans-serif]">{course.language}</div>
+                      <div className="truncate text-[10px] font-semibold text-[var(--mn-text)] font-['Cairo',sans-serif]">{course.language}</div>
                     </div>
                   </div>
 
@@ -486,18 +487,18 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
                     <GraduationCap className="h-3.5 w-3.5 shrink-0 text-[var(--mn-heading)]" />
                     <div className="min-w-0">
                       <div className="text-[8px] font-bold text-[var(--mn-text-muted)] font-['Cairo',sans-serif]">المستوى</div>
-                      <div className="truncate text-[10px] font-extrabold text-[var(--mn-text)] font-['Cairo',sans-serif]">{course.level}</div>
+                      <div className="truncate text-[10px] font-semibold text-[var(--mn-text)] font-['Cairo',sans-serif]">{course.level}</div>
                     </div>
                   </div>
                 </div>
 
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  <span className="inline-flex items-center gap-1 rounded-full border border-[var(--mn-success-border)] bg-[var(--mn-success-soft)] px-2.5 py-1 text-[9px] font-black text-[var(--mn-success-text)] font-['Cairo',sans-serif]">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[var(--mn-success-border)] bg-[var(--mn-success-soft)] px-2.5 py-1 text-[9px] font-bold text-[var(--mn-success-text)] font-['Cairo',sans-serif]">
                     <CheckCircle2 className="h-3 w-3" />
                     {course.freeCertificate ? 'مجانية + شهادة مجانية' : 'دورة مجانية'}
                   </span>
                   {course.freeCertificate && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-[var(--mn-border-gold)] bg-[var(--mn-gold-surface)] px-2.5 py-1 text-[9px] font-black text-[var(--mn-accent-text)] font-['Cairo',sans-serif] mn-panel ">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[var(--mn-border-gold)] bg-[var(--mn-gold-surface)] px-2.5 py-1 text-[9px] font-bold text-[var(--mn-accent-text)] font-['Cairo',sans-serif] mn-panel ">
                       <BadgeCheck className="h-3 w-3" />
                       {course.certificateType}
                     </span>
@@ -510,7 +511,7 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
                     onClick={() => onSelectCourse?.(course)}
                     className="flex w-full items-center justify-between rounded-xl bg-[var(--mn-primary)] px-3.5 py-2.5 text-white shadow-sm transition-transform active:scale-[0.99] mn-inverse "
                   >
-                    <span className="text-[11px] font-black font-['Cairo',sans-serif]">عرض التفاصيل</span>
+                    <span className="text-[11px] font-bold font-['Cairo',sans-serif]">عرض التفاصيل</span>
                     <ArrowLeft className="h-4 w-4 text-[var(--mn-accent-soft)]" />
                   </button>
                 </div>
@@ -519,7 +520,7 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
           ))}
         </section>
       ) : (
-        <div className="max-w-lg mx-auto px-4 pt-2 pb-5">
+        <div className="max-w-lg mx-auto mn-inline-gutter pt-2 pb-5">
           <div className="rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-5 text-center text-[11px] font-bold text-[var(--mn-text-muted)] shadow-sm mn-panel ">
             لا توجد دورات مطابقة للفلاتر الحالية.
           </div>

@@ -117,7 +117,8 @@ const checks = {
   'GUARD-ADMIN-CONSUMERS-UPDATED':
     !/locationKey: form\.get\('locationKey'\), status: 'DRAFT'/.test(operations) &&
     !/startsAt: new Date\(\)\.toISOString\(\), status: 'DRAFT'/.test(operations) &&
-    /additionalProperties: false/.test(operations) &&
+    !/block-schemas[^\n]+method: 'POST'/.test(operations) &&
+    /additionalProperties === true/.test(policy) &&
     /Canonical URL يُولَّد تلقائيًا/.test(adminPage),
 
   'GUARD-PHASE16-API-SEPARATION':

@@ -255,7 +255,7 @@ export function MajorDetailPage() {
       {error && <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700"><XCircle className="h-5 w-5" />{error}</div>}
       {success && <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700"><CheckCircle2 className="h-5 w-5" />{success}</div>}
 
-      <header className="rounded-xl bg-[#071322] p-5 text-white shadow-sm">
+      <header className="rounded-xl bg-[#142B5F] p-5 text-white shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="flex flex-wrap gap-2">
@@ -279,7 +279,7 @@ export function MajorDetailPage() {
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-bold ${activeTab === tab.id ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50'}`}>
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-bold ${activeTab === tab.id ? 'bg-[#DDEFF2] text-[#0E7C86]' : 'text-slate-600 hover:bg-slate-50'}`}>
               <Icon className="h-4 w-4" />
               {tab.label}
             </button>
@@ -304,7 +304,7 @@ export function MajorDetailPage() {
           </div>
           <aside className="space-y-3">
             {(major.officialSourceUrl || major.sourceUrl) && (
-              <a href={major.officialSourceUrl || major.sourceUrl || '#'} target="_blank" rel="noreferrer" className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-bold text-white">
+              <a href={major.officialSourceUrl || major.sourceUrl || '#'} target="_blank" rel="noreferrer" className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#142B5F] px-4 text-sm font-bold text-white">
                 <ExternalLink className="h-4 w-4" />
                 فتح المصدر
               </a>
@@ -315,7 +315,7 @@ export function MajorDetailPage() {
                 فتح الصفحة العامة
               </a>
             )}
-            <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-7 text-blue-800">
+            <div className="rounded-xl border border-[#DDEFF2] bg-[#DDEFF2]/50 p-4 text-sm leading-7 text-[#142B5F]">
               المرحلة 10 تملك هوية التخصص. البرامج، المنح، الدورات، والوظائف ترتبط بهذا السجل ولا تنشئ هوية تخصص جديدة.
             </div>
           </aside>
@@ -420,7 +420,7 @@ export function MajorDetailPage() {
       )}
 
       {saving && (
-        <div className="fixed bottom-4 left-4 inline-flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-lg">
+        <div className="fixed bottom-4 left-4 inline-flex items-center gap-2 rounded-lg bg-[#142B5F] px-4 py-3 text-sm font-bold text-white shadow-lg">
           <Loader2 className="h-4 w-4 animate-spin" />
           جار تنفيذ الإجراء...
         </div>

@@ -18,6 +18,15 @@ export interface FinancePaymentDto {
   updatedAt: Date | string;
 }
 
+export interface FinancePaymentFilters {
+  status?: PaymentStatus;
+  invoiceId?: string;
+  gatewayProvider?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 export interface CreateFinancePaymentDto {
   publicId: string;
   invoiceId: string;

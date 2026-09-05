@@ -19,6 +19,14 @@ export class CourseRelationshipQueryService {
     return this.repository.listPublishedCoursesForMajor(majorId, filters);
   }
 
+  public listPublishedCoursesForInternationalTest(
+    internationalTestId: string,
+    filters: PublicCourseFilters = {},
+  ) {
+    if (!internationalTestId.trim()) throw new Error('INTERNATIONAL_TEST_ID_REQUIRED');
+    return this.repository.listPublishedCoursesForInternationalTest(internationalTestId, filters);
+  }
+
   public getCourseGeography(courseId: string) {
     if (!courseId.trim()) throw new Error('COURSE_ID_REQUIRED');
     return this.repository.getGeographySemantics(courseId);

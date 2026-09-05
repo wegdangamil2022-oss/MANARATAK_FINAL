@@ -34,7 +34,7 @@ describe('ScholarshipPublicRouter', () => {
       internationalTestId: 'test-ielts',
       page: 2,
       pageSize: 50
-    });
+    }, 'ar');
   });
 
 
@@ -54,7 +54,7 @@ describe('ScholarshipPublicRouter', () => {
     
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ slug: 'test-slug', displayName: 'Test' });
-    expect(useCases.getScholarship).toHaveBeenCalledWith('test-slug');
+    expect(useCases.getScholarship).toHaveBeenCalledWith('test-slug', 'ar');
   });
 
   it('GET /public/scholarships/:slug returns 404 if not found', async () => {
@@ -78,4 +78,20 @@ describe('ScholarshipPublicRouter', () => {
     expect(res.status).toBe(500);
     expect(res.body).toEqual({ error: 'Internal Server Error' });
   });
+  it('forwards the requested public locale and removes it from domain filters', async () => {
+    const useCases = createMockUseCases();
+    useCases.listScholarships.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
+    const res = await request(createApp(useCases)).get('/public/scholarships?locale=en&page=1');
+
+    expect(res.status).toBe(200);
+    expect(useCases.listScholarships).toHaveBeenCalledWith({ page: 1, pageSize: 20 }, 'en');
+  });
+
+  it('rejects unsupported locales with the shared locale contract', async () => {
+    const useCases = createMockUseCases();
+    const res = await request(createApp(useCases)).get('/public/scholarships?locale=fr');
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('UNSUPPORTED_LOCALE');
+  });
+
 });

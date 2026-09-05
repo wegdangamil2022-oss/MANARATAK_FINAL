@@ -238,6 +238,15 @@ export interface IssueCertificateDto {
   actorId?: string | null;
 }
 
+export interface AttachCertificateArtifactsDto {
+  certificateId: string;
+  certificatePdfAssetId?: string | null;
+  previewImageAssetId?: string | null;
+  verificationQrAssetId?: string | null;
+  actorId: string;
+  correlationId?: string | null;
+}
+
 export interface CertificateDto extends IssueCertificateDto {
   id: string;
   issuedAt: Date;
@@ -257,6 +266,7 @@ export interface CertificateVerificationDto {
   publicId: string;
   serialNumber: string;
   verificationCode: string;
+  verificationUrl: string;
   verificationHash: string;
   status: CertificateStatus;
   certificateType: CertificateType;

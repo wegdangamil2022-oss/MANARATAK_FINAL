@@ -170,3 +170,5 @@ export * from './academic-taxonomy';
 export * from './degree-level';
 
 export * from './translation-import';
+
+export * from './study-destinations';

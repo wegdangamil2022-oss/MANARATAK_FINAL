@@ -229,15 +229,15 @@ function toUpdate(s: ScholarshipDto): ScholarshipCatalogUpdate {
 }
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="mb-4 font-bold text-slate-950">{title}</h2>{children}</section>;
+  return <section className="rounded-2xl border border-[#DDEFF2] bg-white p-5 shadow-sm"><h2 className="mb-4 font-bold text-[#142B5F]">{title}</h2>{children}</section>;
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
-  return <label className="block"><span className="mb-1 block text-xs font-semibold text-slate-600">{label}</span>{children}</label>;
+  return <label className="block"><span className="mb-1 block text-xs font-semibold text-[#203442]/75">{label}</span>{children}</label>;
 }
 
 function Input({ value, onChange, type = 'text', readOnly = false }: { value: unknown; onChange?: (value: string) => void; type?: string; readOnly?: boolean }) {
-  return <input type={type} value={asText(value)} readOnly={readOnly} onChange={(event) => onChange?.(event.target.value)} className={`w-full rounded-lg border px-3 py-2 text-sm ${readOnly ? 'bg-slate-100 text-slate-500' : 'bg-white'}`} />;
+  return <input type={type} value={asText(value)} readOnly={readOnly} onChange={(event) => onChange?.(event.target.value)} className={`w-full rounded-lg border border-[#DDEFF2] px-3 py-2 text-sm text-[#203442] outline-none focus:border-[#21A7B4] focus:ring-2 focus:ring-[#21A7B4]/15 ${readOnly ? 'bg-[#FAF7F0] text-[#203442]/55' : 'bg-white'}`} />;
 }
 
 function Badge({ value }: { value: string }) {
@@ -329,21 +329,21 @@ export function ScholarshipDetailPage() {
   const legacy = (scholarship.optionalFields ?? {}) as Record<string, unknown>;
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-5">
-      <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <button type="button" onClick={() => navigate('/scholarships')} className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-600"><ArrowLeft className="h-4 w-4" />{ui.back}</button>
+    <div className="mx-auto max-w-[1500px] space-y-5 font-['Cairo',sans-serif] text-[#203442]">
+      <header className="rounded-2xl border border-[#DDEFF2] bg-gradient-to-r from-[#FAF7F0] via-white to-[#DDEFF2]/35 p-5 shadow-sm">
+        <button type="button" onClick={() => navigate('/scholarships')} className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-[#0E7C86]"><ArrowLeft className="h-4 w-4" />{ui.back}</button>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">{ui.title}</p>
-            <h1 className="mt-1 text-3xl font-black text-slate-950">{scholarship.displayName}</h1>
-            <p className="mt-2 max-w-3xl text-sm text-slate-600">{ui.subtitle}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#0E7C86]">{ui.title}</p>
+            <h1 className="mt-1 text-3xl font-black text-[#142B5F]">{scholarship.displayName}</h1>
+            <p className="mt-2 max-w-3xl text-sm text-[#203442]/75">{ui.subtitle}</p>
             <div className="mt-3 flex flex-wrap gap-2"><Badge value={String(scholarship.status)} /><Badge value={String(scholarship.completenessStatus)} /><Badge value={String(scholarship.verificationStatus ?? 'PENDING')} /><Badge value={String(scholarship.publicationStatus ?? 'DRAFT')} /></div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link to={`/scholarships/${id}/relationships`} className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">Canonical relationships</Link>
+            <Link to={`/scholarships/${id}/relationships`} className="rounded-lg border border-[#21A7B4]/35 bg-[#DDEFF2]/55 px-3 py-2 text-sm font-semibold text-[#0E7C86]">Canonical relationships</Link>
             {scholarship.status !== 'READY_TO_REVIEW' && scholarship.status !== 'PUBLISHED' && scholarship.completenessStatus !== 'INCOMPLETE' ? <button disabled={Boolean(action)} onClick={() => void run('mark-ready')} className="rounded-lg border px-3 py-2 text-sm font-semibold">{ui.markReady}</button> : null}
-            {scholarship.status === 'READY_TO_REVIEW' && scholarship.completenessStatus === 'COMPLETE' ? <button disabled={Boolean(action)} onClick={() => void run('mark-publishable')} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">{ui.markPublishable}</button> : null}
-            {scholarship.status === 'READY_TO_PUBLISH' ? <button disabled={Boolean(action)} onClick={() => void run('publish')} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">{ui.publish}</button> : null}
+            {scholarship.status === 'READY_TO_REVIEW' && scholarship.completenessStatus === 'COMPLETE' ? <button disabled={Boolean(action)} onClick={() => void run('mark-publishable')} className="rounded-lg border border-[#21A7B4]/35 bg-[#DDEFF2]/55 px-3 py-2 text-sm font-semibold text-[#0E7C86]">{ui.markPublishable}</button> : null}
+            {scholarship.status === 'READY_TO_PUBLISH' ? <button disabled={Boolean(action)} onClick={() => void run('publish')} className="rounded-lg bg-[#0E7C86] px-3 py-2 text-sm font-semibold text-white hover:bg-[#142B5F]">{ui.publish}</button> : null}
             {scholarship.publicationStatus === 'PUBLISHED' ? <button disabled={Boolean(action)} onClick={() => void run('unpublish')} className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">{ui.unpublish}</button> : null}
             {scholarship.publicationStatus !== 'ARCHIVED' ? <button disabled={Boolean(action)} onClick={() => void run('archive')} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold"><Archive className="h-4 w-4" />{ui.archive}</button> : null}
             {scholarship.status !== 'REJECTED' && scholarship.publicationStatus !== 'PUBLISHED' ? <button disabled={Boolean(action)} onClick={() => void run('reject')} className="rounded-lg px-3 py-2 text-sm font-semibold text-red-700">{ui.reject}</button> : null}
@@ -351,7 +351,7 @@ export function ScholarshipDetailPage() {
         </div>
       </header>
 
-      <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><ShieldCheck className="mr-2 inline h-4 w-4" />{ui.explicitPublish}</div>
+      <div className="rounded-xl border border-[#21A7B4]/30 bg-[#DDEFF2]/45 p-4 text-sm text-[#142B5F]"><ShieldCheck className="mr-2 inline h-4 w-4" />{ui.explicitPublish}</div>
       {error ? <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><XCircle className="mr-2 inline h-4 w-4" />{error}</div> : null}
       {message ? <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"><CheckCircle2 className="mr-2 inline h-4 w-4" />{message}</div> : null}
 
@@ -467,7 +467,7 @@ export function ScholarshipDetailPage() {
           </Card>
 
           <div className="flex justify-end">
-            <button disabled={saving} type="button" onClick={() => void save()} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{ui.save}</button>
+            <button disabled={saving} type="button" onClick={() => void save()} className="inline-flex items-center gap-2 rounded-xl bg-[#142B5F] px-5 py-3 text-sm font-bold text-white hover:bg-[#0E7C86] disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{ui.save}</button>
           </div>
         </div>
 
@@ -497,7 +497,7 @@ export function ScholarshipDetailPage() {
 }
 
 function Empty({ text }: { text: string }) {
-  return <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">{text}</div>;
+  return <div className="rounded-xl bg-[#FAF7F0] p-4 text-sm text-[#203442]/60">{text}</div>;
 }
 
 function BenefitRow({ item, onChange, onRemove, ui }: { item: ScholarshipBenefitDto; onChange: (item: ScholarshipBenefitDto) => void; onRemove: () => void; ui: UiText }) {
@@ -516,7 +516,7 @@ function TargetEditor({ kind, rows, onChange, ui }: {
   ui: UiText;
 }) {
   return <div className="space-y-3">
-    {rows.map((item, index) => <div key={item.targetKey} className="rounded-xl border p-4"><GraduationCap className="mb-2 h-4 w-4 text-emerald-700" /><div className="grid gap-2"><Field label="Target key"><Input value={item.targetKey} readOnly /></Field><Field label="Source label"><Input value={item.sourceLabel} onChange={(sourceLabel) => onChange(rows.map((row, i) => i === index ? { ...row, sourceLabel } : row) as never)} /></Field><Field label="Canonical ID"><Input value={kind === 'degree' ? (item as ScholarshipDegreeTargetDto).degreeLevelId : (item as ScholarshipMajorTargetDto).majorId} readOnly /></Field><Field label="Resolution"><Input value={item.resolutionStatus} readOnly /></Field></div><button type="button" onClick={() => onChange(rows.filter((_, i) => i !== index) as never)} className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-red-700"><Trash2 className="h-3.5 w-3.5" />{ui.remove}</button></div>)}
+    {rows.map((item, index) => <div key={item.targetKey} className="rounded-xl border p-4"><GraduationCap className="mb-2 h-4 w-4 text-[#0E7C86]" /><div className="grid gap-2"><Field label="Target key"><Input value={item.targetKey} readOnly /></Field><Field label="Source label"><Input value={item.sourceLabel} onChange={(sourceLabel) => onChange(rows.map((row, i) => i === index ? { ...row, sourceLabel } : row) as never)} /></Field><Field label="Canonical ID"><Input value={kind === 'degree' ? (item as ScholarshipDegreeTargetDto).degreeLevelId : (item as ScholarshipMajorTargetDto).majorId} readOnly /></Field><Field label="Resolution"><Input value={item.resolutionStatus} readOnly /></Field></div><button type="button" onClick={() => onChange(rows.filter((_, i) => i !== index) as never)} className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-red-700"><Trash2 className="h-3.5 w-3.5" />{ui.remove}</button></div>)}
     {!rows.length ? <Empty text={ui.noRows} /> : null}
     <button type="button" onClick={() => {
       const targetKey = nextKey(kind.toUpperCase(), rows as unknown as Array<Record<string, unknown>>, 'targetKey');

@@ -55,14 +55,14 @@ function ServicePathCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <h3 className="font-['Cairo',sans-serif] text-[15px] font-black leading-6 text-[var(--mn-heading)] sm:text-base">
+                <h3 className="font-['Cairo',sans-serif] text-[15px] font-bold leading-6 text-[var(--mn-heading)] sm:text-base">
                   {title}
                 </h3>
-                <p className="mt-0.5 text-[10px] font-extrabold text-[var(--mn-heading)] sm:text-[11px]">
+                <p className="mt-0.5 text-[10px] font-semibold text-[var(--mn-heading)] sm:text-[11px]">
                   {eyebrow}
                 </p>
               </div>
-              <span className="whitespace-nowrap rounded-full border border-[var(--mn-accent)]/20 bg-[var(--mn-accent)]/10 px-2 py-1 text-[9px] font-black text-[var(--mn-accent-text)]">
+              <span className="whitespace-nowrap rounded-full border border-[var(--mn-accent)]/20 bg-[var(--mn-accent)]/10 px-2 py-1 text-[9px] font-bold text-[var(--mn-accent-text)]">
                 {badge}
               </span>
             </div>
@@ -76,7 +76,7 @@ function ServicePathCard({
           {features.map(({ label, icon: FeatureIcon }) => (
             <span
               key={label}
-              className="flex min-h-8 items-center justify-center gap-1 rounded-xl border border-[var(--mn-border)] bg-[var(--mn-page)] px-1.5 text-[9px] font-extrabold text-[var(--mn-text-muted)] mn-panel "
+              className="flex min-h-8 items-center justify-center gap-1 rounded-xl border border-[var(--mn-border)] bg-[var(--mn-page)] px-1.5 text-[9px] font-semibold text-[var(--mn-text-muted)] mn-panel "
             >
               <FeatureIcon className="h-3.5 w-3.5 shrink-0 text-[var(--mn-heading)]" />
               <span className="truncate">{label}</span>
@@ -86,7 +86,7 @@ function ServicePathCard({
 
         <div className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--mn-border)] pt-2.5">
           <span className="truncate text-[10px] font-bold text-[var(--mn-text-muted)]">{footer}</span>
-          <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] font-black text-[var(--mn-heading)]">
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] font-bold text-[var(--mn-heading)]">
             استكشف الخدمات
             <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
           </span>
@@ -98,7 +98,7 @@ function ServicePathCard({
 
 export const ServicesLandingPage: React.FC<ServicesLandingPageProps> = ({ onBack, onOpenTrack }) => {
   return (
-    <div className="min-h-screen bg-[var(--mn-page)] pb-24 text-[var(--mn-heading)] font-sans select-none mn-panel " dir="rtl">
+    <div className="min-h-screen bg-[var(--mn-page)] pb-24 text-[var(--mn-heading)] font-['Cairo',sans-serif] select-none mn-panel " dir="rtl">
       <div className="relative mn-search-hero overflow-hidden border-b border-[var(--mn-accent)]/20 px-3 pb-12 pt-4 text-white shadow-xs sm:px-4 sm:pb-14 mn-inverse ">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute left-5 top-3 grid grid-cols-5 gap-1.5 opacity-20">
@@ -116,8 +116,9 @@ export const ServicesLandingPage: React.FC<ServicesLandingPageProps> = ({ onBack
           <button
             type="button"
             onClick={onBack}
-            className="absolute right-3 top-3 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/25 text-white shadow-md backdrop-blur-md transition-all hover:bg-black/40 active:scale-95 sm:right-4 sm:top-4 sm:h-10 sm:w-10"
+            className="absolute right-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/25 text-white shadow-md backdrop-blur-md transition-all hover:bg-black/40 active:scale-95 sm:right-4 sm:top-4 sm:h-10 sm:w-10"
             title="العودة"
+            aria-label="العودة"
           >
             <ChevronLeft className="h-4 w-4 rotate-180 text-white sm:h-5 sm:w-5" />
           </button>
@@ -126,7 +127,7 @@ export const ServicesLandingPage: React.FC<ServicesLandingPageProps> = ({ onBack
         <div className="relative z-10 mx-auto max-w-md space-y-3 pt-6 text-center sm:max-w-xl">
           <div className="relative inline-block mb-2">
             <div className="absolute -inset-x-6 -inset-y-3 rounded-full bg-[var(--mn-accent)]/10 blur-xl" />
-            <h1 className="relative font-['Cairo',sans-serif] text-2xl font-black leading-tight tracking-tight text-white sm:text-3xl">
+            <h1 className="relative font-['Cairo',sans-serif] text-2xl font-bold leading-tight tracking-tight text-white sm:text-3xl">
               خدمات <span className="text-[var(--mn-accent-soft)]">منارتك</span>
             </h1>
           </div>
@@ -141,11 +142,11 @@ export const ServicesLandingPage: React.FC<ServicesLandingPageProps> = ({ onBack
         </div>
       </div>
 
-      <div className="relative z-20 mx-auto -mt-5 max-w-md px-3.5 pb-24 sm:max-w-xl sm:px-4">
+      <div className="relative z-20 mx-auto -mt-5 max-w-md mn-inline-gutter pb-24 sm:max-w-xl">
         <div className="mb-3.5 rounded-[22px] border border-[var(--mn-border)] bg-[var(--mn-surface)] px-3.5 py-3.5 shadow-lg mn-panel ">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 text-right">
-              <h2 className="font-['Cairo',sans-serif] text-[15px] font-black text-[var(--mn-heading)] sm:text-base">
+              <h2 className="font-['Cairo',sans-serif] text-[15px] font-bold text-[var(--mn-heading)] sm:text-base">
                 اختر نوع الخدمة
               </h2>
               <p className="mt-0.5 font-['Cairo',sans-serif] text-[10.5px] font-semibold leading-5 text-[var(--mn-text-muted)] sm:text-[11px]">

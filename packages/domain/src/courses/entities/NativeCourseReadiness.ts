@@ -5,7 +5,7 @@ export interface NativeCourseReadinessCheckDto {
   label: string;
   state: NativeCourseReadinessState;
   message?: string;
-  targetSection?: 'basics' | 'curriculum' | 'assessments' | 'completion' | 'settings';
+  targetSection?: 'basics' | 'curriculum' | 'assessments' | 'relationships' | 'completion' | 'enrollment' | 'settings';
 }
 
 export interface NativeCourseReadinessDto {
@@ -16,6 +16,7 @@ export interface NativeCourseReadinessDto {
 
 export interface CreateNativeCourseDto {
   titleAr: string;
+  accessType?: 'FREE_STUDY' | 'FREE_CERTIFICATE' | 'FREE_STUDY_AND_CERTIFICATE' | 'PAID';
   titleEn?: string;
   learningLanguage?: string;
   category?: string;

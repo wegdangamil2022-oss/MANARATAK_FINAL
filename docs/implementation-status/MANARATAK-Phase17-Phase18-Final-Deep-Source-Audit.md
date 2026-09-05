@@ -18,7 +18,7 @@ Phase 18 closure includes requester-owned receipts, activation readiness, wired 
 - Phase 18 imports no provider SDK and owns no prompt, model, provider route, embeddings, or AI cost ledger.
 - Phase 18 does not copy canonical universities, scholarships, student profiles, or permanent student documents.
 - Provider secrets and the async encryption key are environment-only; only their references/configuration status are persisted or displayed.
-- Missing runtime secrets produce `NOT_CONFIGURED`, not fake success.
+- Missing runtime secrets produce `NOT_CONFIGURED`. A configured secret produces `RUNTIME_PENDING`; `READY` is earned only after successful runtime provider evidence in the running process.
 
 ## Deferred runtime proof
 

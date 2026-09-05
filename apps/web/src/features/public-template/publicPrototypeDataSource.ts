@@ -5,7 +5,6 @@
 import { INITIAL_SCHOLARSHIPS, MOCK_UNIVERSITIES, MOCK_COURSES, MOCK_MAJORS, MOCK_EXAMS, MOCK_COUNTRIES, GOLDEN_IMPORTED_COURSES } from './data/mockData';
 import { GOLDEN_ARTICLES } from './data/articleData';
 import { PUBLIC_SERVICES } from './data/serviceData';
-import { CAREER_OPPORTUNITIES_PREVIEW } from './data/careerData';
 import { STUDENT_TOOLS_PREVIEW } from './data/studentToolsData';
 import type { PublicLiveLoadResult } from './publicLiveDataSource';
 
@@ -21,7 +20,7 @@ export function loadPublicPrototypeSnapshot(): PublicLiveLoadResult {
       importedCourses: GOLDEN_IMPORTED_COURSES,
       articles: GOLDEN_ARTICLES,
       services: PUBLIC_SERVICES,
-      careers: CAREER_OPPORTUNITIES_PREVIEW,
+      careers: [],
       tools: STUDENT_TOOLS_PREVIEW,
     },
     statuses: { scholarships: 'ready', universities: 'ready', majors: 'ready', countries: 'ready', exams: 'ready', courses: 'ready', articles: 'ready', services: 'ready', careers: 'ready', tools: 'ready' },

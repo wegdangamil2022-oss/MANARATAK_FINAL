@@ -67,12 +67,12 @@ export function ScholarshipListPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="flex flex-col gap-5 rounded-3xl bg-gradient-to-r from-[#0F4B3A] via-[#155e49] to-[#0a382b] p-6 text-white shadow-xl sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+    <div className="mx-auto max-w-7xl space-y-6 font-['Cairo',sans-serif] text-[#203442]">
+      <header className="flex flex-col gap-5 rounded-3xl bg-gradient-to-r from-[#142B5F] via-[#0E7C86] to-[#142B5F] p-6 text-white shadow-xl sm:p-8 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <div className="mb-2 text-sm font-bold text-emerald-300">Scholarship catalog</div>
-          <h2 className="text-3xl font-black sm:text-4xl">{t('imported_scholarships')}</h2>
-          <p className="mt-2 max-w-2xl text-sm font-medium text-emerald-100/90">{t('scholarship_imported_not_show_here_helper') || "Imported records do not appear here until promoted into scholarship catalog records."}</p>
+          <div className="mb-2 text-sm font-bold text-[#F2CD78]">Scholarship catalog</div>
+          <h2 className="text-3xl font-black sm:text-4xl">{t('admin_nav_scholarships')}</h2>
+          <p className="mt-2 max-w-2xl text-sm font-medium text-[#DDEFF2]">{t('scholarship_imported_not_show_here_helper') || "Imported records do not appear here until promoted into scholarship catalog records."}</p>
         </div>
         
         <div className="flex flex-wrap gap-3">
@@ -117,10 +117,10 @@ export function ScholarshipListPage() {
       </header>
 
       {/* Transfer Flow Diagram Alert */}
-      <div className="bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-4 flex flex-col md:flex-row gap-3 items-start md:items-center justify-between shadow-sm">
+      <div className="bg-[#DDEFF2]/45 border border-[#21A7B4]/25 text-[#203442] rounded-xl p-4 flex flex-col md:flex-row gap-3 items-start md:items-center justify-between shadow-sm">
         <div className="space-y-1">
-          <h4 className="text-xs font-bold text-slate-900">{t('promotion_flow_title') || "Scholarship Lifecycle & Transfer Flow"}</h4>
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <h4 className="text-xs font-bold text-[#142B5F]">{t('promotion_flow_title') || "Scholarship Lifecycle & Transfer Flow"}</h4>
+          <p className="text-xs text-[#203442]/75 leading-relaxed">
             {t('promotion_flow_clarity_text') || "Transfer Flow: Imported record -> Transfer -> Scholarship/Domain entity -> Review/Ready -> Publish -> Only Published items appear publicly."}
           </p>
         </div>
@@ -137,11 +137,11 @@ export function ScholarshipListPage() {
           <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-[#DDEFF2] bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500">
+                <tr className="bg-[#FAF7F0] border-b border-[#DDEFF2] text-xs uppercase tracking-wider text-gray-500">
                   <th className="px-6 py-3 font-medium">{t('scholarship')}</th>
                   <th className="px-6 py-3 font-medium">{t('status')}</th>
                   <th className="px-6 py-3 font-medium">{t('completeness')}</th>
@@ -150,7 +150,7 @@ export function ScholarshipListPage() {
                   <th className="px-6 py-3 font-medium text-right">{t('actions')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 text-sm">
+              <tbody className="divide-y divide-[#DDEFF2] text-sm">
                 {data?.data.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
@@ -158,7 +158,7 @@ export function ScholarshipListPage() {
                   </tr>
                 ) : (
                   data?.data.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={item.id} className="hover:bg-[#DDEFF2]/25 transition-colors">
                       <td className="px-6 py-4">
                         <div className="font-medium text-gray-900">{item.displayName}</div>
                         <div className="text-gray-500 text-xs mt-1 truncate max-w-[200px]">{item.sponsorName || 'Unknown Sponsor'}</div>
@@ -187,7 +187,7 @@ export function ScholarshipListPage() {
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => navigate(`/admin/scholarships/${item.id}`)}
-                          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800"
+                          className="inline-flex items-center gap-1 text-sm font-medium text-[#0E7C86] hover:text-[#142B5F]"
                         >
                           {t('review')}<ArrowRight className="h-4 w-4" />
                         </button>
@@ -200,7 +200,7 @@ export function ScholarshipListPage() {
           </div>
           
           {data && data.totalPages > 1 && (
-            <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+            <div className="bg-[#FAF7F0] px-6 py-3 border-t border-[#DDEFF2] flex items-center justify-between">
               <span className="text-sm text-gray-700">
                 {t('page')}<span className="font-medium">{data.page}</span> {t('of')}<span className="font-medium">{data.totalPages}</span>
               </span>
@@ -208,13 +208,13 @@ export function ScholarshipListPage() {
                 <button
                   disabled={data.page === 1}
                   onClick={() => setPage(p => Math.max(1, p - 1))}
-                  className="px-3 py-1 border border-gray-300 rounded text-sm font-medium bg-white hover:bg-gray-50 disabled:opacity-50"
+                  className="px-3 py-1 border border-gray-300 rounded text-sm font-medium bg-white hover:bg-[#DDEFF2]/25 disabled:opacity-50"
                 >
                   {t('previous')}</button>
                 <button
                   disabled={data.page === data.totalPages}
                   onClick={() => setPage(p => p + 1)}
-                  className="px-3 py-1 border border-gray-300 rounded text-sm font-medium bg-white hover:bg-gray-50 disabled:opacity-50"
+                  className="px-3 py-1 border border-gray-300 rounded text-sm font-medium bg-white hover:bg-[#DDEFF2]/25 disabled:opacity-50"
                 >
                   {t('next')}</button>
               </div>

@@ -51,9 +51,9 @@ export function assertPaymentTransition(from: string, to: string): void {
 const invoiceTransitions: Record<string, readonly string[]> = {
   DRAFT: ['ISSUED', 'VOIDED'],
   ISSUED: ['PARTIALLY_PAID', 'PAID', 'CREDITED', 'OVERDUE', 'VOIDED'],
-  PARTIALLY_PAID: ['PAID', 'CREDITED', 'OVERDUE', 'VOIDED'],
+  PARTIALLY_PAID: ['ISSUED', 'PAID', 'CREDITED', 'OVERDUE', 'VOIDED'],
   OVERDUE: ['PARTIALLY_PAID', 'PAID', 'CREDITED', 'VOIDED'],
-  PAID: [],
+  PAID: ['ISSUED', 'PARTIALLY_PAID'],
   CREDITED: [],
   VOIDED: [],
 };
@@ -426,7 +426,7 @@ export interface FinancialReportDto {
   transferVolumeByCurrency: Record<string, string>;
   walletLiabilityByCurrency: Record<string, string>;
   commissionsByCurrency: Record<string, string>;
-  reconciliationStatus: 'HEALTHY' | 'CRITICAL';
+  reconciliationStatus: 'HEALTHY' | 'DEGRADED' | 'CRITICAL';
 }
 export interface StudentFinancialReadModelDto {
   studentReferenceId: string;

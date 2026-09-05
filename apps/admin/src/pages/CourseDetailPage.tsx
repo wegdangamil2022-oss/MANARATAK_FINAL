@@ -194,9 +194,10 @@ export function CourseDetailPage() {
     setError(null);
     setSuccessMsg(null);
     try {
+      const { directCourseUrl: _sourceOwnedUrl, ...editableFields } = formData;
       const updated = await adminApiClient.request<CourseDetail>(`/admin/courses/${id}`, {
         method: 'PATCH',
-        body: JSON.stringify(formData),
+        body: JSON.stringify(isExternalLinkedCourse ? editableFields : formData),
       });
       setCourse(updated);
       setSuccessMsg('Course metadata saved.');
@@ -366,7 +367,13 @@ export function CourseDetailPage() {
             <label className="block text-xs font-medium text-gray-700">{t('course_name')}</label>
             <input value={formData.displayName || ''} onChange={(event) => setFormData({ ...formData, displayName: event.target.value })} className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm" />
             <label className="block text-xs font-medium text-gray-700">{t('direct_url')}</label>
-            <input value={formData.directCourseUrl || ''} onChange={(event) => setFormData({ ...formData, directCourseUrl: event.target.value })} className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm" />
+            <input
+              value={formData.directCourseUrl || ''}
+              readOnly={isExternalLinkedCourse}
+              onChange={(event) => setFormData({ ...formData, directCourseUrl: event.target.value })}
+              className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm read-only:bg-gray-50 read-only:text-gray-500"
+            />
+            {isExternalLinkedCourse && <p className="text-xs text-gray-500">Source-owned URL; update it through the controlled import workflow.</p>}
             <label className="block text-xs font-medium text-gray-700">{t('learning_language')}</label>
             <input value={formData.learningLanguage || ''} onChange={(event) => setFormData({ ...formData, learningLanguage: event.target.value })} className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm" />
             <label className="block text-xs font-medium text-gray-700">{t('duration')}</label>

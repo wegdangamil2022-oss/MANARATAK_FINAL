@@ -10,6 +10,7 @@ export class CrossDomainReadModelRouter {
       Promise.resolve(fn(req, res, next)).catch(next);
 
     const paginationSchema = z.object({
+  locale: z.enum(['ar', 'en']).default('ar'),
       page: z.coerce.number().int().min(1).default(1),
       pageSize: z.coerce.number().int().min(1).max(50).default(12),
     }).strict();
@@ -23,8 +24,7 @@ export class CrossDomainReadModelRouter {
     }));
 
     router.get('/scholarships/:slug', asyncHandler(async (req: Request, res: Response) => {
-      paginationSchema.parse(req.query);
-      res.json(await crossDomainGraphReadService.getScholarshipGraphBySlug(req.params.slug));
+      res.json(await crossDomainGraphReadService.getScholarshipGraphBySlug(req.params.slug, paginationSchema.parse(req.query)));
     }));
 
     router.get('/countries/:iso2Code', asyncHandler(async (req: Request, res: Response) => {

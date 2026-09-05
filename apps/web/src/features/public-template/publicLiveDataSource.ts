@@ -8,10 +8,11 @@ import {
   type PublicServiceCatalogItemDto,
   type PublicStudentToolDto,
   type PublicUniversityDto,
-  type ReferenceCountryDto,
+  type PublicStudyDestinationDto,
 } from '../../api/client';
 import { mapPublicScholarshipDto, type PublicScholarshipDataStatus } from './publicScholarshipDataSource';
 import type {
+  CareerExperienceLevel,
   CareerOpportunityKind,
   CareerOpportunityPreview,
   CareerWorkMode,
@@ -111,7 +112,7 @@ function rankFromUniversity(dto: PublicUniversityDto): number {
   return Number.MAX_SAFE_INTEGER;
 }
 
-function mapUniversity(dto: PublicUniversityDto): University {
+export function mapPublicUniversityDto(dto: PublicUniversityDto): University {
   const programs = Array.isArray(dto.academicPrograms) ? dto.academicPrograms : [];
   const majorLinks = programs
     .map((raw) => asRecord(raw))
@@ -124,6 +125,7 @@ function mapUniversity(dto: PublicUniversityDto): University {
     }));
   return {
     id: dto.slug,
+    ownerId: dto.publicId,
     publicId: dto.publicId,
     slug: dto.slug,
     countryReferenceId: dto.countryReferenceId,
@@ -165,11 +167,12 @@ function degreeLevels(value: string): DegreeLevel[] {
   return result.length ? result : [];
 }
 
-function mapMajor(dto: PublicMajorDto): Major {
+export function mapPublicMajorDto(dto: PublicMajorDto): Major {
   const sectionText = (dto.contentSections ?? []).map((section) => section.content).filter(Boolean).join('\n');
   const description = dto.description ?? dto.studentFriendlySummary ?? sectionText;
   return {
     id: dto.slug,
+    ownerId: dto.publicId,
     publicId: dto.publicId,
     slug: dto.slug,
     name: dto.displayName,
@@ -191,7 +194,7 @@ function mapMajor(dto: PublicMajorDto): Major {
   };
 }
 
-function mapCourse(dto: PublicCourseDto): { course: Course; imported: ImportedCourse } {
+export function mapCourse(dto: PublicCourseDto): { course: Course; imported: ImportedCourse } {
   const levelRaw = (dto.difficultyLevel ?? '').toLowerCase();
   const level: Course['level'] = /advanced|متقدم/.test(levelRaw) ? 'متقدم' : /intermediate|متوسط/.test(levelRaw) ? 'متوسط' : 'مبتدئ';
   const provider = dto.providerName ?? dto.platformName ?? 'منارتك';
@@ -233,38 +236,62 @@ function mapCourse(dto: PublicCourseDto): { course: Course; imported: ImportedCo
   return { course, imported };
 }
 
-function mapCountry(dto: ReferenceCountryDto): CountryDestination {
-  const meta = asRecord(dto.metadata);
+export function mapCountry(dto: PublicStudyDestinationDto, locale: PublicLiveLocale = 'ar'): CountryDestination {
+  const country = dto.country;
+  const isAr = locale === 'ar';
+  const currencyCode = dto.livingCostCurrency?.isoCode ?? dto.livingCostCurrency?.currencyCode ?? country.defaultCurrencyCode ?? '';
+  const costMin = dto.averageMonthlyLivingCostMin;
+  const costMax = dto.averageMonthlyLivingCostMax;
+  const livingCostLabel: Record<string, string> = isAr
+    ? { LOW: 'منخفضة', MODERATE: 'متوسطة', HIGH: 'مرتفعة', VERY_HIGH: 'مرتفعة جدًا' }
+    : { LOW: 'Low', MODERATE: 'Moderate', HIGH: 'High', VERY_HIGH: 'Very high' };
+  const studyLanguages = dto.studyLanguages.map((item) => isAr ? (item.nameAr || item.name) : item.name).filter(Boolean);
+  const officialLinks = dto.officialLinks.map((link) => ({
+    label: isAr ? link.labelAr : (link.labelEn || link.labelAr),
+    url: link.url,
+  }));
+  if (dto.visaOfficialUrl && !officialLinks.some((link) => link.url === dto.visaOfficialUrl)) {
+    officialLinks.unshift({ label: isAr ? 'المصدر الرسمي للتأشيرة' : 'Official visa source', url: dto.visaOfficialUrl });
+  }
   return {
-    id: dto.id,
-    ownerId: dto.id,
-    slug: dto.iso2Code.toLowerCase(),
-    name: dto.name,
-    nameEn: dto.officialName ?? dto.name,
-    flag: countryFlagEmoji(dto.iso2Code),
-    flagEmoji: countryFlagEmoji(dto.iso2Code),
-    continent: dto.region ?? '',
-    livingCost: firstString(meta.livingCost, 'غير متوفر'),
-    scholarshipAvailability: firstString(meta.scholarshipAvailability, 'غير متوفر'),
-    studentSuitability: firstString(meta.studentSuitability, 'غير متوفر'),
+    id: country.id,
+    ownerId: country.id,
+    publicId: dto.publicId,
+    slug: dto.slug,
+    name: isAr ? (country.nameAr || country.name) : country.name,
+    nameEn: country.officialName ?? country.name,
+    flag: countryFlagEmoji(country.iso2Code),
+    flagEmoji: countryFlagEmoji(country.iso2Code),
+    continent: country.region ?? '',
+    livingCost: dto.livingCostTier ? (livingCostLabel[dto.livingCostTier] ?? dto.livingCostTier) : (isAr ? 'غير محدد' : 'Not specified'),
+    scholarshipAvailability: isAr ? 'حسب المنح المنشورة' : 'See published scholarships',
+    studentSuitability: isAr ? 'راجع ملف الوجهة' : 'See destination profile',
     scholarshipsCount: 0,
     universitiesCount: 0,
-    description: firstString(meta.description),
+    description: (isAr ? dto.overviewAr : dto.overviewEn) ?? dto.overviewAr ?? dto.overviewEn ?? '',
     imageUrl: '',
-    popularCities: splitText(meta.popularCities),
-    averageLivingCostUsd: firstString(meta.averageLivingCostUsd),
-    languageOfStudy: dto.defaultLanguageCode ? [dto.defaultLanguageCode] : [],
-    visaEase: firstString(meta.visaEase, 'غير متوفر'),
-    iso2Code: dto.iso2Code,
-    iso3Code: dto.iso3Code,
-    subregion: dto.subregion ?? undefined,
-    currencyCode: dto.defaultCurrencyCode ?? undefined,
-    callingCode: dto.callingCode ?? undefined,
-    officialLanguages: dto.defaultLanguageCode ? [dto.defaultLanguageCode] : [],
+    popularCities: [],
+    averageLivingCostUsd: typeof costMin === 'number' && typeof costMax === 'number'
+      ? `${costMin.toLocaleString()}–${costMax.toLocaleString()} ${currencyCode}`.trim()
+      : '',
+    languageOfStudy: studyLanguages,
+    visaEase: isAr ? 'متطلبات موثقة' : 'Verified requirements',
+    iso2Code: country.iso2Code,
+    iso3Code: country.iso3Code,
+    subregion: country.subregion ?? undefined,
+    currencyCode: currencyCode || undefined,
+    callingCode: country.callingCode ?? undefined,
+    officialLanguages: country.defaultLanguageCode ? [country.defaultLanguageCode] : [],
+    studySystemSummary: (isAr ? dto.studySystemSummaryAr : dto.studySystemSummaryEn) ?? dto.studySystemSummaryAr ?? dto.studySystemSummaryEn ?? undefined,
+    admissionHighlights: isAr ? dto.admissionHighlightsAr : (dto.admissionHighlightsEn.length ? dto.admissionHighlightsEn : dto.admissionHighlightsAr),
+    visaHighlights: isAr ? dto.visaRequirementsAr : (dto.visaRequirementsEn.length ? dto.visaRequirementsEn : dto.visaRequirementsAr),
+    costHighlights: isAr ? dto.costHighlightsAr : (dto.costHighlightsEn.length ? dto.costHighlightsEn : dto.costHighlightsAr),
+    studentLifeHighlights: isAr ? dto.studentLifeHighlightsAr : (dto.studentLifeHighlightsEn.length ? dto.studentLifeHighlightsEn : dto.studentLifeHighlightsAr),
+    officialLinks,
   };
 }
 
-function mapExam(dto: PublicInternationalTestDto): Exam {
+export function mapExam(dto: PublicInternationalTestDto): Exam {
   const score = dto.scoreScale;
   const variants = dto.variants?.filter((variant) => variant.isActive).map((variant) => ({
     name: variant.variantName,
@@ -295,6 +322,11 @@ function mapExam(dto: PublicInternationalTestDto): Exam {
     })) ?? [],
     registrationRequirements: splitText(dto.registrationRequirements),
     retakeNotes: splitText(dto.retakePolicy),
+    relatedCountries: dto.countryRelationships?.map((relationship) => ({
+      id: relationship.canonicalReferenceId,
+      name: relationship.referenceCode ?? relationship.notes ?? relationship.canonicalReferenceId,
+      meta: relationship.relationshipType,
+    })) ?? [],
     officialLinks: dto.officialLinks?.map((link) => ({ label: link.description ?? link.linkType, url: link.url })) ?? [],
   };
 }
@@ -303,7 +335,7 @@ function stripHtml(value: string): string {
   return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function mapArticle(dto: PublicCmsContentDto): PublicArticle {
+export function mapArticle(dto: PublicCmsContentDto): PublicArticle {
   const plain = stripHtml(dto.body);
   const kind = dto.contentType.toUpperCase();
   const contentType: PublicArticle['contentType'] = kind.includes('NEWS') ? 'NEWS' : kind.includes('GUIDE') ? 'STUDY_GUIDE' : kind.includes('CHECKLIST') ? 'CHECKLIST' : 'ARTICLE';
@@ -327,7 +359,7 @@ function mapArticle(dto: PublicCmsContentDto): PublicArticle {
   };
 }
 
-function mapService(dto: PublicServiceCatalogItemDto): Service {
+export function mapService(dto: PublicServiceCatalogItemDto): Service {
   const metadata = asRecord(dto.publicDisplayMetadata);
   const audience: Service['audience'] = /student/i.test(dto.serviceCategory) || /student/i.test(dto.responsibleServiceOwnerType) ? 'student' : 'general';
   return {
@@ -357,9 +389,11 @@ function mapService(dto: PublicServiceCatalogItemDto): Service {
 }
 
 const toolCategoryMap: Record<string, StudentToolCategory> = {
-  WRITING_DOCUMENTS: 'الكتابة والوثائق', GUIDANCE: 'الإرشاد والتوجيه', STUDY_PLANNING: 'التخطيط الدراسي',
+  DOCUMENTS_AND_WRITING: 'الكتابة والوثائق', WRITING_DOCUMENTS: 'الكتابة والوثائق',
+  UNIVERSITIES: 'البحث والمقارنة', SCHOLARSHIPS: 'الإرشاد والتوجيه',
+  STUDENT_PLANNING: 'التخطيط الدراسي', STUDY_PLANNING: 'التخطيط الدراسي',
   ACADEMIC_CALCULATORS: 'الحاسبات الأكاديمية', ADMISSION_READINESS: 'القبول والجاهزية', SEARCH_COMPARISON: 'البحث والمقارنة',
-  FINANCIAL_PLANNING: 'التخطيط المالي', DOCUMENT_VERIFICATION: 'التحقق من الوثائق',
+  FINANCIAL_PLANNING: 'التخطيط المالي', DOCUMENT_VERIFICATION: 'التحقق من الوثائق', GUIDANCE: 'الإرشاد والتوجيه',
 };
 function mapTool(dto: PublicStudentToolDto, locale: PublicLiveLocale): StudentToolPreview {
   const executionLabel: StudentToolExecutionLabel = /AI|MODEL|PROMPT/i.test(dto.executionType) ? 'أداة ذكية' : /CALC/i.test(dto.executionType) ? 'حسابية' : /HYBRID/i.test(dto.executionType) ? 'هجينة' : 'بيانات ومقارنة';
@@ -377,17 +411,35 @@ function mapTool(dto: PublicStudentToolDto, locale: PublicLiveLocale): StudentTo
     estimatedTime: dto.estimatedMinutes ? `${dto.estimatedMinutes} دقائق` : '',
     badge: dto.lifecycle,
     purpose: locale === 'en' ? (dto.descriptionEn ?? dto.descriptionAr) : dto.descriptionAr,
-    howItWorks: [],
-    inputs: [],
-    outputs: [],
+    howItWorks: [
+      'تُراجع المدخلات على الخادم قبل التنفيذ.',
+      dto.executionType === 'AI_DELEGATED' ? 'يُرسل الطلب إلى Phase 17 عبر Capability محكومة، دون اختيار نموذج من الواجهة.' : dto.executionType === 'HYBRID' ? 'تُجمع البيانات من المجال المالك أولًا، ثم يُستخدم الذكاء الاصطناعي بصورة إرشادية عند توفره.' : 'يُنفذ المنطق المحدد دون نموذج ذكاء اصطناعي.',
+      'لا تُحفظ النتيجة في حساب الطالب إلا بطلب حفظ صريح.',
+    ],
+    inputs: (dto.inputSchema?.fields ?? []).map((field) => `${field.labelAr}${field.required ? ' *' : ''}`),
+    outputs: (dto.outputSchema?.fields ?? []).map((field) => field.labelAr),
+    notes: dto.executionType === 'AI_DELEGATED' || dto.executionType === 'HYBRID'
+      ? ['مخرجات الذكاء الاصطناعي مساعدة إرشادية وليست مصدر حقيقة للجامعة أو المنحة أو الحساب.']
+      : undefined,
   };
 }
 
-function mapCareer(dto: PublicCareerJobDto): CareerOpportunityPreview {
+export function mapCareer(dto: PublicCareerJobDto): CareerOpportunityPreview {
   const metadata = asRecord(dto.metadata);
-  const kind: CareerOpportunityKind = dto.opportunityType === 'INTERNSHIP' ? 'تدريب' : dto.opportunityType === 'GRADUATE_PROGRAM' ? 'برنامج خريجين' : 'وظيفة';
-  const workMode: CareerWorkMode = dto.remoteOption || dto.employmentType === 'REMOTE' ? 'عن بعد' : 'حضوري';
+  const kind: CareerOpportunityKind =
+    dto.opportunityType === 'INTERNSHIP' ? 'تدريب'
+      : dto.opportunityType === 'GRADUATE_PROGRAM' ? 'برنامج خريجين'
+        : dto.opportunityType === 'MENTORSHIP' ? 'إرشاد مهني'
+          : dto.opportunityType === 'CAREER_EVENT' ? 'فعالية مهنية'
+            : 'وظيفة';
+  const workMode: CareerWorkMode =
+    dto.remoteOption || dto.employmentType === 'REMOTE'
+      ? 'عن بعد'
+      : dto.employmentType === 'HYBRID'
+        ? 'هجين'
+        : 'حضوري';
   const employer = dto.employer?.displayName ?? 'جهة ناشرة';
+  const experienceLevel = firstString(metadata.experienceLevel, 'غير محدد') as CareerExperienceLevel;
   return {
     id: dto.slug,
     ownerId: dto.id,
@@ -405,7 +457,7 @@ function mapCareer(dto: PublicCareerJobDto): CareerOpportunityPreview {
     workMode,
     industry: dto.employer?.industry ?? dto.jobCategory,
     employmentType: dto.employmentType,
-    experienceLevel: dto.opportunityType === 'GRADUATE_PROGRAM' ? 'حديث التخرج' : dto.opportunityType === 'INTERNSHIP' ? 'طالب جامعي' : 'مبتدئ',
+    experienceLevel,
     salaryLabel: firstString(asRecord(dto.salaryRange).label, 'غير معلن'),
     durationLabel: firstString(metadata.durationLabel) || undefined,
     summary: firstString(metadata.summary, dto.description.slice(0, 220)),
@@ -415,6 +467,8 @@ function mapCareer(dto: PublicCareerJobDto): CareerOpportunityPreview {
     targetSkills: dto.requiredSkills ?? [],
     benefits: recordStringArray(metadata, 'benefits'),
     applicationSteps: recordStringArray(metadata, 'applicationSteps'),
+    applicationDeadline: dto.applicationDeadline ?? undefined,
+    externalPostingUrl: dto.externalPostingUrl ?? undefined,
     contextLinks: [],
     suggestTools: Boolean(metadata.suggestTools),
   };
@@ -422,15 +476,15 @@ function mapCareer(dto: PublicCareerJobDto): CareerOpportunityPreview {
 
 export async function loadPublishedUniversities(locale: PublicLiveLocale = 'ar'): Promise<University[]> {
   const result = await ApiClient.getUniversities({ locale, page: 1, pageSize: 50 });
-  return result.data.map(mapUniversity);
+  return result.data.map(mapPublicUniversityDto);
 }
 export async function loadPublishedMajors(locale: PublicLiveLocale = 'ar'): Promise<Major[]> {
   const result = await ApiClient.getMajors({ locale, page: 1, pageSize: 50 });
-  return result.data.map(mapMajor);
+  return result.data.map(mapPublicMajorDto);
 }
-export async function loadPublishedCountries(): Promise<CountryDestination[]> {
-  const result = await ApiClient.getReferenceCountries({ activeOnly: true });
-  return result.filter((item) => item.isActive).map(mapCountry);
+export async function loadPublishedCountries(locale: PublicLiveLocale = 'ar'): Promise<CountryDestination[]> {
+  const result = await ApiClient.getStudyDestinations({ page: 1, pageSize: 100 });
+  return result.data.map((item) => mapCountry(item, locale));
 }
 export async function loadPublishedExams(locale: PublicLiveLocale = 'ar'): Promise<Exam[]> {
   const result = await ApiClient.getInternationalTests({ locale, page: 1, pageSize: 50 });
@@ -464,7 +518,7 @@ export async function loadPublicLiveSnapshot(locale: PublicLiveLocale = 'ar'): P
   const errors: Partial<Record<PublicLiveDomain, string>> = {};
   const loaders: Array<[PublicLiveDomain, () => Promise<unknown>]> = [
     ['scholarships', () => ApiClient.getScholarships({ page: 1, pageSize: 50 }).then((result) => result.data.map((dto) => mapPublicScholarshipDto(dto)))],
-    ['universities', () => loadPublishedUniversities(locale)], ['majors', () => loadPublishedMajors(locale)], ['countries', loadPublishedCountries],
+    ['universities', () => loadPublishedUniversities(locale)], ['majors', () => loadPublishedMajors(locale)], ['countries', () => loadPublishedCountries(locale)],
     ['exams', () => loadPublishedExams(locale)], ['courses', loadPublishedCourses], ['articles', () => loadPublishedArticles(locale)],
     ['services', loadPublishedServices], ['careers', loadPublishedCareers], ['tools', () => loadPublishedTools(locale)],
   ];

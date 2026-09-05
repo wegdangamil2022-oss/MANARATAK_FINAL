@@ -175,13 +175,25 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
       securityService: awilix.asValue(securityService)
     });
 
-    // Production-like runtimes must never start with the deliberately unavailable
-    // local/no-op asset security composition. This check happens before any DB connect.
-    assertAssetSecurityProvidersForRuntime(currentEnv, {
+    const describeRuntimeCapability = (provider: any): string => {
+      if (!provider) return 'UNAVAILABLE';
+      if (typeof provider.capabilityStatus === 'string') return provider.capabilityStatus;
+      if (provider.isProductionReady === true) return 'PRODUCTION_CAPABLE';
+      if (typeof provider.persistenceClassification === 'string') return provider.persistenceClassification;
+      const name = String(provider.constructor?.name || '');
+      if (/^Local|InMemory|Noop/i.test(name)) return 'LOCAL_ONLY';
+      return 'CONFIGURED';
+    };
+
+    const assetRuntimeProviders = {
       storage: container.resolve<any>('assetStorageGateway'),
       malwareScanner: container.resolve<any>('assetMalwareScannerGateway'),
       sanitizer: container.resolve<any>('assetSanitizationGateway'),
-    });
+    };
+
+    // Production-like runtimes must never start with the deliberately unavailable
+    // local/no-op asset security composition. This check happens before any DB connect.
+    assertAssetSecurityProvidersForRuntime(currentEnv, assetRuntimeProviders);
 
     // Establish Database Connection if available
     if (databaseRequired && !currentEnv.DATABASE_URL) {
@@ -226,15 +238,64 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     }
 
     monitoringService.registerIndicator({
+      name: 'database-schema',
+      isOptional: !isProductionOrStaging,
+      checkHealth: async () => {
+        try {
+          const prisma = PrismaConnection.getInstance() as any;
+          const rows = await prisma.$queryRawUnsafe(
+            'SELECT COUNT(*)::int AS "failedCount" FROM "_prisma_migrations" WHERE "finished_at" IS NULL AND "rolled_back_at" IS NULL',
+          );
+          const failedCount = Number(Array.isArray(rows) ? rows[0]?.failedCount ?? 0 : 0);
+          const healthy = failedCount === 0;
+          return {
+            status: healthy ? HealthStatus.UP : (isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.DEGRADED),
+            timestamp: new Date().toISOString(),
+            ...(!healthy ? { error: 'DATABASE_MIGRATION_HISTORY_HAS_INCOMPLETE_ENTRIES' } : {}),
+            details: {
+              capabilityStatus: healthy ? 'APPLIED_HISTORY_HEALTHY' : 'INCOMPLETE_MIGRATION_HISTORY',
+              failedOrIncompleteMigrations: failedCount,
+              scope: 'APPLIED_MIGRATION_HISTORY_ONLY',
+            },
+          };
+        } catch (error: any) {
+          return {
+            status: isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.DEGRADED,
+            timestamp: new Date().toISOString(),
+            error: error?.message || 'DATABASE_MIGRATION_HISTORY_UNAVAILABLE',
+            details: {
+              capabilityStatus: 'MIGRATION_HISTORY_UNAVAILABLE',
+              scope: 'APPLIED_MIGRATION_HISTORY_ONLY',
+            },
+          };
+        }
+      },
+    });
+
+    monitoringService.registerIndicator({
       name: 'asset-platform',
-      isOptional: false,
-      checkHealth: async () => ({
-        status: isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.UP,
-        timestamp: new Date().toISOString(),
-        ...(isProductionOrStaging
-          ? { error: 'ASSET_RUNTIME_PROVIDER_NOT_CONFIGURED' }
-          : {}),
-      }),
+      isOptional: !isProductionOrStaging,
+      checkHealth: async () => {
+        const capabilities = {
+          storage: describeRuntimeCapability(assetRuntimeProviders.storage),
+          malwareScanner: describeRuntimeCapability(assetRuntimeProviders.malwareScanner),
+          sanitizer: describeRuntimeCapability(assetRuntimeProviders.sanitizer),
+        };
+        const unavailable = Object.values(capabilities).some((value) =>
+          ['UNAVAILABLE', 'NOT_CONFIGURED', 'LOCAL_ONLY'].includes(value),
+        );
+        return {
+          status: unavailable
+            ? (isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.DEGRADED)
+            : HealthStatus.UP,
+          timestamp: new Date().toISOString(),
+          ...(unavailable ? { error: 'ASSET_RUNTIME_CAPABILITY_GAP' } : {}),
+          details: {
+            capabilityStatus: unavailable ? (isProductionOrStaging ? 'UNAVAILABLE' : 'DEVELOPMENT_ONLY') : 'AVAILABLE',
+            ...capabilities,
+          },
+        };
+      },
     });
 
     // Register Redis Health Indicator if available
@@ -280,6 +341,224 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
         })
       });
     }
+
+    // Operational capability probes used by the Health & Readiness control plane.
+    // These probes expose configuration/capability state only; they never return secrets.
+    const importQueueGateway = container.resolve<any>('importQueueGateway');
+    const importRawSnapshotStore = container.resolve<any>('importRawSnapshotStore');
+    const sourceRegistryGateway = container.resolve<any>('sourceRegistryGateway');
+    monitoringService.registerIndicator({
+      name: 'import-foundation',
+      isOptional: !isProductionOrStaging,
+      checkHealth: async () => {
+        const queuePersistence = String(importQueueGateway?.persistenceClassification || describeRuntimeCapability(importQueueGateway));
+        const snapshotCapability = describeRuntimeCapability(importRawSnapshotStore);
+        const sourceRegistryCapability = describeRuntimeCapability(sourceRegistryGateway);
+        const durableQueue = queuePersistence === 'DURABLE';
+        const durableSnapshot = !['UNAVAILABLE', 'NOT_CONFIGURED', 'LOCAL_ONLY'].includes(snapshotCapability);
+        const productionReady = durableQueue && durableSnapshot;
+        const developmentOnly = !durableQueue || snapshotCapability === 'LOCAL_ONLY' || sourceRegistryCapability === 'LOCAL_ONLY';
+
+        return {
+          status: isProductionOrStaging
+            ? (productionReady ? HealthStatus.UP : HealthStatus.DOWN)
+            : (developmentOnly ? HealthStatus.DEGRADED : HealthStatus.UP),
+          timestamp: new Date().toISOString(),
+          ...((isProductionOrStaging && !productionReady) ? { error: 'IMPORT_RUNTIME_NOT_PRODUCTION_READY' } : {}),
+          details: {
+            capabilityStatus: productionReady ? 'AVAILABLE' : (developmentOnly ? 'DEVELOPMENT_ONLY' : 'NOT_CONFIGURED'),
+            queuePersistence,
+            snapshotCapability,
+            sourceRegistryCapability,
+          },
+        };
+      },
+    });
+
+    monitoringService.registerIndicator({
+      name: 'admin-auth',
+      isOptional: !isProductionOrStaging,
+      checkHealth: async () => {
+        const strict = adminAuthMode === 'strict';
+        return {
+          status: strict ? HealthStatus.UP : (isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.DEGRADED),
+          timestamp: new Date().toISOString(),
+          ...(!strict ? { error: 'ADMIN_AUTH_NOT_STRICT' } : {}),
+          details: {
+            capabilityStatus: strict ? 'AVAILABLE' : 'DEVELOPMENT_ONLY',
+            mode: adminAuthMode,
+            sessionPersistence: 'PRISMA',
+          },
+        };
+      },
+    });
+
+    monitoringService.registerIndicator({
+      name: 'ai-providers',
+      isOptional: true,
+      checkHealth: async () => {
+        const registry = container.resolve<any>('aiProviderRegistry');
+        const providers = typeof registry?.list === 'function' ? registry.list() : [];
+        const statuses = providers.map((provider: any) =>
+          typeof provider?.status === 'function' ? String(provider.status()) : 'NOT_CONFIGURED',
+        );
+        const ready = statuses.filter((status: string) => status === 'READY').length;
+        const runtimePending = statuses.filter((status: string) => status === 'RUNTIME_PENDING').length;
+        const degraded = statuses.filter((status: string) => status === 'DEGRADED').length;
+        const unavailable = statuses.filter((status: string) => status === 'UNAVAILABLE').length;
+        const notConfigured = statuses.filter((status: string) => status === 'NOT_CONFIGURED').length;
+        const capabilityStatus = ready > 0 ? 'AVAILABLE' : runtimePending > 0 ? 'RUNTIME_PENDING' : 'NOT_CONFIGURED';
+        return {
+          status: ready > 0 ? HealthStatus.UP : HealthStatus.DEGRADED,
+          timestamp: new Date().toISOString(),
+          ...(ready === 0 ? { error: runtimePending > 0 ? 'AI_PROVIDER_RUNTIME_PENDING' : 'AI_PROVIDER_NOT_CONFIGURED' } : {}),
+          details: {
+            capabilityStatus,
+            providerCount: providers.length,
+            ready,
+            runtimePending,
+            degraded,
+            unavailable,
+            notConfigured,
+          },
+        };
+      },
+    });
+
+    monitoringService.registerIndicator({
+      name: 'payment-gateway',
+      isOptional: true,
+      checkHealth: async () => {
+        const providerKey = String(currentEnv.FINANCE_PAYMENT_PROVIDER_KEY || 'PRIMARY_PAYMENT').trim();
+        const registry = container.resolve<any>('financePaymentGatewayRegistry');
+        const provider = typeof registry?.get === 'function' ? registry.get(providerKey) : null;
+        const configured = Boolean(provider && typeof provider.isConfigured === 'function' && provider.isConfigured());
+        return {
+          // The current environment-backed adapter intentionally has no live transport yet.
+          status: HealthStatus.DEGRADED,
+          timestamp: new Date().toISOString(),
+          error: configured ? 'PAYMENT_RUNTIME_TRANSPORT_PENDING' : 'PAYMENT_PROVIDER_NOT_CONFIGURED',
+          details: {
+            capabilityStatus: configured ? 'TRANSPORT_PENDING' : 'NOT_CONFIGURED',
+            providerConfigured: configured,
+          },
+        };
+      },
+    });
+
+    monitoringService.registerIndicator({
+      name: 'notifications',
+      isOptional: true,
+      checkHealth: async () => {
+        const intentRepo = container.resolve<any>('notificationIntentRepo');
+        const templateRepo = container.resolve<any>('notificationTemplateRepo');
+        const preferenceGateway = container.resolve<any>('notificationPrefGateway');
+        const capabilities = [
+          describeRuntimeCapability(intentRepo),
+          describeRuntimeCapability(templateRepo),
+          describeRuntimeCapability(preferenceGateway),
+        ];
+        const available = capabilities.every((status) => !['UNAVAILABLE', 'NOT_CONFIGURED', 'LOCAL_ONLY'].includes(status));
+        return {
+          status: available ? HealthStatus.UP : HealthStatus.DEGRADED,
+          timestamp: new Date().toISOString(),
+          ...(!available ? { error: 'NOTIFICATION_RUNTIME_NOT_CONFIGURED' } : {}),
+          details: {
+            capabilityStatus: available ? 'AVAILABLE' : 'NOT_CONFIGURED',
+            persistence: capabilities[0],
+            templates: capabilities[1],
+            preferences: capabilities[2],
+          },
+        };
+      },
+    });
+
+    monitoringService.registerIndicator({
+      name: 'background-jobs',
+      isOptional: true,
+      checkHealth: async () => {
+        const repository = container.resolve<any>('bgJobRepo');
+        const execution = container.resolve<any>('bgJobGateway');
+        const repositoryStatus = describeRuntimeCapability(repository);
+        const executionStatus = describeRuntimeCapability(execution);
+        const available = !['UNAVAILABLE', 'NOT_CONFIGURED', 'LOCAL_ONLY'].includes(repositoryStatus)
+          && !['UNAVAILABLE', 'NOT_CONFIGURED', 'LOCAL_ONLY'].includes(executionStatus);
+        return {
+          status: available ? HealthStatus.UP : HealthStatus.DEGRADED,
+          timestamp: new Date().toISOString(),
+          ...(!available ? { error: 'BACKGROUND_JOB_RUNTIME_NOT_CONFIGURED' } : {}),
+          details: {
+            capabilityStatus: available ? 'AVAILABLE' : 'NOT_CONFIGURED',
+            repository: repositoryStatus,
+            execution: executionStatus,
+          },
+        };
+      },
+    });
+
+    monitoringService.registerIndicator({
+      name: 'public-web',
+      isOptional: !isProductionOrStaging,
+      checkHealth: async () => {
+        const target = String(currentEnv.PUBLIC_WEB_URL || currentEnv.CORS_ORIGIN || '').trim();
+        if (!target) {
+          return {
+            status: isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.DEGRADED,
+            timestamp: new Date().toISOString(),
+            error: 'PUBLIC_WEB_URL_NOT_CONFIGURED',
+            details: { capabilityStatus: 'NOT_CONFIGURED' },
+          };
+        }
+
+        let parsed: URL;
+        try {
+          parsed = new URL(target);
+        } catch {
+          return {
+            status: isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.DEGRADED,
+            timestamp: new Date().toISOString(),
+            error: 'PUBLIC_WEB_URL_INVALID',
+            details: { capabilityStatus: 'INVALID_CONFIGURATION' },
+          };
+        }
+        if (!['http:', 'https:'].includes(parsed.protocol) || (isProductionOrStaging && parsed.protocol !== 'https:')) {
+          return {
+            status: isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.DEGRADED,
+            timestamp: new Date().toISOString(),
+            error: 'PUBLIC_WEB_URL_PROTOCOL_NOT_ALLOWED',
+            details: { capabilityStatus: 'INVALID_CONFIGURATION', protocol: parsed.protocol },
+          };
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2500);
+        const startedAt = Date.now();
+        try {
+          const response = await fetch(parsed.toString(), { method: 'HEAD', redirect: 'manual', signal: controller.signal });
+          const latencyMs = Date.now() - startedAt;
+          const reachable = response.status >= 200 && response.status < 500;
+          return {
+            status: reachable ? HealthStatus.UP : (isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.DEGRADED),
+            timestamp: new Date().toISOString(),
+            ...(!reachable ? { error: `PUBLIC_WEB_HTTP_${response.status}` } : {}),
+            details: {
+              capabilityStatus: reachable ? 'REACHABLE' : 'UNREACHABLE',
+              latencyMs,
+              httpStatus: response.status,
+            },
+          };
+        } catch (error: any) {
+          return {
+            status: isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.DEGRADED,
+            timestamp: new Date().toISOString(),
+            error: error?.name === 'AbortError' ? 'PUBLIC_WEB_PROBE_TIMEOUT' : (error?.message || 'PUBLIC_WEB_PROBE_FAILED'),
+            details: { capabilityStatus: 'UNREACHABLE', latencyMs: Date.now() - startedAt },
+          };
+        } finally {
+          clearTimeout(timeout);
+        }
+      },
+    });
 
     // Define API v1 Router
     const v1Router = Router();
@@ -334,6 +613,10 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     // Phase 7: Reference Data & Academic Taxonomy
     v1Router.use('/admin/reference-data', requireAdminPermission('admin:reference-data:manage'), container.resolve<Router>('referenceDataAdminRouter'));
     v1Router.use('/reference-data', container.resolve<Router>('referenceDataPublicRouter'));
+    // Study Destinations are an editorial/domain profile layered on canonical country references.
+    // Authorization reuses the existing reference-data management capability without moving profile ownership into P7.
+    v1Router.use('/admin/study-destinations', requireAdminPermission('admin:reference-data:manage'), container.resolve<Router>('studyDestinationAdminRouter'));
+    v1Router.use('/study-destinations', container.resolve<Router>('studyDestinationPublicRouter'));
     v1Router.use('/admin/academic-taxonomy', requireAdminPermission('admin:academic-taxonomy:manage'), container.resolve<Router>('academicTaxonomyAdminRouter'));
     v1Router.use('/academic-taxonomy', container.resolve<Router>('academicTaxonomyPublicRouter'));
 
@@ -399,8 +682,19 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     v1Router.use('/ai', requireAdminPermission('admin:ai:manage'), lazyRouter('aiGatewayRouter'));
     v1Router.use('/admin/ai', requireAdminPermission('admin:ai:manage'), lazyRouter('aiAdminRouter'));
 
-    // Core Required Monitoring Router (Eager)
-    v1Router.use('/monitoring', MonitoringRouter.create({ monitoringService, productionReadinessReport }));
+    // Public monitoring exposes only liveness/readiness health contracts. The richer
+    // diagnostic and production-readiness payload is control-plane data and stays
+    // behind the authenticated admin + RBAC boundary.
+    v1Router.use('/admin/monitoring', requireAdminPermission('admin:platform:manage'), MonitoringRouter.create({
+      monitoringService,
+      productionReadinessReport,
+      runtimeMode: currentEnv.NODE_ENV || 'development',
+      diagnosticsEnabled: true,
+    }));
+    v1Router.use('/monitoring', MonitoringRouter.create({
+      monitoringService,
+      runtimeMode: currentEnv.NODE_ENV || 'development',
+    }));
 
     apiRouter.registerVersion('v1', v1Router);
     

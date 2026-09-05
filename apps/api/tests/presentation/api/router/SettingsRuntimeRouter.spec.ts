@@ -29,24 +29,15 @@ describe('SettingsRuntimeRouter', () => {
     expect(res.body.data.value).toBe('test-val');
     expect(mockResolveConfigurationUseCase.resolveSetting).toHaveBeenCalledWith(
       'test.key',
-      'id-1',
-      'tenant-1'
+      { identityId: 'id-1', tenantId: 'tenant-1' }
     );
   });
 
-  it('GET /resolve/:key maps deprecated organizationId correctly', async () => {
-    mockResolveConfigurationUseCase.resolveSetting.mockResolvedValue('test-val-2');
-
-    const res = await request(app)
-      .get('/api/v1/runtime/settings/resolve/test.key?organizationId=org-1');
-
+  it('GET /resolve/:key distinguishes domain scope explicitly', async () => {
+    mockResolveConfigurationUseCase.resolveSetting.mockResolvedValue('domain-val');
+    const res = await request(app).get('/api/v1/runtime/settings/resolve/test.key?domainId=courses');
     expect(res.status).toBe(200);
-    expect(res.body.data.value).toBe('test-val-2');
-    expect(mockResolveConfigurationUseCase.resolveSetting).toHaveBeenCalledWith(
-      'test.key',
-      undefined,
-      'org-1'
-    );
+    expect(mockResolveConfigurationUseCase.resolveSetting).toHaveBeenCalledWith('test.key', { domainId: 'courses' });
   });
 
   it('GET /resolve/:key handles resolution error', async () => {

@@ -74,7 +74,8 @@ export class SecurityMiddlewareFactory {
     return cors({
       origin: options.allowedOrigins.includes('*') ? '*' : options.allowedOrigins,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-CSRF-Token', 'x-csrf-token'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-CSRF-Token', 'x-csrf-token', 'x-student-tools-session'],
+      exposedHeaders: ['x-student-tools-session', 'x-student-tools-session-expires-at'],
       credentials: true,
       maxAge: 86400
     });

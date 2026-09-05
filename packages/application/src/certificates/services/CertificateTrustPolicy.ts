@@ -1,4 +1,5 @@
 import { createHash, createHmac } from 'crypto';
+import { createQrMatrix } from '@manaratak/shared';
 import {
   CertificateNumberingInput,
   CertificateVerificationQrPayload,
@@ -11,6 +12,7 @@ export interface CertificateSigningRuntimeConfiguration {
   signingKeyReference?: string;
   signingSecret?: string;
   productionLike?: boolean;
+  publicVerificationBaseUrl?: string;
 }
 
 /**
@@ -52,6 +54,36 @@ export class CertificateTrustPolicy
     } catch {
       return false;
     }
+  }
+
+
+  public createPublicVerificationUrl(verificationCode: string): string {
+    const code = verificationCode.trim();
+    if (!code) throw new Error('CERTIFICATE_VERIFICATION_CODE_REQUIRED');
+    const configured = this.runtime.publicVerificationBaseUrl?.trim();
+    if (!configured && this.runtime.productionLike) {
+      throw new Error('CERTIFICATE_PUBLIC_VERIFICATION_BASE_URL_NOT_CONFIGURED');
+    }
+    const base = (configured || 'http://localhost:5173').replace(/\/$/, '');
+    const url = `${base}/certificates/verify?code=${encodeURIComponent(code)}`;
+    try {
+      createQrMatrix(url);
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('QR_PAYLOAD_TOO_LONG')) {
+        throw new Error('CERTIFICATE_PUBLIC_VERIFICATION_URL_EXCEEDS_QR_CAPACITY');
+      }
+      throw error;
+    }
+    return url;
+  }
+
+  public runtimeReadiness() {
+    return {
+      productionLike: Boolean(this.runtime.productionLike),
+      signingKeyReferenceConfigured: Boolean(this.runtime.signingKeyReference?.trim()),
+      signingProviderConfigured: Boolean(this.runtime.signingSecret?.trim()),
+      publicVerificationBaseUrlConfigured: Boolean(this.runtime.publicVerificationBaseUrl?.trim()),
+    };
   }
 
   public createPayload(verificationCode: string, verificationUrl: string): CertificateVerificationQrPayload {

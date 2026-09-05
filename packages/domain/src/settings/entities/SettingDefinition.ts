@@ -37,6 +37,10 @@ export class SettingDefinition {
       throw new Error('SettingDefinition valueType is required.');
     }
 
+    if ((props.isSecret ?? false) && props.defaultValue !== undefined && props.defaultValue !== null) {
+      throw new Error('Secret setting definitions cannot persist a default value. Use the approved runtime secret provider.');
+    }
+
     this.id = props.id.trim();
     this.key = props.key;
     this.valueType = props.valueType;

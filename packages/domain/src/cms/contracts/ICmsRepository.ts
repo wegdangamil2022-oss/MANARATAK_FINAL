@@ -4,6 +4,7 @@ import {
   CmsBlockSchemaDto,
   CmsContentBlockDto,
   CmsContentDetailDto,
+  CmsContentDomainLinkDto,
   CmsContentDto,
   CmsContentFilters,
   CmsContentRevisionDto,
@@ -23,6 +24,7 @@ import {
   PublicCmsContentDto,
   UpdateCmsContentDto,
   UpsertCmsLocalizedContentDto,
+  UpsertCmsContentDomainLinkDto,
 } from '../entities/CmsContent';
 
 export interface ICmsDeliveryCache {
@@ -63,6 +65,9 @@ export interface ICmsRepository {
     locale?: string,
   ): Promise<PaginatedCmsResult<PublicCmsContentDto>>;
   getPublishedBySlug(slug: string, locale?: string, siteIdentifier?: string): Promise<PublicCmsContentDto | null>;
+  replaceDomainLinks?(contentId: string, links: UpsertCmsContentDomainLinkDto[], actorId: string): Promise<CmsContentDomainLinkDto[]>;
+  listDomainLinks?(contentId: string): Promise<CmsContentDomainLinkDto[]>;
+  listPublishedByDomainTarget?(targetType: string, targetId: string, locale?: string, siteIdentifier?: string, limit?: number): Promise<PublicCmsContentDto[]>;
   changeLocalizedSlug(data: CmsSlugChangeDto): Promise<CmsLocalizedContentDto>;
   listRedirects(siteIdentifier?: string, locale?: string): Promise<CmsRedirectDto[]>;
   createRedirect(data: Omit<CmsRedirectDto, 'id' | 'createdAt' | 'updatedAt'>): Promise<CmsRedirectDto>;

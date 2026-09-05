@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { writeXlsxWorkbook } from '@manaratak/shared';
-import { CourseMasterArtifactParser } from '../../src/import-foundation/parsers/CourseMasterArtifactParser';
+import { CourseMasterArtifactParser } from '../../src/courses/parsers/CourseMasterArtifactParser';
 
 const HEADERS = [
   'No.',

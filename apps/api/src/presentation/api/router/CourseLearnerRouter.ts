@@ -22,6 +22,7 @@ export class CourseLearnerRouter {
     router.post('/learning-paths/:pathId/progress/refresh', asyncHandler(async (req: Request, res: Response) => res.json(await learningPathUseCases.refreshProgress(req.params.pathId, student(req), context(req)))));
 
     router.post('/:courseId/enroll', asyncHandler(async (req: Request, res: Response) => res.status(201).json(await courseProgressUseCases.enroll(req.params.courseId, student(req)))));
+    router.get('/:courseId/workspace', asyncHandler(async (req: Request, res: Response) => res.json(await courseProgressUseCases.getLearningWorkspace(req.params.courseId, student(req)))));
     router.get('/:courseId/progress', asyncHandler(async (req: Request, res: Response) => res.json(await courseProgressUseCases.getProgress(req.params.courseId, student(req)))));
     router.put('/:courseId/lessons/:lessonId/progress', asyncHandler(async (req: Request, res: Response) => {
       const body = lessonProgressSchema.parse(req.body);

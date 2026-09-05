@@ -170,6 +170,7 @@ export class ApplicationLocaleProjectionService {
       translations: _translations,
       localizedTexts: _localizedTexts,
       localizedNames: _localizedNames,
+      sourceRecords: _sourceRecords,
       ...publicData
     } = university;
 
@@ -179,21 +180,26 @@ export class ApplicationLocaleProjectionService {
       displayName,
       description,
       campuses: this.projectUniversityChildren(
-        university.campuses,
+        this.publicActiveUniversityChildren(university.campuses),
         'CAMPUS',
         localizedTexts,
         locale,
         sourceLocale,
       ),
       organizationUnits: this.projectUniversityChildren(
-        university.organizationUnits,
+        this.publicActiveUniversityChildren(university.organizationUnits),
         'ORGANIZATION_UNIT',
         localizedTexts,
         locale,
         sourceLocale,
       ),
       academicPrograms: this.projectUniversityChildren(
-        university.academicPrograms,
+        (university.academicPrograms ?? [])
+          .filter((program) => program.status === 'ACTIVE')
+          .map((program) => ({
+            ...program,
+            admissionRequirements: (program.admissionRequirements ?? []).filter((requirement) => requirement.status === 'ACTIVE'),
+          })),
         'ACADEMIC_PROGRAM',
         localizedTexts,
         locale,
@@ -331,6 +337,13 @@ export class ApplicationLocaleProjectionService {
       if (value !== undefined) values[translation.locale] = value;
     }
     return values;
+  }
+
+  private publicActiveUniversityChildren(collection: unknown[] | undefined): unknown[] | undefined {
+    if (!Array.isArray(collection)) return collection;
+    return collection.filter((item) =>
+      !this.isRecord(item) || item.status === undefined || item.status === 'ACTIVE',
+    );
   }
 
   private projectUniversityChildren(

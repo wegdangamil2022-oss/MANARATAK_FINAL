@@ -2,9 +2,11 @@ import {
   IUniversityRepository,
   ITransactionalUniversityRepository,
   PaginatedUniversityResult,
+  PaginatedUniversityOrganizationUnitResult,
   UniversityCompletenessClassifier,
   UniversityDto,
   UniversityFilters,
+  UniversityOrganizationUnitFilters,
   UniversityImportCompletenessState,
   UniversityStatus,
   UniversityNormalizedDetailsUpdate,
@@ -15,6 +17,7 @@ import {
   PublicationReadinessResult,
   UniversityPublicationReadinessPolicy,
 } from '@manaratak/domain';
+import { assertNoTranslationPayloadFields, assertTranslationContentAuthoringEnabled } from '@manaratak/shared';
 import {
   AtomicDomainMutationCoordinator,
   AtomicMutationRequestContext,
@@ -32,6 +35,15 @@ export class AdminUniversityUseCases {
     filters: UniversityFilters,
   ): Promise<PaginatedUniversityResult<UniversityDto>> {
     return this.repository.list(filters);
+  }
+
+  public async listOrganizationUnits(
+    filters: UniversityOrganizationUnitFilters,
+  ): Promise<PaginatedUniversityOrganizationUnitResult> {
+    if (!this.repository.listOrganizationUnits) {
+      throw new Error('UNIVERSITY_ORGANIZATION_UNIT_QUERY_NOT_AVAILABLE');
+    }
+    return this.repository.listOrganizationUnits(filters);
   }
 
   public async getUniversity(id: string): Promise<UniversityDto> {
@@ -58,6 +70,7 @@ export class AdminUniversityUseCases {
     >,
     context?: AtomicMutationRequestContext,
   ): Promise<UniversityTranslationDto> {
+    assertTranslationContentAuthoringEnabled('UNIVERSITY');
     await this.getUniversity(id);
     if (input.locale !== 'ar' && input.locale !== 'en') {
       throw new Error(`UNSUPPORTED_TRANSLATION_LOCALE:${input.locale}`);
@@ -76,6 +89,7 @@ export class AdminUniversityUseCases {
     updates: UpdateUniversityDto,
     context?: AtomicMutationRequestContext,
   ): Promise<UniversityDto> {
+    assertNoTranslationPayloadFields('UNIVERSITY', updates.optionalFields, ['localizedNames']);
     const existing = await this.getUniversity(id);
     const canonicalRelationshipMutation =
       updates.countryReferenceId !== undefined ||
@@ -152,7 +166,15 @@ export class AdminUniversityUseCases {
     details: UniversityNormalizedDetailsUpdate,
     context?: AtomicMutationRequestContext,
   ): Promise<UniversityDto> {
-    await this.getUniversity(id);
+    assertNoTranslationPayloadFields(
+      'UNIVERSITY',
+      details as unknown as Record<string, unknown>,
+      ['localizedNames'],
+    );
+    const existing = await this.getUniversity(id);
+    if (existing.status === UniversityStatus.PUBLISHED) {
+      throw new Error('UNIVERSITY_PUBLISHED_STRUCTURE_IMMUTABLE');
+    }
     return this.mutate(
       'UNIVERSITY_NORMALIZED_DETAILS_REPLACED',
       id,
@@ -240,6 +262,10 @@ export class AdminUniversityUseCases {
   }
 
   public async archive(id: string, context?: AtomicMutationRequestContext): Promise<void> {
+    const existing = await this.getUniversity(id);
+    if (existing.status === UniversityStatus.PUBLISHED) {
+      throw new Error('Cannot archive a PUBLISHED university. Unpublish first.');
+    }
     await this.mutate('UNIVERSITY_ARCHIVED', id, context, (repository) =>
       repository.updateStatus(id, UniversityStatus.ARCHIVED),
     );

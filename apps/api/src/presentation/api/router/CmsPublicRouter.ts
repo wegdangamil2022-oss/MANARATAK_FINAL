@@ -2,7 +2,7 @@ import { NextFunction, Request, Response, Router } from 'express';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { PublicCmsUseCases } from '@manaratak/application';
-import { CmsContentType } from '@manaratak/domain';
+import { CmsContentType, CmsDomainTargetType } from '@manaratak/domain';
 
 export class CmsPublicRouter {
   public static create(cradle: { publicCmsUseCases: PublicCmsUseCases }): Router {
@@ -52,6 +52,21 @@ export class CmsPublicRouter {
         res.json(payload);
       }),
     );
+
+    router.get('/related', asyncHandler(async (req, res) => {
+      const query = z.object({
+        targetType: z.nativeEnum(CmsDomainTargetType),
+        targetId: z.string().trim().uuid(),
+        locale: z.enum(['ar', 'en']).default('ar'),
+        siteIdentifier: z.string().default('manaratak'),
+        limit: z.coerce.number().int().min(1).max(24).default(6),
+      }).parse(req.query);
+      const data = await publicCmsUseCases.listRelated(query.targetType, query.targetId, query.locale, query.siteIdentifier, query.limit);
+      const payload = { data };
+      if (deliveryHeaders(req, res, payload)) return;
+      res.json(payload);
+    }));
+
     router.get('/navigation/:locationKey', asyncHandler(async (req, res) => {
       const query = z.object({ locale: z.enum(['ar', 'en']).default('ar'), siteIdentifier: z.string().default('manaratak') }).parse(req.query);
       const menus = await publicCmsUseCases.listNavigation(query.siteIdentifier, query.locale);

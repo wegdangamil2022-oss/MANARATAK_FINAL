@@ -58,9 +58,9 @@ export const Header: React.FC<HeaderProps> = ({
                 onTabChange?.('home');
                 onSelectCategory?.('all');
               }}
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden shrink-0 shadow-xs border-2 border-[var(--mn-accent)] bg-[var(--mn-primary)] flex items-center justify-center cursor-pointer transition-transform active:scale-95 mn-inverse "
+              className="w-[42px] h-[42px] sm:w-[54px] sm:h-[54px] rounded-full overflow-hidden shrink-0 shadow-xs border-2 border-[var(--mn-accent)] bg-[var(--mn-surface)] mn-dark:bg-[var(--mn-surface-elevated)] flex items-center justify-center cursor-pointer transition-transform active:scale-95 p-1"
             >
-              <ManaratakLogo size={64} className="w-full h-full object-cover" />
+              <ManaratakLogo size={54} className="w-full h-full" />
             </button>
 
             {/* Brand Typography */}
@@ -90,14 +90,14 @@ export const Header: React.FC<HeaderProps> = ({
                 {isDarkMode ? (
                   <>
                     <Sun className="w-3.5 h-3.5 text-[var(--mn-accent-text)]" />
-                    <span className="font-extrabold text-[10px] sm:text-xs text-[var(--mn-accent-text)] hidden xs:inline">
+                    <span className="font-semibold text-[10px] sm:text-xs text-[var(--mn-accent-text)] hidden xs:inline">
                       نهاري
                     </span>
                   </>
                 ) : (
                   <>
                     <Moon className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                    <span className="font-extrabold text-[10px] sm:text-xs text-[var(--mn-heading)] hidden xs:inline">
+                    <span className="font-semibold text-[10px] sm:text-xs text-[var(--mn-heading)] hidden xs:inline">
                       ليلي
                     </span>
                   </>
@@ -114,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({
               aria-label="لغة الواجهة"
             >
               <Globe className="w-3.5 h-3.5 text-[var(--mn-accent-text)]" />
-              <span className="font-extrabold tracking-wide text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)]">
+              <span className="font-semibold tracking-wide text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)]">
                 AR
               </span>
             </button>
@@ -130,7 +130,7 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -left-1 min-w-[16px] h-4 px-1 rounded-full bg-[var(--mn-accent)] text-[var(--mn-on-accent)] text-[8px] font-black flex items-center justify-center ring-2 ring-[var(--mn-surface)] mn-dark:ring-[var(--mn-surface)] mn-gold ">
+                  <span className="absolute -top-1 -left-1 min-w-[16px] h-4 px-1 rounded-full bg-[var(--mn-accent)] text-[var(--mn-on-accent)] text-[8px] font-semibold flex items-center justify-center ring-2 ring-[var(--mn-surface)] mn-dark:ring-[var(--mn-surface)] mn-gold ">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -173,7 +173,7 @@ export const Header: React.FC<HeaderProps> = ({
                 event.preventDefault();
                 onGlobalSearchSubmit?.(globalSearchQuery.trim());
               }}
-              className="min-w-0 flex-1 flex items-center rounded-2xl border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-surface)] mn-dark:bg-[var(--mn-surface-elevated)] shadow-2xs overflow-hidden focus-within:border-[var(--mn-accent)]/70 focus-within:ring-2 focus-within:ring-[var(--mn-primary)]/10 transition-all mn-panel mn-dark:mn-panel "
+              className="mn-search-control min-w-0 h-10 flex-1 flex items-center border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-surface)] mn-dark:bg-[var(--mn-surface-elevated)] shadow-2xs overflow-hidden focus-within:border-[var(--mn-accent)]/70 focus-within:ring-2 focus-within:ring-[var(--mn-primary)]/10 transition-all mn-panel mn-dark:mn-panel "
             >
               <button
                 type="submit"
@@ -205,11 +205,11 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => onOpenSmartSearch?.(globalSearchQuery.trim())}
-              className="shrink-0 min-w-[82px] sm:min-w-[104px] rounded-2xl bg-[var(--mn-primary)] border border-[var(--mn-accent)]/45 px-2.5 sm:px-3 text-white flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 shadow-xs active:scale-95 transition-transform cursor-pointer mn-inverse "
+              className="shrink-0 h-10 min-w-[76px] sm:min-w-[104px] rounded-xl bg-[var(--mn-primary)] border border-[var(--mn-accent)]/45 px-2.5 sm:px-3 text-white flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 shadow-xs active:scale-95 transition-transform cursor-pointer mn-inverse "
               title={isRtl ? 'افتح البحث الذكي' : 'Open smart search'}
             >
               <Sparkles className="w-4 h-4 text-[var(--mn-accent)]" />
-              <span className="text-[9px] sm:text-[10px] font-black whitespace-nowrap">{isRtl ? 'بحث ذكي' : 'Smart'}</span>
+              <span className="text-[9px] sm:text-[10px] font-semibold whitespace-nowrap">{isRtl ? 'بحث ذكي' : 'Smart'}</span>
             </button>
           </div>
         </div>

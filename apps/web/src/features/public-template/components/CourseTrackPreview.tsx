@@ -7,7 +7,7 @@ export function CourseTrackPreview({track, onBack, onImported}: {track: 'native'
   return <div className="min-h-screen pb-24 bg-[var(--mn-page)]" dir="rtl">
     <div className="mn-search-hero mn-inverse p-4 text-white">
       <button onClick={onBack} aria-label="رجوع" className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center"><ArrowRight className="w-5 h-5" /></button>
-      <h1 className="text-xl font-black mt-3">{title}</h1>
+      <h1 className="text-xl font-bold mt-3">{title}</h1>
     </div>
     <section className="mn-panel max-w-xl mx-auto m-4 rounded-3xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-5 text-center">
       <BookOpen className="w-9 h-9 mx-auto text-[var(--mn-accent-text)]" />

@@ -3,7 +3,7 @@ import { ArrowUpLeft, Globe2 } from 'lucide-react';
 
 export const ContactSection: React.FC<{onOpen: () => void}> = ({onOpen}) => {
   return (
-    <section className="px-0.5 sm:px-1 py-3 w-full font-['Cairo',sans-serif]">
+    <section className="px-0 py-3 w-full font-['Cairo',sans-serif]">
       {/* Simple Preview Container */}
       <div className="relative rounded-3xl p-5 sm:p-6 bg-[var(--mn-surface)] border border-[var(--mn-border)] shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden border-t-2 border-t-[var(--mn-primary)]/30 mn-panel ">
         {/* Subtle Background Elements */}

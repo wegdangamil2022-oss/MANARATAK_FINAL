@@ -73,6 +73,7 @@ describe('AcademicTaxonomyAdminRouter', () => {
       listByTaxonomyNode: vi.fn().mockResolvedValue([]),
     };
     app.use(express.json());
+    app.use((req, _res, next) => { (req as any).authUserId = 'admin-taxonomy-1'; next(); });
     app.use(
       '/admin/academic-taxonomy',
       AcademicTaxonomyAdminRouter.create({

@@ -15,10 +15,19 @@ export class PrismaSourceRegistryGateway implements ISourceRegistryGateway {
     const rows = await this.prisma.importSourceRegistryEntry.findMany({ where: { ...(filters?.status ? { status: filters.status } : {}), ...(filters?.category ? { category: filters.category } : {}), ...(filters?.accessClassification ? { accessClassification: filters.accessClassification } : {}) }, orderBy: { sourceId: 'asc' } });
     return rows.map((row) => this.fromRow(row));
   }
-  async updateSourceStatus(sourceId: string, status: SourceStatus, _reason?: string): Promise<boolean> {
+  async updateSourceStatus(sourceId: string, status: SourceStatus, reason?: string): Promise<boolean> {
     const current = await this.getSource(sourceId); if (!current) return false;
     if (current.accessClassification === SourceAccessClassification.BLOCKED && status === SourceStatus.ACTIVE) throw new Error('A BLOCKED source cannot have an ACTIVE status');
-    const metadata = { ...(current.metadata ?? {}), ...(current.metadata?.ownerDomain === 'SCHOLARSHIPS' ? { scholarshipSourceStatus: status === SourceStatus.ACTIVE ? 'ACTIVE' : 'DISABLED' } : {}) };
+    const metadata = {
+      ...(current.metadata ?? {}),
+      ...(current.metadata?.ownerDomain === 'SCHOLARSHIPS' ? { scholarshipSourceStatus: status === SourceStatus.ACTIVE ? 'ACTIVE' : 'DISABLED' } : {}),
+      lastRegistryStatusChange: {
+        from: current.status,
+        to: status,
+        reason: reason?.trim() || undefined,
+        changedAt: new Date().toISOString(),
+      },
+    };
     await this.prisma.importSourceRegistryEntry.update({ where: { sourceId }, data: { status, metadata } }); return true;
   }
   private toData(source: ImportSourceDefinition) { return { sourceId: source.sourceId, displayName: source.displayName, baseUrl: source.baseUrl, category: source.category, accessClassification: source.accessClassification, status: source.status, rateLimitPerMinute: source.rateLimitPerMinute, robotsPolicyUrl: source.robotsPolicyUrl, connectorId: source.connectorId, connectorVersion: source.connectorVersion, metadata: source.metadata as object | undefined }; }

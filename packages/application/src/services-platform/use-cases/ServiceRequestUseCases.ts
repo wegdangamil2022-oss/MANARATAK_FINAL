@@ -54,9 +54,27 @@ export class AdminServiceFulfillmentUseCases {
     return this.requests.listRequests(filters);
   }
 
+  async getRequest(reference: string): Promise<ServiceRequestDto> {
+    const normalized = reference.trim();
+    if (!normalized) throw new Error('SERVICE_REQUEST_REFERENCE_REQUIRED');
+    const request = await this.requests.findRequestById(normalized) ?? await this.requests.findRequestByPublicId(normalized);
+    if (!request) throw new Error('SERVICE_REQUEST_NOT_FOUND');
+    return request;
+  }
+
   async transitionRequest(id: string, status: ServiceRequestStatus, fulfillmentMetadata?: Record<string, unknown> | null) {
     const request = await this.requireRequest(id);
     this.assertTransition(request.status, status);
+
+    const resumesFulfillment = [ServiceRequestStatus.IN_PROGRESS, ServiceRequestStatus.COMPLETED].includes(status);
+    if (resumesFulfillment && request.status === ServiceRequestStatus.AWAITING_PAYMENT && !request.financeInvoiceId)
+      throw new Error('SERVICE_FINANCE_INVOICE_REQUIRED');
+    if (resumesFulfillment && request.financeInvoiceId) {
+      const clearance = await this.finance.getInvoiceClearance(request.financeInvoiceId);
+      if (!clearance.financiallyCleared)
+        throw new Error(`SERVICE_FINANCIAL_CLEARANCE_REQUIRED:${clearance.invoiceStatus}`);
+    }
+
     return this.requests.updateRequestStatus(id, status, fulfillmentMetadata);
   }
 

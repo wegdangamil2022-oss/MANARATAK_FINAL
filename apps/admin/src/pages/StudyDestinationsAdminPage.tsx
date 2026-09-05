@@ -1,303 +1,173 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useTranslation } from '../i18n/I18nProvider';
+import { AlertCircle, CheckCircle2, FileWarning, Globe2, Loader2, RefreshCw, Search, ShieldCheck } from 'lucide-react';
 import { adminApiClient } from '../api/client';
-import { Search, Filter, Loader2, Globe, AlertCircle, RefreshCw, ChevronRight } from 'lucide-react';
+import { useTranslation } from '../i18n/I18nProvider';
 
-const API_BASE = '/reference-data';
+type DestinationStatus = 'DRAFT' | 'IN_REVIEW' | 'PUBLISHED' | 'ARCHIVED';
+type CompletenessStatus = 'INCOMPLETE' | 'READY_FOR_REVIEW' | 'READY_TO_PUBLISH' | 'COMPLETE';
 
-interface Country {
+interface ReferenceCountry {
+  id: string;
   iso2Code: string;
-  iso3Code?: string;
+  iso3Code: string;
   name: string;
-  officialName?: string;
-  region: string | null;
+  nameAr?: string | null;
+  officialName?: string | null;
+  region?: string | null;
   subregion?: string | null;
   defaultCurrencyCode?: string | null;
   defaultLanguageCode?: string | null;
-  callingCode?: string | null;
-  flagAssetId?: string | null;
-  metadata?: any;
+  isActive: boolean;
+}
+
+interface DestinationProfile {
+  id: string;
+  status: DestinationStatus;
+  completenessStatus: CompletenessStatus;
+  sourceVerificationStatus: 'UNVERIFIED' | 'VERIFIED';
+  publishedAt?: string | null;
+  isFeatured: boolean;
+}
+
+interface Readiness {
+  readyForReview: boolean;
+  readyForPublish: boolean;
+  completenessStatus: CompletenessStatus;
+  checks: Array<{ key: string; label: string; complete: boolean; blocking: boolean; message?: string }>;
+}
+
+interface ListItem {
+  country: ReferenceCountry;
+  profile: DestinationProfile | null;
+  readiness: Readiness | null;
+}
+
+interface PageResult {
+  data: ListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+const statusLabel = (status: string, isAr: boolean) => ({
+  NO_PROFILE: isAr ? 'غير مهيأة' : 'No profile',
+  DRAFT: isAr ? 'مسودة' : 'Draft',
+  IN_REVIEW: isAr ? 'قيد المراجعة' : 'In review',
+  PUBLISHED: isAr ? 'منشورة' : 'Published',
+  ARCHIVED: isAr ? 'مؤرشفة' : 'Archived',
+  INCOMPLETE: isAr ? 'ناقصة' : 'Incomplete',
+  READY_FOR_REVIEW: isAr ? 'جاهزة للمراجعة' : 'Ready for review',
+  READY_TO_PUBLISH: isAr ? 'جاهزة للنشر' : 'Ready to publish',
+  COMPLETE: isAr ? 'مكتملة' : 'Complete',
+  VERIFIED: isAr ? 'المصادر موثقة' : 'Sources verified',
+  UNVERIFIED: isAr ? 'المصادر غير موثقة' : 'Sources unverified',
+}[status] ?? status);
+
+function flagEmoji(code: string): string {
+  try { return String.fromCodePoint(...code.toUpperCase().split('').map((char) => 127397 + char.charCodeAt(0))); }
+  catch { return '🌐'; }
 }
 
 export function StudyDestinationsAdminPage() {
   const { language } = useTranslation();
   const isAr = language === 'ar';
-  
-  const [countries, setCountries] = useState<Country[]>([]);
+  const [result, setResult] = useState<PageResult>({ data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [region, setRegion] = useState('');
+  const [status, setStatus] = useState('');
+  const [completeness, setCompleteness] = useState('');
 
-  // Filter and search states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRegion, setSelectedRegion] = useState('all');
-  const [selectedStatus, setSelectedStatus] = useState('all');
-  const [showFilters, setShowFilters] = useState(false);
-
-  // Localized string dictionary
-  const text = {
-    title: isAr ? 'دول الدراسة' : 'Study Destinations',
-    subtitle: isAr ? 'إدارة ملفات دول الدراسة الغنية بالمعلومات.' : 'Manage rich country study destination profiles.',
-    searchPlaceholder: isAr ? 'البحث باسم الدولة، الرمز (ISO2/ISO3) أو المنطقة...' : 'Search by country name, ISO2, ISO3, or region...',
-    filterRegion: isAr ? 'المنطقة' : 'Region',
-    filterStatus: isAr ? 'حالة الوجهة' : 'Destination Status',
-    statusCandidate: isAr ? 'وجهات مقترحة فقط' : 'Candidates Only',
-    statusUnreviewed: isAr ? 'غير مراجعة' : 'Unreviewed',
-    statusDraft: isAr ? 'مسودة' : 'Draft',
-    all: isAr ? 'الكل' : 'All',
-    loading: isAr ? 'جاري تحميل الدول...' : 'Loading countries...',
-    refresh: isAr ? 'تحديث' : 'Refresh',
-    emptyStateTitle: isAr ? 'لا توجد نتائج مطابقة' : 'No countries found',
-    emptyStateDesc: isAr ? 'لم يتم العثور على أي دول تطابق خيارات البحث والتصفية الخاصة بك.' : 'No countries found matching your search and filter criteria.',
-    noCountriesInReferenceTitle: isAr ? 'لا توجد دول' : 'No Countries',
-    noCountriesInReferenceDesc: isAr ? 'لا توجد دول مرجعية مضافة حتى الآن.' : 'No reference countries have been added yet.',
-    notAvailableYet: isAr ? 'غير متوفر بعد' : 'Not available yet',
-    openProfile: isAr ? 'فتح ملف الدولة' : 'Open Country Profile',
-    apiUnavailable: isAr ? 'تعذر تحميل الدول من واجهة البيانات المرجعية.' : 'Unable to load countries from Reference Data API.',
-    moreFilters: isAr ? 'خيارات تصفية إضافية' : 'More Filters',
-    realFieldsTitle: isAr ? 'بيانات المرجع (المرحلة 07)' : 'Reference Fields (Phase 07)',
-    currency: isAr ? 'العملة' : 'Currency',
-    languageLabel: isAr ? 'اللغة' : 'Language',
-    callingCodeLabel: isAr ? 'رمز الاتصال' : 'Calling Code'
-  };
-
-  const fetchCountries = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await adminApiClient.request<{ data: Country[] }>(`${API_BASE}/countries`);
-      setCountries(res.data || []);
-    } catch (err: any) {
-      setError('UNAVAILABLE');
+      const params = new URLSearchParams({ page: '1', pageSize: '100' });
+      if (query.trim()) params.set('q', query.trim());
+      if (region) params.set('region', region);
+      if (status) params.set('status', status);
+      if (completeness) params.set('completenessStatus', completeness);
+      setResult(await adminApiClient.request<PageResult>(`/admin/study-destinations?${params}`));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'STUDY_DESTINATIONS_LOAD_FAILED');
     } finally {
       setLoading(false);
     }
-  };
+  }, [query, region, status, completeness]);
 
-  useEffect(() => {
-    fetchCountries();
-  }, []);
+  useEffect(() => { const id = window.setTimeout(load, 220); return () => window.clearTimeout(id); }, [load]);
 
-  // Standard flag emoji helper
-  const getFlagEmoji = (countryCode: string) => {
-    const codePoints = countryCode
-      .toUpperCase()
-      .split('')
-      .map((char) => 127397 + char.charCodeAt(0));
-    try {
-      return String.fromCodePoint(...codePoints);
-    } catch {
-      return '🏳️';
-    }
-  };
-
-  // Perform multi-criteria client-side filtering on the real country list
-  const filteredCountries = countries.filter((country) => {
-    const matchesSearch =
-      searchQuery === '' ||
-      country.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      country.iso2Code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (country.iso3Code && country.iso3Code.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (country.region && country.region.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (country.subregion && country.subregion.toLowerCase().includes(searchQuery.toLowerCase()));
-
-        const matchesRegion =
-      selectedRegion === 'all' ||
-      country.region === selectedRegion ||
-      (selectedRegion === 'North America' && country.region === 'Americas' && ['North America', 'Northern America', 'Central America', 'Caribbean'].includes(country.subregion || '')) ||
-      (selectedRegion === 'South America' && country.region === 'Americas' && country.subregion === 'South America');
-
-    const matchesStatus =
-      selectedStatus === 'all' ||
-      (selectedStatus === 'candidate' && country.metadata?.studyDestinationCandidate === true) ||
-      (selectedStatus === 'unreviewed' && country.metadata?.destinationReviewStatus === 'UNREVIEWED') ||
-      (selectedStatus === 'draft' && country.metadata?.publicStatus === 'DRAFT');
-
-    return matchesSearch && matchesRegion && matchesStatus;
-  });
+  const stats = useMemo(() => {
+    const rows = result.data;
+    return {
+      canonical: result.total,
+      configured: rows.filter((item) => item.profile).length,
+      published: rows.filter((item) => item.profile?.status === 'PUBLISHED').length,
+      ready: rows.filter((item) => item.readiness?.readyForPublish).length,
+      missing: rows.filter((item) => !item.profile).length,
+    };
+  }, [result]);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6" id="study-destinations-admin-container">
-      {/* Header section */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4" id="study-destinations-header">
-        <div>
-          <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">{text.title}</h2>
-          <p className="text-base text-gray-500 mt-1">{text.subtitle}</p>
-        </div>
-        <button
-          onClick={fetchCountries}
-          className="inline-flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-xl text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
-          id="study-destinations-refresh-btn"
-        >
-          <RefreshCw className="h-4 w-4 text-gray-500" />
-          {text.refresh}
-        </button>
-      </div>
-
-      {/* Filter and search control panel */}
-      <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4" id="study-destinations-filter-panel">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={text.searchPlaceholder}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 text-sm"
-              id="study-destinations-search-input"
-            />
-          </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center justify-center gap-2 px-4 py-2.5 border rounded-xl text-sm font-semibold transition-all ${
-              showFilters
-                ? 'bg-slate-100 border-slate-300 text-slate-800'
-                : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-            }`}
-            id="study-destinations-toggle-filters-btn"
-          >
-            <Filter className="h-4 w-4" />
-            {text.moreFilters}
-          </button>
-        </div>
-
-        {/* Extended filters */}
-        {showFilters && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 pt-4 border-t border-gray-100 animate-fadeIn" id="study-destinations-extended-filters">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">{text.filterStatus}</label>
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-slate-400 focus:outline-none"
-              >
-                <option value="all">{text.all}</option>
-                <option value="candidate">{text.statusCandidate}</option>
-                <option value="unreviewed">{text.statusUnreviewed}</option>
-                <option value="draft">{text.statusDraft}</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">{text.filterStatus}</label>
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-slate-400 focus:outline-none"
-              >
-                <option value="all">{text.all}</option>
-                <option value="candidate">{text.statusCandidate}</option>
-                <option value="unreviewed">{text.statusUnreviewed}</option>
-                <option value="draft">{text.statusDraft}</option>
-              </select>
-            </div>
-            {/* Region Filter */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">{text.filterRegion}</label>
-              <select
-                value={selectedRegion}
-                onChange={(e) => setSelectedRegion(e.target.value)}
-                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-slate-400 focus:outline-none"
-              >
-                <option value="all">{text.all}</option>
-                <option value="Asia">Asia</option>
-                <option value="Europe">Europe</option>
-                <option value="North America">North America</option>
-                <option value="South America">South America</option>
-                <option value="Africa">Africa</option>
-                <option value="Oceania">Oceania</option>
-              </select>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Main content display */}
-      {error ? (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-6 rounded-2xl flex items-start gap-3" id="study-destinations-error-state">
-          <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+    <div className="mx-auto max-w-7xl space-y-6" dir={isAr ? 'rtl' : 'ltr'}>
+      <header className="rounded-3xl border border-[#142B5F]/15 bg-gradient-to-br from-[#142B5F] to-[#0E7C86] p-6 text-white shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h4 className="font-semibold text-amber-900">{isAr ? 'خطأ في التحميل' : 'Loading Error'}</h4>
-            <p className="text-sm mt-1">{text.apiUnavailable}</p>
+            <div className="mb-2 flex items-center gap-2 text-[#F8D58A]"><Globe2 className="h-5 w-5" /><span className="text-sm font-bold">MANARATAK · Study Destinations</span></div>
+            <h1 className="text-3xl font-black">{isAr ? 'دول الدراسة' : 'Study Destinations'}</h1>
+            <p className="mt-2 max-w-3xl text-sm text-white/80">{isAr ? 'ملفات تحريرية موثقة فوق الدولة المرجعية Canonical؛ لا تُعامل كل دولة في Reference Data تلقائيًا كوجهة دراسة.' : 'Verified editorial profiles layered on canonical countries; Reference Data countries are not automatically study destinations.'}</p>
           </div>
+          <button onClick={load} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-bold hover:bg-white/20"><RefreshCw className="h-4 w-4" />{isAr ? 'تحديث' : 'Refresh'}</button>
         </div>
-      ) : loading ? (
-        <div className="flex justify-center items-center h-64" id="study-destinations-loading-state">
-          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-        </div>
-      ) : filteredCountries.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center shadow-sm" id="study-destinations-empty-state">
-          <Globe className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="font-bold text-lg text-gray-900 mb-1">
-            {countries.length === 0 ? text.noCountriesInReferenceTitle : text.emptyStateTitle}
-          </h3>
-          <p className="text-sm text-gray-500 max-w-md mx-auto">
-            {countries.length === 0 ? text.noCountriesInReferenceDesc : text.emptyStateDesc}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fadeIn" id="study-destinations-grid">
-          {filteredCountries.map((country) => (
-            <div
-              key={country.iso2Code}
-              className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
-              id={`country-card-${country.iso2Code}`}
-            >
-              <div>
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
-                      <span className="text-2xl" role="img" aria-label={`${country.name} flag`}>
-                        {getFlagEmoji(country.iso2Code)}
-                      </span>
-                      {country.name}
-                    </h3>
-                    <span className="text-xs font-mono text-gray-500 uppercase mt-1 block">
-                      {country.iso2Code} • {country.iso3Code || '-'} {country.region ? `• ${country.region}` : ''} {country.subregion ? `• ${country.subregion}` : ''}
-                    </span>
-                  </div>
-                </div>
+      </header>
 
-                {/* Real reference data fields */}
-                <div className="border-t border-b border-gray-100 py-3 my-4">
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
-                    {text.realFieldsTitle}
-                  </h4>
-                  <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs">
-                    <div>
-                      <span className="block text-gray-400">{text.currency}</span>
-                      <span className="font-semibold text-gray-700">
-                        {country.defaultCurrencyCode || '-'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="block text-gray-400">{text.languageLabel}</span>
-                      <span className="font-semibold text-gray-700">
-                        {country.defaultLanguageCode || '-'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="block text-gray-400">{text.callingCodeLabel}</span>
-                      <span className="font-semibold text-gray-700">
-                        {country.callingCode ? `+${country.callingCode}` : '-'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <Metric icon={Globe2} label={isAr ? 'دول ضمن النتيجة' : 'Countries in result'} value={stats.canonical} />
+        <Metric icon={ShieldCheck} label={isAr ? 'ملفات مهيأة' : 'Configured profiles'} value={stats.configured} />
+        <Metric icon={CheckCircle2} label={isAr ? 'منشورة' : 'Published'} value={stats.published} accent />
+        <Metric icon={CheckCircle2} label={isAr ? 'جاهزة للنشر' : 'Ready to publish'} value={stats.ready} />
+        <Metric icon={FileWarning} label={isAr ? 'بدون ملف' : 'No profile'} value={stats.missing} />
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="grid gap-3 lg:grid-cols-[2fr_1fr_1fr_1fr]">
+          <label className="relative block">
+            <Search className={`absolute top-3 h-4 w-4 text-slate-400 ${isAr ? 'right-3' : 'left-3'}`} />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={isAr ? 'ابحث باسم الدولة أو ISO...' : 'Search country or ISO...'} className={`w-full rounded-xl border border-slate-200 py-2.5 text-sm outline-none focus:border-[#142B5F] focus:ring-2 focus:ring-[#142B5F]/10 ${isAr ? 'pr-10 pl-3' : 'pl-10 pr-3'}`} />
+          </label>
+          <select value={region} onChange={(e) => setRegion(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm"><option value="">{isAr ? 'كل المناطق' : 'All regions'}</option>{['Asia','Africa','Europe','Americas','Oceania'].map((value) => <option key={value}>{value}</option>)}</select>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm"><option value="">{isAr ? 'كل حالات الملف' : 'All profile states'}</option>{['NO_PROFILE','DRAFT','IN_REVIEW','PUBLISHED','ARCHIVED'].map((value) => <option value={value} key={value}>{statusLabel(value, isAr)}</option>)}</select>
+          <select value={completeness} onChange={(e) => setCompleteness(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm"><option value="">{isAr ? 'كل حالات الاكتمال' : 'All completeness'}</option>{['INCOMPLETE','READY_FOR_REVIEW','READY_TO_PUBLISH','COMPLETE'].map((value) => <option value={value} key={value}>{statusLabel(value, isAr)}</option>)}</select>
+        </div>
+      </section>
+
+      {error && <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800"><AlertCircle className="h-5 w-5" />{error}</div>}
+      {loading ? <div className="flex min-h-56 items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-[#142B5F]" /></div> : (
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {result.data.map(({ country, profile, readiness }) => {
+            const blocking = readiness?.checks.filter((check) => check.blocking && !check.complete).length ?? 0;
+            return <article key={country.id} className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#142B5F]/30 hover:shadow-md">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3"><div className="text-4xl">{flagEmoji(country.iso2Code)}</div><div className="min-w-0"><h2 className="truncate text-lg font-black text-slate-900">{isAr ? (country.nameAr || country.name) : country.name}</h2><p className="text-xs text-slate-500">{country.iso2Code} · {country.iso3Code} · {country.region || '-'}</p></div></div>
+                <StatusBadge value={profile?.status ?? 'NO_PROFILE'} isAr={isAr} />
               </div>
-
-              <Link
-                to={`/study-destinations/${country.iso2Code}`}
-                className="w-full inline-flex items-center justify-center gap-2 bg-slate-900 text-white font-semibold text-sm py-2.5 px-4 rounded-xl hover:bg-slate-800 transition-colors"
-                id={`open-country-btn-${country.iso2Code}`}
-              >
-                {text.openProfile}
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </div>
-          ))}
-        </div>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-xs"><Info label={isAr ? 'الاكتمال' : 'Completeness'} value={profile ? statusLabel(profile.completenessStatus, isAr) : '-'} /><Info label={isAr ? 'المصادر' : 'Sources'} value={profile ? statusLabel(profile.sourceVerificationStatus, isAr) : '-'} /><Info label={isAr ? 'العملة المرجعية' : 'Reference currency'} value={country.defaultCurrencyCode || '-'} /><Info label={isAr ? 'اللغة المرجعية' : 'Reference language'} value={country.defaultLanguageCode || '-'} /></div>
+              {profile && <div className={`mt-4 rounded-xl px-3 py-2 text-xs font-semibold ${blocking ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800'}`}>{blocking ? (isAr ? `${blocking} متطلبات تمنع النشر` : `${blocking} publishing blockers`) : (isAr ? 'لا توجد موانع نشر في فحص الجاهزية' : 'No publishing blockers in readiness check')}</div>}
+              <Link to={`/study-destinations/${country.iso2Code}`} className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-[#142B5F] px-4 py-2.5 text-sm font-black text-white transition hover:bg-[#142B5F]">{profile ? (isAr ? 'إدارة ملف الدولة' : 'Manage destination') : (isAr ? 'تهيئة ملف وجهة الدراسة' : 'Configure destination')}</Link>
+            </article>;
+          })}
+          {!result.data.length && <div className="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">{isAr ? 'لا توجد نتائج مطابقة.' : 'No matching destinations.'}</div>}
+        </section>
       )}
     </div>
   );
 }
+
+function Metric({ icon: Icon, label, value, accent = false }: { icon: typeof Globe2; label: string; value: number; accent?: boolean }) {
+  return <div className={`rounded-2xl border bg-white p-4 shadow-sm ${accent ? 'border-[#D6A43B]/50' : 'border-slate-200'}`}><div className="flex items-center justify-between"><span className="text-xs font-bold text-slate-500">{label}</span><Icon className={`h-4 w-4 ${accent ? 'text-[#D6A43B]' : 'text-[#142B5F]'}`} /></div><div className="mt-2 text-2xl font-black text-slate-900">{value}</div></div>;
+}
+function Info({ label, value }: { label: string; value: string }) { return <div className="rounded-lg bg-slate-50 p-2"><div className="text-[10px] font-bold uppercase text-slate-400">{label}</div><div className="mt-1 truncate font-semibold text-slate-700">{value}</div></div>; }
+function StatusBadge({ value, isAr }: { value: string; isAr: boolean }) { const styles = value === 'PUBLISHED' ? 'bg-emerald-100 text-emerald-800' : value === 'IN_REVIEW' ? 'bg-amber-100 text-amber-800' : value === 'ARCHIVED' ? 'bg-slate-200 text-slate-600' : value === 'NO_PROFILE' ? 'bg-rose-50 text-rose-700' : 'bg-blue-50 text-blue-700'; return <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-black ${styles}`}>{statusLabel(value, isAr)}</span>; }

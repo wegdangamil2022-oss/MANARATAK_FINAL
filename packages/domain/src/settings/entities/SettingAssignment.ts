@@ -36,6 +36,11 @@ export class SettingAssignment {
       throw new Error('SettingAssignment must contain at least one version.');
     }
 
+    const versionIds = props.versions.map((version) => version.id);
+    if (new Set(versionIds).size !== versionIds.length) {
+      throw new Error('SettingAssignment version ids must be unique and immutable.');
+    }
+
     this.id = props.id.trim();
     this.key = props.key;
     this.scope = props.scope;
@@ -67,6 +72,7 @@ export class SettingAssignment {
   }
 
   public updateValue(versionId: string, valueData: SettingValueData, authorId?: string): SettingVersion {
+    this.assertVersionIdAvailable(versionId);
     const newVersion = new SettingVersion(versionId, valueData, new Date(), authorId);
     this.versions.push(newVersion);
     this.addDomainEvent(new SettingValueUpdatedEvent(this.id, this.key.toString(), this.scope, versionId));
@@ -74,15 +80,25 @@ export class SettingAssignment {
   }
 
   public rollbackTo(previousVersionId: string, newVersionId: string, authorId?: string): SettingVersion {
+    this.assertVersionIdAvailable(newVersionId);
     const targetVersion = this.versions.find((v) => v.id === previousVersionId);
     if (!targetVersion) {
       throw new Error(`Version ${previousVersionId} not found in assignment version history.`);
     }
 
-    const rolledBackVersion = new SettingVersion(newVersionId, targetVersion.value, new Date(), authorId);
+    const rolledBackVersion = new SettingVersion(newVersionId, targetVersion.value, new Date(), authorId, previousVersionId);
     this.versions.push(rolledBackVersion);
     this.addDomainEvent(new SettingValueRolledBackEvent(this.id, previousVersionId, newVersionId));
     return rolledBackVersion;
+  }
+
+  private assertVersionIdAvailable(versionId: string): void {
+    if (!versionId || versionId.trim() === '') {
+      throw new Error('Setting version id is required.');
+    }
+    if (this.versions.some((version) => version.id === versionId)) {
+      throw new Error(`Setting version ${versionId} already exists and cannot be mutated.`);
+    }
   }
 
   public equals(object?: any): boolean {

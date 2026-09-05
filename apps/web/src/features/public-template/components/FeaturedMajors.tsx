@@ -50,7 +50,7 @@ export const FeaturedMajors: React.FC<FeaturedMajorsProps> = ({ onViewAllClick }
   return (
     <section
       id="featured-majors-section"
-      className="px-0.5 sm:px-1 py-3 w-full font-['Cairo',sans-serif]"
+      className="px-0 py-3 w-full font-['Cairo',sans-serif]"
     >
       {/* Standard Framed Container with Top Border */}
       <div className="relative rounded-3xl p-3.5 sm:p-4 bg-gradient-to-b from-[var(--mn-surface)] to-[var(--mn-page)]/80 border border-[var(--mn-border)] shadow-sm border-t-2 border-t-[var(--mn-primary)]/40 overflow-hidden mn-panel ">

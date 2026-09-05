@@ -222,11 +222,11 @@ export const MajorCard: React.FC<MajorCardProps> = ({
           <div className="flex flex-col min-w-0 flex-1 space-y-1 sm:space-y-1.5">
             {/* Arabic Name & English Name */}
             <div>
-              <h3 className="text-[12.5px] sm:text-[14px] font-black text-[var(--mn-heading)] font-['Cairo',sans-serif] group-hover:text-[var(--mn-accent-text)] transition-colors leading-snug truncate">
+              <h3 className="text-[12.5px] sm:text-[14px] font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif] group-hover:text-[var(--mn-accent-text)] transition-colors leading-snug truncate">
                 {major.name}
               </h3>
               {major.nameEn && (
-                <p className="text-[9px] sm:text-[10px] font-semibold text-[var(--mn-text-muted)] font-sans tracking-wide truncate">
+                <p className="text-[9px] sm:text-[10px] font-semibold text-[var(--mn-text-muted)] font-['Cairo',sans-serif] tracking-wide truncate">
                   {major.nameEn}
                 </p>
               )}
@@ -284,7 +284,7 @@ export const MajorCard: React.FC<MajorCardProps> = ({
               e.stopPropagation();
               if (onSelectMajor) onSelectMajor(major);
             }}
-            className="inline-flex items-center justify-center px-3 sm:px-4 py-1.5 bg-[var(--mn-primary)] text-white border border-[var(--mn-border-brand)] hover:bg-[var(--mn-primary)] rounded-full text-[10px] font-black shadow-[0_2px_8px_rgba(20,43,95,0.25)] hover:shadow-[0_4px_12px_rgba(20,43,95,0.35)] transition-all cursor-pointer font-['Cairo',sans-serif] active:scale-95 whitespace-nowrap mn-inverse hover:mn-inverse "
+            className="inline-flex items-center justify-center px-3 sm:px-4 py-1.5 bg-[var(--mn-primary)] text-white border border-[var(--mn-border-brand)] hover:bg-[var(--mn-primary)] rounded-full text-[10px] font-bold shadow-[0_2px_8px_rgba(20,43,95,0.25)] hover:shadow-[0_4px_12px_rgba(20,43,95,0.35)] transition-all cursor-pointer font-['Cairo',sans-serif] active:scale-95 whitespace-nowrap mn-inverse hover:mn-inverse "
           >
             التفاصيل
           </button>

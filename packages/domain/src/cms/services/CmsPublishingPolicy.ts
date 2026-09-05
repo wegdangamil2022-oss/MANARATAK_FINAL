@@ -96,9 +96,7 @@ export class CmsPublishingPolicy {
       [CmsContentType.FAQ]: 'faqs',
       [CmsContentType.CHECKLIST]: 'checklists',
       [CmsContentType.STATIC_PAGE]: 'pages',
-      [CmsContentType.ANNOUNCEMENT]: 'announcements',
       [CmsContentType.LANDING_PAGE]: 'landing',
-      [CmsContentType.CONTENT_BLOCK]: 'blocks',
     };
     const segment = route[contentType as CmsContentType];
     if (!segment) throw new Error('CMS_CONTENT_TYPE_ROUTE_UNSUPPORTED');

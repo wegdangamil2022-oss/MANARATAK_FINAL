@@ -129,6 +129,19 @@ describe('AdminUniversityUseCases', () => {
     expect(mockRepo.archiveAcademicProgram).toHaveBeenCalledWith('uni-1', 'program-1');
   });
 
+  it('blocks normalized structural replacement and archive while the University is published', async () => {
+    mockRepo.findById = vi.fn().mockResolvedValue({
+      id: 'uni-1', status: UniversityStatus.PUBLISHED, completenessStatus: UniversityImportCompletenessState.COMPLETE,
+      countryReferenceId: 'country-old',
+    });
+
+    await expect(useCases.replaceNormalizedDetails('uni-1', {} as any))
+      .rejects.toThrow('UNIVERSITY_PUBLISHED_STRUCTURE_IMMUTABLE');
+    await expect(useCases.archive('uni-1'))
+      .rejects.toThrow('Cannot archive a PUBLISHED university. Unpublish first.');
+    expect(mockRepo.updateStatus).not.toHaveBeenCalled();
+  });
+
   it('blocks canonical relationship changes while the University is published', async () => {
     mockRepo.findById = vi.fn().mockResolvedValue({
       id: 'uni-1', status: UniversityStatus.PUBLISHED, completenessStatus: UniversityImportCompletenessState.COMPLETE,

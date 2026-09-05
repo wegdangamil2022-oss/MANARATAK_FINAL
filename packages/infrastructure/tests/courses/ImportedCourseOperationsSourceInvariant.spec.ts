@@ -38,28 +38,28 @@ describe('WP-IC-07 source invariants', () => {
   it('maps the legacy UI adapter through a closed switch instead of an open action URL', () => {
     const client = source('apps/web/src/api/client.ts');
     const start = client.indexOf('// Imported External Courses API — explicit WP-IC-07 REST contract.');
-    const end = client.indexOf('// Paid Courses API', start);
+    const end = client.indexOf('// Student Services API', start);
     const block = client.slice(start, end);
     expect(block).toContain("case 'VERIFY_SOURCE'");
     expect(block).toContain("return this.verifyAdminImportedCourseSource(id)");
     expect(block).not.toContain('/${action}');
   });
 
-  it('uses runtime pages and a dedicated course import operations page', () => {
+  it('redirects legacy Admin URLs to the official Admin application', () => {
     const router = source('apps/web/src/router/index.tsx');
-    expect(router).toContain('AdminImportedCoursesRuntimePage');
-    expect(router).toContain('AdminImportedCourseRuntimeDetailPage');
-    expect(router).toContain('AdminCourseImportOperationsPage');
-    expect(router.indexOf("path: 'admin/imports/courses'"))
-      .toBeLessThan(router.indexOf("path: 'admin/imports/:domainKey'"));
+    const adminApp = source('apps/admin/src/App.tsx');
+    expect(router).toContain("path: 'admin/*'");
+    expect(router).toContain('CanonicalAdminRedirect');
+    expect(router).not.toContain('AdminImportedCoursesRuntimePage');
+    expect(adminApp).toContain('<CourseListPage');
+    expect(adminApp).toContain('<CourseDetailPage');
   });
 
-  it('does not place provider master constants in the runtime imported-courses page', () => {
-    const runtime = source('apps/web/src/features/admin-preview/AdminImportedCoursesRuntimePage.tsx');
-    expect(runtime).toContain('ApiClient.getCourseImportProviders()');
-    expect(runtime).not.toContain('MASTER_PROVIDER_OPTIONS');
-    expect(runtime).not.toContain('sample');
-    expect(runtime).not.toContain('fallback data');
+  it('does not place provider master constants in the official course workspace', () => {
+    const detail = source('apps/admin/src/pages/CourseDetailPage.tsx');
+    expect(detail).toContain('/admin/courses/${id}');
+    expect(detail).not.toContain('MASTER_PROVIDER_OPTIONS');
+    expect(detail).not.toContain('fallback data');
   });
 
   it('fetch-missing is provider-policy gated and never falls back to arbitrary crawling', () => {

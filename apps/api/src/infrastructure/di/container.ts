@@ -33,7 +33,7 @@ import {
   PrismaCourseCurriculumRepository,
   PrismaCourseProgressRepository,
   PrismaCourseEnrollmentPolicyRepository,
-  PrismaCourseFinancialClearanceGateway,
+  Phase19CourseFinancialClearanceGateway,
   PrismaLearningPathRepository,
   PrismaCertificateRepository,
   PrismaExternalCourseProviderRepository,
@@ -42,6 +42,7 @@ import {
   PrismaImportedCourseOperationsRepository,
   SafeImportedCourseLinkChecker,
   PrismaMajorRepository,
+  PrismaNewMajorCandidateRepository,
   Phase10CatalogRepository,
   PrismaFellowshipDefinitionRepository,
   PrismaStudentWorkspaceRepository,
@@ -72,6 +73,7 @@ import {
   RedisStudentWorkspaceDeliveryCache,
   RedisCmsDeliveryCache,
   PrismaReferenceDataRepository,
+  PrismaStudyDestinationRepository,
   PrismaFinanceRepository,
   PrismaFinanceCurrencyReferenceGateway,
   FinancePaymentGatewayRegistry,
@@ -142,6 +144,8 @@ import {
   ImportHandoffDispatcher,
   AdminUniversityUseCases,
   PublicUniversityUseCases,
+  UniversityImportHandoffService,
+  InternationalTestImportHandoffService,
   AdminMajorUseCases,
   MajorImportPromotionUseCase,
   CanonicalMajorReferenceService,
@@ -183,6 +187,7 @@ import {
   MotivationLetterGeneratorHandler,
   ScholarshipRecommendationHandler,
   ReferenceDataUseCases,
+  StudyDestinationUseCases,
   AtomicAuditedOutboxMutationExecutor,
   AtomicDomainMutationCoordinator,
   ReferenceResolverService,
@@ -269,6 +274,8 @@ import { StudentToolsAdminRouter } from '../../presentation/api/router/StudentTo
 import { StudentToolsPublicRouter } from '../../presentation/api/router/StudentToolsPublicRouter';
 import { ReferenceDataPublicRouter } from '../../presentation/api/router/ReferenceDataPublicRouter';
 import { ReferenceDataAdminRouter } from '../../presentation/api/router/ReferenceDataAdminRouter';
+import { StudyDestinationAdminRouter } from '../../presentation/api/router/StudyDestinationAdminRouter';
+import { StudyDestinationPublicRouter } from '../../presentation/api/router/StudyDestinationPublicRouter';
 import { ServiceAdminRouter } from '../../presentation/api/router/ServiceAdminRouter';
 import { ServicePublicRouter } from '../../presentation/api/router/ServicePublicRouter';
 import { FinanceAdminRouter } from '../../presentation/api/router/FinanceAdminRouter';
@@ -7994,6 +8001,8 @@ export function createInMemoryPrismaClient() {
     referenceCurrency: [],
     referenceLanguage: [],
     referenceCity: [],
+    studyDestinationProfile: [],
+    studyDestinationStudyLanguage: [],
   };
 
   const createModelHandler = (collectionName: string) => ({
@@ -8065,6 +8074,13 @@ export function createInMemoryPrismaClient() {
       collections[collectionName].push(...newItems);
       return { count: newItems.length };
     },
+    deleteMany: async ({ where }: any = {}) => {
+      const items = collections[collectionName] || [];
+      const keep = items.filter((item) => !Object.entries(where || {}).every(([key, val]) => item[key] === val));
+      const count = items.length - keep.length;
+      collections[collectionName] = keep;
+      return { count };
+    },
     update: async ({ where, data }: any) => {
       const items = collections[collectionName] || [];
       const item = items.find(i => {
@@ -8124,6 +8140,8 @@ export function createInMemoryPrismaClient() {
     referenceCurrency: createModelHandler('referenceCurrency'),
     referenceLanguage: createModelHandler('referenceLanguage'),
     referenceCity: createModelHandler('referenceCity'),
+    studyDestinationProfile: createModelHandler('studyDestinationProfile'),
+    studyDestinationStudyLanguage: createModelHandler('studyDestinationStudyLanguage'),
   };
 }
 
@@ -8161,6 +8179,7 @@ export function registerDependencies(
     scholarshipCanonicalLookupGateway: asFunction(({ prisma }) => new PrismaScholarshipCanonicalLookupGateway(prisma)).singleton(),
     universityRepository: asFunction(({ prisma }) => new PrismaUniversityRepository(prisma, readConfig<string>('MANARATAK_UNIVERSITY_LEGACY_COUNTRY_FILTERS') === 'true')).singleton(),
     majorRepository: asFunction(({ prisma }) => new PrismaMajorRepository(prisma, readConfig<string>('MANARATAK_MAJOR_LEGACY_OPTIONAL_FILTERS') === 'true')).singleton(),
+    newMajorCandidateRepository: asFunction(({ prisma }) => new PrismaNewMajorCandidateRepository(prisma)).singleton(),
     phase10CatalogRepository: asFunction(({ prisma }) => new Phase10CatalogRepository(prisma, { catalogPath: readConfig<string>('MANARATAK_PHASE10_CATALOG_PATH'), productionLike })).singleton(),
     fellowshipDefinitionRepository: asFunction(({ prisma }) => new PrismaFellowshipDefinitionRepository(prisma)).singleton(),
     courseRepository: asFunction(({ prisma }) => new PrismaCourseRepository(prisma)).singleton(),
@@ -8173,7 +8192,7 @@ export function registerDependencies(
     courseCurriculumRepository: asFunction(({ prisma }) => new PrismaCourseCurriculumRepository(prisma)).singleton(),
     courseProgressRepository: asFunction(({ prisma }) => new PrismaCourseProgressRepository(prisma)).singleton(),
     courseEnrollmentPolicyRepository: asFunction(({ prisma }) => new PrismaCourseEnrollmentPolicyRepository(prisma)).singleton(),
-    courseFinancialClearanceGateway: asFunction(({ prisma }) => new PrismaCourseFinancialClearanceGateway(prisma)).singleton(),
+    courseFinancialClearanceGateway: asFunction(({ financePlatformUseCases }) => new Phase19CourseFinancialClearanceGateway(financePlatformUseCases)).singleton(),
     learningPathRepository: asFunction(({ prisma }) => new PrismaLearningPathRepository(prisma)).singleton(),
     certificateRepository: asFunction(({ prisma }) => new PrismaCertificateRepository(prisma)).singleton(),
     studentWorkspaceRepository: asFunction(({ prisma }) => new PrismaStudentWorkspaceRepository(prisma)).singleton(),
@@ -8215,9 +8234,10 @@ export function registerDependencies(
       new MotivationLetterGeneratorHandler(studentToolsAIConsumerGateway),
       new ScholarshipRecommendationHandler(scholarshipRecommendationGateway, studentToolsAIConsumerGateway, studentContextGateway),
     ])).singleton(),
-    studentToolActivationReadinessService: asFunction(({ studentToolHandlerRegistry, studentToolDependencyHealthGateway }) => new StudentToolActivationReadinessService(studentToolHandlerRegistry, studentToolDependencyHealthGateway)).scoped(),
-    studentToolHealthService: asFunction(({ studentToolHandlerRegistry, studentToolDependencyHealthGateway }) => new StudentToolHealthService(studentToolHandlerRegistry, studentToolDependencyHealthGateway)).scoped(),
+    studentToolActivationReadinessService: asFunction(({ studentToolHandlerRegistry, studentToolDependencyHealthGateway, studentToolResultProtector }) => new StudentToolActivationReadinessService(studentToolHandlerRegistry, studentToolDependencyHealthGateway, studentToolResultProtector)).scoped(),
+    studentToolHealthService: asFunction(({ studentToolHandlerRegistry, studentToolDependencyHealthGateway, studentToolResultProtector }) => new StudentToolHealthService(studentToolHandlerRegistry, studentToolDependencyHealthGateway, studentToolResultProtector)).scoped(),
     referenceDataRepository: asFunction(({ prisma }) => new PrismaReferenceDataRepository(prisma)).singleton(),
+    studyDestinationRepository: asFunction(({ prisma }) => new PrismaStudyDestinationRepository(prisma)).singleton(),
     servicePlatformRepository: asFunction(({ prisma }) => new PrismaServicePlatformRepository(prisma)).singleton(),
     serviceCatalogRepository: asFunction(({ servicePlatformRepository }) => servicePlatformRepository).singleton(),
     serviceRequestRepository: asFunction(({ servicePlatformRepository }) => servicePlatformRepository).singleton(),
@@ -8258,9 +8278,13 @@ export function registerDependencies(
     canonicalMajorReferenceService: asFunction(({ academicTaxonomyRepository, degreeLevelRepository }) =>
       new CanonicalMajorReferenceService(academicTaxonomyRepository, degreeLevelRepository)).scoped(),
     degreeLevelUseCases: asFunction(({ degreeLevelRepository }) => new DegreeLevelUseCases(degreeLevelRepository)).scoped(),
-    importHandoffDispatcher: asFunction(({ scholarshipImportHandoffConsumer }) => new ImportHandoffDispatcher({
+    importHandoffDispatcher: asFunction(({ scholarshipImportHandoffConsumer, universityImportHandoffConsumer, internationalTestImportHandoffConsumer }) => new ImportHandoffDispatcher({
       SCHOLARSHIPS: scholarshipImportHandoffConsumer,
       SCHOLARSHIP: scholarshipImportHandoffConsumer,
+      UNIVERSITIES: universityImportHandoffConsumer,
+      UNIVERSITY: universityImportHandoffConsumer,
+      TESTS: internationalTestImportHandoffConsumer,
+      INTERNATIONAL_TESTS: internationalTestImportHandoffConsumer,
     })).scoped(),
     importQueueGateway: asFunction(({ prisma }) => isPrisma
       ? new PrismaImportQueueGateway(prisma)
@@ -8391,14 +8415,18 @@ export function registerDependencies(
     adminUniversityUseCases: asFunction(({ universityRepository, atomicDomainMutationCoordinator }) =>
       new AdminUniversityUseCases(universityRepository, atomicDomainMutationCoordinator)).scoped(),
     publicUniversityUseCases: asFunction(({ universityRepository }) => new PublicUniversityUseCases(universityRepository)).scoped(),
-    adminMajorUseCases: asFunction(({ majorRepository, phase10CatalogRepository, atomicDomainMutationCoordinator, canonicalMajorReferenceService }) =>
-      new AdminMajorUseCases(majorRepository, phase10CatalogRepository, undefined, undefined, atomicDomainMutationCoordinator, canonicalMajorReferenceService)).scoped(),
+    universityImportHandoffConsumer: asFunction(({ universityRepository }) =>
+      new UniversityImportHandoffService(universityRepository)).scoped(),
+    internationalTestImportHandoffConsumer: asFunction(({ internationalTestRepository }) =>
+      new InternationalTestImportHandoffService(internationalTestRepository)).scoped(),
+    adminMajorUseCases: asFunction(({ majorRepository, phase10CatalogRepository, atomicDomainMutationCoordinator, canonicalMajorReferenceService, newMajorCandidateRepository }) =>
+      new AdminMajorUseCases(majorRepository, phase10CatalogRepository, undefined, undefined, atomicDomainMutationCoordinator, canonicalMajorReferenceService, newMajorCandidateRepository)).scoped(),
     majorImportPromotionUseCase: asFunction(({ majorRepository, atomicDomainMutationCoordinator, canonicalMajorReferenceService }) =>
       new MajorImportPromotionUseCase(majorRepository, undefined, atomicDomainMutationCoordinator, canonicalMajorReferenceService)).scoped(),
     fellowshipImportPromotionUseCase: asFunction(({ fellowshipDefinitionRepository }) => new FellowshipImportPromotionUseCase(fellowshipDefinitionRepository)).scoped(),
     publicMajorUseCases: asFunction(({ majorRepository }) => new PublicMajorUseCases(majorRepository)).scoped(),
-    coursePublicationService: asFunction(({ courseRepository, importedCourseOperationsRepository, atomicDomainMutationCoordinator }) =>
-      new CoursePublicationService(courseRepository, importedCourseOperationsRepository, atomicDomainMutationCoordinator)).scoped(),
+    coursePublicationService: asFunction(({ courseRepository, importedCourseOperationsRepository, atomicDomainMutationCoordinator, courseRelationshipRepository }) =>
+      new CoursePublicationService(courseRepository, importedCourseOperationsRepository, atomicDomainMutationCoordinator, courseRelationshipRepository)).scoped(),
     adminCourseUseCases: asFunction(({ courseRepository, coursePublicationService }) => new AdminCourseUseCases(courseRepository, coursePublicationService)).scoped(),
     courseImportArtifactUseCase: asFunction(({ assetRecordRepository, assetStorageGateway, externalCourseProviderRepository, importAdminUseCases }) =>
       new CourseImportArtifactUseCase(assetRecordRepository, assetStorageGateway, externalCourseProviderRepository, importAdminUseCases)).scoped(),
@@ -8413,8 +8441,8 @@ export function registerDependencies(
     publicCourseUseCases: asFunction(({ courseRepository }) => new PublicCourseUseCases(courseRepository)).scoped(),
     courseRelationshipQueryService: asFunction(({ courseRelationshipRepository }) => new CourseRelationshipQueryService(courseRelationshipRepository)).scoped(),
     courseRelationshipResolutionService: asFunction(({ courseRelationshipRepository }) => new CourseRelationshipResolutionService(courseRelationshipRepository)).scoped(),
-    crossDomainGraphReadService: asFunction(({ majorRepository, universityRepository, scholarshipRepository, courseRelationshipRepository, referenceDataRepository }) =>
-      new CrossDomainGraphReadService(majorRepository, universityRepository, scholarshipRepository, courseRelationshipRepository, referenceDataRepository)).scoped(),
+    crossDomainGraphReadService: asFunction(({ majorRepository, universityRepository, scholarshipRepository, internationalTestRepository, courseRelationshipRepository, referenceDataRepository, cmsRepository, serviceCatalogRepository, careerRepository }) =>
+      new CrossDomainGraphReadService(majorRepository, universityRepository, scholarshipRepository, internationalTestRepository, courseRelationshipRepository, referenceDataRepository, cmsRepository, serviceCatalogRepository, careerRepository)).scoped(),
     courseCurriculumUseCases: asFunction(({ courseRepository, courseCurriculumRepository, assetRecordRepository }) => new CourseCurriculumUseCases(courseRepository, courseCurriculumRepository, assetRecordRepository)).scoped(),
     courseEnrollmentPolicyUseCases: asFunction(({ courseRepository, courseEnrollmentPolicyRepository }) =>
       new CourseEnrollmentPolicyUseCases(courseRepository, courseEnrollmentPolicyRepository)).scoped(),
@@ -8422,9 +8450,9 @@ export function registerDependencies(
       new CourseProgressUseCases(courseRepository, courseCurriculumRepository, courseProgressRepository, courseEnrollmentPolicyRepository, courseFinancialClearanceGateway, atomicDomainMutationCoordinator)).scoped(),
     learningPathUseCases: asFunction(({ learningPathRepository, courseRepository, courseProgressRepository, atomicDomainMutationCoordinator }) =>
       new LearningPathUseCases(learningPathRepository, courseRepository, courseProgressRepository, atomicDomainMutationCoordinator)).scoped(),
-    nativeCourseUseCases: asFunction(({ courseRepository, courseCurriculumRepository, assetRecordRepository, coursePublicationService }) =>
-      new NativeCourseUseCases(courseRepository, courseCurriculumRepository, assetRecordRepository, coursePublicationService)).scoped(),
-    certificateUseCases: asFunction(({ certificateRepository, courseRepository, assetRecordRepository, learningPathRepository }) => new CertificateUseCases(certificateRepository, courseRepository, assetRecordRepository, { signingKeyReference: readConfig<string>('CERTIFICATE_SIGNING_KEY_REFERENCE'), signingSecret: readConfig<string>('CERTIFICATE_SIGNING_SECRET'), productionLike }, learningPathRepository)).scoped(),
+    nativeCourseUseCases: asFunction(({ courseRepository, courseCurriculumRepository, assetRecordRepository, coursePublicationService, courseRelationshipRepository, courseEnrollmentPolicyRepository }) =>
+      new NativeCourseUseCases(courseRepository, courseCurriculumRepository, assetRecordRepository, coursePublicationService, courseRelationshipRepository, courseEnrollmentPolicyRepository)).scoped(),
+    certificateUseCases: asFunction(({ certificateRepository, courseRepository, assetRecordRepository, learningPathRepository, identityRepository }) => new CertificateUseCases(certificateRepository, courseRepository, assetRecordRepository, { signingKeyReference: readConfig<string>('CERTIFICATE_SIGNING_KEY_REFERENCE'), signingSecret: readConfig<string>('CERTIFICATE_SIGNING_SECRET'), publicVerificationBaseUrl: readConfig<string>('CERTIFICATE_PUBLIC_VERIFICATION_BASE_URL'), productionLike }, learningPathRepository, identityRepository)).scoped(),
     certificateCompletionEventConsumer: asFunction(({ certificateUseCases }) => new CertificateCompletionEventConsumer(certificateUseCases)).scoped(),
     certificateCompletionOutboxDeliveryGateway: asFunction(({ certificateCompletionEventConsumer }) => new CertificateCompletionOutboxDeliveryGateway(certificateCompletionEventConsumer)).scoped(),
     certificateCompletionOutboxDispatcher: asFunction(({ transactionalOutboxStore, certificateCompletionOutboxDeliveryGateway }) => new TransactionalOutboxDispatcher(transactionalOutboxStore, certificateCompletionOutboxDeliveryGateway)).scoped(),
@@ -8446,6 +8474,8 @@ export function registerDependencies(
     studentToolExecutionUseCases: asFunction(({ studentToolRegistryRepository, studentToolHandlerRegistry, studentToolRateLimitGateway, studentToolDependencyHealthGateway, studentToolResultProtector, studentToolSaveGateway }) => new StudentToolExecutionUseCases(studentToolRegistryRepository, studentToolHandlerRegistry, studentToolRateLimitGateway, studentToolDependencyHealthGateway, studentToolResultProtector, studentToolSaveGateway)).scoped(),
     referenceDataUseCases: asFunction(({ referenceDataRepository, atomicAuditedOutboxMutationExecutor, referenceDataValidationService }) =>
       new ReferenceDataUseCases(referenceDataRepository, undefined, undefined, atomicAuditedOutboxMutationExecutor, referenceDataValidationService)).scoped(),
+    studyDestinationUseCases: asFunction(({ studyDestinationRepository, referenceDataRepository }) =>
+      new StudyDestinationUseCases(studyDestinationRepository, referenceDataRepository, referenceDataRepository)).scoped(),
     referenceResolver: asFunction(({ referenceDataRepository }) => new ReferenceResolverService(referenceDataRepository)).scoped(),
     serviceReferenceGateway: asFunction(({ referenceResolver }) => new CanonicalServiceReferenceGateway(referenceResolver)).scoped(),
     adminServiceCatalogUseCases: asFunction(({ serviceCatalogRepository, serviceReferenceGateway }) => new AdminServiceCatalogUseCases(serviceCatalogRepository, serviceReferenceGateway)).scoped(),
@@ -8570,6 +8600,8 @@ export function registerDependencies(
     studentToolsPublicRouter: asFunction((cradle) => StudentToolsPublicRouter.create(cradle)).singleton(),
     referenceDataPublicRouter: asFunction((cradle) => ReferenceDataPublicRouter.create(cradle)).singleton(),
     referenceDataAdminRouter: asFunction((cradle) => ReferenceDataAdminRouter.create(cradle)).singleton(),
+    studyDestinationAdminRouter: asFunction((cradle) => StudyDestinationAdminRouter.create(cradle)).singleton(),
+    studyDestinationPublicRouter: asFunction((cradle) => StudyDestinationPublicRouter.create(cradle)).singleton(),
     serviceAdminRouter: asFunction((cradle) => ServiceAdminRouter.create(cradle)).singleton(),
     servicePublicRouter: asFunction((cradle) => ServicePublicRouter.create(cradle)).singleton(),
     financeAdminRouter: asFunction((cradle) => FinanceAdminRouter.create(cradle)).singleton(),

@@ -9,6 +9,7 @@ import {
   CourseProgressStatus,
   CourseQuestionType,
   CourseQuizAttemptDto,
+  CourseLearnerWorkspaceDto,
   CourseQuizAttemptStatus,
   CourseStatus,
   CreateQuizAttemptDto,
@@ -50,6 +51,15 @@ export class CourseProgressUseCases {
     return enrollment;
   }
 
+  private async requireLearningAccessEnrollment(courseId: string, studentReferenceId: string) {
+    const enrollment = await this.progressRepository.findEnrollment(courseId, studentReferenceId);
+    if (!enrollment) throw new Error('COURSE_ENROLLMENT_REQUIRED');
+    if (enrollment.status !== CourseEnrollmentStatus.ACTIVE && enrollment.status !== CourseEnrollmentStatus.COMPLETED) {
+      throw new Error(`COURSE_ENROLLMENT_NOT_ACCESSIBLE:${enrollment.status}`);
+    }
+    return enrollment;
+  }
+
   private async recalculateEnrollmentProgress(courseId: string, studentReferenceId: string): Promise<number> {
     const snapshot = await this.curriculumRepository.getCurriculumSnapshot(courseId);
     const trackableIds = new Set(snapshot.lessons
@@ -63,6 +73,57 @@ export class CourseProgressUseCases {
     const percentage = Math.floor((completed.size / trackableIds.size) * 100);
     await this.progressRepository.updateEnrollmentProgress(courseId, studentReferenceId, percentage);
     return percentage;
+  }
+
+  public async getLearningWorkspace(courseId: string, studentReferenceId: string): Promise<CourseLearnerWorkspaceDto> {
+    await this.ensureTrackableCourse(courseId);
+    await this.requireLearningAccessEnrollment(courseId, studentReferenceId);
+    const [progress, curriculum] = await Promise.all([
+      this.progressRepository.getStudentProgressSnapshot(courseId, studentReferenceId),
+      this.curriculumRepository.getCurriculumSnapshot(courseId),
+    ]);
+    if (!progress) throw new Error('COURSE_PROGRESS_SNAPSHOT_NOT_FOUND');
+
+    const modules = curriculum.modules
+      .filter(item => item.status !== CourseContentStatus.ARCHIVED)
+      .sort((a, b) => a.position - b.position);
+    const moduleIds = new Set(modules.map(item => item.id));
+    const lessons = curriculum.lessons
+      .filter(item => item.status !== CourseContentStatus.ARCHIVED && moduleIds.has(item.moduleId))
+      .sort((a, b) => a.position - b.position);
+    const lessonIds = new Set(lessons.map(item => item.id));
+    const assets = curriculum.assets
+      .filter(item => lessonIds.has(item.lessonId))
+      .sort((a, b) => a.position - b.position)
+      .map(item => ({
+        id: item.id,
+        lessonId: item.lessonId,
+        title: item.title,
+        assetType: item.assetType,
+        position: item.position,
+        isRequired: item.isRequired,
+      }));
+    const quizzes = curriculum.quizzes
+      .filter(item => item.status !== CourseContentStatus.ARCHIVED
+        && (!item.moduleId || moduleIds.has(item.moduleId))
+        && (!item.lessonId || lessonIds.has(item.lessonId)))
+      .sort((a, b) => a.position - b.position);
+    const quizIds = new Set(quizzes.map(item => item.id));
+    const questions = curriculum.questions
+      .filter(item => item.status !== CourseContentStatus.ARCHIVED && Boolean(item.quizId) && quizIds.has(item.quizId as string))
+      .sort((a, b) => a.position - b.position)
+      .map(item => ({
+        id: item.id,
+        quizId: item.quizId,
+        questionType: item.questionType,
+        prompt: item.prompt,
+        ...(item.choices == null ? {} : { choices: item.choices }),
+        points: item.points,
+        position: item.position,
+      }));
+
+    // Never expose correctAnswer or explanation in learner read models before submission.
+    return { progress, curriculum: { modules, lessons, assets, quizzes, questions } };
   }
 
   public async enroll(courseId: string, studentReferenceId: string): Promise<StudentCourseProgressSnapshotDto> {
@@ -173,18 +234,28 @@ export class CourseProgressUseCases {
     context?: AtomicMutationRequestContext,
   ): Promise<StudentCourseProgressSnapshotDto> {
     const course = await this.ensureTrackableCourse(courseId);
-    const enrollment = await this.requireActiveEnrollment(courseId, studentReferenceId);
-    if (enrollment.progressPercentage < 100) throw new Error('Course progress must reach 100% before completion');
     const existing = await this.progressRepository.findCompletion(courseId, studentReferenceId);
-    if (existing) return (await this.progressRepository.getStudentProgressSnapshot(courseId, studentReferenceId))!;
-
+    if (existing) {
+      const completedSnapshot = await this.progressRepository.getStudentProgressSnapshot(courseId, studentReferenceId);
+      if (!completedSnapshot) throw new Error('COURSE_COMPLETION_SNAPSHOT_NOT_FOUND');
+      return completedSnapshot;
+    }
+    const enrollment = await this.requireActiveEnrollment(courseId, studentReferenceId);
+    const completionCriteria = course.optionalFields?.completionCriteria && typeof course.optionalFields.completionCriteria === 'object' && !Array.isArray(course.optionalFields.completionCriteria)
+      ? course.optionalFields.completionCriteria as Record<string, unknown>
+      : {};
+    if (enrollment.progressPercentage < 100) throw new Error('Course progress must reach 100% before completion');
     const curriculum = await this.curriculumRepository.getCurriculumSnapshot(courseId);
-    const requiredQuizzes = curriculum.quizzes.filter(quiz => quiz.status !== CourseContentStatus.ARCHIVED);
-    const attempts = await this.progressRepository.listQuizAttempts(courseId, studentReferenceId);
-    for (const quiz of requiredQuizzes) {
-      if (quiz.passingScore == null) throw new Error(`COURSE_QUIZ_PASSING_SCORE_REQUIRED:${quiz.id}`);
-      if (!attempts.some(attempt => attempt.quizId === quiz.id && attempt.passed === true)) {
-        throw new Error(`COURSE_ASSESSMENT_NOT_PASSED:${quiz.id}`);
+    const assessmentRequired = completionCriteria.assessmentRequired === true;
+    if (assessmentRequired) {
+      const requiredQuizzes = curriculum.quizzes.filter(quiz => quiz.status !== CourseContentStatus.ARCHIVED);
+      if (requiredQuizzes.length === 0) throw new Error('COURSE_ASSESSMENT_REQUIRED_BUT_MISSING');
+      const attempts = await this.progressRepository.listQuizAttempts(courseId, studentReferenceId);
+      for (const quiz of requiredQuizzes) {
+        if (quiz.passingScore == null) throw new Error(`COURSE_QUIZ_PASSING_SCORE_REQUIRED:${quiz.id}`);
+        if (!attempts.some(attempt => attempt.quizId === quiz.id && attempt.passed === true)) {
+          throw new Error(`COURSE_ASSESSMENT_NOT_PASSED:${quiz.id}`);
+        }
       }
     }
 

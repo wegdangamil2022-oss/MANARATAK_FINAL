@@ -79,7 +79,7 @@ export class MonitoringService implements IMonitoringService {
             };
           }
         } else {
-          details[name] = result;
+          details[name] = isOptional ? { ...result, optional: true } : result;
         }
       } catch (err: any) {
         const isOptional = indicator.isOptional || name === 'redis' || name === 'cache';

@@ -104,6 +104,7 @@ describe('Phase 05 Slice 2: Admin Mutation Audit Hooks', () => {
 
       app = express();
       app.use(express.json());
+      app.use((req, _res, next) => { req.authUserId = 'admin-1'; next(); });
       app.use('/api/v1/admin/settings', SettingsAdminRouter.create({
         manageSettingsUseCase: mockManageSettingsUseCase,
         auditRecordRepo: auditRepo
@@ -274,6 +275,7 @@ describe('Phase 05 Slice 2: Admin Mutation Audit Hooks', () => {
 
       const app = express();
       app.use(express.json());
+      app.use((req, _res, next) => { req.authUserId = 'admin-1'; next(); });
       app.use('/api/v1/admin/settings', SettingsAdminRouter.create({
         manageSettingsUseCase: mockManageSettingsUseCase as any,
         auditRecordRepo: failingRepo

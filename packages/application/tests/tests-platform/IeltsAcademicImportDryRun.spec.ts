@@ -147,13 +147,13 @@ export const ieltsAcademicDryRunPayload = {
       linkType: 'REGISTRATION',
       url: 'https://takeielts.britishcouncil.org',
       description: 'Official British Council IELTS Registration Portal',
-      sourceTrustLevel: 'OFFICIAL_PROVIDER'
+      sourceTrustLevel: 'AUTHORITATIVE'
     },
     {
       linkType: 'INFORMATION',
       url: 'https://www.ielts.org',
       description: 'Global Official IELTS Website',
-      sourceTrustLevel: 'OFFICIAL_PROVIDER'
+      sourceTrustLevel: 'AUTHORITATIVE'
     }
   ],
 
@@ -177,7 +177,7 @@ export const ieltsAcademicDryRunPayload = {
     retrievedAt: '2026-07-31T12:00:00.000Z',
     evidenceSnippet: 'Official IELTS Academic specification sheet retrieved from ielts.org.',
     confidenceScore: 0.98,
-    sourceTrustLevel: 'OFFICIAL_PROVIDER',
+    sourceTrustLevel: 'AUTHORITATIVE',
     duplicateStatus: 'NEW'
   },
 
@@ -278,6 +278,6 @@ describe('Phase 09 P9J-3D: IELTS Academic Import Dry-Run Readiness', () => {
     expect(upsertOfficialLink).toHaveBeenCalledWith('test-ielts-promoted-id', expect.objectContaining({ url: 'https://takeielts.britishcouncil.org' }));
     expect(upsertAvailability).toHaveBeenCalledWith('test-ielts-promoted-id', expect.objectContaining({ availableCountryIds: ['GB', 'US', 'CA', 'AU', 'SA', 'AE', 'EG', 'JO'] }));
     expect(upsertPreparationMaterial).toHaveBeenCalledWith('test-ielts-promoted-id', expect.objectContaining({ assetId: 'asset-ielts-prep-01' }));
-    expect(addEvidence).toHaveBeenCalledWith('test-ielts-promoted-id', expect.objectContaining({ sourceTrustLevel: 'OFFICIAL_PROVIDER' }));
+    expect(addEvidence).toHaveBeenCalledWith('test-ielts-promoted-id', expect.objectContaining({ sourceTrustLevel: 'AUTHORITATIVE' }));
   });
 });

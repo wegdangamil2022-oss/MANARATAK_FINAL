@@ -11,9 +11,12 @@ import {
   CourseLessonType,
   CourseNamingService,
   CourseOriginType,
+  CourseQuestionType,
   CourseStatus,
   CreateNativeCourseDto,
   ICourseCurriculumRepository,
+  ICourseEnrollmentPolicyRepository,
+  ICourseRelationshipRepository,
   ICourseRepository,
   IAssetRecordRepository,
   NativeCourseReadinessCheckDto,
@@ -26,6 +29,8 @@ export class NativeCourseUseCases {
     private readonly curriculumRepository: ICourseCurriculumRepository,
     private readonly assetRepository?: IAssetRecordRepository,
     private readonly publicationService?: CoursePublicationService,
+    private readonly relationshipRepository?: ICourseRelationshipRepository,
+    private readonly enrollmentPolicyRepository?: ICourseEnrollmentPolicyRepository,
   ) {}
 
   public async create(input: CreateNativeCourseDto): Promise<CourseDto> {
@@ -54,7 +59,7 @@ export class NativeCourseUseCases {
       canonicalName,
       canonicalDedupKey,
       displayName: titleAr,
-      accessType: CourseAccessType.FREE_STUDY,
+      accessType: input.accessType ? CourseAccessType[input.accessType] : CourseAccessType.FREE_STUDY,
       originType: CourseOriginType.NATIVE_MANARATAK_COURSE,
       directCourseUrl: `/courses/${slug}`,
       status: CourseStatus.DRAFT,
@@ -62,6 +67,7 @@ export class NativeCourseUseCases {
       platformName: 'MANARATAK',
       providerName: 'MANARATAK',
       learningLanguage: input.learningLanguage,
+      learningLanguageRaw: input.learningLanguage,
       category: input.category,
       difficultyLevel: input.difficultyLevel,
       optionalFields: {
@@ -76,6 +82,30 @@ export class NativeCourseUseCases {
     const curriculum = await this.curriculumRepository.getCurriculumSnapshot(courseId);
     const fields = course.optionalFields ?? {};
     const description = this.text(fields.description) || this.text(fields.courseContent);
+    const learningOutcomes = Array.isArray(fields.learningOutcomes)
+      ? fields.learningOutcomes.filter((item) => typeof item === 'string' && item.trim())
+      : [];
+    const completionCriteria = fields.completionCriteria && typeof fields.completionCriteria === 'object' && !Array.isArray(fields.completionCriteria)
+      ? fields.completionCriteria as Record<string, unknown>
+      : {};
+    const minimumProgress = Number(completionCriteria.minimumProgress ?? 100);
+    const completionPolicyValid = minimumProgress === 100;
+    const [taxonomyLinks, majorProjections, testRelationships, enrollmentPolicy] = await Promise.all([
+      this.relationshipRepository ? this.relationshipRepository.listTaxonomyLinks(courseId) : Promise.resolve([]),
+      this.relationshipRepository ? this.relationshipRepository.listMajorProjections(courseId) : Promise.resolve([]),
+      this.relationshipRepository ? this.relationshipRepository.listInternationalTestRelationships(courseId) : Promise.resolve([]),
+      this.enrollmentPolicyRepository ? this.enrollmentPolicyRepository.getPolicy(courseId) : Promise.resolve(null),
+    ]);
+    const relationshipReviewOpen = taxonomyLinks.some((item) => ['PROPOSED', 'REVIEW_REQUIRED'].includes(item.reviewState))
+      || majorProjections.some((item) => ['PROPOSED', 'REVIEW_REQUIRED'].includes(item.projectionState))
+      || testRelationships.some((item) => item.reviewState === 'PROPOSED');
+    const approvedTaxonomyLinks = taxonomyLinks.filter((item) => item.reviewState === 'APPROVED');
+    const approvedMajorProjections = majorProjections.filter((item) => item.projectionState === 'APPROVED');
+    const sourceAcademicTopic = course.shortCourseTopicsRaw?.trim() || course.category?.trim();
+    const taxonomyReady = !sourceAcademicTopic || approvedTaxonomyLinks.length > 0;
+    const discoveryRelationshipReady = approvedTaxonomyLinks.length > 0 || approvedMajorProjections.length > 0 || testRelationships.some((item) => item.reviewState === 'APPROVED');
+    const canonicalLanguageReady = !course.learningLanguage?.trim() || Boolean(course.learningLanguageReferenceId);
+    const financialPolicyReady = course.accessType !== CourseAccessType.PAID || enrollmentPolicy?.requiresFinancialClearance === true;
     const modules = curriculum.modules.filter(
       (item) => item.status !== CourseContentStatus.ARCHIVED,
     );
@@ -111,15 +141,24 @@ export class NativeCourseUseCases {
         ? await this.assetRepository.findById(new AssetId(course.thumbnailAssetId))
         : null;
     const coverReady = Boolean(cover && cover.state === AssetLifecycleState.ACTIVE);
-    const invalidQuizzes = curriculum.quizzes.filter((quiz) => {
-      const questions = curriculum.questions.filter((question) => question.quizId === quiz.id);
+    const activeQuizzes = curriculum.quizzes.filter((quiz) => quiz.status !== CourseContentStatus.ARCHIVED);
+    const invalidQuizzes = activeQuizzes.filter((quiz) => {
+      const questions = curriculum.questions.filter((question) => question.quizId === quiz.id && question.status !== CourseContentStatus.ARCHIVED);
+      const containsUnsupportedManualGrading = questions.some((question) =>
+        question.questionType === CourseQuestionType.SHORT_ANSWER || question.questionType === CourseQuestionType.ESSAY,
+      );
       return (
         quiz.passingScore == null ||
         quiz.passingScore < 0 ||
         quiz.passingScore > 100 ||
-        questions.length === 0
+        (quiz.maxAttempts != null && quiz.maxAttempts < 1) ||
+        questions.length === 0 ||
+        containsUnsupportedManualGrading
       );
     });
+    const assessmentRequired = completionCriteria.assessmentRequired === true;
+    const assessmentPolicyReady = !assessmentRequired || activeQuizzes.length > 0;
+    const trackableLessons = lessons.filter((lesson) => lesson.lessonType !== CourseLessonType.QUIZ);
 
     const checks: NativeCourseReadinessCheckDto[] = [
       this.check(
@@ -144,6 +183,41 @@ export class NativeCourseUseCases {
         'basics',
       ),
       this.check(
+        'learning-outcomes',
+        'مخرجات التعلم',
+        learningOutcomes.length > 0,
+        'أضف مخرج تعلم واحدًا على الأقل.',
+        'basics',
+      ),
+      this.check(
+        'canonical-language',
+        'لغة مرجعية معتمدة',
+        canonicalLanguageReady,
+        'اربط لغة التدريس بسجل Reference Language معتمد.',
+        'relationships',
+      ),
+      this.check(
+        'taxonomy-link',
+        'التصنيف الأكاديمي المعتمد',
+        taxonomyReady,
+        'اربط المجال الأكاديمي بعقدة Academic Taxonomy معتمدة بدل الاكتفاء بالنص الحر.',
+        'relationships',
+      ),
+      this.check(
+        'discovery-relationship',
+        'علاقة اكتشاف أكاديمية',
+        discoveryRelationshipReady,
+        'اعتمد علاقة واحدة على الأقل مع تصنيف أو تخصص أو اختبار حتى تظهر الدورة في سياقها الأكاديمي الصحيح.',
+        'relationships',
+      ),
+      this.check(
+        'relationship-review',
+        'مراجعة العلاقات الأكاديمية',
+        !relationshipReviewOpen,
+        'توجد علاقات تخصص/تصنيف/اختبار بانتظار المراجعة.',
+        'relationships',
+      ),
+      this.check(
         'modules',
         'وحدات المنهج',
         modules.length > 0,
@@ -155,6 +229,13 @@ export class NativeCourseUseCases {
         'دروس المنهج',
         lessons.length > 0,
         'أضف درسًا واحدًا على الأقل.',
+        'curriculum',
+      ),
+      this.check(
+        'trackable-lessons',
+        'دروس قابلة لتتبع التقدم',
+        trackableLessons.length > 0,
+        'أضف درسًا تعليميًا واحدًا على الأقل غير نوع QUIZ حتى يمكن احتساب تقدم الطالب.',
         'curriculum',
       ),
       this.check(
@@ -177,8 +258,29 @@ export class NativeCourseUseCases {
         'assessments',
         'سلامة الاختبارات',
         invalidQuizzes.length === 0,
-        invalidQuizzes.length ? 'أكمل أسئلة الاختبارات وقواعد النجاح.' : undefined,
+        invalidQuizzes.length ? 'أكمل أسئلة الاختبارات وقواعد النجاح. الأسئلة المقالية/القصيرة غير قابلة للنشر حتى يتصل مسار التصحيح اليدوي.' : undefined,
         'assessments',
+      ),
+      this.check(
+        'assessment-policy',
+        'اتساق شرط التقييم',
+        assessmentPolicyReady,
+        'تم اشتراط اجتياز تقييم دون وجود اختبار نشط.',
+        'assessments',
+      ),
+      this.check(
+        'completion-policy',
+        'سياسة إكمال صالحة',
+        completionPolicyValid,
+        'إكمال دورة منارتك يتطلب 100% من الدروس القابلة للتتبع.',
+        'completion',
+      ),
+      this.check(
+        'financial-clearance',
+        'سياسة الوصول المالي',
+        financialPolicyReady,
+        'الدورة المدفوعة يجب أن تتطلب تصريحًا ماليًا قبل التسجيل.',
+        'enrollment',
       ),
       {
         key: 'cover',

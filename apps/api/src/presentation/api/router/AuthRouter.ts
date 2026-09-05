@@ -98,6 +98,7 @@ export class AuthRouter {
         const primaryEmail = identity.user?.contactRegistry.primaryEmail || '';
 
         const roles: string[] = [];
+        const roleNames: string[] = [];
         const effectivePermissions = new Set<string>();
 
         if (roleAssignmentRepository && roleRepository) {
@@ -106,6 +107,7 @@ export class AuthRouter {
             roles.push(assign.roleId);
             const role = await roleRepository.findById(assign.roleId);
             if (role) {
+              roleNames.push(role.name);
               for (const permRef of role.permissions) {
                 const permVal = typeof permRef === 'string'
                   ? permRef
@@ -123,6 +125,7 @@ export class AuthRouter {
           displayName,
           primaryEmail,
           roles,
+          roleNames,
           effectivePermissions: Array.from(effectivePermissions)
         }));
       } catch (error: any) {

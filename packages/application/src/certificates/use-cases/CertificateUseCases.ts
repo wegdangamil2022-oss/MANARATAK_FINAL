@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'crypto';
 import {
   AssetId,
   AssetLifecycleState,
+  AttachCertificateArtifactsDto,
   CertificateAuthoritativeEventEnvelope,
   CertificateDto,
   CertificateIssuerStatus,
@@ -14,11 +15,13 @@ import {
   CertificateTemplateStatus,
   CertificateVerificationDto,
   CourseCompletedEventPayload,
+  CourseOriginType,
   CreateCertificateIssuerDto,
   IAssetRecordRepository,
   ICertificateRepository,
   ICourseRepository,
   ILearningPathRepository,
+  IIdentityRepository,
   LearningPathCompletedEventPayload,
   UpdateCertificateIssuerDto,
   UpdateCertificateTemplateDto,
@@ -49,6 +52,7 @@ export class CertificateUseCases {
     private readonly assetRepository?: IAssetRecordRepository,
     signingRuntime: CertificateSigningRuntimeConfiguration = {},
     private readonly learningPathRepository?: ILearningPathRepository,
+    private readonly identityRepository?: IIdentityRepository,
   ) {
     this.trustPolicy = new CertificateTrustPolicy(signingRuntime);
   }
@@ -75,6 +79,27 @@ export class CertificateUseCases {
   public getCertificate(id: string) { return this.certificateRepository.findById(id); }
   public listLedger(id: string) { return this.certificateRepository.listLedger(id); }
   public listStudentCertificates(studentReferenceId: string) { return this.certificateRepository.listByStudent(studentReferenceId); }
+  public async attachRenderedArtifacts(certificateId: string, input: Omit<AttachCertificateArtifactsDto, 'certificateId' | 'actorId' | 'correlationId'>, actorId = 'phase14-artifact-renderer', correlationId?: string) {
+    await this.requireCertificate(certificateId);
+    const assetIds = [input.certificatePdfAssetId, input.previewImageAssetId, input.verificationQrAssetId].filter((value): value is string => Boolean(value));
+    if (!assetIds.length) throw new Error('CERTIFICATE_RENDERED_ARTIFACT_REQUIRED');
+    for (const assetId of assetIds) await this.ensureActiveAsset(assetId, 'CERTIFICATE_RENDERED_ARTIFACT');
+    return this.certificateRepository.attachArtifacts({ certificateId, ...input, actorId, correlationId });
+  }
+  public async readiness() {
+    const [templates, issuers] = await Promise.all([this.certificateRepository.listTemplates(), this.certificateRepository.listIssuers()]);
+    const runtime = this.trustPolicy.runtimeReadiness();
+    const activeTemplate = templates.some((item) => item.status === CertificateTemplateStatus.ACTIVE && item.currentVersion.status === CertificateTemplateStatus.ACTIVE);
+    const activeIssuer = issuers.some((item) => item.status === 'ACTIVE');
+    return {
+      activeTemplate,
+      activeIssuer,
+      trustedCompletionIssuanceReady: activeTemplate && activeIssuer && (!runtime.productionLike || (runtime.signingProviderConfigured && runtime.signingKeyReferenceConfigured && runtime.publicVerificationBaseUrlConfigured)),
+      artifactRendererMode: 'EAP_ASYNC',
+      artifactRendererRuntimeReady: false,
+      ...runtime,
+    };
+  }
 
   public async createIssuer(
     input: Omit<CreateCertificateIssuerDto, 'publicId' | 'status'> & { status?: CertificateIssuerStatus },
@@ -108,16 +133,16 @@ export class CertificateUseCases {
       issuerId,
       language: 'BILINGUAL',
       layout: 'LANDSCAPE',
-      accentColor: '#075E45',
-      secondaryColor: '#C9A227',
-      titleAr: 'شهادة إتمام معتمدة',
+      accentColor: '#142B5F',
+      secondaryColor: '#D6A43B',
+      titleAr: 'شهادة إتمام',
       titleEn: 'CERTIFICATE OF COMPLETION',
-      bodyAr: 'تشهد منصة مناراتك بأن المتعلم قد أتم بنجاح جميع متطلبات البرنامج واستحق هذه الشهادة الموثقة.',
-      bodyEn: 'MANARATAK certifies that the learner has successfully completed all program requirements and earned this verified credential.',
-      signatoryNameAr: 'إدارة الاعتماد الأكاديمي',
-      signatoryNameEn: 'Academic Credentialing Office',
-      signatoryTitleAr: 'التوقيع الرقمي المعتمد',
-      signatoryTitleEn: 'Authorized Digital Signature',
+      bodyAr: 'تشهد منصة منارتك بأن المتعلم قد أتم بنجاح متطلبات هذه الدورة واستحق شهادة الإتمام الرقمية القابلة للتحقق.',
+      bodyEn: 'MANARATAK confirms that the learner has successfully completed the course requirements and earned this digitally verifiable certificate of completion.',
+      signatoryNameAr: 'إدارة الشهادات — منارتك',
+      signatoryNameEn: 'MANARATAK Certificates Office',
+      signatoryTitleAr: 'توقيع الإصدار الرقمي',
+      signatoryTitleEn: 'Digital Issuance Signature',
       validityPolicy: 'PERMANENT',
       requiresRevalidation: false,
       metadata: { phase: 'Phase 14', eapAssetsRequiredForProduction: true },
@@ -206,6 +231,7 @@ export class CertificateUseCases {
       publicId: certificate.publicId,
       serialNumber: certificate.serialNumber,
       verificationCode: certificate.verificationCode,
+      verificationUrl: certificate.verificationUrl,
       verificationHash: certificate.verificationHash,
       status: expired ? CertificateStatus.EXPIRED : certificate.status,
       certificateType: envelope?.certificateType ?? certificate.certificateType,
@@ -238,8 +264,12 @@ export class CertificateUseCases {
     if (existing) return existing;
     const course = await this.courseRepository.findById(payload.courseId);
     if (!course) throw new Error('COURSE_NOT_FOUND');
+    if (course.originType !== CourseOriginType.NATIVE_MANARATAK_COURSE) {
+      throw new Error('MANARATAK_CERTIFICATE_NATIVE_COURSE_REQUIRED');
+    }
     if (!course.certificateAvailable) throw new Error('COURSE_CERTIFICATE_DISABLED');
     const template = await this.requireDefaultActiveTemplate();
+    const recipientDisplayName = await this.resolveRecipientDisplayName(payload.studentReferenceId);
     return this.issueAchievement(event, template, {
       certificateType: 'COURSE',
       type: 'COURSE',
@@ -250,7 +280,7 @@ export class CertificateUseCases {
       courseId: payload.courseId,
       courseDisplayName: course.displayName,
       courseCompletionId: payload.completionId,
-    });
+    }, recipientDisplayName);
   }
 
   private async issueLearningPathCompletion(event: CertificateAuthoritativeEventEnvelope<LearningPathCompletedEventPayload>): Promise<CertificateDto> {
@@ -263,6 +293,7 @@ export class CertificateUseCases {
     const existing = await this.certificateRepository.findByLearningPathCompletionId(completionId);
     if (existing) return existing;
     const template = await this.requireDefaultActiveTemplate();
+    const recipientDisplayName = await this.resolveRecipientDisplayName(payload.studentReferenceId);
     return this.issueAchievement(event, template, {
       certificateType: 'LEARNING_PATH',
       type: 'LEARNING_PATH',
@@ -273,7 +304,7 @@ export class CertificateUseCases {
       learningPathId: payload.learningPathId,
       learningPathDisplayName: path.title,
       learningPathCompletionId: completionId,
-    });
+    }, recipientDisplayName);
   }
 
   private async issueAchievement(
@@ -293,6 +324,7 @@ export class CertificateUseCases {
       learningPathDisplayName?: string;
       learningPathCompletionId?: string;
     },
+    recipientDisplayName: string | null,
   ): Promise<CertificateDto> {
     const issuer = await this.requireActiveIssuer(template.issuerId);
     this.trustPolicy.assertIssuerKeyAvailable(issuer.signingKeyReference);
@@ -300,12 +332,12 @@ export class CertificateUseCases {
     const expiresAt = this.expirationFor(template, issuedAt);
     const serialNumber = this.trustPolicy.generate({ issuerPrefix: issuer.code, certificateTypePrefix: achievement.type === 'COURSE' ? 'CRS' : 'LP', issuedAt, studentReferenceId: event.payload.studentReferenceId, completionIdentity: achievement.completionId });
     const verificationCode = `MNR-${this.digest(`${event.eventId}:${serialNumber}`).slice(0, 18).toUpperCase()}`;
-    const verificationUrl = `/api/v1/public/certificates/verify/${verificationCode}`;
+    const verificationUrl = this.trustPolicy.createPublicVerificationUrl(verificationCode);
     const verificationQr = this.trustPolicy.createPayload(verificationCode, verificationUrl);
     const envelope = this.signedEnvelope({
       certificateType: achievement.certificateType,
       studentReferenceId: event.payload.studentReferenceId,
-      recipientDisplayName: null,
+      recipientDisplayName,
       achievement,
       issuedAt,
       expiresAt,
@@ -324,7 +356,7 @@ export class CertificateUseCases {
       status: CertificateStatus.ACTIVE,
       certificateType: achievement.certificateType,
       studentReferenceId: event.payload.studentReferenceId,
-      recipientDisplayName: null,
+      recipientDisplayName,
       achievementType: achievement.type,
       achievementId: achievement.id,
       achievementDisplayName: achievement.displayName,
@@ -371,7 +403,7 @@ export class CertificateUseCases {
     const completionId = source.sourceCompletionId;
     const serialNumber = this.trustPolicy.generate({ issuerPrefix: issuer.code, certificateTypePrefix: source.achievementType === 'LEARNING_PATH' ? 'LP' : 'CRS', issuedAt, studentReferenceId: source.studentReferenceId, completionIdentity: sourceEventId });
     const verificationCode = `MNR-${this.digest(sourceEventId).slice(0, 18).toUpperCase()}`;
-    const verificationUrl = `/api/v1/public/certificates/verify/${verificationCode}`;
+    const verificationUrl = this.trustPolicy.createPublicVerificationUrl(verificationCode);
     const verificationQr = this.trustPolicy.createPayload(verificationCode, verificationUrl);
     const envelope = this.signedEnvelope({
       certificateType: source.certificateType,
@@ -485,6 +517,14 @@ export class CertificateUseCases {
     if (Number.isNaN(new Date(event.occurredAt).getTime())) throw new Error('CERTIFICATE_SOURCE_EVENT_TIMESTAMP_INVALID');
   }
 
+  private async resolveRecipientDisplayName(studentReferenceId: string): Promise<string | null> {
+    if (!this.identityRepository) return null;
+    const identity = await this.identityRepository.findById(studentReferenceId);
+    const displayName = identity?.user?.profile?.props?.displayName?.trim();
+    if (!displayName || displayName === 'ANONYMOUS') return null;
+    return displayName.slice(0, 180);
+  }
+
   private async requireDefaultActiveTemplate(): Promise<CertificateTemplateDto> {
     const template = await this.certificateRepository.findActiveTemplateByName('MANARATAK Signature Certificate');
     if (!template || template.status !== CertificateTemplateStatus.ACTIVE) throw new Error('ACTIVE_CERTIFICATE_TEMPLATE_REQUIRED');
@@ -501,7 +541,7 @@ export class CertificateUseCases {
 
   private async requireActiveIssuer(id: string) {
     const issuer = await this.certificateRepository.findIssuerById(id);
-    if (!issuer || issuer.status !== 'ACTIVE') throw new Error('ACTIVE_ACCREDITED_CERTIFICATE_ISSUER_REQUIRED');
+    if (!issuer || issuer.status !== 'ACTIVE') throw new Error('ACTIVE_CERTIFICATE_ISSUER_REQUIRED');
     if (!issuer.issuerLogoAssetId || !issuer.signingKeyReference) throw new Error('CERTIFICATE_ISSUER_AUTHORITY_INCOMPLETE');
     return issuer;
   }

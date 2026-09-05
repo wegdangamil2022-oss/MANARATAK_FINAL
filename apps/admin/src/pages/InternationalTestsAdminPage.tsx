@@ -6,7 +6,7 @@ import { useTranslation } from '../i18n/I18nProvider';
 
 type InternationalTestStatus = 'IMPORTED' | 'READY_TO_REVIEW' | 'NEEDS_REVIEW' | 'INCOMPLETE' | 'READY_TO_PUBLISH' | 'PUBLISHED' | 'REJECTED' | 'ARCHIVED';
 type InternationalTestCompletenessStatus = 'INCOMPLETE' | 'COMPLETE' | 'NEEDS_REVIEW';
-type InternationalTestCategory = 'LANGUAGE' | 'ACADEMIC_ADMISSION' | 'GRADUATE_ADMISSION' | 'PROFESSIONAL' | 'OTHER' | 'LANGUAGE_PROFICIENCY' | 'UNDERGRAD_ADMISSION' | 'GRAD_ADMISSION' | 'PROFESSIONAL_LICENSING' | 'ACADEMIC_PLACEMENT';
+type InternationalTestCategory = 'ENGLISH_LANGUAGE' | 'NON_ENGLISH_LANGUAGE' | 'GENERAL_UNDERGRADUATE_ADMISSION' | 'GRADUATE_ADMISSION' | 'NATIONAL_INTERNATIONAL_ADMISSION' | 'SPECIALIZED_ADMISSION' | 'PROFESSIONAL_LICENSING_CERTIFICATION' | 'LANGUAGE_PROFICIENCY' | 'UNDERGRAD_ADMISSION' | 'GRAD_ADMISSION' | 'PROFESSIONAL_LICENSING' | 'ACADEMIC_PLACEMENT' | 'OTHER';
 
 interface InternationalTest {
   id: string;
@@ -46,16 +46,25 @@ interface InternationalTestListResponse {
 }
 
 const testCategories: InternationalTestCategory[] = [
-  'LANGUAGE',
-  'ACADEMIC_ADMISSION',
+  'ENGLISH_LANGUAGE',
+  'NON_ENGLISH_LANGUAGE',
+  'GENERAL_UNDERGRADUATE_ADMISSION',
   'GRADUATE_ADMISSION',
-  'PROFESSIONAL',
+  'NATIONAL_INTERNATIONAL_ADMISSION',
+  'SPECIALIZED_ADMISSION',
+  'PROFESSIONAL_LICENSING_CERTIFICATION',
+  'LANGUAGE_PROFICIENCY',
+  'UNDERGRAD_ADMISSION',
+  'GRAD_ADMISSION',
+  'PROFESSIONAL_LICENSING',
+  'ACADEMIC_PLACEMENT',
   'OTHER'
 ];
 
 const statuses: InternationalTestStatus[] = [
   'IMPORTED',
   'READY_TO_REVIEW',
+  'NEEDS_REVIEW',
   'READY_TO_PUBLISH',
   'PUBLISHED',
   'REJECTED',
@@ -455,21 +464,19 @@ function getCompletenessLabel(status: InternationalTestCompletenessStatus | null
 function getCategoryLabel(category: InternationalTestCategory, isRtl: boolean): string {
   if (isRtl) {
     switch (category) {
-      case 'LANGUAGE':
-      case 'LANGUAGE_PROFICIENCY':
-        return 'اختبار لغة';
-      case 'ACADEMIC_ADMISSION':
-      case 'UNDERGRAD_ADMISSION':
-        return 'قبول جامعي';
+      case 'ENGLISH_LANGUAGE': return 'لغة إنجليزية';
+      case 'NON_ENGLISH_LANGUAGE': return 'لغة غير إنجليزية';
+      case 'LANGUAGE_PROFICIENCY': return 'إجادة لغة';
+      case 'GENERAL_UNDERGRADUATE_ADMISSION':
+      case 'UNDERGRAD_ADMISSION': return 'قبول جامعي عام';
       case 'GRADUATE_ADMISSION':
-      case 'GRAD_ADMISSION':
-        return 'قبول دراسات عليا';
-      case 'PROFESSIONAL':
-      case 'PROFESSIONAL_LICENSING':
-        return 'ترخيص مهني';
-      case 'OTHER':
-      case 'ACADEMIC_PLACEMENT':
-        return 'تحديد مستوى أكاديمي';
+      case 'GRAD_ADMISSION': return 'قبول دراسات عليا';
+      case 'NATIONAL_INTERNATIONAL_ADMISSION': return 'قبول وطني/دولي';
+      case 'SPECIALIZED_ADMISSION': return 'قبول تخصصي';
+      case 'PROFESSIONAL_LICENSING_CERTIFICATION':
+      case 'PROFESSIONAL_LICENSING': return 'ترخيص/اعتماد مهني';
+      case 'ACADEMIC_PLACEMENT': return 'تحديد مستوى أكاديمي';
+      case 'OTHER': return 'أخرى';
       default:
         return category;
     }

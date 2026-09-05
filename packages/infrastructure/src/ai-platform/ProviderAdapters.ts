@@ -43,6 +43,7 @@ abstract class SecretReferencedProviderAdapter implements AIProviderAdapter {
   protected readonly timeoutMs: number;
   protected readonly transport: AIHttpTransport;
   private readonly readSecret: (reference: string) => string | undefined;
+  private runtimeVerified = false;
 
   protected constructor(options: AdapterOptions) {
     this.key = options.key;
@@ -54,7 +55,9 @@ abstract class SecretReferencedProviderAdapter implements AIProviderAdapter {
   }
 
   status(): AIProviderOperationalStatus {
-    return this.secret() ? 'READY' : 'NOT_CONFIGURED';
+    // A configured secret proves only that an invocation can be attempted.
+    // READY is reserved for runtime evidence, never inferred from ENV presence.
+    return this.secret() ? (this.runtimeVerified ? 'READY' : 'RUNTIME_PENDING') : 'NOT_CONFIGURED';
   }
 
   protected secret(): string | undefined {
@@ -65,6 +68,10 @@ abstract class SecretReferencedProviderAdapter implements AIProviderAdapter {
     const value = this.secret();
     if (!value) throw new Error(`AI_PROVIDER_NOT_CONFIGURED:${this.key}`);
     return value;
+  }
+
+  protected markRuntimeVerified(): void {
+    this.runtimeVerified = true;
   }
 
   abstract invoke(request: AIProviderInvocation): Promise<AIProviderInvocationResult>;
@@ -78,6 +85,7 @@ export class OpenAICompatibleAdapter extends SecretReferencedProviderAdapter {
     const key = this.requireSecret();
     const response = await this.transport.request({ url: `${this.baseUrl}/embeddings`, method: 'POST', timeoutMs: this.timeoutMs, headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' }, body: { model: request.model, input: request.inputs, dimensions: request.dimensions ?? undefined } });
     if (response.status >= 400) throw providerError(this.key, response.status, response.body);
+    this.markRuntimeVerified();
     return { embeddings: (response.body?.data ?? []).map((item: any) => item.embedding), inputTokens: response.body?.usage?.prompt_tokens ?? response.body?.usage?.total_tokens ?? 0, providerRequestId: response.body?.id ?? null };
   }
 
@@ -98,6 +106,7 @@ export class OpenAICompatibleAdapter extends SecretReferencedProviderAdapter {
       }
     });
     if (response.status >= 400) throw providerError(this.key, response.status, response.body);
+    this.markRuntimeVerified();
     return {
       output: response.body?.choices?.[0]?.message?.content ?? '',
       providerRequestId: response.body?.id ?? null,
@@ -120,6 +129,7 @@ export class AnthropicProviderAdapter extends SecretReferencedProviderAdapter {
       body: { model: request.model, system: request.systemPrompt ?? undefined, messages: [{ role: 'user', content: request.input }], max_tokens: request.maxOutputTokens ?? 1024, temperature: request.temperature ?? 0 }
     });
     if (response.status >= 400) throw providerError(this.key, response.status, response.body);
+    this.markRuntimeVerified();
     return {
       output: (response.body?.content ?? []).map((part: any) => part?.text ?? '').join(''),
       providerRequestId: response.body?.id ?? null,
@@ -138,6 +148,7 @@ export class GoogleGenerativeAIProviderAdapter extends SecretReferencedProviderA
     const key = this.requireSecret();
     const response = await this.transport.request({ url: `${this.baseUrl}/models/${encodeURIComponent(request.model)}:batchEmbedContents`, method: 'POST', timeoutMs: this.timeoutMs, headers: { 'x-goog-api-key': key, 'content-type': 'application/json' }, body: { requests: request.inputs.map((text) => ({ model: `models/${request.model}`, content: { parts: [{ text }] }, outputDimensionality: request.dimensions ?? undefined })) } });
     if (response.status >= 400) throw providerError(this.key, response.status, response.body);
+    this.markRuntimeVerified();
     return { embeddings: (response.body?.embeddings ?? []).map((item: any) => item.values ?? []), inputTokens: 0, providerRequestId: response.headers?.['x-request-id'] ?? null };
   }
 
@@ -153,6 +164,7 @@ export class GoogleGenerativeAIProviderAdapter extends SecretReferencedProviderA
       }
     });
     if (response.status >= 400) throw providerError(this.key, response.status, response.body);
+    this.markRuntimeVerified();
     return {
       output: (response.body?.candidates?.[0]?.content?.parts ?? []).map((part: any) => part?.text ?? '').join(''),
       providerRequestId: response.headers?.['x-request-id'] ?? null,

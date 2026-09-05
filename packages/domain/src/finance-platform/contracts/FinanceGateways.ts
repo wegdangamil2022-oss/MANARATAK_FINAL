@@ -23,9 +23,12 @@ export interface PaymentGatewayResult {
   safeMaskedMetadata?: Record<string, string>;
   failureCode?: string;
 }
+export type FinanceRuntimeCapabilityStatus = 'READY' | 'RUNTIME_PENDING' | 'NOT_CONFIGURED';
+
 export interface IPaymentGateway {
   readonly providerKey: string;
   isConfigured(): boolean;
+  runtimeStatus(): FinanceRuntimeCapabilityStatus;
   authorize(request: PaymentGatewayRequest): Promise<PaymentGatewayResult>;
   capture(
     gatewayReference: string,
@@ -40,6 +43,7 @@ export interface IPaymentGateway {
 }
 export interface IPaymentGatewayRegistry {
   get(providerKey: string): IPaymentGateway | null;
+  list(): readonly IPaymentGateway[];
 }
 
 export interface IFxRateProvider {
@@ -72,10 +76,12 @@ export interface BankTransferEvidence {
 export interface IBankTransferGateway {
   readonly providerKey: string;
   isConfigured(): boolean;
+  runtimeStatus(): FinanceRuntimeCapabilityStatus;
   submit(request: BankTransferSubmission): Promise<BankTransferEvidence>;
   getStatus(providerReference: string, idempotencyKey: string): Promise<BankTransferEvidence>;
   reverse(providerReference: string, idempotencyKey: string): Promise<BankTransferEvidence>;
 }
 export interface IBankTransferGatewayRegistry {
   get(providerKey: string): IBankTransferGateway | null;
+  list(): readonly IBankTransferGateway[];
 }

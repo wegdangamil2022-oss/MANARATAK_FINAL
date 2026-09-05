@@ -54,7 +54,7 @@ for (const [n, fn] of [
 ]) check(n, has(live, `function ${fn}`));
 check('P10-020 scholarships adapter is owner-backed', has(live, 'ApiClient.getScholarships') && has(live, 'mapPublicScholarshipDto'));
 
-check('P10-021 active-only countries', has(live, 'getReferenceCountries({ activeOnly: true })') && has(live, '.filter((item) => item.isActive)'));
+check('P10-021 published study destinations only', has(live, 'ApiClient.getStudyDestinations({ page: 1, pageSize: 100 })') && !has(live, 'getReferenceCountries({ activeOnly: true })'));
 check('P10-022 university canonical geography retained', has(live, 'countryReferenceId: dto.countryReferenceId') && has(live, 'regionReferenceId: dto.regionReferenceId') && has(live, 'cityReferenceId: dto.cityReferenceId'));
 check('P10-023 university program major link canonical', has(live, "program.majorMappingState === 'CANONICALLY_MAPPED'") && has(live, 'majorId: String(program.majorId)'));
 check('P10-024 course stable identity retained', has(live, 'ownerId: dto.ownerId') && has(live, 'publicId: dto.publicId') && has(live, 'slug: dto.slug'));
@@ -96,7 +96,7 @@ check('P10-055 App has explicit retry control', has(app, 'onClick={publicLive.re
 check('P10-056 App displays loading state', has(app, 'loadingDomains.length > 0'));
 
 check('P10-057 country detail browses by canonical ID', has(countryDetail, 'onBrowseScholarships(country.id)'));
-check('P10-058 country search hands canonical ID', has(countriesPage, 'const countryId = activeCountryModal.id'));
+check('P10-058 country search hands canonical ID', has(countriesPage, 'const countryId = detailCountry.id'));
 check('P10-059 scholarship country filter uses canonical ref', has(app, 'countryReferenceId'));
 check('P10-060 no CountryDetail name identity callback', !has(countryDetail, 'onBrowseScholarships(country.name)'));
 

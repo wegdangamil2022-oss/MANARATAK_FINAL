@@ -55,7 +55,7 @@ const checks = {
     source.router.includes("'/ledger/transactions'") &&
     source.router.includes("'/reconciliation/run'"),
   arabic_admin_center:
-    source.admin.includes('مركز المالية والمدفوعات') && source.admin.includes('#044A37'),
+    source.admin.includes('مركز المالية والمدفوعات') && source.admin.includes('#142B5F'),
 };
 let passed = true;
 for (const [name, result] of Object.entries(checks)) {

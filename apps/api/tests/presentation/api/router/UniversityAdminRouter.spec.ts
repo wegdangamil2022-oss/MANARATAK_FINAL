@@ -7,6 +7,7 @@ import { UniversityAdminRouter } from '../../../../src/presentation/api/router/U
 describe('UniversityAdminRouter', () => {
   const createMockUseCases = () => ({
     listUniversities: vi.fn(),
+    listOrganizationUnits: vi.fn(),
     getUniversity: vi.fn(),
     updateUniversity: vi.fn(),
     replaceNormalizedDetails: vi.fn(),
@@ -55,6 +56,21 @@ describe('UniversityAdminRouter', () => {
       page: 2,
       pageSize: 50,
     });
+  });
+
+
+  it('GET /admin/universities/organization-units lists existing faculties/colleges without creating a second admin section', async () => {
+    const useCases = createMockUseCases();
+    useCases.listOrganizationUnits.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 });
+    const app = createApp(useCases);
+
+    const res = await request(app).get('/admin/universities/organization-units?unitType=FACULTY&search=Engineering');
+
+    expect(res.status).toBe(200);
+    expect(useCases.listOrganizationUnits).toHaveBeenCalledWith({
+      unitType: 'FACULTY', search: 'Engineering', page: 1, pageSize: 50,
+    });
+    expect(useCases.getUniversity).not.toHaveBeenCalledWith('organization-units');
   });
 
   it('PATCH /admin/universities/:id validates body and strips readonly fields', async () => {

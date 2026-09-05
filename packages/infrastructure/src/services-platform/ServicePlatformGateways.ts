@@ -57,4 +57,8 @@ export class Phase19ServiceFinanceGateway implements IServiceFinanceGateway {
     );
     return { id: invoice.id, publicId: invoice.publicId };
   }
+
+  async getInvoiceClearance(invoiceId: string) {
+    return this.finance.getInvoiceClearance(invoiceId);
+  }
 }

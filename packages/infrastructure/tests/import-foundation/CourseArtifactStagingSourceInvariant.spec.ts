@@ -18,7 +18,7 @@ describe('WP-IC-03 source invariants', () => {
 
   it('guards XLSX archive before adapter parsing', () => {
     const parser = source(
-      'packages/application/src/import-foundation/parsers/CourseMasterArtifactParser.ts',
+      'packages/application/src/courses/parsers/CourseMasterArtifactParser.ts',
     );
     expect(parser.indexOf('inspectXlsxArchive(bytes)')).toBeLessThan(
       parser.indexOf('readXlsxWorkbook(bytes'),

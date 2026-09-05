@@ -27,6 +27,8 @@ import {
   InternationalTestImportDraftRequestDto,
   InternationalTestImportDraftResultDto,
   InternationalTestVersionDto,
+  InternationalTestProviderDto,
+  InternationalTestSourceTrustLevel,
   InternationalTestPublicationReadinessPolicy,
   PublicationReadinessEngine,
   PublicationReadinessResult,
@@ -34,6 +36,7 @@ import {
   IDegreeLevelRepository,
   IAcademicTaxonomyRepository
 } from '@manaratak/domain';
+import { assertNoTranslationPayloadFields } from '@manaratak/shared';
 import { AtomicDomainMutationCoordinator, AtomicMutationRequestContext } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
 import { InternationalTestCanonicalRelationshipService } from './InternationalTestCanonicalRelationshipService';
 
@@ -68,7 +71,8 @@ export class InternationalTestAdminUseCases {
   }
 
   public async createTest(data: UpsertInternationalTestDto, context?: AtomicMutationRequestContext): Promise<InternationalTestDto> {
-    const canonicalData = { ...data, ...(await this.canonicalRelationshipService.canonicalize(data)) };
+    assertNoTranslationPayloadFields('INTERNATIONAL_TEST', data as unknown as Record<string, unknown>, ['localizedNameAr', 'localizedNameEn']);
+    const canonicalData = { ...data, ...(await this.canonicalRelationshipService.canonicalize(data)), ...(await this.canonicalizeProvider(data)) };
     const report = this.validationService.validate(canonicalData);
     const hasErrors = report.issues.some(i => i.severity === InternationalTestValidationSeverity.ERROR);
     if (hasErrors) {
@@ -81,7 +85,8 @@ export class InternationalTestAdminUseCases {
   }
 
   public async updateTest(id: string, data: Partial<UpsertInternationalTestDto>, context?: AtomicMutationRequestContext): Promise<InternationalTestDto> {
-    const canonicalData = { ...data, ...(await this.canonicalRelationshipService.canonicalize(data)) };
+    assertNoTranslationPayloadFields('INTERNATIONAL_TEST', data as unknown as Record<string, unknown>, ['localizedNameAr', 'localizedNameEn']);
+    const canonicalData = { ...data, ...(await this.canonicalRelationshipService.canonicalize(data)), ...(await this.canonicalizeProvider(data)) };
     const existing = await this.get(id);
     const merged = { ...existing, ...canonicalData };
     const report = this.validationService.validate(merged);
@@ -94,7 +99,8 @@ export class InternationalTestAdminUseCases {
   }
 
   public async upsertTest(data: UpsertInternationalTestDto, context?: AtomicMutationRequestContext): Promise<InternationalTestDto> {
-    const canonicalData = { ...data, ...(await this.canonicalRelationshipService.canonicalize(data)) };
+    assertNoTranslationPayloadFields('INTERNATIONAL_TEST', data as unknown as Record<string, unknown>, ['localizedNameAr', 'localizedNameEn']);
+    const canonicalData = { ...data, ...(await this.canonicalRelationshipService.canonicalize(data)), ...(await this.canonicalizeProvider(data)) };
     const report = this.validationService.validate(canonicalData);
     const hasErrors = report.issues.some(i => i.severity === InternationalTestValidationSeverity.ERROR);
     if (hasErrors) {
@@ -118,7 +124,9 @@ export class InternationalTestAdminUseCases {
       { ...test, status: InternationalTestStatus.READY_TO_PUBLISH },
       this.publicationPolicy
     );
-    await this.mutate('INTERNATIONAL_TEST_MARKED_READY_TO_PUBLISH', id, context, repository => repository.updateStatus(id, InternationalTestStatus.READY_TO_PUBLISH).then(() => undefined));
+    await this.mutate('INTERNATIONAL_TEST_MARKED_READY_TO_PUBLISH', id, context, async repository => {
+      await repository.update(id, { status: InternationalTestStatus.READY_TO_PUBLISH, isPubliclyVisible: false });
+    });
   }
 
   public async checkPublicationReadiness(id: string): Promise<PublicationReadinessResult> {
@@ -129,12 +137,51 @@ export class InternationalTestAdminUseCases {
   public async publish(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     const test = await this.get(id);
     this.publicationReadiness.assertReady(id, test, this.publicationPolicy);
-    await this.mutate('INTERNATIONAL_TEST_PUBLISHED', id, context, repository => repository.updateStatus(id, InternationalTestStatus.PUBLISHED).then(() => undefined));
+    await this.mutate('INTERNATIONAL_TEST_PUBLISHED', id, context, async repository => {
+      await repository.update(id, { status: InternationalTestStatus.PUBLISHED, isPubliclyVisible: true });
+    });
   }
 
   public async archive(id: string, context?: AtomicMutationRequestContext): Promise<void> {
     await this.get(id);
-    await this.mutate('INTERNATIONAL_TEST_ARCHIVED', id, context, repository => repository.updateStatus(id, InternationalTestStatus.ARCHIVED).then(() => undefined));
+    await this.mutate('INTERNATIONAL_TEST_ARCHIVED', id, context, async repository => {
+      await repository.update(id, { status: InternationalTestStatus.ARCHIVED, isPubliclyVisible: false });
+    });
+  }
+
+  public async listProviders(search?: string): Promise<InternationalTestProviderDto[]> {
+    if (!this.repository.listProviders) return [];
+    return this.repository.listProviders(search);
+  }
+
+  public async upsertProvider(data: Omit<InternationalTestProviderDto, 'id'> & { id?: string }, context?: AtomicMutationRequestContext): Promise<InternationalTestProviderDto> {
+    if (!this.repository.upsertProvider) throw new Error('Repository method upsertProvider not implemented');
+    const key = data.key?.trim();
+    const displayName = data.displayName?.trim();
+    if (!key || !displayName) throw new Error('PROVIDER_KEY_AND_DISPLAY_NAME_REQUIRED');
+    const normalized = {
+      ...data,
+      key: key.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, ''),
+      displayName,
+      countryIso2Code: data.countryIso2Code?.trim().toUpperCase(),
+    };
+    return this.mutate('INTERNATIONAL_TEST_PROVIDER_UPSERTED', data.id || normalized.key, context, repository => {
+      if (!repository.upsertProvider) throw new Error('Repository method upsertProvider not implemented');
+      return repository.upsertProvider(normalized);
+    });
+  }
+
+  public async verifySource(id: string, context?: AtomicMutationRequestContext): Promise<void> {
+    await this.get(id);
+    const evidence = await this.listEvidence(id);
+    const trusted = evidence.some(item =>
+      Boolean(item.sourceUrl?.trim()) &&
+      (item.sourceTrustLevel === InternationalTestSourceTrustLevel.AUTHORITATIVE ||
+       item.sourceTrustLevel === InternationalTestSourceTrustLevel.HIGH)
+    );
+    if (!trusted) throw new Error('TRUSTED_SOURCE_EVIDENCE_REQUIRED');
+    await this.mutate('INTERNATIONAL_TEST_SOURCE_VERIFIED', id, context, repository =>
+      repository.update(id, { isSourceVerified: true }).then(() => undefined));
   }
 
   // Child profile delegates
@@ -283,6 +330,14 @@ export class InternationalTestAdminUseCases {
     await this.get(testId);
     if (!this.repository.listImportVersions) return [];
     return this.repository.listImportVersions(testId);
+  }
+
+  private async canonicalizeProvider(data: Partial<UpsertInternationalTestDto>): Promise<Partial<UpsertInternationalTestDto>> {
+    if (!data.providerId) return {};
+    if (!this.repository.findProviderById) throw new Error('Canonical International Test provider lookup is not configured');
+    const provider = await this.repository.findProviderById(data.providerId);
+    if (!provider) throw new Error(`International test provider with id ${data.providerId} not found`);
+    return { providerId: provider.id, providerName: provider.displayName };
   }
 
   private mutate<T>(action: string, id: string, context: AtomicMutationRequestContext | undefined, mutation: (repository: IInternationalTestRepository) => Promise<T>): Promise<T> {

@@ -131,6 +131,8 @@ export * from './cms/entities/CmsContent';
 export * from './cms/enums/CmsCategoryStatus';
 export * from './cms/enums/CmsContentStatus';
 export * from './cms/enums/CmsContentType';
+export * from './cms/enums/CmsDomainTargetType';
+export * from './cms/enums/CmsDomainRelationType';
 export * from './cms/services/CmsPublishingPolicy';
 export * from './configuration/aggregates/Configuration';
 export * from './configuration/enums/ConfigurationLifecycleState';
@@ -312,6 +314,7 @@ export {
 export * from './scholarships/contracts';
 export * from './majors/enums';
 export * from './majors/majors';
+export * from './majors/NewMajorCandidate';
 export * from './tests-platform/index';
 export * from './identity-validation';
 export * from './settings';
@@ -359,3 +362,5 @@ export * from './degree-level';
 export * from './hierarchy';
 
 export * from './services-platform';
+
+export * from './study-destinations';

@@ -35,16 +35,18 @@ export class PrismaAIPlatformRepository implements IAIPlatformRepository, IAIExe
       this.prisma.aIUsageRecord.groupBy({ by: ['currency'], where: { createdAt: { gte: startMonth } }, _sum: { cost: true } }),
       this.prisma.aIRegistryRecord.count({ where: { resourceType: 'incidents', status: { in: ['OPEN', 'INVESTIGATING'] } } }),
     ]);
-    const counts: AIPlatformOverview['providers'] = { NOT_CONFIGURED: 0, READY: 0, DEGRADED: 0, UNAVAILABLE: 0, DISABLED: 0 };
+    const counts: AIPlatformOverview['providers'] = { NOT_CONFIGURED: 0, RUNTIME_PENDING: 0, READY: 0, DEGRADED: 0, UNAVAILABLE: 0, DISABLED: 0 };
     providers.forEach((provider: any) => { const status = provider.operationalStatus ?? 'NOT_CONFIGURED'; if (status in counts) counts[status as keyof typeof counts] += 1; });
     const settings = await this.find<{ globalEnabled?: boolean }>('platformSettings', 'runtime');
     const overallStatus = settings?.globalEnabled === false
       ? 'DISABLED'
-      : counts.READY === 0 || activeModels === 0 || activePrompts === 0
+      : activeModels === 0 || activePrompts === 0 || (counts.READY === 0 && counts.RUNTIME_PENDING === 0)
         ? 'NOT_CONFIGURED'
         : counts.DEGRADED > 0 || counts.UNAVAILABLE > 0 || openIncidents > 0
           ? 'DEGRADED'
-          : 'READY';
+          : counts.READY > 0
+            ? 'READY'
+            : 'RUNTIME_PENDING';
     const costMonthToDateByCurrency = Object.fromEntries(usageGroups.map((row: any) => [row.currency, Number(row._sum.cost ?? 0)]));
     const currencies = Object.keys(costMonthToDateByCurrency);
     return {

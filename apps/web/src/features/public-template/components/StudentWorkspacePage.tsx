@@ -142,13 +142,13 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
   const EmptyWidget = ({ icon: Icon, title, text }: { icon: React.ElementType; title: string; text: string }) => (
     <div className="rounded-2xl border border-dashed border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-page)]/70 mn-dark:bg-[var(--mn-surface-elevated)] p-4 text-center mn-dark:mn-panel ">
       <Icon className="w-6 h-6 mx-auto text-[var(--mn-text-muted)] mb-2" />
-      <div className="text-xs font-black text-[var(--mn-heading)] mn-dark:text-white">{title}</div>
+      <div className="text-xs font-bold text-[var(--mn-heading)] mn-dark:text-white">{title}</div>
       <p className="text-[10px] leading-5 text-[var(--mn-text-muted)] mt-1">{text}</p>
     </div>
   );
 
   return (
-    <section className="w-full max-w-4xl mx-auto px-3 sm:px-5 pb-8 text-right" dir="rtl">
+    <section className="w-full max-w-4xl mx-auto mn-inline-gutter pb-8 text-right" dir="rtl">
       <div className="pt-3 sm:pt-5">
         <div className="relative overflow-hidden rounded-[26px] border border-[var(--mn-primary)]/10 bg-[var(--mn-primary)] p-4 sm:p-5 shadow-sm mn-inverse ">
           <div className="absolute -left-12 -top-12 w-36 h-36 rounded-full bg-[var(--mn-accent)]/12 blur-2xl" />
@@ -159,12 +159,12 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                <span className="px-2 py-0.5 rounded-full bg-[var(--mn-accent)] text-[var(--mn-on-accent)] text-[9px] font-black mn-gold ">Student Workspace</span>
+                <span className="px-2 py-0.5 rounded-full bg-[var(--mn-accent)] text-[var(--mn-on-accent)] text-[9px] font-bold mn-gold ">Student Workspace</span>
                 {!profile && (
                   <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/15 text-white text-[9px] font-bold">معاينة UI</span>
                 )}
               </div>
-              <h1 className="text-lg sm:text-xl font-black text-white leading-tight">
+              <h1 className="text-lg sm:text-xl font-bold text-white leading-tight">
                 {profile?.name || 'حساب الطالب في منارتك'}
               </h1>
               <p className="text-[10px] sm:text-[11px] leading-5 text-[var(--mn-on-dark-muted)] mt-1 max-w-xl">
@@ -179,7 +179,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
             <div className="flex items-center justify-between gap-3 mb-2">
               <div>
                 <div className="text-[10px] font-bold text-[var(--mn-text-muted)]">اكتمال مساحة الطالب</div>
-                <div className="text-xs font-black text-white mt-0.5">
+                <div className="text-xs font-bold text-white mt-0.5">
                   {profile ? `${profileCompletion}%` : 'يبدأ بعد تسجيل الدخول'}
                 </div>
               </div>
@@ -196,7 +196,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
             {!profile && (
               <button
                 onClick={onOpenAuth}
-                className="mt-3 w-full min-h-[40px] rounded-xl bg-[var(--mn-accent)] text-[var(--mn-on-accent)] text-[11px] font-black flex items-center justify-center gap-2 active:scale-[0.98] transition-transform mn-gold "
+                className="mt-3 w-full min-h-[40px] rounded-xl bg-[var(--mn-accent)] text-[var(--mn-on-accent)] text-[11px] font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform mn-gold "
               >
                 <LogIn className="w-4 h-4" />
                 تسجيل الدخول / إنشاء حساب
@@ -220,7 +220,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
                 }`}
               >
                 <Icon className={`w-4 h-4 ${active ? 'text-[var(--mn-accent)]' : ''}`} />
-                <span className="text-[9px] font-black whitespace-nowrap">{item.label}</span>
+                <span className="text-[9px] font-bold whitespace-nowrap">{item.label}</span>
               </button>
             );
           })}
@@ -243,7 +243,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
                     className="rounded-2xl border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-surface)] p-2.5 min-h-[76px] text-center shadow-2xs active:scale-[0.98] transition-transform mn-panel "
                   >
                     <Icon className="w-4 h-4 mx-auto text-[var(--mn-accent-text)] mb-1.5" />
-                    <div className="text-sm font-black text-[var(--mn-heading)] mn-dark:text-white leading-none">{item.value}</div>
+                    <div className="text-sm font-bold text-[var(--mn-heading)] mn-dark:text-white leading-none">{item.value}</div>
                     <div className="text-[9px] font-bold text-[var(--mn-text-muted)] mt-1.5">{item.label}</div>
                   </button>
                 );
@@ -253,7 +253,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
             <div className="rounded-3xl border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-surface)] p-4 shadow-2xs mn-panel ">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div>
-                  <h2 className="text-sm font-black text-[var(--mn-heading)] mn-dark:text-white">إجراءات سريعة</h2>
+                  <h2 className="text-sm font-bold text-[var(--mn-heading)] mn-dark:text-white">إجراءات سريعة</h2>
                   <p className="text-[10px] text-[var(--mn-text-muted)] mt-0.5">اختصارات تتغير لاحقًا حسب سياق الطالب.</p>
                 </div>
                 <Sparkles className="w-5 h-5 text-[var(--mn-accent-text)]" />
@@ -272,7 +272,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
                       onClick={item.action}
                       className="min-h-[48px] rounded-2xl bg-[var(--mn-page)] mn-dark:bg-[var(--mn-surface-elevated)] border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] px-3 flex items-center justify-between gap-2 active:scale-[0.98] transition-transform mn-panel mn-dark:mn-panel "
                     >
-                      <span className="text-[10px] font-black text-[var(--mn-heading)] mn-dark:text-white">{item.label}</span>
+                      <span className="text-[10px] font-bold text-[var(--mn-heading)] mn-dark:text-white">{item.label}</span>
                       <Icon className="w-4 h-4 text-[var(--mn-accent-text)] shrink-0" />
                     </button>
                   );
@@ -283,7 +283,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
             <div className="rounded-3xl border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-surface)] p-4 shadow-2xs mn-panel ">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div>
-                  <h2 className="text-sm font-black text-[var(--mn-heading)] mn-dark:text-white">ملفي الأكاديمي</h2>
+                  <h2 className="text-sm font-bold text-[var(--mn-heading)] mn-dark:text-white">ملفي الأكاديمي</h2>
                   <p className="text-[10px] text-[var(--mn-text-muted)] mt-0.5">عرض مختصر عبر Read Model؛ لا تنسخ Phase 15 السجل الأكاديمي الأصلي.</p>
                 </div>
                 <GraduationCap className="w-5 h-5 text-[var(--mn-accent-text)]" />
@@ -299,12 +299,12 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-2xl bg-[var(--mn-page)] mn-dark:bg-[var(--mn-surface-elevated)] border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] p-3 mn-panel mn-dark:mn-panel ">
                     <div className="text-[9px] font-bold text-[var(--mn-text-muted)]">{label}</div>
-                    <div className="text-[10px] font-black text-[var(--mn-heading)] mn-dark:text-white mt-1 line-clamp-2">{value}</div>
+                    <div className="text-[10px] font-bold text-[var(--mn-heading)] mn-dark:text-white mt-1 line-clamp-2">{value}</div>
                   </div>
                 ))}
               </div>
               {!profile && (
-                <button onClick={onOpenAuth} className="mt-3 text-[10px] font-black text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)] flex items-center gap-1">
+                <button onClick={onOpenAuth} className="mt-3 text-[10px] font-bold text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)] flex items-center gap-1">
                   اربط حسابك لإكمال الملف <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -314,7 +314,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
               <div className="rounded-3xl border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-surface)] p-4 shadow-2xs mn-panel ">
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <div>
-                    <h2 className="text-sm font-black text-[var(--mn-heading)] mn-dark:text-white">رحلتي الآن</h2>
+                    <h2 className="text-sm font-bold text-[var(--mn-heading)] mn-dark:text-white">رحلتي الآن</h2>
                     <p className="text-[10px] text-[var(--mn-text-muted)] mt-0.5">ملخص من الـTimeline والمتابعات.</p>
                   </div>
                   <History className="w-5 h-5 text-[var(--mn-accent-text)]" />
@@ -323,12 +323,12 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
                   <div className="space-y-2">
                     {latestJourneyItems.slice(0, 3).map((item) => (
                       <div key={item.id} className="rounded-2xl bg-[var(--mn-page)] mn-dark:bg-[var(--mn-surface-elevated)] p-3 border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] mn-panel mn-dark:mn-panel ">
-                        <div className="text-[9px] font-black text-[var(--mn-accent-text)]">{item.type}</div>
-                        <div className="text-[11px] font-black text-[var(--mn-heading)] mn-dark:text-white mt-0.5 line-clamp-1">{item.title}</div>
+                        <div className="text-[9px] font-bold text-[var(--mn-accent-text)]">{item.type}</div>
+                        <div className="text-[11px] font-bold text-[var(--mn-heading)] mn-dark:text-white mt-0.5 line-clamp-1">{item.title}</div>
                         <div className="text-[9px] text-[var(--mn-text-muted)] mt-1">{item.meta}</div>
                       </div>
                     ))}
-                    <button onClick={onOpenTracker} className="w-full text-[10px] font-black text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)] flex items-center justify-center gap-1 py-1">
+                    <button onClick={onOpenTracker} className="w-full text-[10px] font-bold text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)] flex items-center justify-center gap-1 py-1">
                       عرض الرحلة والمتابعة <ChevronLeft className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -340,7 +340,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
               <div className="rounded-3xl border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-surface)] p-4 shadow-2xs mn-panel ">
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <div>
-                    <h2 className="text-sm font-black text-[var(--mn-heading)] mn-dark:text-white">المواعيد المهمة</h2>
+                    <h2 className="text-sm font-bold text-[var(--mn-heading)] mn-dark:text-white">المواعيد المهمة</h2>
                     <p className="text-[10px] text-[var(--mn-text-muted)] mt-0.5">المواعيد القادمة من الأنظمة المرتبطة.</p>
                   </div>
                   <CalendarClock className="w-5 h-5 text-[var(--mn-accent-text)]" />
@@ -349,10 +349,10 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
                   <div className="space-y-2">
                     {activeMilestones.slice(0, 2).map((item) => (
                       <button key={item.id} onClick={onOpenTracker} className="w-full rounded-2xl border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-page)] mn-dark:bg-[var(--mn-surface-elevated)] p-3 text-right mn-panel mn-dark:mn-panel ">
-                        <div className="text-[11px] font-black text-[var(--mn-heading)] mn-dark:text-white line-clamp-1">{item.scholarshipTitle}</div>
+                        <div className="text-[11px] font-bold text-[var(--mn-heading)] mn-dark:text-white line-clamp-1">{item.scholarshipTitle}</div>
                         <div className="mt-1.5 flex items-center justify-between gap-2 text-[9px] text-[var(--mn-text-muted)]">
                           <span>{item.stage}</span>
-                          <span className="font-black text-[var(--mn-accent-text)]">{item.deadline}</span>
+                          <span className="font-bold text-[var(--mn-accent-text)]">{item.deadline}</span>
                         </div>
                       </button>
                     ))}
@@ -368,7 +368,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
                 <div className="flex items-center gap-2 mb-3">
                   <BookOpen className="w-5 h-5 text-[var(--mn-accent-text)]" />
                   <div>
-                    <h2 className="text-sm font-black text-[var(--mn-heading)] mn-dark:text-white">أكمل التعلم</h2>
+                    <h2 className="text-sm font-bold text-[var(--mn-heading)] mn-dark:text-white">أكمل التعلم</h2>
                     <p className="text-[10px] text-[var(--mn-text-muted)]">Read Model من Phase 13 لاحقًا.</p>
                   </div>
                 </div>
@@ -379,7 +379,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
                 <div className="flex items-center gap-2 mb-3">
                   <Award className="w-5 h-5 text-[var(--mn-accent-text)]" />
                   <div>
-                    <h2 className="text-sm font-black text-[var(--mn-heading)] mn-dark:text-white">إنجازاتي</h2>
+                    <h2 className="text-sm font-bold text-[var(--mn-heading)] mn-dark:text-white">إنجازاتي</h2>
                     <p className="text-[10px] text-[var(--mn-text-muted)]">شهادات وإنجازات من مراحلها الأصلية.</p>
                   </div>
                 </div>
@@ -392,7 +392,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
                 <div className="flex items-center gap-2 mb-3">
                   <Eye className="w-5 h-5 text-[var(--mn-accent-text)]" />
                   <div>
-                    <h2 className="text-sm font-black text-[var(--mn-heading)] mn-dark:text-white">آخر ما شاهدته</h2>
+                    <h2 className="text-sm font-bold text-[var(--mn-heading)] mn-dark:text-white">آخر ما شاهدته</h2>
                     <p className="text-[10px] text-[var(--mn-text-muted)]">Recently Viewed Items</p>
                   </div>
                 </div>
@@ -402,7 +402,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
                 <div className="flex items-center gap-2 mb-3">
                   <Search className="w-5 h-5 text-[var(--mn-accent-text)]" />
                   <div>
-                    <h2 className="text-sm font-black text-[var(--mn-heading)] mn-dark:text-white">سجل البحث</h2>
+                    <h2 className="text-sm font-bold text-[var(--mn-heading)] mn-dark:text-white">سجل البحث</h2>
                     <p className="text-[10px] text-[var(--mn-text-muted)]">Private Search History</p>
                   </div>
                 </div>
@@ -414,11 +414,11 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
               <div className="flex items-start gap-3">
                 <Sparkles className="w-5 h-5 text-[var(--mn-accent-text)] shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-sm font-black text-[var(--mn-heading)] mn-dark:text-white">توصيات لك</h2>
+                  <h2 className="text-sm font-bold text-[var(--mn-heading)] mn-dark:text-white">توصيات لك</h2>
                   <p className="text-[10px] leading-5 text-[var(--mn-text-muted)] mt-1">
                     Phase 15 يعرض التوصيات فقط؛ حسابها يأتي من AI/Analytics. لذلك لن نولد توصيات وهمية في هذه المعاينة.
                   </p>
-                  <button onClick={onOpenSmartSearch} className="mt-2 inline-flex items-center gap-1 text-[10px] font-black text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)]">
+                  <button onClick={onOpenSmartSearch} className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)]">
                     استخدم البحث الذكي الآن <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -432,15 +432,15 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
             <div className="rounded-3xl border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-surface)] p-4 shadow-2xs mn-panel ">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <span className="text-[9px] font-black text-[var(--mn-accent-text)]">THE VAULT</span>
-                  <h2 className="text-base font-black text-[var(--mn-heading)] mn-dark:text-white mt-0.5">المفضلة والمحفوظات</h2>
+                  <span className="text-[9px] font-bold text-[var(--mn-accent-text)]">THE VAULT</span>
+                  <h2 className="text-base font-bold text-[var(--mn-heading)] mn-dark:text-white mt-0.5">المفضلة والمحفوظات</h2>
                   <p className="text-[10px] leading-5 text-[var(--mn-text-muted)] mt-1">خزنة موحدة لكل ما تحفظه من أقسام منارتك.</p>
                 </div>
                 <div className="w-11 h-11 rounded-2xl bg-[var(--mn-danger-soft)] mn-dark:bg-[var(--mn-danger-soft)]/20 flex items-center justify-center shrink-0">
                   <Heart className="w-5 h-5 text-[var(--mn-danger-text)] fill-red-500/15" />
                 </div>
               </div>
-              <div className="mt-4 text-3xl font-black text-[var(--mn-heading)] mn-dark:text-white">{favoritesCount}</div>
+              <div className="mt-4 text-3xl font-bold text-[var(--mn-heading)] mn-dark:text-white">{favoritesCount}</div>
               <div className="text-[10px] text-[var(--mn-text-muted)]">عنصر محفوظ في هذه المعاينة</div>
             </div>
 
@@ -448,8 +448,8 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {savedGroups.map(([kind, count]) => (
                   <button key={kind} onClick={onOpenFavorites} className="rounded-2xl border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-surface)] p-3 text-right shadow-2xs active:scale-[0.98] transition-transform mn-panel ">
-                    <div className="text-xl font-black text-[var(--mn-heading)] mn-dark:text-white">{count}</div>
-                    <div className="text-[10px] font-black text-[var(--mn-text-muted)] mt-1">{kindLabels[kind] || kind}</div>
+                    <div className="text-xl font-bold text-[var(--mn-heading)] mn-dark:text-white">{count}</div>
+                    <div className="text-[10px] font-bold text-[var(--mn-text-muted)] mt-1">{kindLabels[kind] || kind}</div>
                   </button>
                 ))}
               </div>
@@ -457,7 +457,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
               <EmptyWidget icon={Heart} title="خزنتك فارغة" text="احفظ منحة أو جامعة أو دورة أو أي عنصر، وسيظهر هنا." />
             )}
 
-            <button onClick={onOpenFavorites} className="w-full min-h-[46px] rounded-2xl bg-[var(--mn-primary)] text-white border border-[var(--mn-accent)]/40 font-black text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-transform mn-inverse ">
+            <button onClick={onOpenFavorites} className="w-full min-h-[46px] rounded-2xl bg-[var(--mn-primary)] text-white border border-[var(--mn-accent)]/40 font-bold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-transform mn-inverse ">
               فتح كل المفضلة والمحفوظات <ChevronLeft className="w-4 h-4 text-[var(--mn-accent)]" />
             </button>
 
@@ -471,20 +471,20 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
         {section === 'journey' && (
           <div className="mt-3 space-y-3">
             <div className="rounded-3xl border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-surface)] p-4 shadow-2xs mn-panel ">
-              <span className="text-[9px] font-black text-[var(--mn-accent-text)]">THE JOURNEY</span>
-              <h2 className="text-base font-black text-[var(--mn-heading)] mn-dark:text-white mt-0.5">رحلتي التعليمية</h2>
+              <span className="text-[9px] font-bold text-[var(--mn-accent-text)]">THE JOURNEY</span>
+              <h2 className="text-base font-bold text-[var(--mn-heading)] mn-dark:text-white mt-0.5">رحلتي التعليمية</h2>
               <p className="text-[10px] leading-5 text-[var(--mn-text-muted)] mt-1">Timeline تاريخي يجمع الأحداث التي تصل من الأنظمة الأخرى دون امتلاك معاملاتها.</p>
               <div className="mt-4 grid grid-cols-3 gap-2">
                 <div className="rounded-2xl bg-[var(--mn-page)] mn-dark:bg-[var(--mn-surface-elevated)] p-3 text-center mn-panel mn-dark:mn-panel ">
-                  <div className="text-lg font-black text-[var(--mn-heading)] mn-dark:text-white">{activeMilestones.length}</div>
+                  <div className="text-lg font-bold text-[var(--mn-heading)] mn-dark:text-white">{activeMilestones.length}</div>
                   <div className="text-[9px] text-[var(--mn-text-muted)] mt-1">متابعة نشطة</div>
                 </div>
                 <div className="rounded-2xl bg-[var(--mn-page)] mn-dark:bg-[var(--mn-surface-elevated)] p-3 text-center mn-panel mn-dark:mn-panel ">
-                  <div className="text-lg font-black text-[var(--mn-heading)] mn-dark:text-white">{journeyProgress}%</div>
+                  <div className="text-lg font-bold text-[var(--mn-heading)] mn-dark:text-white">{journeyProgress}%</div>
                   <div className="text-[9px] text-[var(--mn-text-muted)] mt-1">تقدم المهام</div>
                 </div>
                 <div className="rounded-2xl bg-[var(--mn-page)] mn-dark:bg-[var(--mn-surface-elevated)] p-3 text-center mn-panel mn-dark:mn-panel ">
-                  <div className="text-lg font-black text-[var(--mn-heading)] mn-dark:text-white">{notifications.length}</div>
+                  <div className="text-lg font-bold text-[var(--mn-heading)] mn-dark:text-white">{notifications.length}</div>
                   <div className="text-[9px] text-[var(--mn-text-muted)] mt-1">أحداث/تنبيهات</div>
                 </div>
               </div>
@@ -492,7 +492,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
 
             <div className="rounded-3xl border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-surface)] p-4 shadow-2xs mn-panel ">
               <div className="flex items-center justify-between gap-2 mb-3">
-                <h3 className="text-sm font-black text-[var(--mn-heading)] mn-dark:text-white">آخر النشاطات</h3>
+                <h3 className="text-sm font-bold text-[var(--mn-heading)] mn-dark:text-white">آخر النشاطات</h3>
                 <Clock3 className="w-4 h-4 text-[var(--mn-accent-text)]" />
               </div>
               {latestJourneyItems.length ? (
@@ -501,8 +501,8 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
                     <div key={item.id} className="relative">
                       <span className="absolute -right-4 top-1.5 w-2.5 h-2.5 rounded-full bg-[var(--mn-accent)] ring-4 ring-[var(--mn-surface)] mn-dark:ring-[var(--mn-surface)] mn-gold " />
                       <div className="rounded-2xl bg-[var(--mn-page)] mn-dark:bg-[var(--mn-surface-elevated)] border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] p-3 mn-panel mn-dark:mn-panel ">
-                        <div className="text-[9px] font-black text-[var(--mn-accent-text)]">{item.type}</div>
-                        <div className="text-[11px] font-black text-[var(--mn-heading)] mn-dark:text-white mt-0.5">{item.title}</div>
+                        <div className="text-[9px] font-bold text-[var(--mn-accent-text)]">{item.type}</div>
+                        <div className="text-[11px] font-bold text-[var(--mn-heading)] mn-dark:text-white mt-0.5">{item.title}</div>
                         <div className="text-[9px] text-[var(--mn-text-muted)] mt-1">{item.meta}</div>
                       </div>
                     </div>
@@ -513,7 +513,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
               )}
             </div>
 
-            <button onClick={onOpenTracker} className="w-full min-h-[46px] rounded-2xl bg-[var(--mn-primary)] text-white border border-[var(--mn-accent)]/40 font-black text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-transform mn-inverse ">
+            <button onClick={onOpenTracker} className="w-full min-h-[46px] rounded-2xl bg-[var(--mn-primary)] text-white border border-[var(--mn-accent)]/40 font-bold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-transform mn-inverse ">
               فتح متابعة الطلبات والمهام <ListChecks className="w-4 h-4 text-[var(--mn-accent)]" />
             </button>
           </div>
@@ -522,8 +522,8 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
         {section === 'control' && (
           <div className="mt-3 space-y-3">
             <div className="rounded-3xl border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-surface)] p-4 shadow-2xs mn-panel ">
-              <span className="text-[9px] font-black text-[var(--mn-accent-text)]">CONTROL CENTER</span>
-              <h2 className="text-base font-black text-[var(--mn-heading)] mn-dark:text-white mt-0.5">الإعدادات والخصوصية</h2>
+              <span className="text-[9px] font-bold text-[var(--mn-accent-text)]">CONTROL CENTER</span>
+              <h2 className="text-base font-bold text-[var(--mn-heading)] mn-dark:text-white mt-0.5">الإعدادات والخصوصية</h2>
               <p className="text-[10px] leading-5 text-[var(--mn-text-muted)] mt-1">تفضيلات مساحة الطالب فقط؛ كلمة المرور وMFA تبقى في Identity Platform.</p>
             </div>
 
@@ -558,7 +558,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
                       <Icon className="w-4 h-4 text-[var(--mn-accent-text)]" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[11px] font-black text-[var(--mn-heading)] mn-dark:text-white">{item.title}</div>
+                      <div className="text-[11px] font-bold text-[var(--mn-heading)] mn-dark:text-white">{item.title}</div>
                       <p className="text-[9px] leading-4 text-[var(--mn-text-muted)] mt-0.5">{item.text}</p>
                     </div>
                     <button
@@ -576,14 +576,14 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
             <div className="grid grid-cols-2 gap-2">
               <button onClick={onToggleLanguage} className="rounded-2xl border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-surface)] p-3 text-right flex items-center justify-between gap-2 mn-panel ">
                 <div>
-                  <div className="text-[10px] font-black text-[var(--mn-heading)] mn-dark:text-white">اللغة</div>
+                  <div className="text-[10px] font-bold text-[var(--mn-heading)] mn-dark:text-white">اللغة</div>
                   <div className="text-[9px] text-[var(--mn-text-muted)] mt-1">{language === 'ar' ? 'العربية' : 'English'}</div>
                 </div>
                 <Languages className="w-4 h-4 text-[var(--mn-accent-text)]" />
               </button>
               <button onClick={onToggleDarkMode} className="rounded-2xl border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-surface)] p-3 text-right flex items-center justify-between gap-2 mn-panel ">
                 <div>
-                  <div className="text-[10px] font-black text-[var(--mn-heading)] mn-dark:text-white">المظهر</div>
+                  <div className="text-[10px] font-bold text-[var(--mn-heading)] mn-dark:text-white">المظهر</div>
                   <div className="text-[9px] text-[var(--mn-text-muted)] mt-1">{isDarkMode ? 'ليلي' : 'نهاري'}</div>
                 </div>
                 {isDarkMode ? <Moon className="w-4 h-4 text-[var(--mn-accent-text)]" /> : <Sun className="w-4 h-4 text-[var(--mn-accent-text)]" />}
@@ -601,7 +601,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
                   <button key={item.label} onClick={item.action} className="w-full min-h-[50px] px-4 flex items-center justify-between gap-3 text-right">
                     <div className="flex items-center gap-2.5">
                       <Icon className="w-4 h-4 text-[var(--mn-accent-text)]" />
-                      <span className="text-[10px] font-black text-[var(--mn-heading)] mn-dark:text-white">{item.label}</span>
+                      <span className="text-[10px] font-bold text-[var(--mn-heading)] mn-dark:text-white">{item.label}</span>
                     </div>
                     <ChevronLeft className="w-4 h-4 text-[var(--mn-text-muted)]" />
                   </button>
@@ -611,14 +611,14 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
 
             <div className="rounded-2xl border border-dashed border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-surface)] p-3 flex items-center justify-between gap-3 mn-panel ">
               <div className="min-w-0">
-                <div className="text-[10px] font-black text-[var(--mn-heading)] mn-dark:text-white">تخصيص لوحة الحساب</div>
+                <div className="text-[10px] font-bold text-[var(--mn-heading)] mn-dark:text-white">تخصيص لوحة الحساب</div>
                 <p className="text-[9px] leading-4 text-[var(--mn-text-muted)] mt-0.5">ترتيب وإخفاء الويدجت سيتم تفعيله عند ربط DashboardLayout API؛ لا يوجد حفظ وهمي في المعاينة.</p>
               </div>
               <LayoutDashboard className="w-5 h-5 text-[var(--mn-text-muted)] shrink-0" />
             </div>
 
             <div className="rounded-2xl border border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] bg-[var(--mn-page)] mn-dark:bg-[var(--mn-surface-elevated)] p-3 space-y-2 mn-panel mn-dark:mn-panel ">
-              <div className="flex items-center gap-2 text-[10px] font-black text-[var(--mn-heading)] mn-dark:text-white">
+              <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--mn-heading)] mn-dark:text-white">
                 <ShieldCheck className="w-4 h-4 text-[var(--mn-accent-text)]" />
                 خصوصيتك في Phase 15
               </div>

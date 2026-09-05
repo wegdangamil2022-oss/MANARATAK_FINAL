@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { PublicScholarshipUseCases } from '@manaratak/application';
+import { parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract';
 
 export class ScholarshipPublicRouter {
   public static create(cradle: { publicScholarshipUseCases: PublicScholarshipUseCases }): Router {
@@ -31,13 +32,16 @@ export class ScholarshipPublicRouter {
     });
 
     router.get('/', asyncHandler(async (req: Request, res: Response) => {
-      const filters = listQuerySchema.parse(req.query);
-      res.json(await publicScholarshipUseCases.listScholarships(filters));
+      const locale = parseRequestLocale(req.query);
+      const { locale: _locale, ...query } = req.query;
+      const filters = listQuerySchema.parse(query);
+      res.json(await publicScholarshipUseCases.listScholarships(filters, locale));
     }));
 
     router.get('/:slug', asyncHandler(async (req: Request, res: Response) => {
       try {
-        res.json(await publicScholarshipUseCases.getScholarship(req.params.slug));
+        const locale = parseRequestLocale(req.query);
+        res.json(await publicScholarshipUseCases.getScholarship(req.params.slug, locale));
       } catch (err: any) {
         if (err.message === 'Scholarship not found') return res.status(404).json({ error: 'Not found' });
         throw err;
@@ -45,7 +49,7 @@ export class ScholarshipPublicRouter {
     }));
 
     router.use((err: any, req: Request, res: Response, next: NextFunction) => {
-      if (err instanceof z.ZodError) return res.status(400).json({ error: 'Validation Error', details: err.issues });
+      if (err instanceof z.ZodError) return res.status(400).json(toApiValidationErrorPayload(err));
       res.status(500).json({ error: 'Internal Server Error' });
     });
     return router;

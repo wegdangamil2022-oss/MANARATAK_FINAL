@@ -7,6 +7,10 @@ describe('PrismaUniversityRepository', () => {
 
   beforeEach(() => {
     mockPrisma = {
+      universityOrganizationUnit: {
+        findMany: vi.fn(),
+        count: vi.fn(),
+      },
       university: {
         findUnique: vi.fn(),
         create: vi.fn(),
@@ -16,6 +20,33 @@ describe('PrismaUniversityRepository', () => {
       },
     };
     repository = new PrismaUniversityRepository(mockPrisma as any);
+  });
+
+
+  it('lists canonical faculty/college units and ignores inactive programs in unresolved-major counts', async () => {
+    mockPrisma.universityOrganizationUnit.findMany.mockResolvedValue([{
+      id: 'unit-1', universityId: 'uni-1', campusId: null, parentOrganizationUnitId: null,
+      unitType: 'FACULTY', name: 'Faculty of Engineering', status: 'ACTIVE',
+      university: { id: 'uni-1', publicId: 'INS-1', displayName: 'University 1' },
+      programs: [
+        { majorId: 'major-cs', majorMappingState: 'CANONICALLY_MAPPED', status: 'ACTIVE' },
+        { majorId: null, majorMappingState: 'UNMAPPED', status: 'REVIEW_REQUIRED' },
+        { majorId: null, majorMappingState: 'UNMAPPED', status: 'INACTIVE' },
+      ],
+    }]);
+    mockPrisma.universityOrganizationUnit.count.mockResolvedValue(1);
+
+    const result = await repository.listOrganizationUnits!({ page: 1, pageSize: 50 });
+
+    expect(mockPrisma.universityOrganizationUnit.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { unitType: { in: ['FACULTY', 'COLLEGE', 'SCHOOL'] } },
+    }));
+    expect(result.data[0]).toMatchObject({
+      programCount: 3,
+      activeProgramCount: 1,
+      mappedMajorCount: 1,
+      unresolvedMajorCount: 1,
+    });
   });
 
   it('update merges existing optional fields correctly', async () => {

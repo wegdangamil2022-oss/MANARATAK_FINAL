@@ -3,7 +3,7 @@ import { HelpCircle, ArrowUpLeft, MessageCircleQuestion } from 'lucide-react';
 
 export const FaqPreview: React.FC<{onOpen: () => void}> = ({onOpen}) => {
   return (
-    <section className="px-0.5 sm:px-1 py-3 w-full font-['Cairo',sans-serif]">
+    <section className="px-0 py-3 w-full font-['Cairo',sans-serif]">
       {/* Container */}
       <div className="relative rounded-3xl p-5 sm:p-6 bg-gradient-to-br from-[var(--mn-page)] to-[var(--mn-surface)] border border-[var(--mn-border)] shadow-sm overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 border-t-2 border-t-[var(--mn-accent)]/20 mn-panel ">
         {/* Decorative Background Glow */}

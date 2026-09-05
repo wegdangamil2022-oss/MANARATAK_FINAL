@@ -7,6 +7,7 @@ import {
   CmsBlockSchemaDto,
   CmsContentBlockDto,
   CmsContentDetailDto,
+  CmsContentDomainLinkDto,
   CmsContentDto,
   CmsContentFilters,
   CmsContentRevisionDto,
@@ -30,6 +31,7 @@ import {
   PublicCmsContentDto,
   UpdateCmsContentDto,
   UpsertCmsLocalizedContentDto,
+  UpsertCmsContentDomainLinkDto,
 } from '@manaratak/domain';
 
 const json = (value: unknown): Prisma.InputJsonValue | undefined =>
@@ -114,6 +116,7 @@ export class PrismaCmsRepository implements ICmsRepository {
     const row = await this.db.cmsContentNode.findUnique({
       where: { id },
       include: {
+        domainLinks: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
         localizedPayloads: {
           include: {
             tags: { include: { tag: true } },
@@ -146,6 +149,7 @@ export class PrismaCmsRepository implements ICmsRepository {
       reviews,
       revisions,
       readiness,
+      domainLinks: (row.domainLinks ?? []).map((entry: any) => this.domainLink(entry)),
     };
   }
 
@@ -683,6 +687,74 @@ export class PrismaCmsRepository implements ICmsRepository {
     if (!row) return null;
     const locales = await this.availableLocales([row.contentId]);
     return this.publicContent(row, locales.get(row.contentId) ?? []);
+  }
+
+  public async replaceDomainLinks(
+    contentId: string,
+    links: UpsertCmsContentDomainLinkDto[],
+    actorId: string,
+  ): Promise<CmsContentDomainLinkDto[]> {
+    return this.db.$transaction(async (tx: any) => {
+      const content = await this.requireContent(tx, contentId);
+      await tx.cmsContentDomainLink.deleteMany({ where: { contentId } });
+      if (links.length) {
+        await tx.cmsContentDomainLink.createMany({
+          data: links.map((link, index) => ({
+            id: randomUUID(),
+            contentId,
+            targetType: link.targetType,
+            targetId: link.targetId,
+            relationType: link.relationType,
+            sortOrder: link.sortOrder ?? index,
+            metadata: json(link.metadata),
+            createdBy: actorId,
+          })),
+        });
+      }
+      await this.appendMutation(tx, content, null, 'DOMAIN_LINKS_REPLACED', actorId, { count: links.length });
+      const rows = await tx.cmsContentDomainLink.findMany({
+        where: { contentId },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      });
+      return rows.map((row: any) => this.domainLink(row));
+    });
+  }
+
+  public async listDomainLinks(contentId: string): Promise<CmsContentDomainLinkDto[]> {
+    const rows = await this.db.cmsContentDomainLink.findMany({
+      where: { contentId },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+    return rows.map((row: any) => this.domainLink(row));
+  }
+
+  public async listPublishedByDomainTarget(
+    targetType: string,
+    targetId: string,
+    locale = 'ar',
+    siteIdentifier = 'manaratak',
+    limit = 6,
+  ): Promise<PublicCmsContentDto[]> {
+    const links = await this.db.cmsContentDomainLink.findMany({
+      where: { targetType, targetId },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      take: Math.min(24, Math.max(1, limit)),
+      select: { contentId: true },
+    });
+    if (!links.length) return [];
+    const contentIds: string[] = [...new Set<string>(links.map((link: any) => String(link.contentId)))];
+    const rows = await this.db.cmsPublishedContent.findMany({
+      where: {
+        contentId: { in: contentIds },
+        siteIdentifier,
+        locale,
+        status: CmsContentStatus.PUBLISHED,
+      },
+    });
+    const byId = new Map(rows.map((row: any) => [row.contentId, row]));
+    const ordered = contentIds.map((id: string) => byId.get(id)).filter(Boolean);
+    const locales = await this.availableLocales(contentIds);
+    return ordered.map((row: any) => this.publicContent(row, locales.get(row.contentId) ?? []));
   }
 
   public async changeLocalizedSlug(data: CmsSlugChangeDto): Promise<CmsLocalizedContentDto> {
@@ -1426,6 +1498,20 @@ export class PrismaCmsRepository implements ICmsRepository {
       result.set(row.contentId, entries);
     }
     return result;
+  }
+
+  private domainLink(row: any): CmsContentDomainLinkDto {
+    return {
+      id: row.id,
+      contentId: row.contentId,
+      targetType: row.targetType,
+      targetId: row.targetId,
+      relationType: row.relationType,
+      sortOrder: row.sortOrder ?? 0,
+      metadata: row.metadata ?? null,
+      createdBy: row.createdBy,
+      createdAt: row.createdAt,
+    };
   }
 
   private content(row: any): CmsContentDto {

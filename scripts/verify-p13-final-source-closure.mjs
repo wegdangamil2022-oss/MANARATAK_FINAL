@@ -41,6 +41,7 @@ const router='apps/api/src/presentation/api/router/StudentWorkspaceRouter.ts';
 const di='apps/api/src/infrastructure/di/container.ts';
 const webStudent='apps/web/src/features/students/StudentWorkspacePage.tsx';
 const webAuth='apps/web/src/features/students/StudentAuthPage.tsx';
+const webAuthenticate='apps/web/src/features/students/authenticateAccount.ts';
 const publicApp='apps/web/src/features/public-template/PublicTemplateApp.tsx';
 const apiClient='apps/web/src/api/client.ts';
 for(const f of [studentDomain,savedGate,dashGate,dashService,progressRepo,progressPrisma,router,di,webStudent,webAuth,publicApp,apiClient]) check(`P13-SOURCE ${f}`,exists(f));
@@ -55,7 +56,7 @@ check('P13-DASHBOARD protected routes use hydration service',(read(router).match
 check('P13-SAVED hydrated endpoint',has(router,"'/saved-items/hydrated'")&&has(router,'studentSavedItemHydrationService.listHydrated'));
 check('P13-WEB hydrated saved items client/UI',has(apiClient,'listMyHydratedStudentSavedItems')&&has(webStudent,'hydratedSavedItems')&&has(webStudent,'owner?.displayName'));
 check('P13-WEB real auth client',has(apiClient,'loginStudent')&&has(apiClient,'logoutStudent')&&has(apiClient,'getCurrentStudentIdentity'));
-check('P13-WEB live student auth component',has(webAuth,'ApiClient.loginStudent')&&has(webAuth,'ApiClient.getCurrentStudentIdentity'));
+check('P13-WEB live student auth component',has(webAuth,'authenticateAccount')&&has(webAuthenticate,'client.login')&&has(webAuthenticate,'client.getCurrentSessionIdentity'));
 check('P13-WEB live logout',has(webStudent,'ApiClient.logoutStudent')&&has(webStudent,"window.location.assign('/')"));
 check('P13-WEB live account uses live workspace',has(publicApp,"publicDataMode === 'api'")&&has(publicApp,'<LiveStudentWorkspacePage />')&&has(publicApp,'<LiveStudentAuthPage'));
 check('P13-WEB prototype workspace explicit only',has(publicApp,'PrototypeStudentWorkspacePage')&&has(publicApp,'PrototypeAuthPage'));

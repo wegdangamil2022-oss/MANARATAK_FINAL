@@ -6,6 +6,7 @@ import {
   CourseOriginType,
   CourseStatus,
   ICourseRepository,
+  ICourseRelationshipRepository,
   IImportedCourseOperationsRepository,
   ITransactionalCourseRepository,
 } from '@manaratak/domain';
@@ -19,6 +20,7 @@ export class CoursePublicationService {
     private readonly repository: ICourseRepository,
     private readonly importedOperations?: IImportedCourseOperationsRepository,
     private readonly atomicMutations?: AtomicDomainMutationCoordinator,
+    private readonly relationshipRepository?: ICourseRelationshipRepository,
   ) {}
 
   public async assertPublicationReady(course: CourseDto): Promise<void> {
@@ -26,14 +28,36 @@ export class CoursePublicationService {
       throw new Error('COURSE_PUBLICATION_REQUIRES_COMPLETE_RECORD');
     }
 
+    if (this.relationshipRepository) {
+      const [source, taxonomyLinks, majorProjections, testRelationships] = await Promise.all([
+        this.relationshipRepository.getRelationshipSource(course.id),
+        this.relationshipRepository.listTaxonomyLinks(course.id),
+        this.relationshipRepository.listMajorProjections(course.id),
+        this.relationshipRepository.listInternationalTestRelationships(course.id),
+      ]);
+      const rawLanguage = source?.learningLanguageRaw?.trim() || course.learningLanguage?.trim();
+      if (rawLanguage && !source?.learningLanguageReferenceId) {
+        throw new Error('COURSE_PUBLICATION_CANONICAL_LANGUAGE_REQUIRED');
+      }
+      if (source?.shortCourseTopicsRaw?.trim() && !taxonomyLinks.some((item) => item.reviewState === 'APPROVED')) {
+        throw new Error('COURSE_PUBLICATION_APPROVED_TAXONOMY_REQUIRED');
+      }
+      if (taxonomyLinks.some((item) => item.reviewState === 'PROPOSED' || item.reviewState === 'REVIEW_REQUIRED')
+        || majorProjections.some((item) => item.projectionState === 'PROPOSED' || item.projectionState === 'REVIEW_REQUIRED')
+        || testRelationships.some((item) => item.reviewState === 'PROPOSED')) {
+        throw new Error('COURSE_PUBLICATION_RELATIONSHIP_REVIEW_REQUIRED');
+      }
+    }
+
     if (course.originType !== CourseOriginType.EXTERNAL_LINKED_COURSE) return;
     if (!this.importedOperations) throw new Error('IMPORTED_COURSE_PUBLICATION_EVIDENCE_NOT_CONFIGURED');
 
     if (
-      course.accessType === CourseAccessType.PAID ||
-      (course.isStudyFree !== true && course.isFreeCertificate !== true)
+      course.accessType !== CourseAccessType.FREE_STUDY_AND_CERTIFICATE ||
+      course.isStudyFree !== true ||
+      course.isFreeCertificate !== true
     ) {
-      throw new Error('IMPORTED_COURSE_FREE_CATALOG_ELIGIBILITY_REQUIRED');
+      throw new Error('IMPORTED_COURSE_FREE_STUDY_AND_CERTIFICATE_REQUIRED');
     }
 
     const detail = await this.importedOperations.getImportedCourseById(course.id);

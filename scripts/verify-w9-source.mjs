@@ -28,7 +28,12 @@ const checks = [
   ['P13-SCOPE-013', files.schema.includes('model LearningPath') && files.schema.includes('model LearningPathVersion') && files.learningPath.includes('LEARNING_PATH_COMPLETED_EVENT_TYPE') && files.learningRepo.includes('updateEnrollmentProgress')],
   ['P13-LINK-003', files.checker.includes('isDirectCoursePage') && files.checker.includes('NOT_DIRECT_COURSE_PAGE') && files.provider.includes('directCoursePathPatterns')],
   ['P13-URL-004', files.admin.includes('IMPORT_LINEAGE_FIELDS') && files.admin.includes('CHANGE_REQUIRES_CONTROLLED_IMPORT') && files.admin.includes("'directCourseUrl'")],
-  ['P13-ELIG-005', files.publication.includes('IMPORTED_COURSE_FREE_CATALOG_ELIGIBILITY_REQUIRED') && files.courseRepo.includes('CourseAccessType.PAID') && files.courseRepo.includes('isStudyFree: true') && files.publicUseCases.includes('publicEligible')],
+  ['P13-ELIG-005', (
+    files.publication.includes('IMPORTED_COURSE_FREE_STUDY_AND_CERTIFICATE_REQUIRED')
+    && files.publication.includes('CourseAccessType.FREE_STUDY_AND_CERTIFICATE')
+    && files.publication.includes('course.isStudyFree !== true')
+    && files.publication.includes('course.isFreeCertificate !== true')
+  ) && files.courseRepo.includes('CourseAccessType.PAID') && files.courseRepo.includes('isStudyFree: true') && files.publicUseCases.includes('publicEligible')],
   ['P13-PUB-002', files.admin.includes('publicationService.assertPublicationReady') && files.admin.includes('publicationService.publish') && files.native.includes('publicationService.publish')],
   ['P13-CURR-006', files.curriculum.includes('ensureCurriculumMember') && files.curriculum.includes('assertQuizReferences') && files.curriculum.includes('assertQuestionReferences') && files.curriculum.includes('COURSE_CURRICULUM_SCOPE_MISMATCH')],
   ['P13-PROG-007', files.progress.includes('COURSE_LESSON_SCOPE_MISMATCH') && files.progress.includes('COURSE_QUIZ_ATTEMPT_SCOPE_MISMATCH') && files.progress.includes('attempt.courseId !== data.courseId')],

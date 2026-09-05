@@ -160,6 +160,16 @@ export class InternationalTestImportPromotionUseCase {
         return { type: 'DUPLICATE', existingId: existing.id };
       }
 
+      let canonicalProviderName = payload.providerName || 'UNKNOWN';
+      if (payload.providerId) {
+        if (!this.repository.findProviderById) {
+          return { type: 'REJECTED', reason: 'Canonical International Test provider lookup is not configured' };
+        }
+        const provider = await this.repository.findProviderById(payload.providerId);
+        if (!provider) return { type: 'REJECTED', reason: `International test provider not found: ${payload.providerId}` };
+        canonicalProviderName = provider.displayName;
+      }
+
       const publicId = `test-${uuidv4().substring(0, 8)}`;
       const slugBase = canonicalName.replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
       const primaryRegUrl =
@@ -178,7 +188,12 @@ export class InternationalTestImportPromotionUseCase {
         testCategory:
           (payload.testCategory as InternationalTestCategory) ||
           InternationalTestCategory.LANGUAGE_PROFICIENCY,
-        providerName: payload.providerName || 'UNKNOWN',
+        providerName: canonicalProviderName,
+        providerId: payload.providerId,
+        localizedNameAr: payload.localizedNameAr,
+        localizedNameEn: payload.localizedNameEn,
+        abbreviation: payload.abbreviation,
+        isSourceVerified: payload.isSourceVerified === true,
         officialRegistrationUrl: primaryRegUrl,
         officialSourceUrl: payload.officialSourceUrl || payload.importEvidence?.sourceUrl || null,
         acceptedFor: payload.acceptedFor || payload.useCases,
@@ -210,10 +225,19 @@ export class InternationalTestImportPromotionUseCase {
             .filter((a): a is string => Boolean(a)),
         preparationResourceRefs: payload.preparationResourceRefs || payload.preparationMaterials,
         registrationRequirements: payload.registrationRequirements,
+        identificationRequirements: payload.identificationRequirements,
+        retakePolicy: payload.retakePolicy,
+        cancellationReschedulingNotes: payload.cancellationReschedulingNotes,
+        accessibilityNotes: payload.accessibilityNotes,
         countryRelationships: payload.countryRelationships,
         languageRelationships: payload.languageRelationships,
         academicTaxonomyRelationships: payload.academicTaxonomyRelationships,
         degreeRelationships: payload.degreeRelationships,
+        officialLinks: payload.officialLinks?.filter(link => Boolean(link.url)).map(link => ({
+          linkType: (link.linkType || 'OTHER') as 'REGISTRATION' | 'INFORMATION' | 'PREPARATION' | 'SCORE_REPORTING' | 'OTHER',
+          url: link.url!,
+          description: link.description,
+        })),
         status:
           completenessStatus.state === InternationalTestCompletenessStatus.COMPLETE
             ? InternationalTestStatus.IMPORTED
@@ -222,20 +246,13 @@ export class InternationalTestImportPromotionUseCase {
         sourceImportRecordId: record.id,
         optionalFields: {
           ...((payload as { optionalFields?: Record<string, unknown> }).optionalFields || {}),
-          abbreviation: payload.abbreviation,
-          localizedNameAr: payload.localizedNameAr,
-          localizedNameEn: payload.localizedNameEn,
           description: payload.description,
           overview: payload.overview,
           useCases: payload.useCases,
           targetAudience: payload.targetAudience,
           commonlyUsedCountriesOrRegions: payload.commonlyUsedCountriesOrRegions,
           relatedLanguages: payload.relatedLanguages,
-          identificationRequirements: payload.identificationRequirements,
           ageRules: payload.ageRules,
-          retakePolicy: payload.retakePolicy,
-          cancellationReschedulingNotes: payload.cancellationReschedulingNotes,
-          accessibilityNotes: payload.accessibilityNotes,
           testDayRequirements: payload.testDayRequirements,
           missingFields:
             payload.missingFields ||
@@ -251,7 +268,6 @@ export class InternationalTestImportPromotionUseCase {
           variants: payload.variants,
           sections: payload.sections,
           fees: payload.fees,
-          officialLinks: payload.officialLinks,
           availability: payload.availability,
           preparationMaterials: payload.preparationMaterials,
           importEvidence: payload.importEvidence,
@@ -397,9 +413,7 @@ export class InternationalTestImportPromotionUseCase {
             ? new Date(payload.importEvidence.retrievedAt)
             : new Date(),
           evidenceSnippet: payload.importEvidence.evidenceSnippet,
-          sourceTrustLevel:
-            (payload.importEvidence.sourceTrustLevel as InternationalTestSourceTrustLevel) ||
-            InternationalTestSourceTrustLevel.AUTHORITATIVE,
+          sourceTrustLevel: this.normalizeSourceTrustLevel(payload.importEvidence.sourceTrustLevel),
           duplicateStatus:
             (payload.importEvidence.duplicateStatus as
               'NEW' | 'DUPLICATE_SKIPPED' | 'EXISTING_ENRICHED') || 'NEW',
@@ -437,7 +451,7 @@ export class InternationalTestImportPromotionUseCase {
         rawContent: this.rawContentForDraft(record),
         detectedFields: Object.fromEntries(Object.keys(payload).map((key) => [key, true])),
         metadata: {
-          normalizedLifecycle: 'UNIVERSITY_READY_MINIMUM',
+          normalizedLifecycle: 'INTERNATIONAL_TEST_READY_MINIMUM',
           sourceImportRecordId: record.id,
         },
       });
@@ -565,6 +579,23 @@ export class InternationalTestImportPromotionUseCase {
 
   private stringArray(value: unknown): string[] {
     return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+  }
+
+  private normalizeSourceTrustLevel(value: unknown): InternationalTestSourceTrustLevel {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    if (normalized === InternationalTestSourceTrustLevel.AUTHORITATIVE || normalized === 'OFFICIAL_PROVIDER') {
+      return InternationalTestSourceTrustLevel.AUTHORITATIVE;
+    }
+    if (normalized === InternationalTestSourceTrustLevel.HIGH || normalized === 'UNIVERSITY') {
+      return InternationalTestSourceTrustLevel.HIGH;
+    }
+    if (normalized === InternationalTestSourceTrustLevel.MEDIUM || normalized === 'AGGREGATOR') {
+      return InternationalTestSourceTrustLevel.MEDIUM;
+    }
+    if (normalized === InternationalTestSourceTrustLevel.LOW || normalized === 'OTHER') {
+      return InternationalTestSourceTrustLevel.LOW;
+    }
+    return InternationalTestSourceTrustLevel.AUTHORITATIVE;
   }
 
   private stringFrom(source: unknown, key: string): string | undefined {

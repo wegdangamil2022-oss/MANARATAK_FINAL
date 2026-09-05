@@ -473,21 +473,22 @@ The Health & Readiness Admin Workspace (`/admin/health`) in Phase 23 provides no
 
 ---
 
-## 23.A.17 Admin Settings & Access Control Architecture
+## 23.A.17 Admin Settings & Configuration Architecture
+
+> **2026-09-05 SOURCE-CLOSURE CORRECTION:** Earlier drafts grouped IAM/RBAC, secrets, integration status, audit, and runtime configuration under `/admin/settings`. That ownership is superseded. The canonical Settings workspace owns dynamic setting definitions, scoped non-secret values, immutable version history, rollback-as-new-version, and feature flags only.
 
 **Architectural Identity & Purpose**  
-The Admin Settings & Access Control Workspace (`/admin/settings`) in Phase 23 serves as the administrative control plane for managing platform access, admin user identities, role-based permission matrices, access policies, feature flags (module visibility), read-only environment integration status, and security audit logs across all 24 phases of MANARATAK 2.0.
+The Admin Settings Workspace (`/admin/settings`) is the governance surface for dynamic platform configuration that is legitimately owned by the Settings domain. It does not become a second IAM, secrets manager, health dashboard, or reference-data store.
 
 **Architectural Principles & Boundaries**  
-1. **Safe Access Control Plane:** The Settings workspace manages admin access policies and role matrices. Permanent deletion or suspension of the Root Super Admin (`usr_root_01`) is strictly prohibited.
-2. **Phase Ownership & Delegation:**
-   - **Phase 23:** Owns the admin control plane UI, admin user list, roles & permission matrices, feature flag states, and access audit logs.
-   - **Backend Security Foundation:** Owns underlying JWT session token generation, password hashing, and MFA verification.
-   - **Phase 17:** Owns AI provider execution and key routing.
-   - **Phase 19:** Owns payment gateway processing.
-   - **Phase 05:** Owns EAP asset storage configuration.
-3. **Strict Secrets Isolation:** All API keys, database URLs, JWT signing secrets, and tokens MUST be displayed in masked format (`Masked / Configured`). Raw secret values are never rendered or returned in UI response payloads.
-4. **Granular 15-Module Permission Matrix:** Permission scopes are explicitly categorized across all 15 core admin modules (Scholarships, Universities, Majors, Courses, International Tests, Services, CMS, Student Tools, Certificates, Finance, Careers, Import Management, AI Governance, Health/Readiness, Settings) with 9 permission types (View, Create, Edit, Review, Publish, Archive, Import, Export, Manage Settings).
+1. **Single Configuration Owner:** Settings owns setting definitions, scope resolution (`IDENTITY > TENANT > DOMAIN > GLOBAL > default`), feature-flag metadata, scoped assignments, and immutable assignment versions.
+2. **IAM/RBAC Separation:** Admin identities, roles, permissions, MFA/session policies, and authorization evaluation remain owned by the Identity/Authorization boundary. `/admin/settings` may link to those controls but MUST NOT duplicate them.
+3. **Secrets Separation:** API keys, passwords, signing keys, database credentials, and provider tokens are never persisted as Settings values. Secret material is owned by the approved runtime secret provider/environment boundary. A secret-marked definition is metadata only.
+4. **Reference Data Separation:** Countries, cities, currencies, languages, academic taxonomies, and similar canonical reference records remain in their owning domains and MUST NOT be converted into arbitrary setting strings.
+5. **Immutable History:** A setting update or rollback creates a new version. Historical versions are append-only and must not be overwritten in place.
+6. **Explicit Scope Resolution:** Identity, tenant, and domain identifiers are distinct inputs. Ambiguous aliases such as a generic organization/scope identifier must not select multiple scopes implicitly.
+7. **Audited Mutations:** Definition creation, scoped value assignment, and rollback operations require the authenticated admin actor, `admin:settings:manage`, validation, and an audit record.
+8. **No Runtime Readiness Claims:** Database-backed Settings does not infer that an external provider is healthy merely because configuration exists; runtime readiness remains with Health/Readiness and the owning integration adapter.
 
 ---
 

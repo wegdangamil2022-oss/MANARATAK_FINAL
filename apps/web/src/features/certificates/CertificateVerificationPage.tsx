@@ -1,4 +1,4 @@
-import React, { FormEvent, useMemo, useState } from 'react';
+import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Award, CheckCircle2, Search, ShieldCheck, XCircle } from 'lucide-react';
 import { ApiClient, CertificateVerificationDto } from '../../api/client';
@@ -16,50 +16,63 @@ export function CertificateVerificationPage() {
   const [error, setError] = useState<string | null>(null);
 
   const normalizedCode = useMemo(() => verificationCode.trim(), [verificationCode]);
+  const autoVerified = useRef(false);
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!normalizedCode) {
-      setError('Please enter a certificate verification code.');
+  const verify = useCallback(async (code: string, updateUrl = true) => {
+    const normalized = code.trim();
+    if (!normalized) {
+      setError('أدخل رمز التحقق من الشهادة.');
       setResult(null);
       return;
     }
-
     setLoading(true);
     setError(null);
     setResult(null);
     try {
-      const verification = await ApiClient.verifyCertificate(normalizedCode);
+      const verification = await ApiClient.verifyCertificate(normalized);
       setResult(verification);
-      setSearchParams({ code: normalizedCode });
+      if (updateUrl) setSearchParams({ code: normalized });
     } catch (err: any) {
-      setError(err.message || 'Unable to verify certificate.');
+      setError(err.message === 'Certificate not found' ? 'لم يتم العثور على شهادة بهذا الرمز.' : (err.message || 'تعذر التحقق من الشهادة.'));
     } finally {
       setLoading(false);
     }
+  }, [setSearchParams]);
+
+  useEffect(() => {
+    if (!autoVerified.current && initialCode.trim()) {
+      autoVerified.current = true;
+      void verify(initialCode, false);
+    }
+  }, [initialCode, verify]);
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    await verify(normalizedCode);
   };
 
   return (
-    <div dir="rtl" className="max-w-6xl mx-auto text-right">
+    <div dir="rtl" className="manaratak-public mn-page-shell min-h-screen text-right">
+      <div className="mn-public-container max-w-6xl py-4 sm:py-6">
       <Seo
         title={t('verify_certificate')}
         description={t('verify_issued_manaratak_certificates_using_a_publi')}
       />
-      <Link to="/" className="mb-4 inline-block text-sm font-bold text-emerald-700 hover:underline">
+      <Link to="/" className="mb-4 inline-flex min-h-10 items-center text-sm font-semibold text-[var(--mn-secondary)] hover:underline">
         {t('lt_back_to_home_1')}
       </Link>
 
-      <section className="mb-6 overflow-hidden rounded-3xl border border-[#d6ae57]/20 bg-gradient-to-l from-[#071d3a] via-[#0b3763] to-[#123f6b] p-5 text-white shadow-xl sm:p-8 md:p-12">
+      <section className="mn-search-hero mb-6 overflow-hidden rounded-3xl border border-[var(--mn-border-gold)] p-5 text-white shadow-xl sm:p-8 md:p-12 mn-inverse">
         <div className="max-w-3xl">
           <div className="mb-4 flex items-center gap-3">
-            <Award className="h-9 w-9 text-amber-300" />
-            <p className="text-sm font-semibold text-emerald-100">منصة التحقق من الشهادات</p>
+            <Award className="h-9 w-9 text-[var(--mn-accent-soft)]" />
+            <p className="text-sm font-semibold text-[var(--mn-on-dark-muted)]">منصة التحقق من الشهادات</p>
           </div>
-          <h1 className="text-3xl font-black tracking-tight sm:text-4xl mb-4">
+          <h1 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
             {t('verify_a_manaratak_certificate')}
           </h1>
-          <p className="text-base leading-8 text-emerald-100 sm:text-lg">
-            أدخل الرمز المطبوع على الشهادة أو امسح QR للتأكد من سلامة الختم الرقمي وحالة الاعتماد
+          <p className="text-base leading-8 text-[var(--mn-on-dark-muted)] sm:text-lg">
+            أدخل الرمز المطبوع على الشهادة أو امسح QR للتأكد من سلامة الختم الرقمي وحالة الشهادة
             لحظيًا.
           </p>
         </div>
@@ -69,34 +82,34 @@ export function CertificateVerificationPage() {
         <div className="lg:col-span-1">
           <form
             onSubmit={handleSubmit}
-            className="bg-white rounded-2xl border shadow-sm p-5 sm:p-6 space-y-4"
+            className="mn-card space-y-4 rounded-2xl p-5 sm:p-6"
           >
             <label className="block">
-              <span className="text-sm font-semibold text-gray-700">رمز التحقق من الشهادة</span>
+              <span className="text-sm font-semibold text-[var(--mn-heading)]">رمز التحقق من الشهادة</span>
               <input
                 value={verificationCode}
                 onChange={(event) => setVerificationCode(event.target.value)}
                 placeholder={t('example_mnr_abc123')}
-                className="mt-2 w-full border rounded-xl px-4 py-3 font-mono text-left focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                className="mn-search-control mt-2 w-full px-4 py-3 font-mono text-left outline-none focus:ring-2 focus:ring-[var(--mn-focus)]"
               />
             </label>
             <Button
               type="submit"
               disabled={loading || !normalizedCode}
-              className="w-full bg-emerald-700 hover:bg-emerald-800"
+              className="w-full bg-[var(--mn-primary)] text-white hover:bg-[var(--mn-primary-hover)]"
             >
               <Search className="ml-2 h-4 w-4" />
               {loading ? 'جارٍ التحقق...' : 'تحقق من الشهادة'}
             </Button>
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
+              <div className="rounded-lg border border-[var(--mn-danger-border)] bg-[var(--mn-danger-soft)] p-3 text-sm text-[var(--mn-danger-text)]">
                 {error}
               </div>
             )}
           </form>
 
-          <div className="mt-6 bg-gray-50 border rounded-2xl p-5 text-sm text-gray-600">
-            <h2 className="font-bold text-gray-900 mb-2">الثقة والخصوصية</h2>
+          <div className="mn-card-subtle mt-6 rounded-2xl p-5 text-sm text-[var(--mn-text-muted)]">
+            <h2 className="mb-2 font-bold text-[var(--mn-heading)]">الثقة والخصوصية</h2>
             <p>
               يتم فحص الحالة والختم المشفر مباشرة من سجل Phase 14. لا نعرض البريد أو بيانات الاتصال
               أو أي معلومات طالب خاصة.
@@ -106,28 +119,28 @@ export function CertificateVerificationPage() {
 
         <div className="lg:col-span-2">
           {!result && !loading && (
-            <div className="bg-white rounded-2xl border border-dashed p-10 text-center text-gray-500">
+            <div className="mn-card rounded-2xl border-dashed p-10 text-center text-[var(--mn-text-muted)]">
               أدخل رمز التحقق لعرض نتيجة موثوقة من سجل الشهادات.
             </div>
           )}
 
           {loading && (
-            <div className="bg-white rounded-2xl border p-10 text-center text-gray-500">
+            <div className="mn-card rounded-2xl p-10 text-center text-[var(--mn-text-muted)]">
               {t('checking_certificate_registry')}
             </div>
           )}
 
           {result && (
-            <div className="bg-white rounded-2xl border shadow-sm p-8">
+            <div className="mn-card rounded-2xl p-5 sm:p-8">
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 border-b pb-6 mb-6">
                 <div>
-                  <p className="text-sm text-gray-500">{t('certificate_status')}</p>
+                  <p className="text-sm text-[var(--mn-text-muted)]">{t('certificate_status')}</p>
                   <h2 className="text-3xl font-bold mt-1">
                     {result.isValid ? 'شهادة صحيحة وموثقة' : 'الشهادة غير صالحة'}
                   </h2>
                 </div>
                 <span
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold ${result.isValid ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold ${result.isValid ? 'border border-[var(--mn-success-border)] bg-[var(--mn-success-soft)] text-[var(--mn-success-text)]' : 'border border-[var(--mn-danger-border)] bg-[var(--mn-danger-soft)] text-[var(--mn-danger-text)]'}`}
                 >
                   {result.isValid ? (
                     <CheckCircle2 className="h-4 w-4" />
@@ -139,7 +152,7 @@ export function CertificateVerificationPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <Info label="الدورة أو البرنامج" value={result.courseDisplayName} />
+                <Info label="الدورة أو البرنامج" value={result.achievementDisplayName || result.courseDisplayName || result.learningPathDisplayName || 'غير متاح'} />
                 <Info
                   label="صاحب الشهادة"
                   value={result.recipientDisplayName || 'مرجع طالب محمي'}
@@ -147,11 +160,17 @@ export function CertificateVerificationPage() {
                 <Info label="رقم الشهادة" value={result.serialNumber} />
                 <Info label="الجهة المصدرة" value={result.issuerName || 'MANARATAK'} />
                 <Info label="تاريخ الإصدار" value={formatDate(result.issuedAt)} />
-                <Info label="تاريخ الإكمال" value={formatDate(result.courseCompletedAt)} />
+                <Info label="تاريخ الإكمال" value={formatDate(result.completedAt)} />
+                <Info label="صلاحية الشهادة" value={result.validityPolicy === 'PERMANENT' ? 'دائمة' : result.validityPolicy === 'RENEWABLE' ? 'قابلة للتجديد' : 'محددة المدة'} />
+                <Info label="تاريخ الانتهاء" value={result.expiresAt ? formatDate(result.expiresAt) : 'لا يوجد تاريخ انتهاء'} />
+              </div>
+
+              <div className="mt-6 rounded-xl border border-[var(--mn-border-gold)] bg-[var(--mn-gold-surface)] p-4 text-sm leading-7 text-[var(--mn-text)]">
+                هذه <strong>شهادة إتمام رقمية صادرة من منصة منارتك</strong> لإثبات إكمال متطلبات التعلم المحددة. لا تمثل درجة جامعية أو اعتمادًا مهنيًا خارجيًا ما لم تظهر جهة اعتماد مستقلة صراحة ضمن بيانات الشهادة.
               </div>
 
               <div
-                className={`mt-6 flex items-center gap-3 rounded-xl border p-4 ${result.integrityVerified ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800'}`}
+                className={`mt-6 flex items-center gap-3 rounded-xl border p-4 ${result.integrityVerified ? 'border-[var(--mn-success-border)] bg-[var(--mn-success-soft)] text-[var(--mn-success-text)]' : 'border-[var(--mn-danger-border)] bg-[var(--mn-danger-soft)] text-[var(--mn-danger-text)]'}`}
               >
                 <ShieldCheck className="h-6 w-6" />
                 <div>
@@ -171,7 +190,7 @@ export function CertificateVerificationPage() {
                     {result.skills.map((skill) => (
                       <span
                         key={skill}
-                        className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800"
+                        className="rounded-full border border-[var(--mn-success-border)] bg-[var(--mn-success-soft)] px-3 py-1 text-xs font-semibold text-[var(--mn-success-text)]"
                       >
                         {skill}
                       </span>
@@ -181,12 +200,10 @@ export function CertificateVerificationPage() {
               ) : null}
 
               {result.revokedAt && (
-                <div className="mt-6 bg-red-50 border border-red-200 rounded-xl p-4">
-                  <h3 className="font-bold text-red-800">{t('revocation_details')}</h3>
-                  <p className="text-red-700 text-sm mt-1">
-                    {t('revoked_at')}
-                    {formatDate(result.revokedAt)}.{' '}
-                    {result.revocationReason ? `Reason: ${result.revocationReason}` : ''}
+                <div className="mt-6 rounded-xl border border-[var(--mn-danger-border)] bg-[var(--mn-danger-soft)] p-4">
+                  <h3 className="font-bold text-[var(--mn-danger-text)]">{t('revocation_details')}</h3>
+                  <p className="mt-1 text-sm text-[var(--mn-danger-text)]">
+                    {t('revoked_at')} {formatDate(result.revokedAt)}. لم تعد هذه الشهادة صالحة للتحقق.
                   </p>
                 </div>
               )}
@@ -194,15 +211,16 @@ export function CertificateVerificationPage() {
           )}
         </div>
       </div>
+      </div>
     </div>
   );
 }
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-gray-50 rounded-xl p-4">
-      <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">{label}</p>
-      <p className="text-gray-900 font-medium mt-1 break-words">{value}</p>
+    <div className="mn-card-subtle rounded-xl p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--mn-text-muted)]">{label}</p>
+      <p className="mt-1 break-words font-medium text-[var(--mn-heading)]">{value}</p>
     </div>
   );
 }
@@ -211,7 +229,7 @@ function formatDate(value: string | null | undefined): string {
   if (!value) {
     return 'Not available';
   }
-  return new Intl.DateTimeFormat('en', {
+  return new Intl.DateTimeFormat('ar', {
     year: 'numeric',
     month: 'short',
     day: '2-digit',

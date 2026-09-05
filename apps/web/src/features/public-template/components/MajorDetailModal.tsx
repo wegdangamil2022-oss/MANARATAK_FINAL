@@ -37,6 +37,7 @@ import { FellowshipDetailView } from './modal/FellowshipDetailView';
 import { DoctorateAcademicBackgroundsSlider } from './modal/DoctorateAcademicBackgroundsSlider';
 import { FavoriteButton } from './FavoriteButton';
 import type { MajorPublicRelationshipGraph } from '../usePublicRelationshipGraph';
+import { DetailBackButton, DetailSectionHeader, useDetailSearchTarget } from './DetailUi';
 
 interface MajorDetailModalProps {
   major: Major;
@@ -50,6 +51,8 @@ interface MajorDetailModalProps {
   onOpenMajor?: (majorId: string) => void;
   isFavorite?: boolean;
   onToggleFavorite?: (id: string) => void;
+  searchAnchor?: string;
+  searchTerm?: string;
 }
 
 export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
@@ -64,7 +67,10 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
   onOpenMajor,
   isFavorite = false,
   onToggleFavorite,
+  searchAnchor,
+  searchTerm,
 }) => {
+  useDetailSearchTarget(searchAnchor, searchTerm);
   // Determine degree level
   const isFellowship =
     major.degreeLevels?.includes('زمالة أبحاث') ||
@@ -238,16 +244,11 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
   };
 
   return (
-    <div className="w-full max-w-md mx-auto pt-0 pb-12 text-right font-['Tajawal',sans-serif] animate-in fade-in duration-200 bg-[var(--mn-surface-muted)] min-h-screen relative mn-panel ">
+    <div className="w-full max-w-md mx-auto pt-0 pb-12 text-right font-['Cairo',sans-serif] animate-in fade-in duration-200 bg-[var(--mn-page)] min-h-screen relative mn-panel ">
       {/* 1. TOP HERO CONTAINER */}
       <div className="relative w-full overflow-hidden">
         {/* Close/Back Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 p-2 bg-black/10 hover:bg-black/20 backdrop-blur-md rounded-full transition-all text-white hover:text-white cursor-pointer"
-        >
-          <X className="w-4 h-4 sm:w-5 sm:h-5" />
-        </button>
+        <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20"><DetailBackButton onBack={onClose} mode="close" /></div>
 
         {onToggleFavorite && (
           <FavoriteButton
@@ -357,11 +358,11 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
             {/* Left Side: Title */}
             <div className="flex flex-col text-right min-w-0 flex-1 pr-1.5 pl-8 sm:pl-10">
               <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="text-[10px] font-black text-[var(--mn-accent-text)] px-1.5 py-0.2 rounded bg-black/25 backdrop-blur-xs border border-[var(--mn-accent)]/40">
+                <span className="text-[10px] font-bold text-[var(--mn-accent-text)] px-1.5 py-0.2 rounded bg-black/25 backdrop-blur-xs border border-[var(--mn-accent)]/40">
                   {getDegreeTag()}
                 </span>
               </div>
-              <h1 className="text-base sm:text-lg font-black text-white leading-tight truncate drop-shadow-md">
+              <h1 className="text-base sm:text-lg font-bold text-white leading-tight truncate drop-shadow-md">
                 {major.name}
               </h1>
             </div>
@@ -380,31 +381,19 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
             {/* Top Green Accent Line */}
             <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent z-10" />
 
-            {/* Section Header */}
-            <div className="flex flex-col items-center justify-center pt-3.5 pb-2.5 px-3.5 bg-gradient-to-b from-[var(--mn-page)]/70 to-[var(--mn-surface)]">
-              <div className="flex items-center justify-center gap-2 mb-1.5">
-                <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                  <BookOpen className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                </div>
-                <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                  1.{' '}
-                  {isDoctorate
-                    ? 'معلومات تخصص الدكتوراه الأساسية'
-                    : isMaster
-                      ? 'معلومات تخصص الماجستير الأساسية'
-                      : 'معلومات التخصص الأساسية'}
-                </h2>
-              </div>
-              {/* Glowing Gold Underline */}
-              <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-            </div>
+            <DetailSectionHeader
+              id="major-requirements"
+              icon={BookOpen}
+              className="px-3.5 pt-3.5 pb-2.5"
+              title={`1. ${isDoctorate ? 'معلومات تخصص الدكتوراه الأساسية' : isMaster ? 'معلومات تخصص الماجستير الأساسية' : 'معلومات التخصص الأساسية'}`}
+            />
 
             {/* Table Header Row */}
             <div className="grid grid-cols-12 bg-gradient-to-r from-[var(--mn-primary)]/10 via-[var(--mn-hero-secondary)]/5 to-[var(--mn-hero-secondary)]/10 border-y border-[var(--mn-border-gold)] py-2.5 px-3.5 sm:px-4 items-center">
-              <div className="col-span-4 text-[12px] font-black text-[var(--mn-heading)] text-right">
+              <div className="col-span-4 text-[12px] font-bold text-[var(--mn-heading)] text-right">
                 البند
               </div>
-              <div className="col-span-8 text-[12px] font-black text-[var(--mn-heading)] text-right">
+              <div className="col-span-8 text-[12px] font-bold text-[var(--mn-heading)] text-right">
                 التفاصيل
               </div>
             </div>
@@ -414,7 +403,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
               {/* Reference Code */}
               {major.code && (
                 <div className="grid grid-cols-12 py-2.5 px-3.5 sm:px-4 items-center hover:bg-[var(--mn-gold-surface)]/20 transition-colors">
-                  <div className="col-span-4 text-[12px] font-black text-[var(--mn-heading)]">
+                  <div className="col-span-4 text-[12px] font-bold text-[var(--mn-heading)]">
                     الرمز المرجعي
                   </div>
                   <div className="col-span-8 text-[11px] font-bold text-[var(--mn-text)] font-mono tracking-wider">
@@ -425,18 +414,18 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
 
               {/* Arabic Name */}
               <div className="grid grid-cols-12 py-2.5 px-3.5 sm:px-4 items-center hover:bg-[var(--mn-gold-surface)]/20 transition-colors">
-                <div className="col-span-4 text-[12px] font-black text-[var(--mn-heading)]">
+                <div className="col-span-4 text-[12px] font-bold text-[var(--mn-heading)]">
                   الاسم بالعربية
                 </div>
-                <div className="col-span-8 text-[11px] font-black text-[var(--mn-heading)]">{major.name}</div>
+                <div className="col-span-8 text-[11px] font-bold text-[var(--mn-heading)]">{major.name}</div>
               </div>
 
               {/* Name in English */}
               <div className="grid grid-cols-12 py-2.5 px-3.5 sm:px-4 items-center bg-[var(--mn-gold-surface)]/25 hover:bg-[var(--mn-gold-surface)]/40 transition-colors">
-                <div className="col-span-4 text-[12px] font-black text-[var(--mn-heading)]">
+                <div className="col-span-4 text-[12px] font-bold text-[var(--mn-heading)]">
                   الاسم بالإنجليزية
                 </div>
-                <div className="col-span-8 text-[11px] font-black text-[var(--mn-accent-text)] font-sans tracking-wide">
+                <div className="col-span-8 text-[11px] font-bold text-[var(--mn-accent-text)] font-['Cairo',sans-serif] tracking-wide">
                   {major.nameEn}
                 </div>
               </div>
@@ -444,7 +433,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
               {/* Associated Major */}
               {major.associatedMajor && (
                 <div className="grid grid-cols-12 py-2.5 px-3.5 sm:px-4 items-start hover:bg-[var(--mn-gold-surface)]/20 transition-colors">
-                  <div className="col-span-4 text-[12px] font-black text-[var(--mn-heading)] pt-0.5">
+                  <div className="col-span-4 text-[12px] font-bold text-[var(--mn-heading)] pt-0.5">
                     {isDoctorate ? 'التخصص الأساسي المرتبط' : 'التخصص المرتبط'}
                   </div>
                   <div className="col-span-8 text-[11px] font-bold text-[var(--mn-heading)] leading-relaxed">
@@ -456,7 +445,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
               {/* Master Majoring Links for PhD */}
               {isDoctorate && (
                 <div className="grid grid-cols-12 py-2.5 px-3.5 sm:px-4 items-start hover:bg-[var(--mn-gold-surface)]/20 transition-colors">
-                  <div className="col-span-4 text-[12px] font-black text-[var(--mn-heading)] pt-0.5">
+                  <div className="col-span-4 text-[12px] font-bold text-[var(--mn-heading)] pt-0.5">
                     تخصصات الماجستير المرتبطة
                   </div>
                   <div className="col-span-8 text-[11px] font-bold text-[var(--mn-heading)] leading-relaxed">
@@ -468,7 +457,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
 
               {/* College / Academic Field */}
               <div className="grid grid-cols-12 py-2.5 px-3.5 sm:px-4 items-center hover:bg-[var(--mn-gold-surface)]/20 transition-colors">
-                <div className="col-span-4 text-[12px] font-black text-[var(--mn-heading)]">
+                <div className="col-span-4 text-[12px] font-bold text-[var(--mn-heading)]">
                   المجال الأكاديمي
                 </div>
                 <div className="col-span-8 text-[11px] font-bold text-[var(--mn-heading)]">
@@ -478,7 +467,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
 
               {/* Degree Level */}
               <div className="grid grid-cols-12 py-2.5 px-3.5 sm:px-4 items-center hover:bg-[var(--mn-gold-surface)]/20 transition-colors">
-                <div className="col-span-4 text-[12px] font-black text-[var(--mn-heading)]">
+                <div className="col-span-4 text-[12px] font-bold text-[var(--mn-heading)]">
                   مستوى الدرجة
                 </div>
                 <div className="col-span-8 text-[11px] font-bold text-[var(--mn-heading)]">
@@ -489,7 +478,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
               {/* Program Type / Doctorate Type */}
               {major.programTypes && (
                 <div className="grid grid-cols-12 py-2.5 px-3.5 sm:px-4 items-start hover:bg-[var(--mn-gold-surface)]/20 transition-colors">
-                  <div className="col-span-4 text-[12px] font-black text-[var(--mn-heading)] pt-0.5">
+                  <div className="col-span-4 text-[12px] font-bold text-[var(--mn-heading)] pt-0.5">
                     {isDoctorate ? 'نوع الدكتوراه' : 'نوع البرنامج'}
                   </div>
                   <div className="col-span-8 text-[11px] font-bold text-[var(--mn-heading)] leading-relaxed">
@@ -501,7 +490,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
               {/* Common Degrees */}
               {(major.commonDegrees || (major.degreeLevels && major.degreeLevels.length > 0)) && (
                 <div className="grid grid-cols-12 py-2.5 px-3.5 sm:px-4 items-start hover:bg-[var(--mn-gold-surface)]/20 transition-colors">
-                  <div className="col-span-4 text-[12px] font-black text-[var(--mn-heading)] pt-0.5">
+                  <div className="col-span-4 text-[12px] font-bold text-[var(--mn-heading)] pt-0.5">
                     أسماء الدرجات الشائعة
                   </div>
                   <div className="col-span-8 text-[11px] font-bold text-[var(--mn-heading)] leading-relaxed">
@@ -513,7 +502,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
               {/* Common Duration */}
               {major.duration && (
                 <div className="grid grid-cols-12 py-2.5 px-3.5 sm:px-4 items-start hover:bg-[var(--mn-gold-surface)]/20 transition-colors">
-                  <div className="col-span-4 text-[12px] font-black text-[var(--mn-heading)] pt-0.5">
+                  <div className="col-span-4 text-[12px] font-bold text-[var(--mn-heading)] pt-0.5">
                     المدة الشائعة
                   </div>
                   <div className="col-span-8 text-[11px] font-bold text-[var(--mn-heading)] leading-relaxed">
@@ -525,7 +514,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
               {/* Study Modes / Common Entry Path */}
               {major.studyModes && (
                 <div className="grid grid-cols-12 py-2.5 px-3.5 sm:px-4 items-start hover:bg-[var(--mn-gold-surface)]/20 transition-colors">
-                  <div className="col-span-4 text-[12px] font-black text-[var(--mn-heading)] pt-0.5">
+                  <div className="col-span-4 text-[12px] font-bold text-[var(--mn-heading)] pt-0.5">
                     {isDoctorate ? 'مسار الدخول الشائع' : 'أنماط الدراسة'}
                   </div>
                   <div className="col-span-8 text-[11px] font-bold text-[var(--mn-heading)] leading-relaxed">
@@ -537,7 +526,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
               {/* Availability Nature */}
               {major.availabilityNature && (
                 <div className="grid grid-cols-12 py-2.5 px-3.5 sm:px-4 items-start hover:bg-[var(--mn-gold-surface)]/20 transition-colors">
-                  <div className="col-span-4 text-[12px] font-black text-[var(--mn-heading)] pt-0.5">
+                  <div className="col-span-4 text-[12px] font-bold text-[var(--mn-heading)] pt-0.5">
                     طبيعة التوفر
                   </div>
                   <div className="col-span-8 text-[11px] font-bold text-[var(--mn-heading)] leading-relaxed">
@@ -549,7 +538,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
               {/* Short Description */}
               {major.description && (
                 <div className="grid grid-cols-12 py-2.5 px-3.5 sm:px-4 items-start bg-[var(--mn-page)]/50 hover:bg-[var(--mn-page)] transition-colors hover:mn-panel ">
-                  <div className="col-span-4 text-[12px] font-black text-[var(--mn-heading)] pt-0.5">
+                  <div className="col-span-4 text-[12px] font-bold text-[var(--mn-heading)] pt-0.5">
                     الوصف المختصر
                   </div>
                   <div className="col-span-8 text-[11px] font-bold text-[var(--mn-text)] leading-relaxed">
@@ -565,24 +554,12 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
             {/* Top Green Accent Line */}
             <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-            {/* Section Header */}
-            <div className="flex flex-col items-center justify-center mb-3 pt-0.5">
-              <div className="flex items-center justify-center gap-2 mb-1.5">
-                <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                  <FileText className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                </div>
-                <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                  2.{' '}
-                  {isDoctorate
-                    ? 'طبيعة الدكتوراه وهدفها'
-                    : isMaster
-                      ? 'نبذة عن تخصص الماجستير'
-                      : 'نبذة عن التخصص'}
-                </h2>
-              </div>
-              {/* Glowing Gold Underline */}
-              <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-            </div>
+            <DetailSectionHeader
+              id="major-about"
+              icon={FileText}
+              className="mb-3"
+              title={`2. ${isDoctorate ? 'طبيعة الدكتوراه وهدفها' : isMaster ? 'نبذة عن تخصص الماجستير' : 'نبذة عن التخصص'}`}
+            />
 
             {/* Section Content */}
             <div className="space-y-2.5">
@@ -610,7 +587,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                     <Info className="w-3.5 h-3.5 text-[var(--mn-accent-text)]" />
                   </div>
                   <div className="flex-1 min-w-0 pr-1 text-right">
-                    <span className="block text-[11px] font-black text-[var(--mn-heading)] mb-0.5">
+                    <span className="block text-[11px] font-bold text-[var(--mn-heading)] mb-0.5">
                       ملاحظة توضيحية هامة:
                     </span>
                     <p className="text-[10.5px] sm:text-[11px] font-bold text-[var(--mn-text-muted)] leading-[1.85]">
@@ -627,26 +604,16 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
             <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
               <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-              <div className="flex flex-col items-center justify-center mb-3 pt-0.5">
-                <div className="flex items-center justify-center gap-2 mb-1.5">
-                  <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                    <Layers className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                  </div>
-                  <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                    3. أنواع الدكتوراه الشائعة
-                  </h2>
-                </div>
-                <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-              </div>
+              <DetailSectionHeader id="major-doctorate-types" icon={Layers} className="mb-3" title="3. أنواع الدكتوراه الشائعة" />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5 text-right">
+              <div className="mn-detail-small-grid pt-0.5 text-right">
                 {major.doctorateTypes.map((typeItem, tIdx) => (
                   <div
                     key={tIdx}
                     className="flex items-start gap-2.5 p-2.5 rounded-xl bg-[var(--mn-surface)] border border-[var(--mn-border-gold)] hover:border-[var(--mn-accent)] hover:bg-[var(--mn-page)]/40 hover:shadow-2xs transition-all duration-200 group text-right mn-panel "
                   >
-                    <div className="w-5 h-5 rounded-lg bg-[var(--mn-primary)]/10 text-[var(--mn-heading)] flex items-center justify-center shrink-0 mt-0.5 font-black text-[10px] group-hover:bg-[var(--mn-primary)] group-hover:text-white transition-colors group-hover:mn-inverse ">
-                      ✓
+                    <div className="w-5 h-5 rounded-lg bg-[var(--mn-primary)]/10 text-[var(--mn-heading)] flex items-center justify-center shrink-0 mt-0.5 font-bold text-[10px] group-hover:bg-[var(--mn-primary)] group-hover:text-white transition-colors group-hover:mn-inverse ">
+                      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                     </div>
                     <span className="text-[10.5px] sm:text-[11px] font-bold text-[var(--mn-heading)] leading-snug group-hover:text-[var(--mn-heading)] transition-colors">
                       {typeItem}
@@ -665,17 +632,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
             <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
               <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-              <div className="flex flex-col items-center justify-center mb-3 pt-0.5">
-                <div className="flex items-center justify-center gap-2 mb-1.5">
-                  <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                    <Users className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                  </div>
-                  <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                    3. الفئات والخلفيات الأكاديمية المستهدفة للقبول
-                  </h2>
-                </div>
-                <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-              </div>
+              <DetailSectionHeader id="major-target-backgrounds" icon={Users} className="mb-3" title="3. الفئات والخلفيات الأكاديمية المستهدفة للقبول" />
 
               <div className="space-y-3 text-right">
                 <div className="p-3 rounded-2xl bg-[var(--mn-page)]/80 border border-[var(--mn-border-gold)] text-right mn-panel ">
@@ -685,14 +642,14 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                <div className="mn-detail-small-grid pt-0.5">
                   {major.targetBackgrounds.map((bg, idx) => (
                     <div
                       key={idx}
                       className="flex items-start gap-2.5 p-2.5 rounded-xl bg-[var(--mn-surface)] border border-[var(--mn-border-gold)] hover:border-[var(--mn-accent)] hover:bg-[var(--mn-page)]/40 hover:shadow-2xs transition-all duration-200 group text-right mn-panel "
                     >
-                      <div className="w-5 h-5 rounded-lg bg-[var(--mn-primary)]/10 text-[var(--mn-heading)] flex items-center justify-center shrink-0 mt-0.5 font-black text-[10px] group-hover:bg-[var(--mn-primary)] group-hover:text-white transition-colors group-hover:mn-inverse ">
-                        ✓
+                      <div className="w-5 h-5 rounded-lg bg-[var(--mn-primary)]/10 text-[var(--mn-heading)] flex items-center justify-center shrink-0 mt-0.5 font-bold text-[10px] group-hover:bg-[var(--mn-primary)] group-hover:text-white transition-colors group-hover:mn-inverse ">
+                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                       </div>
                       <span className="text-[10.5px] sm:text-[11px] font-bold text-[var(--mn-heading)] leading-snug group-hover:text-[var(--mn-heading)] transition-colors">
                         {bg}
@@ -709,17 +666,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
             <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
               <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-              <div className="flex flex-col items-center justify-center mb-3 pt-0.5">
-                <div className="flex items-center justify-center gap-2 mb-1.5">
-                  <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                    <ListChecks className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                  </div>
-                  <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                    5. مراحل برنامج الدكتوراه
-                  </h2>
-                </div>
-                <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-              </div>
+              <DetailSectionHeader id="major-program-stages" icon={ListChecks} className="mb-3" title="5. مراحل برنامج الدكتوراه" />
 
               <div className="grid grid-cols-2 gap-2 sm:gap-2.5 text-right">
                 {major.programStages.map((stage, sIdx) => {
@@ -745,17 +692,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
             <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
               <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-              <div className="flex flex-col items-center justify-center mb-3 pt-0.5">
-                <div className="flex items-center justify-center gap-2 mb-1.5">
-                  <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                    <GraduationCap className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                  </div>
-                  <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                    6. المعرفة والمقررات المتقدمة
-                  </h2>
-                </div>
-                <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-              </div>
+              <DetailSectionHeader id="major-study" icon={GraduationCap} className="mb-3" title="6. المعرفة والمقررات المتقدمة" />
 
               <div className="space-y-4 text-right">
                 {/* Block 1: المعرفة النظرية المتقدمة */}
@@ -763,7 +700,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                   <div className="space-y-2">
                     <div className="flex items-center gap-1.5">
                       <BookOpen className="w-4 h-4 text-[var(--mn-heading)]" />
-                      <h3 className="text-[11.5px] font-black text-[var(--mn-heading)]">
+                      <h3 className="text-[11.5px] font-bold text-[var(--mn-heading)]">
                         المعرفة النظرية المتقدمة:
                       </h3>
                     </div>
@@ -788,7 +725,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                   <div className="space-y-2 pt-2 border-t border-[var(--mn-border)]">
                     <div className="flex items-center gap-1.5">
                       <FlaskConical className="w-4 h-4 text-[var(--mn-accent-text)]" />
-                      <h3 className="text-[11.5px] font-black text-[var(--mn-heading)]">
+                      <h3 className="text-[11.5px] font-bold text-[var(--mn-heading)]">
                         مناهج البحث والتحليل:
                       </h3>
                     </div>
@@ -813,7 +750,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                   <div className="space-y-2 pt-2 border-t border-[var(--mn-border)]">
                     <div className="flex items-center gap-1.5">
                       <Scale className="w-4 h-4 text-[var(--mn-heading)]" />
-                      <h3 className="text-[11.5px] font-black text-[var(--mn-heading)]">
+                      <h3 className="text-[11.5px] font-bold text-[var(--mn-heading)]">
                         الأخلاقيات والنزاهة العلمية:
                       </h3>
                     </div>
@@ -840,21 +777,11 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
           <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
             <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-            <div className="flex flex-col items-center justify-center mb-3 pt-0.5">
-              <div className="flex items-center justify-center gap-2 mb-1.5">
-                <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                  <Compass className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                </div>
-                <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                  {isDoctorate
+            <DetailSectionHeader id="major-tracks" icon={Compass} className="mb-3" title={isDoctorate
                     ? '7. مجالات البحث والتخصصات الدقيقة'
                     : isMaster
                       ? '4. المسارات والتخصصات الدقيقة الشائعة'
-                      : '3. المسارات والتخصصات الدقيقة'}
-                </h2>
-              </div>
-              <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-            </div>
+                      : '3. المسارات والتخصصات الدقيقة'} />
 
             <div className="space-y-3 text-right">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-0.5">
@@ -878,17 +805,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
             <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
               <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-              <div className="flex flex-col items-center justify-center mb-3 pt-0.5">
-                <div className="flex items-center justify-center gap-2 mb-1.5">
-                  <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                    <Award className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                  </div>
-                  <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                    8. الامتحان التأهيلي أو الشامل عند وجوده
-                  </h2>
-                </div>
-                <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-              </div>
+              <DetailSectionHeader id="major-qualifying-exam" icon={Award} className="mb-3" title="8. الامتحان التأهيلي أو الشامل عند وجوده" />
 
               <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-br from-[var(--mn-page)]/90 to-[var(--mn-gold-surface)]/20 border border-[var(--mn-border-gold)] text-right mn-panel ">
                 <p className="text-[11px] sm:text-[11.5px] font-bold text-[var(--mn-text)] leading-[2] text-justify">
@@ -903,17 +820,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
             <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
               <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-              <div className="flex flex-col items-center justify-center mb-3 pt-0.5">
-                <div className="flex items-center justify-center gap-2 mb-1.5">
-                  <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                    <Target className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                  </div>
-                  <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                    9. مقترح البحث ومرحلة الترشح
-                  </h2>
-                </div>
-                <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-              </div>
+              <DetailSectionHeader id="major-research-proposal" icon={Target} className="mb-3" title="9. مقترح البحث ومرحلة الترشح" />
 
               <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-br from-[var(--mn-page)]/90 to-[var(--mn-gold-surface)]/20 border border-[var(--mn-border-gold)] text-right mn-panel ">
                 <p className="text-[11px] sm:text-[11.5px] font-bold text-[var(--mn-text)] leading-[2] text-justify">
@@ -928,17 +835,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
             <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
               <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-              <div className="flex flex-col items-center justify-center mb-3 pt-0.5">
-                <div className="flex items-center justify-center gap-2 mb-1.5">
-                  <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                    <Sparkles className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                  </div>
-                  <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                    10. الأطروحة والمساهمة الأصلية
-                  </h2>
-                </div>
-                <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-              </div>
+              <DetailSectionHeader id="major-original-contribution" icon={Sparkles} className="mb-3" title="10. الأطروحة والمساهمة الأصلية" />
 
               <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-br from-[var(--mn-page)]/90 to-[var(--mn-gold-surface)]/20 border border-[var(--mn-border-gold)] text-right mn-panel ">
                 <p className="text-[11px] sm:text-[11.5px] font-bold text-[var(--mn-text)] leading-[2] text-justify">
@@ -953,17 +850,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
             <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
               <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-              <div className="flex flex-col items-center justify-center mb-3 pt-0.5">
-                <div className="flex items-center justify-center gap-2 mb-1.5">
-                  <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                    <Building className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                  </div>
-                  <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                    11. الإشراف والبيئة البحثية
-                  </h2>
-                </div>
-                <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-              </div>
+              <DetailSectionHeader id="major-supervision" icon={Building} className="mb-3" title="11. الإشراف والبيئة البحثية" />
 
               <div className="grid grid-cols-2 gap-2 sm:gap-2.5 text-right">
                 {major.supervisionEnvironment.map((item, sIdx) => (
@@ -989,17 +876,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
             <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
               <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-              <div className="flex flex-col items-center justify-center mb-3 pt-0.5">
-                <div className="flex items-center justify-center gap-2 mb-1.5">
-                  <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                    <Library className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                  </div>
-                  <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                    12. متطلبات البحث والنشر والتدريس
-                  </h2>
-                </div>
-                <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-              </div>
+              <DetailSectionHeader id="major-research-publishing" icon={Library} className="mb-3" title="12. متطلبات البحث والنشر والتدريس" />
 
               <div className="grid grid-cols-2 gap-2 sm:gap-2.5 text-right">
                 {major.researchPublishingTeaching.map((item, pIdx) => (
@@ -1021,21 +898,12 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
           <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
             <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-            <div className="flex flex-col items-center justify-center mb-3 pt-0.5">
-              <div className="flex items-center justify-center gap-2 mb-1.5">
-                <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                  <Award className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                </div>
-                <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                  {isDoctorate
-                    ? '13. المهارات البحثية والمهنية المتقدمة'
-                    : isMaster
-                      ? '5. المهارات التخصصية المكتسبة'
-                      : '4. المهارات التخصصية التي يكتسبها الطالب'}
-                </h2>
-              </div>
-              <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-            </div>
+            <DetailSectionHeader
+              id="major-skills"
+              icon={Award}
+              className="mb-3"
+              title={isDoctorate ? '13. المهارات البحثية والمهنية المتقدمة' : isMaster ? '5. المهارات التخصصية المكتسبة' : '4. المهارات التخصصية التي يكتسبها الطالب'}
+            />
 
             <div className="space-y-2.5 text-right">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-0.5">
@@ -1058,21 +926,12 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
           <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
             <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-            <div className="flex flex-col items-center justify-center mb-4 pt-0.5">
-              <div className="flex items-center justify-center gap-2 mb-1.5">
-                <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                  <Briefcase className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                </div>
-                <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                  {isDoctorate
-                    ? '14. مجالات العمل بعد الدكتوراه'
-                    : isMaster
-                      ? '6. مجالات العمل والفرص المهنية بعد التخرج'
-                      : '5. مجالات العمل بعد التخرج'}
-                </h2>
-              </div>
-              <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-            </div>
+            <DetailSectionHeader
+              id="major-careers"
+              icon={Briefcase}
+              className="mb-4"
+              title={isDoctorate ? '14. مجالات العمل بعد الدكتوراه' : isMaster ? '6. مجالات العمل والفرص المهنية بعد التخرج' : '5. مجالات العمل بعد التخرج'}
+            />
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-right pt-0.5">
               {workFieldsList.map((job, index) => (
@@ -1093,33 +952,23 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
           <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
             <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-            <div className="flex flex-col items-center justify-center mb-4 pt-0.5">
-              <div className="flex items-center justify-center gap-2 mb-1.5">
-                <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                  <UserCheck className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                </div>
-                <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                  {isDoctorate
+            <DetailSectionHeader id="major-related-jobs" icon={UserCheck} className="mb-4" title={isDoctorate
                     ? '15. أهم الوظائف المرتبطة'
                     : isMaster
                       ? '7. أهم الوظائف المرتبطة بالدرجة'
-                      : '6. أهم الوظائف المرتبطة'}
-                </h2>
-              </div>
-              <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-            </div>
+                      : '6. أهم الوظائف المرتبطة'} />
 
             <div className="w-full overflow-x-auto no-scrollbar rounded-xl border border-[var(--mn-border-gold)] shadow-2xs bg-[var(--mn-surface)] mn-panel ">
               <table className="w-full text-right border-collapse min-w-[500px]">
                 <thead>
                   <tr className="bg-gradient-to-l from-[var(--mn-primary)]/5 to-[var(--mn-surface)] border-b border-[var(--mn-border-gold)]">
-                    <th className="py-3 px-4 text-[11px] sm:text-[11.5px] font-black text-[var(--mn-heading)] w-[30%] whitespace-nowrap">
+                    <th className="py-3 px-4 text-[11px] sm:text-[11.5px] font-bold text-[var(--mn-heading)] w-[30%] whitespace-nowrap">
                       الوظيفة
                     </th>
-                    <th className="py-3 px-4 text-[11px] sm:text-[11.5px] font-black text-[var(--mn-heading)] w-[30%] whitespace-nowrap">
+                    <th className="py-3 px-4 text-[11px] sm:text-[11.5px] font-bold text-[var(--mn-heading)] w-[30%] whitespace-nowrap">
                       مدى مناسبة الدرجة
                     </th>
-                    <th className="py-3 px-4 text-[11px] sm:text-[11.5px] font-black text-[var(--mn-heading)] w-[40%]">
+                    <th className="py-3 px-4 text-[11px] sm:text-[11.5px] font-bold text-[var(--mn-heading)] w-[40%]">
                       الملاحظة
                     </th>
                   </tr>
@@ -1132,7 +981,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                       </td>
                       <td className="py-2.5 px-4 text-[10.5px] sm:text-[11px] font-bold border-l border-[var(--mn-border)] align-middle">
                         <span
-                          className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                             row.matchRate?.includes('جدًا') || row.entry?.includes('جدًا')
                               ? 'bg-[var(--mn-surface-muted)] text-[var(--mn-heading)] border border-[var(--mn-border-brand)] mn-panel '
                               : row.matchRate?.includes('غير') || row.entry?.includes('غير')
@@ -1157,21 +1006,12 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
           <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
             <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-            <div className="flex flex-col items-center justify-center mb-4 pt-0.5">
-              <div className="flex items-center justify-center gap-2 mb-1.5">
-                <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                  <GraduationCap className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                </div>
-                <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                  {isDoctorate
-                    ? '16. ما بعد الدكتوراه والمسارات اللاحقة'
-                    : isMaster
-                      ? '8. فرص ما بعد الماجستير والمسارات المستقبلية'
-                      : '7. فرص الدراسات العليا'}
-                </h2>
-              </div>
-              <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-            </div>
+            <DetailSectionHeader
+              id="major-postgraduate"
+              icon={GraduationCap}
+              className="mb-4"
+              title={isDoctorate ? '16. ما بعد الدكتوراه والمسارات اللاحقة' : isMaster ? '8. فرص ما بعد الماجستير والمسارات المستقبلية' : '7. فرص الدراسات العليا'}
+            />
 
             <div className="space-y-3 text-right">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1195,18 +1035,13 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
           <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
             <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent)] to-transparent" />
 
-            <div className="flex flex-col items-center justify-center mb-4 pt-0.5">
-              <div className="flex items-center justify-center gap-2 mb-1.5">
-                <div className="w-7 h-7 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shadow-2xs">
-                  <Compass className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                </div>
-                <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)]">استكشف فرص هذا التخصص</h2>
-              </div>
-              <p className="text-[9.5px] sm:text-[10.5px] font-bold text-[var(--mn-text-muted)] text-center leading-5 max-w-[330px]">
-                علاقات منشورة من نماذج القراءة المالكة تربط التخصص بالجامعات والمنح والدورات ذات الصلة.
-              </p>
-              <div className="mt-2 w-[150px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent" />
-            </div>
+            <DetailSectionHeader
+              id="major-related-opportunities"
+              icon={Compass}
+              className="mb-4"
+              title="استكشف فرص هذا التخصص"
+              subtitle="علاقات منشورة من نماذج القراءة المالكة تربط التخصص بالجامعات والمنح والدورات ذات الصلة."
+            />
 
             {relationshipGraphStatus === 'loading' && (
               <div className="mb-3 rounded-xl border border-[var(--mn-border)] bg-[var(--mn-page)] px-3 py-2 text-center text-[10px] font-bold text-[var(--mn-text-muted)]">جاري تحميل العلاقات المنشورة…</div>
@@ -1222,12 +1057,12 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                       <Building className="w-3.5 h-3.5 text-[var(--mn-primary)]" />
                     </div>
                     <div>
-                      <h3 className="text-[11px] sm:text-[11.5px] font-black text-[var(--mn-heading)]">جامعات وبرامج تدرس هذا التخصص</h3>
+                      <h3 className="text-[11px] sm:text-[11.5px] font-bold text-[var(--mn-heading)]">جامعات وبرامج تدرس هذا التخصص</h3>
                       <p className="text-[9px] font-bold text-[var(--mn-text-muted)] mt-0.5">برامج جامعية منشورة مرتبطة</p>
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="mn-detail-small-grid">
                   {relationshipDemo.universities.map((item) => (
                     <button
                       key={item.id}
@@ -1237,7 +1072,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="text-[10.5px] sm:text-[11px] font-black text-[var(--mn-heading)] truncate">{item.name}</div>
+                          <div className="text-[10.5px] sm:text-[11px] font-bold text-[var(--mn-heading)] truncate">{item.name}</div>
                           <div className="mt-1 text-[9px] font-bold text-[var(--mn-text-muted)]">{item.meta}</div>
                         </div>
                         <ArrowLeft className="w-3.5 h-3.5 text-[var(--mn-accent)] shrink-0 group-hover:-translate-x-0.5 transition-transform" />
@@ -1253,11 +1088,11 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                     <Award className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
                   </div>
                   <div>
-                    <h3 className="text-[11px] sm:text-[11.5px] font-black text-[var(--mn-heading)]">منح متاحة لهذا التخصص</h3>
+                    <h3 className="text-[11px] sm:text-[11.5px] font-bold text-[var(--mn-heading)]">منح متاحة لهذا التخصص</h3>
                     <p className="text-[9px] font-bold text-[var(--mn-text-muted)] mt-0.5">تفتح صفحة المنحة مباشرة</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="mn-detail-small-grid">
                   {relationshipDemo.scholarships.map((item) => (
                     <button
                       key={item.id}
@@ -1267,7 +1102,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="text-[10.5px] sm:text-[11px] font-black text-[var(--mn-heading)] line-clamp-1">{item.name}</div>
+                          <div className="text-[10.5px] sm:text-[11px] font-bold text-[var(--mn-heading)] line-clamp-1">{item.name}</div>
                           <div className="mt-1 text-[9px] font-bold text-[var(--mn-text-muted)]">{item.meta}</div>
                         </div>
                         <ArrowLeft className="w-3.5 h-3.5 text-[var(--mn-accent)] shrink-0 group-hover:-translate-x-0.5 transition-transform" />
@@ -1283,11 +1118,11 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                     <BookOpen className="w-3.5 h-3.5 text-[var(--mn-primary)]" />
                   </div>
                   <div>
-                    <h3 className="text-[11px] sm:text-[11.5px] font-black text-[var(--mn-heading)]">دورات مرتبطة بهذا التخصص</h3>
+                    <h3 className="text-[11px] sm:text-[11.5px] font-bold text-[var(--mn-heading)]">دورات مرتبطة بهذا التخصص</h3>
                     <p className="text-[9px] font-bold text-[var(--mn-text-muted)] mt-0.5">الدورة تفتح تفاصيلها، والمزيد يفتح فلتر المجال</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 gap-2">
+                <div className="mn-detail-small-grid">
                   {relationshipDemo.courses.map((item) => (
                     <button
                       key={item.id}
@@ -1297,7 +1132,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="text-[10.5px] sm:text-[11px] font-black text-[var(--mn-heading)]">{item.name}</div>
+                          <div className="text-[10.5px] sm:text-[11px] font-bold text-[var(--mn-heading)]">{item.name}</div>
                           <div className="mt-1 text-[9px] font-bold text-[var(--mn-text-muted)]">{item.meta}</div>
                         </div>
                         <ArrowLeft className="w-3.5 h-3.5 text-[var(--mn-accent)] shrink-0 group-hover:-translate-x-0.5 transition-transform" />
@@ -1313,18 +1148,14 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
           {relationshipDemo.academicPath.length > 0 && (
             <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
               <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
-              <div className="flex flex-col items-center justify-center mb-3.5 pt-0.5">
-                <div className="flex items-center justify-center gap-2 mb-1.5">
-                  <div className="w-7 h-7 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 flex items-center justify-center shadow-2xs">
-                    <GraduationCap className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                  </div>
-                  <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)]">الامتداد الأكاديمي للتخصص</h2>
-                </div>
-                <p className="text-[9.5px] sm:text-[10.5px] font-bold text-[var(--mn-text-muted)] text-center leading-5">
-                  مسارات أعلى أو تخصصية مرتبطة بالمجال، وليست مجرد أسماء نصية.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <DetailSectionHeader
+                id="major-academic-path"
+                icon={GraduationCap}
+                className="mb-3.5"
+                title="الامتداد الأكاديمي للتخصص"
+                subtitle="مسارات أعلى أو تخصصية مرتبطة بالمجال، وليست مجرد أسماء نصية."
+              />
+              <div className="mn-detail-small-grid">
                 {relationshipDemo.academicPath.map((item) => (
                   <button
                     key={item.id}
@@ -1332,12 +1163,12 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                     onClick={() => onOpenMajor?.(item.id)}
                     className="group text-right rounded-xl border border-[var(--mn-border-brand)]/45 bg-gradient-to-b from-[var(--mn-primary)]/5 to-[var(--mn-surface)] p-3 hover:border-[var(--mn-accent)]/60 hover:shadow-sm transition-all"
                   >
-                    <div className="inline-flex rounded-full bg-[var(--mn-accent)]/12 px-2 py-0.5 text-[8.5px] font-black text-[var(--mn-heading)] border border-[var(--mn-accent)]/25">
+                    <div className="inline-flex rounded-full bg-[var(--mn-accent)]/12 px-2 py-0.5 text-[8.5px] font-bold text-[var(--mn-heading)] border border-[var(--mn-accent)]/25">
                       {item.degree}
                     </div>
                     <div className="mt-2 flex items-start justify-between gap-2">
                       <div>
-                        <div className="text-[10.5px] sm:text-[11px] font-black text-[var(--mn-heading)] leading-5">{item.name}</div>
+                        <div className="text-[10.5px] sm:text-[11px] font-bold text-[var(--mn-heading)] leading-5">{item.name}</div>
                         <div className="mt-1 text-[9px] font-bold text-[var(--mn-text-muted)] leading-4">{item.meta}</div>
                       </div>
                       <ArrowLeft className="w-3.5 h-3.5 text-[var(--mn-accent)] shrink-0 mt-0.5 group-hover:-translate-x-0.5 transition-transform" />
@@ -1351,30 +1182,20 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
           <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
             <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-            <div className="flex flex-col items-center justify-center mb-4 pt-0.5">
-              <div className="flex items-center justify-center gap-2 mb-1.5">
-                <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                  <GitCompare className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                </div>
-                <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                  {isDoctorate
+            <DetailSectionHeader id="major-similar" icon={GitCompare} className="mb-4" title={isDoctorate
                     ? '17. الدكتوراه المشابهة والفروق'
                     : isMaster
                       ? '9. التخصصات المشابهة والفرق بينها'
-                      : '8. التخصصات المشابهة'}
-                </h2>
-              </div>
-              <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-            </div>
+                      : '8. التخصصات المشابهة'} />
 
             <div className="w-full overflow-x-auto no-scrollbar rounded-xl border border-[var(--mn-border-gold)] shadow-2xs bg-[var(--mn-surface)] mn-panel ">
               <table className="w-full text-right border-collapse min-w-[500px]">
                 <thead>
                   <tr className="bg-gradient-to-l from-[var(--mn-primary)]/5 to-[var(--mn-surface)] border-b border-[var(--mn-border-gold)]">
-                    <th className="py-3 px-4 text-[11px] sm:text-[11.5px] font-black text-[var(--mn-heading)] w-[35%] whitespace-nowrap">
+                    <th className="py-3 px-4 text-[11px] sm:text-[11.5px] font-bold text-[var(--mn-heading)] w-[35%] whitespace-nowrap">
                       {isDoctorate ? 'التخصص أو الدرجة المشابهة' : 'التخصص'}
                     </th>
-                    <th className="py-3 px-4 text-[11px] sm:text-[11.5px] font-black text-[var(--mn-heading)] w-[65%]">
+                    <th className="py-3 px-4 text-[11px] sm:text-[11.5px] font-bold text-[var(--mn-heading)] w-[65%]">
                       {isDoctorate ? 'الفرق المختصر' : 'الفرق الجوهري'}
                     </th>
                   </tr>
@@ -1387,7 +1208,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                           <button
                             type="button"
                             onClick={() => onOpenMajor?.(relationshipDemo.similarMajorLinks[row.name])}
-                            className="inline-flex items-center gap-1.5 font-black text-[var(--mn-heading)] hover:text-[var(--mn-primary)] transition-colors"
+                            className="inline-flex items-center gap-1.5 font-bold text-[var(--mn-heading)] hover:text-[var(--mn-primary)] transition-colors"
                           >
                             {row.name}
                             <ArrowLeft className="w-3 h-3 text-[var(--mn-accent)]" />
@@ -1410,21 +1231,11 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
           <div className="relative w-full bg-[var(--mn-surface)] rounded-none p-3.5 sm:p-4 border-y border-[var(--mn-border-brand)]/40 shadow-md shadow-[var(--mn-shadow-ink)]/60 overflow-hidden mn-panel ">
             <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[var(--mn-hero-secondary)] to-transparent" />
 
-            <div className="flex flex-col items-center justify-center mb-3.5 pt-0.5">
-              <div className="flex items-center justify-center gap-2 mb-1.5">
-                <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
-                  <ShieldAlert className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
-                </div>
-                <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
-                  {isDoctorate
+            <DetailSectionHeader id="major-alert" icon={ShieldAlert} className="mb-3.5" title={isDoctorate
                     ? '18. التنبيه الأكاديمي والمهني'
                     : isMaster
                       ? '10. التنبيه الأكاديمي والمهني الحاسم'
-                      : '9. التنبيه الأكاديمي والمهني'}
-                </h2>
-              </div>
-              <div className="w-[140px] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--mn-accent-soft)] to-transparent shadow-[0_0_8px_rgba(214,164,59,0.7)]" />
-            </div>
+                      : '9. التنبيه الأكاديمي والمهني'} />
 
             <div className="space-y-2 text-right">
               {isDoctorate ? (
@@ -1442,7 +1253,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                     className="flex items-start gap-2.5 p-2.5 rounded-xl bg-[var(--mn-page)]/70 border border-[var(--mn-border)] hover:border-[var(--mn-border-brand)]/30 transition-colors"
                   >
                     <div
-                      className={`w-5 h-5 rounded-lg flex items-center justify-center shrink-0 mt-0.5 font-black text-[10px] ${
+                      className={`w-5 h-5 rounded-lg flex items-center justify-center shrink-0 mt-0.5 font-bold text-[10px] ${
                         pIdx === 0
                           ? 'bg-[var(--mn-primary)]/10 text-[var(--mn-heading)]'
                           : 'bg-[var(--mn-accent)]/20 text-[var(--mn-heading)]'
@@ -1451,7 +1262,7 @@ export const MajorDetailModal: React.FC<MajorDetailModalProps> = ({
                       {point.num || pIdx + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-[11px] font-black text-[var(--mn-heading)] mb-0.5">
+                      <h4 className="text-[11px] font-bold text-[var(--mn-heading)] mb-0.5">
                         {point.title}
                       </h4>
                       <p className="text-[10.5px] sm:text-[11px] font-medium text-[var(--mn-text)] leading-relaxed">

@@ -2,12 +2,17 @@
 
 
 ## 1. Title and Governance Notice
+
+> **2026-09-05 SOURCE-CLOSURE UPDATE — HISTORICAL/SUPERSEDED INVENTORY**
+> This document remains as migration history and design rationale. It is no longer the runtime or source-of-truth inventory for Admin surfaces. Canonical administrative ownership now lives in `apps/admin/src/pages` and its API/domain boundaries. In particular, the legacy Web AI Governance, Student Tools, and Settings preview surfaces are removed/superseded; `/admin/ai*`, `/admin/student-tools*`, and `/admin/settings` must resolve to the canonical Admin application. Do not recreate removed preview pages or shadow AI/tool execution paths from this backlog.
+
 **Document Title:** Phase 23 Enterprise Administration Portal - Admin Preview UI Design and Action Backlog  
 **Target File Path:** `docs/phases/phase-23-enterprise-administration-portal/phase-23-04-admin-preview-ui-design-and-action-backlog.md`  
-**Official Design Source:** `apps/web/src/features/admin-preview`  
+**Historical Design Source:** `apps/web/src/features/admin-preview`  
+**Current Canonical Admin Source:** `apps/admin/src/pages`  
 
 > **GOVERNANCE MANDATE:**
-> The 46 React component files in `apps/web/src/features/admin-preview` represent the **officially approved target admin portal design** for MANARATAK 2.0. These pages are NOT disposable mockups or temporary prototypes. Every visual layout, data table, card, metric panel, tab, modal, drawer, filter, and action button defined in these files is a non-negotiable requirement for the final Phase 23 Administration Portal.
+> Historically, the 46 React component files in `apps/web/src/features/admin-preview` represented the approved target design inventory for MANARATAK 2.0. That inventory guided migration into `apps/admin`; it must not be interpreted as permission to restore a removed preview after the canonical Admin implementation exists. Current runtime behavior, permissions, domain ownership, and source-closure decisions in `apps/admin` and the owning domain take precedence.
 > 
 > **STRICT PROHIBITION:**
 > Under no circumstances shall the admin portal design be simplified into basic CRUD tables or generic boilerplate admin screens. The rich data density, multi-tab layout, review queues, workflow actions, and governance controls must be preserved in full when migrating these components from `apps/web` to `apps/admin`.
@@ -18,7 +23,7 @@
 ## 2. Purpose
 This document establishes the official bridge between:
 1. **Phase 23 Architecture & Control Plane:** The structural specifications for administration routing, RBAC guards, audit invocation, and workflow orchestration.
-2. **Admin Preview UI Implementation:** The rich frontend interface currently housed in `apps/web/src/features/admin-preview`.
+2. **Historical Admin Preview UI:** The former design inventory under `apps/web/src/features/admin-preview`, retained only as migration/design history where files still exist.
 3. **Domain Backend Implementation Backlog:** The step-by-step requirements for connecting each UI element to its corresponding domain backend phase API.
 
 ---
@@ -38,7 +43,7 @@ This document establishes the official bridge between:
 
 
 ## 4. Admin Preview Folder as Approved Design Reference
-The folder `apps/web/src/features/admin-preview` serves as the single source of truth for the admin user interface. It contains 46 component files representing 17 major administrative domains:
+The folder `apps/web/src/features/admin-preview` served as the historical design inventory during Phase 23 migration. It is **not** the current source of truth; the canonical Admin implementation is under `apps/admin`. The list below is retained as a historical 46-file inventory:
 
 
 - **AI Governance & Model Routing** (`AdminAiGovernancePreviewPage.tsx`)
@@ -69,7 +74,7 @@ The folder `apps/web/src/features/admin-preview` serves as the single source of 
 
 - **System Health & Infrastructure Readiness** (`AdminHealthPreviewPage.tsx`)
 
-- **Global Settings & Policy Configuration** (`AdminSettingsPreviewPage.tsx`)
+- **Global Settings & Policy Configuration** (`AdminSettingsPreviewPage.tsx`) — **HISTORICAL/SUPERSEDED; compatibility redirect only, do not restore preview data or IAM/secrets ownership**
 
 - **System Shell & Generic Preview Controls** (`AdminPreviewShell.tsx`, `AdminGenericPreviewPage.tsx`)
 
@@ -163,7 +168,7 @@ Below is the complete inventory of all 46 files in `apps/web/src/features/admin-
 
 | # | Exact Filename | Functional Area | Intended Route | Page Type | Domain Owner | UI vs Backend Role | Current Status | Migration Target | Notes & Dependencies |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | `AdminAiGovernancePreviewPage.tsx` | AI Governance | `/admin/ai-governance` | Governance | Phase 17 | Phase 23 UI / Phase 17 API | Partial API | `apps/admin/src/pages/AIGovernancePage.tsx` | Gemini proxy cost control |
+| 1 | `AdminAiGovernancePreviewPage.tsx` | AI Governance | `/admin/ai-governance` | Governance | Phase 17 | Historical Phase 23 preview / Phase 17 API | **SUPERSEDED / REMOVED** | `apps/admin/src/pages/AIGovernancePage.tsx` | Canonical provider-neutral AI governance; Web legacy route redirects to Admin |
 | 2 | `AdminCareerOpportunityDetailPage.tsx` | Careers & Alumni | `/admin/careers/jobs/:id` | Detail | Phase 21 | Phase 23 UI / Phase 21 API | UI Only | `apps/admin/src/pages/CareerJobDetailPage.tsx` | Job posting & employer meta |
 | 3 | `AdminCareersPreviewPage.tsx` | Careers & Alumni | `/admin/careers` | List | Phase 21 | Phase 23 UI / Phase 21 API | Partial API | `apps/admin/src/pages/CareerAdminPage.tsx` | Employers & Job Opportunities |
 | 4 | `AdminCertificateDetailPage.tsx` | Certificates | `/admin/certificates/:id` | Detail | Phase 14 | Phase 23 UI / Phase 14 API | UI Only | `apps/admin/src/pages/CertificateDetailPage.tsx` | Verification & Revocation |
@@ -205,8 +210,8 @@ Below is the complete inventory of all 46 files in `apps/web/src/features/admin-
 | 40 | `AdminSettingsPreviewPage.tsx` | System Settings | `/admin/settings` | Settings | Phase 05 / 23 | Phase 23 UI / Phase 05 API | Real API | `apps/admin/src/pages/SettingsAdminPage.tsx` | Global environment & security |
 | 41 | `AdminStudentServiceDetailPage.tsx` | Non-Course Services | `/admin/services/student/:id` | Detail | Phase 20 | Phase 23 UI / Phase 20 API | UI Only | `apps/admin/src/pages/StudentServiceDetailPage.tsx` | Student service request processing |
 | 42 | `AdminStudentServicesPreviewPage.tsx` | Non-Course Services | `/admin/services/student` | List | Phase 20 | Phase 23 UI / Phase 20 API | UI Only | `apps/admin/src/pages/StudentServicesPage.tsx` | Student services catalog |
-| 43 | `AdminStudentToolDetailPage.tsx` | Student Tools | `/admin/student-tools/:id` | Detail | Phase 18 | Phase 23 UI / Phase 18 API | Partial API | `apps/admin/src/pages/StudentToolDetailPage.tsx` | Tool schema & live proxy test |
-| 44 | `AdminStudentToolsPreviewPage.tsx` | Student Tools | `/admin/student-tools` | List | Phase 18 | Phase 23 UI / Phase 18 API | Partial API | `apps/admin/src/pages/StudentToolsAdminPage.tsx` | AI & Standard tools directory |
+| 43 | `AdminStudentToolDetailPage.tsx` | Student Tools | `/admin/student-tools/:id` | Detail | Phase 18 | Historical Phase 23 preview / Phase 18 API | **SUPERSEDED / REMOVED** | `apps/admin/src/pages/StudentToolsAdminPage.tsx` | Canonical Phase 18 governance; no shadow live proxy |
+| 44 | `AdminStudentToolsPreviewPage.tsx` | Student Tools | `/admin/student-tools` | List | Phase 18 | Historical Phase 23 preview / Phase 18 API | **SUPERSEDED / REMOVED** | `apps/admin/src/pages/StudentToolsAdminPage.tsx` | Canonical registry/governance surface; Web legacy route redirects to Admin |
 | 45 | `AdminUniversitiesPreviewPage.tsx` | Universities | `/admin/universities` | List | Phase 11 | Phase 23 UI / Phase 11 API | Real API | `apps/admin/src/pages/UniversityAdminPage.tsx` | Institution directory & filters |
 | 46 | `AdminUniversityDetailPage.tsx` | Universities | `/admin/universities/:id` | Detail | Phase 11 | Phase 23 UI / Phase 11 API | Real API | `apps/admin/src/pages/UniversityDetailPage.tsx` | University detail & scraping |
 
@@ -2287,9 +2292,9 @@ To support the preview UI, domain backends must deliver the following standard c
 
 - **Phase 16:** Implement CMS landing, Article, FAQ, Page, Category, Translation, and Review Queue pages.
 
-- **Phase 17:** Implement `AdminAiGovernancePreviewPage.tsx`.
+- **Phase 17:** **SUPERSEDED / COMPLETE** — canonical owner UI is `apps/admin/src/pages/AIGovernancePage.tsx`; the legacy Web preview was removed and must not be recreated.
 
-- **Phase 18:** Implement `AdminStudentToolsPreviewPage.tsx` and `AdminStudentToolDetailPage.tsx`.
+- **Phase 18:** **SUPERSEDED / COMPLETE** — canonical owner UI is `apps/admin/src/pages/StudentToolsAdminPage.tsx`; legacy Web preview routes redirect to Admin and must not host a second tool-control plane.
 
 - **Phase 19:** Implement `AdminFinancePreviewPage.tsx` and `AdminInvoiceDetailPage.tsx`.
 

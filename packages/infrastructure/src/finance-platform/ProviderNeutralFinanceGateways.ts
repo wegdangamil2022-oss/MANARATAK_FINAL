@@ -18,6 +18,9 @@ export class EnvironmentPaymentGatewayAdapter implements IPaymentGateway {
   isConfigured() {
     return Boolean(this.readSecret(this.secretEnvironmentVariable)?.trim());
   }
+  runtimeStatus() {
+    return this.isConfigured() ? 'RUNTIME_PENDING' as const : 'NOT_CONFIGURED' as const;
+  }
   async authorize(_request: PaymentGatewayRequest): Promise<never> {
     throw this.unavailable();
   }
@@ -76,6 +79,9 @@ export class EnvironmentBankTransferGatewayAdapter implements IBankTransferGatew
   }
   isConfigured() {
     return Boolean(this.readSecret(this.secretEnvironmentVariable)?.trim());
+  }
+  runtimeStatus() {
+    return this.isConfigured() ? 'RUNTIME_PENDING' as const : 'NOT_CONFIGURED' as const;
   }
   async submit(_request: import('@manaratak/domain').BankTransferSubmission): Promise<never> {
     throw new Error(

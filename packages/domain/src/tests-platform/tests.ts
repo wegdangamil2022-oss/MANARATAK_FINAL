@@ -9,6 +9,8 @@ export const InternationalTestImportPayloadSchema = z.object({
   testCode: z.string().optional(),
   testCategory: z.string().optional(),
   providerName: z.string().optional(),
+  providerId: z.string().optional(),
+  isSourceVerified: z.boolean().optional(),
   abbreviation: z.string().optional(),
   localizedNameAr: z.string().optional(),
   localizedNameEn: z.string().optional(),

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GraduationCap, Dna, Zap, Scale, Layers } from 'lucide-react';
+import { CheckCircle2, GraduationCap, Dna, Zap, Scale, Layers } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Major } from '../../types';
 
@@ -88,7 +88,7 @@ export const DoctorateAcademicBackgroundsSlider: React.FC<
           <div className="w-6.5 h-6.5 rounded-full bg-[var(--mn-primary)]/5 border border-[var(--mn-accent)]/60 ring-2 ring-[var(--mn-focus)]/20 flex items-center justify-center shrink-0 shadow-2xs">
             <Layers className="w-3.5 h-3.5 text-[var(--mn-heading)]" />
           </div>
-          <h2 className="text-xs sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
+          <h2 className="text-xs sm:text-[13px] font-bold text-[var(--mn-heading)] leading-tight">
             4. الخلفيات الأكاديمية المناسبة ومسارات الدخول
           </h2>
         </div>
@@ -117,8 +117,8 @@ export const DoctorateAcademicBackgroundsSlider: React.FC<
                 onClick={() => handleSelectTab(idx)}
                 className={`py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer select-none text-center ${
                   isActive
-                    ? 'bg-[var(--mn-surface)] text-[var(--mn-heading)] shadow-xs border border-[var(--mn-accent)]/60 ring-1 ring-[var(--mn-focus)]/20 font-black mn-panel '
-                    : 'text-[var(--mn-text-muted)] hover:text-[var(--mn-heading)] hover:bg-white/50 border border-transparent font-bold'
+                    ? 'bg-[var(--mn-surface)] text-[var(--mn-heading)] shadow-xs border border-[var(--mn-accent)]/60 ring-1 ring-[var(--mn-focus)]/20 font-bold mn-panel '
+                    : 'text-[var(--mn-text-muted)] hover:text-[var(--mn-heading)] hover:bg-[var(--mn-surface-muted)] border border-transparent font-bold'
                 }`}
               >
                 <Icon
@@ -155,7 +155,7 @@ export const DoctorateAcademicBackgroundsSlider: React.FC<
                 {React.createElement(currentTab.icon, { className: 'w-4.5 h-4.5 text-[var(--mn-accent-soft)]' })}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-[12px] sm:text-[13px] font-black text-[var(--mn-heading)] leading-tight">
+                <h3 className="text-[12px] sm:text-[13px] font-bold text-[var(--mn-heading)] leading-tight">
                   {currentTab.title}
                 </h3>
                 <p className="text-[10.5px] text-[var(--mn-text-muted)] font-bold mt-0.5 leading-snug">
@@ -171,8 +171,8 @@ export const DoctorateAcademicBackgroundsSlider: React.FC<
                   key={idx}
                   className="flex items-start gap-2.5 p-2.5 sm:p-3 rounded-xl bg-[var(--mn-surface)] border border-[var(--mn-border-gold)] hover:border-[var(--mn-accent)] hover:shadow-2xs transition-all duration-200 text-right mn-panel "
                 >
-                  <div className="w-5 h-5 rounded-lg bg-[var(--mn-primary)]/10 text-[var(--mn-heading)] flex items-center justify-center shrink-0 mt-0.5 font-black text-[11px]">
-                    ✓
+                  <div className="w-5 h-5 rounded-lg bg-[var(--mn-primary)]/10 text-[var(--mn-heading)] flex items-center justify-center shrink-0 mt-0.5 font-bold text-[11px]">
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </div>
                   <span className="text-[11px] sm:text-[11.5px] font-bold text-[var(--mn-heading)] leading-relaxed flex-1">
                     {item}

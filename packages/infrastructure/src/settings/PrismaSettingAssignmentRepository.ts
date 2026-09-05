@@ -35,7 +35,12 @@ export interface SettingAssignmentRecordRow {
 }
 
 export interface PrismaSettingAssignmentDelegate {
-  findUnique(args: { where: { key_scopeLevel_scopeId: { key: string, scopeLevel: string, scopeId: string } }, include?: unknown }): Promise<SettingAssignmentRecordRow | null>;
+  findUnique(args: {
+    where:
+      | { id: string }
+      | { key_scopeLevel_scopeId: { key: string, scopeLevel: string, scopeId: string } };
+    include?: unknown;
+  }): Promise<SettingAssignmentRecordRow | null>;
   findMany(args?: { where?: unknown, include?: unknown }): Promise<SettingAssignmentRecordRow[]>;
   upsert(args: {
     where: { key_scopeLevel_scopeId: { key: string, scopeLevel: string, scopeId: string } };
@@ -45,11 +50,8 @@ export interface PrismaSettingAssignmentDelegate {
 }
 
 export interface PrismaSettingVersionDelegate {
-  upsert(args: {
-    where: { id: string };
-    update: Omit<SettingVersionRecordRow, 'createdAt' | 'id' | 'assignmentId'>;
-    create: Omit<SettingVersionRecordRow, 'createdAt'>;
-  }): Promise<SettingVersionRecordRow>;
+  findUnique(args: { where: { id: string } }): Promise<SettingVersionRecordRow | null>;
+  create(args: { data: Omit<SettingVersionRecordRow, 'createdAt'> }): Promise<SettingVersionRecordRow>;
 }
 
 export interface SettingsAssignmentPrismaClient {
@@ -80,12 +82,19 @@ export class PrismaSettingAssignmentRepository implements ISettingAssignmentRepo
         vRow.id,
         this.createValueData(vRow.valueType, vRow.value),
         vRow.createdAt,
-        vRow.authorId || undefined
+        vRow.authorId || undefined,
+        vRow.rollbackOfVersionId || undefined,
       );
     });
     
-    // Sort versions by createdAt ascending just in case
+    // Preserve historical ordering but honor the persisted currentVersionId explicitly.
     versions.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const currentIndex = versions.findIndex((version) => version.id === row.currentVersionId);
+    if (currentIndex < 0) {
+      throw new Error(`Setting assignment ${row.id} references missing current version ${row.currentVersionId}.`);
+    }
+    const [currentVersion] = versions.splice(currentIndex, 1);
+    versions.push(currentVersion);
 
     return new SettingAssignment({
       id: row.id,
@@ -131,46 +140,112 @@ export class PrismaSettingAssignmentRepository implements ISettingAssignmentRepo
     const scopeId = assignment.scope.getScopeId() || 'GLOBAL';
     const currentVersion = assignment.getCurrentVersion();
 
-    // 1. Save Assignment
-    await this.client.settingAssignmentRecord.upsert({
-      where: {
-        key_scopeLevel_scopeId: {
-          key: keyStr,
-          scopeLevel: scopeLevel,
-          scopeId: scopeId
-        }
-      },
-      update: {
-        currentVersionId: currentVersion.id
-      },
-      create: {
-        id: assignment.id,
-        key: keyStr,
-        scopeLevel: scopeLevel,
-        scopeId: scopeId,
-        currentVersionId: currentVersion.id
-      }
-    });
-
-    // 2. Save Versions
-    for (const version of assignment.getVersions()) {
-      await this.client.settingVersionRecord.upsert({
-        where: { id: version.id },
-        update: {
-          value: version.value.getValue(),
-          valueType: version.value.type,
-          authorId: version.authorId || null,
-          rollbackOfVersionId: null // We don't track this in domain currently
-        },
-        create: {
-          id: version.id,
-          assignmentId: assignment.id,
-          value: version.value.getValue(),
-          valueType: version.value.type,
-          authorId: version.authorId || null,
-          rollbackOfVersionId: null
+    await this.prisma.$transaction(async (tx) => {
+      const client = tx as unknown as SettingsAssignmentPrismaClient;
+      const existingByKey = await client.settingAssignmentRecord.findUnique({
+        where: {
+          key_scopeLevel_scopeId: {
+            key: keyStr,
+            scopeLevel,
+            scopeId,
+          }
         }
       });
-    }
+      const existingById = await client.settingAssignmentRecord.findUnique({
+        where: { id: assignment.id }
+      });
+
+      if (existingByKey && existingByKey.id !== assignment.id) {
+        throw new Error(
+          `Setting assignment ${keyStr} at ${scopeLevel}:${scopeId} already belongs to ${existingByKey.id} and cannot be reassigned.`
+        );
+      }
+      if (
+        existingById &&
+        (
+          existingById.key !== keyStr ||
+          existingById.scopeLevel !== scopeLevel ||
+          existingById.scopeId !== scopeId
+        )
+      ) {
+        throw new Error(
+          `Setting assignment id ${assignment.id} already belongs to another key or scope and cannot be reused.`
+        );
+      }
+
+      const versionsToCreate: Array<{
+        id: string;
+        assignmentId: string;
+        value: unknown;
+        valueType: string;
+        authorId: string | null;
+        rollbackOfVersionId: string | null;
+      }> = [];
+
+      // Preflight the entire immutable history before changing the assignment pointer.
+      // A reused id is valid only when it already represents this exact historical row.
+      for (const version of assignment.getVersions()) {
+        const persisted = await client.settingVersionRecord.findUnique({ where: { id: version.id } });
+        const value = version.value.getValue();
+        const authorId = version.authorId || null;
+        const rollbackOfVersionId = version.rollbackOfVersionId || null;
+
+        if (persisted) {
+          const sameValue = JSON.stringify(persisted.value) === JSON.stringify(value);
+          if (
+            persisted.assignmentId !== assignment.id ||
+            persisted.valueType !== version.value.type ||
+            persisted.authorId !== authorId ||
+            persisted.rollbackOfVersionId !== rollbackOfVersionId ||
+            !sameValue
+          ) {
+            throw new Error(`Setting version ${version.id} already exists and cannot be mutated or reassigned.`);
+          }
+          continue;
+        }
+
+        versionsToCreate.push({
+          id: version.id,
+          assignmentId: assignment.id,
+          value,
+          valueType: version.value.type,
+          authorId,
+          rollbackOfVersionId,
+        });
+      }
+
+      const currentVersionIsNew = versionsToCreate.some((version) => version.id === currentVersion.id);
+      if (
+        existingByKey &&
+        currentVersion.id !== existingByKey.currentVersionId &&
+        !currentVersionIsNew
+      ) {
+        throw new Error(
+          `Setting assignment ${assignment.id} cannot move currentVersionId directly to historical version ${currentVersion.id}; rollback must create a new immutable version.`
+        );
+      }
+
+      await client.settingAssignmentRecord.upsert({
+        where: {
+          key_scopeLevel_scopeId: {
+            key: keyStr,
+            scopeLevel,
+            scopeId,
+          }
+        },
+        update: { currentVersionId: currentVersion.id },
+        create: {
+          id: assignment.id,
+          key: keyStr,
+          scopeLevel,
+          scopeId,
+          currentVersionId: currentVersion.id,
+        }
+      });
+
+      for (const version of versionsToCreate) {
+        await client.settingVersionRecord.create({ data: version });
+      }
+    });
   }
 }

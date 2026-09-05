@@ -54,6 +54,7 @@ export interface FinanceInvoiceFilters {
   originReferenceId?: string;
   studentReferenceId?: string;
   payerReferenceId?: string;
+  search?: string;
   page?: number;
   pageSize?: number;
 }

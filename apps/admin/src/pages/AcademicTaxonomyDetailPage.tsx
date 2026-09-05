@@ -654,7 +654,7 @@ export function AcademicTaxonomyDetailPage() {
                 </h3>
                 <button
                   onClick={() => setShowAddEdgeModal('parent')}
-                  className="bg-slate-900 hover:bg-slate-850 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1"
+                  className="bg-[#142B5F] hover:bg-[#0E7C86] text-white font-bold text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1"
                 >
                   <Plus className="h-3 w-3" />
                   {isAr ? 'ربط عقدة أب' : 'Add Parent'}
@@ -704,7 +704,7 @@ export function AcademicTaxonomyDetailPage() {
                 </h3>
                 <button
                   onClick={() => setShowAddEdgeModal('child')}
-                  className="bg-slate-900 hover:bg-slate-850 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1"
+                  className="bg-[#142B5F] hover:bg-[#0E7C86] text-white font-bold text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1"
                 >
                   <Plus className="h-3 w-3" />
                   {isAr ? 'ربط عقدة ابن' : 'Add Child'}
@@ -765,7 +765,7 @@ export function AcademicTaxonomyDetailPage() {
                   type="text"
                   required
                   placeholder={isAr ? 'مثال: علم الحاسوب والتقنية' : 'e.g. CS & Technologies'}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                   value={newAliasText}
                   onChange={(e) => setNewAliasText(e.target.value)}
                 />
@@ -788,7 +788,7 @@ export function AcademicTaxonomyDetailPage() {
               <button
                 type="submit"
                 disabled={savingAlias}
-                className="bg-slate-900 hover:bg-slate-850 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0"
+                className="bg-[#142B5F] hover:bg-[#0E7C86] text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0"
               >
                 {savingAlias ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
                 {isAr ? 'إضافة مرادف' : 'Add Alias'}
@@ -842,7 +842,7 @@ export function AcademicTaxonomyDetailPage() {
               </h3>
               <button
                 onClick={() => setShowAddMappingModal(true)}
-                className="bg-slate-900 hover:bg-slate-850 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1"
+                className="bg-[#142B5F] hover:bg-[#0E7C86] text-white font-bold text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1"
               >
                 <Plus className="h-3 w-3" />
                 {isAr ? 'إنشاء ربط معياري' : 'Add Mapping'}
@@ -942,7 +942,7 @@ export function AcademicTaxonomyDetailPage() {
               <button
                 onClick={handleRunValidation}
                 disabled={runningValidation}
-                className="bg-slate-900 hover:bg-slate-850 text-white font-bold text-[10px] px-3 py-2 rounded-lg flex items-center gap-1"
+                className="bg-[#142B5F] hover:bg-[#0E7C86] text-white font-bold text-[10px] px-3 py-2 rounded-lg flex items-center gap-1"
               >
                 {runningValidation ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                 {isAr ? 'تشغيل فحص النزاهة' : 'Run Quality Checks'}
@@ -1076,7 +1076,7 @@ export function AcademicTaxonomyDetailPage() {
                 <input
                   type="text"
                   required
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                   value={nodeFormData.canonicalName}
                   onChange={(e) => setNodeFormData(d => ({ ...d, canonicalName: e.target.value }))}
                 />
@@ -1089,7 +1089,7 @@ export function AcademicTaxonomyDetailPage() {
                   </label>
                   <input
                     type="text"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={nodeFormData.nameAr}
                     onChange={(e) => setNodeFormData(d => ({ ...d, nameAr: e.target.value }))}
                   />
@@ -1101,7 +1101,7 @@ export function AcademicTaxonomyDetailPage() {
                   </label>
                   <input
                     type="text"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={nodeFormData.nameEn}
                     onChange={(e) => setNodeFormData(d => ({ ...d, nameEn: e.target.value }))}
                   />
@@ -1114,7 +1114,7 @@ export function AcademicTaxonomyDetailPage() {
                     {isAr ? 'نوع المعيار' : 'Standard Type'}
                   </label>
                   <select
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={nodeFormData.standardType}
                     onChange={(e) => setNodeFormData(d => ({ ...d, standardType: e.target.value }))}
                   >
@@ -1130,7 +1130,7 @@ export function AcademicTaxonomyDetailPage() {
                   </label>
                   <input
                     type="text"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={nodeFormData.standardCode}
                     onChange={(e) => setNodeFormData(d => ({ ...d, standardCode: e.target.value }))}
                   />
@@ -1141,7 +1141,7 @@ export function AcademicTaxonomyDetailPage() {
                     {isAr ? 'الحالة' : 'Status'}
                   </label>
                   <select
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={nodeFormData.status}
                     onChange={(e) => setNodeFormData(d => ({ ...d, status: e.target.value }))}
                   >
@@ -1159,7 +1159,7 @@ export function AcademicTaxonomyDetailPage() {
                 </label>
                 <textarea
                   rows={2}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                   value={nodeFormData.description}
                   onChange={(e) => setNodeFormData(d => ({ ...d, description: e.target.value }))}
                 />
@@ -1176,7 +1176,7 @@ export function AcademicTaxonomyDetailPage() {
                 <button
                   type="submit"
                   disabled={savingNode}
-                  className="bg-slate-900 hover:bg-slate-850 text-white font-bold px-5 py-2 rounded-xl text-xs transition-all flex items-center gap-2"
+                  className="bg-[#142B5F] hover:bg-[#0E7C86] text-white font-bold px-5 py-2 rounded-xl text-xs transition-all flex items-center gap-2"
                 >
                   {savingNode ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   {isAr ? 'تحديث البيانات' : 'Update Node'}
@@ -1219,7 +1219,7 @@ export function AcademicTaxonomyDetailPage() {
                 </label>
                 <select
                   required
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                   value={selectedEdgeNodeId}
                   onChange={(e) => setSelectedEdgeNodeId(e.target.value)}
                 >
@@ -1236,7 +1236,7 @@ export function AcademicTaxonomyDetailPage() {
                 <input
                   type="checkbox"
                   id="primaryEdgeChk"
-                  className="h-4 w-4 text-slate-900 border-slate-200 rounded-md focus:ring-slate-800"
+                  className="h-4 w-4 text-slate-900 border-slate-200 rounded-md focus:ring-[#0E7C86]"
                   checked={isPrimaryEdge}
                   onChange={(e) => setIsPrimaryEdge(e.target.checked)}
                 />
@@ -1256,7 +1256,7 @@ export function AcademicTaxonomyDetailPage() {
                 <button
                   type="submit"
                   disabled={savingEdge}
-                  className="bg-slate-900 hover:bg-slate-850 text-white font-bold px-5 py-2 rounded-xl text-xs transition-all flex items-center gap-2"
+                  className="bg-[#142B5F] hover:bg-[#0E7C86] text-white font-bold px-5 py-2 rounded-xl text-xs transition-all flex items-center gap-2"
                 >
                   {savingEdge ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   {isAr ? 'إنشاء العلاقة' : 'Create Edge'}
@@ -1296,7 +1296,7 @@ export function AcademicTaxonomyDetailPage() {
                 </label>
                 <select
                   required
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                   value={mappingFormData.targetNodeId}
                   onChange={(e) => setMappingFormData(d => ({ ...d, targetNodeId: e.target.value }))}
                 >
@@ -1315,7 +1315,7 @@ export function AcademicTaxonomyDetailPage() {
                     {isAr ? 'معيار المصدر' : 'Source Standard'}
                   </label>
                   <select
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={mappingFormData.sourceStandard}
                     onChange={(e) => setMappingFormData(d => ({ ...d, sourceStandard: e.target.value }))}
                   >
@@ -1330,7 +1330,7 @@ export function AcademicTaxonomyDetailPage() {
                     {isAr ? 'معيار الهدف' : 'Target Standard'}
                   </label>
                   <select
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={mappingFormData.targetStandard}
                     onChange={(e) => setMappingFormData(d => ({ ...d, targetStandard: e.target.value }))}
                   >
@@ -1347,7 +1347,7 @@ export function AcademicTaxonomyDetailPage() {
                     {isAr ? 'درجة مطابقة القوة (Strength)' : 'Strength'}
                   </label>
                   <select
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={mappingFormData.strength}
                     onChange={(e) => setMappingFormData(d => ({ ...d, strength: e.target.value }))}
                   >
@@ -1368,7 +1368,7 @@ export function AcademicTaxonomyDetailPage() {
                     step="0.1"
                     min="0"
                     max="1"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                     value={mappingFormData.confidence}
                     onChange={(e) => setMappingFormData(d => ({ ...d, confidence: Number(e.target.value) }))}
                   />
@@ -1382,7 +1382,7 @@ export function AcademicTaxonomyDetailPage() {
                 <textarea
                   rows={2}
                   placeholder={isAr ? 'ملاحظات إضافية بخصوص الربط...' : 'Add context/reasons for mapping...'}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium bg-white focus:outline-none focus:ring-2 focus:ring-[#0E7C86]"
                   value={mappingFormData.notes}
                   onChange={(e) => setMappingFormData(d => ({ ...d, notes: e.target.value }))}
                 />
@@ -1399,7 +1399,7 @@ export function AcademicTaxonomyDetailPage() {
                 <button
                   type="submit"
                   disabled={savingMapping}
-                  className="bg-slate-900 hover:bg-slate-850 text-white font-bold px-5 py-2 rounded-xl text-xs transition-all flex items-center gap-2"
+                  className="bg-[#142B5F] hover:bg-[#0E7C86] text-white font-bold px-5 py-2 rounded-xl text-xs transition-all flex items-center gap-2"
                 >
                   {savingMapping ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   {isAr ? 'إضافة الربط' : 'Add Connection'}

@@ -12,6 +12,7 @@ import {
   Heart,
   History,
   Briefcase,
+  Sparkles,
 } from 'lucide-react';
 import { University } from '../types';
 
@@ -153,7 +154,7 @@ export const UniversitiesSearchPage: React.FC<UniversitiesSearchPageProps> = ({
 
   return (
     <div
-      className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-sans select-none mn-panel "
+      className="min-h-screen bg-[var(--mn-page)] text-[var(--mn-heading)] pb-24 font-['Cairo',sans-serif] select-none mn-panel "
       dir="rtl"
     >
       {/* ========================================================================= */}
@@ -164,8 +165,9 @@ export const UniversitiesSearchPage: React.FC<UniversitiesSearchPageProps> = ({
         {onBack && (
           <button
             onClick={onBack}
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 w-9 h-9 sm:w-10 sm:h-10 bg-black/25 hover:bg-black/40 border border-white/15 backdrop-blur-md rounded-full flex items-center justify-center transition-all z-30 cursor-pointer text-white shadow-md active:scale-95"
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 w-10 h-10 bg-black/25 hover:bg-black/40 border border-white/15 backdrop-blur-md rounded-full flex items-center justify-center transition-all z-30 cursor-pointer text-white shadow-md active:scale-95"
             title="العودة"
+            aria-label="العودة"
           >
             <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 rotate-180 text-white" />
           </button>
@@ -221,14 +223,12 @@ export const UniversitiesSearchPage: React.FC<UniversitiesSearchPageProps> = ({
         <div className="max-w-md sm:max-w-xl mx-auto text-center relative z-10 space-y-2 pt-1">
           {/* Top 4-pointed Gold Sparkle Star */}
           <div className="flex justify-center">
-            <span className="text-[var(--mn-accent-text)] text-lg sm:text-xl drop-shadow-[0_0_8px_rgba(214,164,59,0.8)] animate-pulse">
-              ✦
-            </span>
+            <Sparkles className="h-5 w-5 text-[var(--mn-accent-text)] drop-shadow-[0_0_8px_rgba(214,164,59,0.8)]" aria-hidden="true" />
           </div>
 
           {/* Main Title */}
           <div className="space-y-0.5">
-            <h1 className="text-xl sm:text-2xl font-black text-white font-['Cairo',sans-serif] tracking-tight leading-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-white font-['Cairo',sans-serif] tracking-tight leading-tight">
               خطوتك الأولى نحو{' '}
               <span className="text-[var(--mn-accent-text)]">الجامعة المناسبة</span>
             </h1>
@@ -283,11 +283,11 @@ export const UniversitiesSearchPage: React.FC<UniversitiesSearchPageProps> = ({
       {/* ========================================================================= */}
       {/* 3 SEPARATE FLOATING FILTER TILES (القارة • الدولة • المدينة) */}
       {/* ========================================================================= */}
-      <div className="max-w-lg mx-auto px-4 -mt-7 sm:-mt-8 relative z-20">
+      <div className="max-w-lg mx-auto mn-inline-gutter -mt-7 sm:-mt-8 relative z-20">
         <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
           {/* Tile 1: القارة */}
           <div className="relative bg-[var(--mn-surface)] hover:bg-[var(--mn-gold-surface)]/40 border-1.5 border-[var(--mn-accent)]/70 hover:border-[var(--mn-accent)] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)] transition-all h-[58px] sm:h-[64px] cursor-pointer mn-panel ">
-            <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-extrabold text-[11px] sm:text-xs font-['Cairo',sans-serif] w-full">
+            <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-semibold text-[11px] sm:text-xs font-['Cairo',sans-serif] w-full">
               <span className="truncate">
                 {selectedContinent === 'الكل' ? 'القارة' : selectedContinent}
               </span>
@@ -302,7 +302,7 @@ export const UniversitiesSearchPage: React.FC<UniversitiesSearchPageProps> = ({
             >
               {continents.map((c) => (
                 <option key={c} value={c}>
-                  {c === 'الكل' ? '🌍 جميع القارات' : c}
+                  {c === 'الكل' ? 'جميع القارات' : c}
                 </option>
               ))}
             </select>
@@ -310,7 +310,7 @@ export const UniversitiesSearchPage: React.FC<UniversitiesSearchPageProps> = ({
 
           {/* Tile 2: الدولة */}
           <div className="relative bg-[var(--mn-surface)] hover:bg-[var(--mn-gold-surface)]/40 border-1.5 border-[var(--mn-accent)]/70 hover:border-[var(--mn-accent)] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)] transition-all h-[58px] sm:h-[64px] cursor-pointer mn-panel ">
-            <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-extrabold text-[11px] sm:text-xs font-['Cairo',sans-serif] w-full">
+            <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-semibold text-[11px] sm:text-xs font-['Cairo',sans-serif] w-full">
               <span className="truncate">
                 {selectedCountry === 'الكل' ? 'الدولة' : selectedCountry}
               </span>
@@ -325,7 +325,7 @@ export const UniversitiesSearchPage: React.FC<UniversitiesSearchPageProps> = ({
             >
               {countries.map((cnt) => (
                 <option key={cnt} value={cnt}>
-                  {cnt === 'الكل' ? '🏳️ جميع الدول' : cnt}
+                  {cnt === 'الكل' ? 'جميع الدول' : cnt}
                 </option>
               ))}
             </select>
@@ -333,7 +333,7 @@ export const UniversitiesSearchPage: React.FC<UniversitiesSearchPageProps> = ({
 
           {/* Tile 3: المدينة */}
           <div className="relative bg-[var(--mn-surface)] hover:bg-[var(--mn-gold-surface)]/40 border-1.5 border-[var(--mn-accent)]/70 hover:border-[var(--mn-accent)] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)] transition-all h-[58px] sm:h-[64px] cursor-pointer mn-panel ">
-            <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-extrabold text-[11px] sm:text-xs font-['Cairo',sans-serif] w-full">
+            <div className="flex items-center justify-center gap-1 text-[var(--mn-heading)] font-semibold text-[11px] sm:text-xs font-['Cairo',sans-serif] w-full">
               <span className="truncate">{selectedCity === 'الكل' ? 'المدينة' : selectedCity}</span>
               <Building2 className="w-3.5 h-3.5 text-[var(--mn-accent-text)] shrink-0" />
             </div>
@@ -346,7 +346,7 @@ export const UniversitiesSearchPage: React.FC<UniversitiesSearchPageProps> = ({
             >
               {cities.map((cty) => (
                 <option key={cty} value={cty}>
-                  {cty === 'الكل' ? '🏙️ جميع المدن' : cty}
+                  {cty === 'الكل' ? 'جميع المدن' : cty}
                 </option>
               ))}
             </select>
@@ -360,7 +360,7 @@ export const UniversitiesSearchPage: React.FC<UniversitiesSearchPageProps> = ({
       <div ref={resultsRef} className="w-full max-w-4xl mx-auto px-1 sm:px-2 pt-4 space-y-2.5">
         {/* Section Header */}
         <div className="flex items-center justify-between px-1">
-          <span className="text-xs sm:text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif] flex items-center gap-1.5">
+          <span className="text-xs sm:text-sm font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif] flex items-center gap-1.5">
             <Landmark className="w-4 h-4 text-[var(--mn-heading)]" />
             <span>دليل الجامعات العالمية</span>
           </span>
@@ -376,7 +376,7 @@ export const UniversitiesSearchPage: React.FC<UniversitiesSearchPageProps> = ({
               <div className="w-12 h-12 rounded-full bg-[var(--mn-surface-muted)] flex items-center justify-center text-[var(--mn-text-muted)] mn-panel ">
                 <Search className="w-6 h-6" />
               </div>
-              <h3 className="text-sm font-black text-[var(--mn-heading)] font-['Cairo',sans-serif]">
+              <h3 className="text-sm font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif]">
                 لا توجد جامعات مطابقة للبحث
               </h3>
               <p className="text-xs text-[var(--mn-text-muted)] max-w-xs font-['Cairo',sans-serif]">
@@ -412,7 +412,7 @@ export const UniversitiesSearchPage: React.FC<UniversitiesSearchPageProps> = ({
                   <div className="flex items-start justify-between gap-2.5">
                     <div className="flex items-center gap-2 sm:gap-2.5">
                       {/* University Logo / Image */}
-                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full p-0.5 bg-gradient-to-tr from-[var(--mn-accent)] via-[var(--mn-accent)] to-[var(--mn-hero-secondary)] shadow-xs shrink-0 flex items-center justify-center mn-gold ">
+                      <div className="w-10 h-10 rounded-full p-0.5 bg-gradient-to-tr from-[var(--mn-accent)] via-[var(--mn-accent)] to-[var(--mn-hero-secondary)] shadow-xs shrink-0 flex items-center justify-center mn-gold ">
                         <div className="w-full h-full rounded-full overflow-hidden bg-[var(--mn-page)] border border-white flex items-center justify-center text-lg sm:text-xl shadow-inner mn-panel ">
                           {univ.countryFlag}
                         </div>
@@ -420,7 +420,7 @@ export const UniversitiesSearchPage: React.FC<UniversitiesSearchPageProps> = ({
 
                       {/* Names */}
                       <div className="flex flex-col items-start text-right">
-                        <h3 className="text-[13px] sm:text-[14px] font-black text-[var(--mn-heading)] font-['Cairo',sans-serif] leading-tight group-hover:text-[var(--mn-heading)] transition-colors line-clamp-1">
+                        <h3 className="text-[13px] sm:text-[14px] font-bold text-[var(--mn-heading)] font-['Cairo',sans-serif] leading-tight group-hover:text-[var(--mn-heading)] transition-colors line-clamp-1">
                           {univ.name}{' '}
                           <span className="text-[var(--mn-text-muted)] font-bold text-[10px] sm:text-[11px] mr-1">
                             ({univ.nameEn.replace('University of ', '').replace(' University', '')})

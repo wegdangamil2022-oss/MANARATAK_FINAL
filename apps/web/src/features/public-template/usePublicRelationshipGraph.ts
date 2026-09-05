@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ApiClient,
+  type PublicCountryGraphDto,
   type PublicMajorGraphDto,
   type PublicScholarshipGraphDto,
   type PublicUniversityGraphDto,
@@ -18,6 +19,7 @@ export interface PublicRelationshipGraphState {
   major?: PublicMajorGraphDto;
   university?: PublicUniversityGraphDto;
   scholarship?: PublicScholarshipGraphDto;
+  country?: PublicCountryGraphDto;
   loading: boolean;
   error?: string;
 }
@@ -28,7 +30,7 @@ function identityRouteKey(identity: StablePublicGraphIdentity): string {
 
 export function usePublicRelationshipGraph(
   mode: PublicTemplateDataMode,
-  selected: { majorSlug?: string; universitySlug?: string; scholarshipSlug?: string },
+  selected: { majorSlug?: string; universitySlug?: string; scholarshipSlug?: string; countryIso2Code?: string },
 ): PublicRelationshipGraphState & { majorView?: MajorPublicRelationshipGraph } {
   const [state, setState] = useState<PublicRelationshipGraphState>({ loading: false });
 
@@ -57,6 +59,11 @@ export function usePublicRelationshipGraph(
           if (active) setState({ scholarship, loading: false });
           return;
         }
+        if (selected.countryIso2Code) {
+          const country = await ApiClient.getCountryGraph(selected.countryIso2Code, 1, 24);
+          if (active) setState({ country, loading: false });
+          return;
+        }
         if (active) setState({ loading: false });
       } catch (error) {
         if (active) setState({ loading: false, error: error instanceof Error ? error.message : 'PUBLIC_GRAPH_UNAVAILABLE' });
@@ -65,7 +72,7 @@ export function usePublicRelationshipGraph(
 
     void load();
     return () => { active = false; };
-  }, [mode, selected.majorSlug, selected.universitySlug, selected.scholarshipSlug]);
+  }, [mode, selected.majorSlug, selected.universitySlug, selected.scholarshipSlug, selected.countryIso2Code]);
 
   const majorView = useMemo<MajorPublicRelationshipGraph | undefined>(() => {
     if (!state.major) return undefined;

@@ -22,6 +22,8 @@ export const initialNavigation = {
   countryNavigationName: '', examNavigationQuery: '',
   auxiliaryPage: null as 'faq' | 'contact' | 'language' | null,
   nestedDetailId: '',
+  detailSearchAnchor: '',
+  detailSearchTerm: '',
 };
 export type NavigationState = typeof initialNavigation;
 const detailKeys = ['selectedScholarship', 'selectedUniversity', 'selectedMajor', 'selectedExam', 'selectedImportedCourse', 'selectedArticle', 'selectedService'] as const;
@@ -32,19 +34,64 @@ function readEntry(): Entry | null {
   return entry?.version === 29 && typeof entry.index === 'number' && entry.route?.activeTab
     ? entry : null;
 }
+
+function localePrefix(): string {
+  const first = window.location.pathname.split('/').filter(Boolean)[0];
+  return first === 'ar' || first === 'en' ? `/${first}` : '';
+}
+
+function entityKey(item: any): string {
+  return encodeURIComponent(String(item?.slug || item?.publicId || item?.id || ''));
+}
+
+/** Canonical public URL for a navigation state. Keeps history/share links aligned with the visible entity. */
+export function publicUrlForState(state: NavigationState): string {
+  const prefix = localePrefix();
+  let path = '/';
+  if (state.activeTab === 'auth') path = '/login';
+  else if (state.activeTab === 'account') path = '/student';
+  else if (state.activeTab === 'ai-tools') path = '/tools';
+  else if (state.selectedScholarship) path = `/scholarships/${entityKey(state.selectedScholarship)}`;
+  else if (state.selectedUniversity) path = `/universities/${entityKey(state.selectedUniversity)}`;
+  else if (state.selectedMajor) path = `/majors/${entityKey(state.selectedMajor)}`;
+  else if (state.selectedImportedCourse) path = `/courses/${entityKey(state.selectedImportedCourse)}`;
+  else if (state.selectedArticle) path = `/articles/${entityKey(state.selectedArticle)}`;
+  else if (state.selectedService) path = `/services/${entityKey(state.selectedService)}`;
+  else if (state.selectedExam) path = `/international-tests/${entityKey(state.selectedExam)}`;
+  else if (state.selectedCategory === 'countries' && state.nestedDetailId) path = `/countries/${encodeURIComponent(state.nestedDetailId)}`;
+  else if (state.selectedCategory === 'jobs' && state.nestedDetailId) path = `/careers/${encodeURIComponent(state.nestedDetailId)}`;
+  else if (state.activeTab === 'search' || (state.activeTab === 'home' && state.selectedCategory !== 'all')) {
+    const listPaths: Partial<Record<NavigationState['selectedCategory'], string>> = {
+      scholarships: '/scholarships', universities: '/universities', majors: '/majors', countries: '/countries',
+      courses: '/courses', articles: '/articles', services: '/services', exams: '/international-tests', jobs: '/careers', tools: '/tools', all: '/search',
+    };
+    path = listPaths[state.selectedCategory] || '/search';
+  }
+  const params = new URLSearchParams();
+  if (path === '/search' && state.globalSearchQuery.trim()) params.set('q', state.globalSearchQuery.trim());
+  if (path === '/tools' && state.activeTab === 'ai-tools' && state.nestedDetailId) params.set('detail', state.nestedDetailId);
+  if (state.detailSearchTerm.trim()) params.set('match', state.detailSearchTerm.trim());
+  const query = params.toString();
+  const hash = state.detailSearchAnchor ? `#${encodeURIComponent(state.detailSearchAnchor)}` : '';
+  return `${prefix}${path}${query ? `?${query}` : ''}${hash}`;
+}
+
 export function routeKey(state: NavigationState) {
   return JSON.stringify([state.activeTab, state.selectedCategory, state.selectedCourseTrack,
     state.selectedServiceTrack, state.isSmartSearchOpen, state.auxiliaryPage,
-    state.nestedDetailId, state.countryNavigationName,
+    state.nestedDetailId, state.countryNavigationName, state.detailSearchAnchor, state.detailSearchTerm,
     ...detailKeys.map(key => state[key]?.id || null)]);
 }
 
 /** Public preview navigation. History contains only public view data, never form documents or credentials. */
 export function usePublicNavigation() {
-  const [state, setState] = useState<NavigationState>(() => ({...initialNavigation, ...readEntry()?.route}));
-  const current = useRef<Entry | null>(readEntry());
+  const initialEntry = useRef<Entry | null>(readEntry());
+  const [state, setState] = useState<NavigationState>(() => ({...initialNavigation, ...initialEntry.current?.route}));
+  const current = useRef<Entry | null>(initialEntry.current);
   const restoring = useRef<Entry | null>(current.current);
+  const preserveInitialUrl = useRef(initialEntry.current === null);
   const mounted = useRef(false);
+  const replaceNext = useRef(false);
 
   useLayoutEffect(() => {
     const previousRestoration = history.scrollRestoration;
@@ -59,7 +106,7 @@ export function usePublicNavigation() {
       if (current.current) current.current.scroll = window.scrollY;
     };
     const persist = () => {
-      if (current.current) history.replaceState({...history.state, manaratakPublic: current.current}, '');
+      if (current.current) history.replaceState({...history.state, manaratakPublic: current.current}, '', publicUrlForState(current.current.route));
     };
     window.addEventListener('popstate', pop);
     window.addEventListener('scroll', scroll, {passive: true});
@@ -73,21 +120,30 @@ export function usePublicNavigation() {
   }, []);
 
   useLayoutEffect(() => {
+    const firstMount = !mounted.current;
     const restored = restoring.current;
     restoring.current = null;
-    const changed = current.current && routeKey(current.current.route) !== routeKey(state);
+    const changed = Boolean(current.current && routeKey(current.current.route) !== routeKey(state));
     let entry: Entry;
     if (restored) {
       entry = {...restored, route: state};
     } else if (changed && mounted.current) {
-      history.replaceState({...history.state, manaratakPublic: current.current}, '');
-      entry = {version: 29, index: current.current!.index + 1, route: state, scroll: 0};
-      history.pushState({...history.state, manaratakPublic: entry}, '');
+      history.replaceState({...history.state, manaratakPublic: current.current}, '', publicUrlForState(current.current!.route));
+      entry = {version: 29, index: current.current!.index + (replaceNext.current ? 0 : 1), route: state, scroll: 0};
+      if (replaceNext.current) history.replaceState({...history.state, manaratakPublic: entry}, '', publicUrlForState(state));
+      else history.pushState({...history.state, manaratakPublic: entry}, '', publicUrlForState(state));
     } else {
       entry = {version: 29, index: current.current?.index || 0, route: state, scroll: current.current?.scroll || 0};
     }
     current.current = entry;
-    history.replaceState({...history.state, manaratakPublic: entry}, '');
+    replaceNext.current = false;
+    // Preserve the address bar on the first render so PublicTemplateApp can hydrate a direct URL.
+    if (firstMount && preserveInitialUrl.current) {
+      history.replaceState({...history.state, manaratakPublic: entry}, '');
+      preserveInitialUrl.current = false;
+    } else {
+      history.replaceState({...history.state, manaratakPublic: entry}, '', publicUrlForState(state));
+    }
     mounted.current = true;
     if (changed || restored) {
       const scrollTop = restored ? restored.scroll : 0;
@@ -108,7 +164,7 @@ export function usePublicNavigation() {
       // A new entity replaces the displayed entity. The previous one lives in browser history.
       const clear = detailKeys.includes(key as typeof detailKeys[number]) && next != null;
       return {...previous,
-        ...(key === 'selectedCategory' && next !== previous.selectedCategory ? {nestedDetailId: '', auxiliaryPage: null} : {}),
+        ...(key === 'selectedCategory' && next !== previous.selectedCategory ? {nestedDetailId: '', auxiliaryPage: null, detailSearchAnchor: '', detailSearchTerm: ''} : {}),
         ...(clear ? {...emptyDetails, auxiliaryPage: null, isSmartSearchOpen: false, nestedDetailId: ''} : {}), [key]: next};
     });
   }, []);
@@ -117,10 +173,14 @@ export function usePublicNavigation() {
   const navigate = useCallback((patch: Partial<NavigationState>) => {
     setState(previous => ({...initialNavigation, globalSearchQuery: previous.globalSearchQuery, ...patch}));
   }, []);
+  const replace = useCallback((patch: Partial<NavigationState>) => {
+    replaceNext.current = true;
+    setState(previous => ({...initialNavigation, globalSearchQuery: previous.globalSearchQuery, ...patch}));
+  }, []);
   const back = useCallback(() => {
     if ((current.current?.index || 0) > 0) history.back();
     else navigate({activeTab: 'home'});
   }, [navigate]);
-  return {state, field, navigate, back};
+  return {state, field, navigate, replace, back};
 }
 

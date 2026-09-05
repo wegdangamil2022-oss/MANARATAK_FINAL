@@ -20,7 +20,7 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
   onSearchChange,
 }) => (
   <div className="w-full relative z-20">
-    <div className="flex items-center bg-[var(--mn-surface)] rounded-2xl border border-[var(--mn-border)] focus-within:border-[var(--mn-accent)]/70 focus-within:ring-2 focus-within:ring-[var(--mn-primary)]/10 shadow-2xs overflow-hidden transition-all mn-panel ">
+    <div className="mn-search-control flex items-center border border-[var(--mn-border)] focus-within:border-[var(--mn-accent)]/70 focus-within:ring-2 focus-within:ring-[var(--mn-primary)]/10 shadow-2xs overflow-hidden transition-all mn-panel ">
       <div className="p-3 text-[var(--mn-text-muted)] flex items-center justify-center">
         <Search className="w-4 h-4" />
       </div>
@@ -30,7 +30,7 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
         value={searchQuery}
         onChange={(event) => onSearchChange(event.target.value)}
         placeholder="ابحث داخل هذا القسم..."
-        className="w-full py-3 px-1 text-xs sm:text-sm text-[var(--mn-text)] placeholder-[var(--mn-text-muted)] bg-transparent focus:outline-hidden font-medium text-right font-['Cairo',sans-serif]"
+        className="min-w-0 w-full px-1 text-xs sm:text-sm text-[var(--mn-text)] placeholder-[var(--mn-text-muted)] bg-transparent focus:outline-hidden font-medium text-right font-['Cairo',sans-serif]"
         dir="rtl"
       />
       {searchQuery && (

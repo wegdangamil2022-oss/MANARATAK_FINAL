@@ -26,14 +26,21 @@ describe('InternationalTestAdminRouter', () => {
     listPreparationMaterials: vi.fn(),
     upsertPreparationMaterial: vi.fn(),
     listEvidence: vi.fn(),
-    addEvidence: vi.fn()
+    addEvidence: vi.fn(),
+    listProviders: vi.fn(),
+    upsertProvider: vi.fn(),
+    checkPublicationReadiness: vi.fn(),
+    verifySource: vi.fn()
   });
 
   const createApp = (useCases: any) => {
     const app = express();
     app.use(express.json());
     app.use((req, _res, next) => { req.authUserId = 'admin-X'; next(); });
-    app.use('/admin/international-tests', InternationalTestAdminRouter.create({ internationalTestAdminUseCases: useCases as any }));
+    app.use('/admin/international-tests', InternationalTestAdminRouter.create({
+      internationalTestAdminUseCases: useCases as any,
+      crossDomainGraphReadService: { getInternationalTestGraphById: vi.fn().mockResolvedValue({ relationships: {} }) } as any,
+    }));
     return app;
   };
 
@@ -101,15 +108,15 @@ describe('InternationalTestAdminRouter', () => {
 
   it('PATCH /admin/international-tests/:id calls updateTest', async () => {
     const useCases = createMockUseCases();
-    useCases.updateTest.mockResolvedValue({ id: 'test-1', canonicalName: 'Updated IELTS' });
+    useCases.updateTest.mockResolvedValue({ id: 'test-1', abbreviation: 'IELTS' });
     const app = createApp(useCases);
 
     const res = await request(app)
       .patch('/admin/international-tests/test-1')
-      .send({ canonicalName: 'Updated IELTS' });
+      .send({ abbreviation: 'IELTS' });
 
     expect(res.status).toBe(200);
-    expect(useCases.updateTest).toHaveBeenCalledWith('test-1', { canonicalName: 'Updated IELTS' }, expect.any(Object));
+    expect(useCases.updateTest).toHaveBeenCalledWith('test-1', { abbreviation: 'IELTS' }, expect.any(Object));
   });
 
   it('POST /admin/international-tests/:id/publish calls publish', async () => {

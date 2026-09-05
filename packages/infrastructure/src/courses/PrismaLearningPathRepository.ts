@@ -73,6 +73,17 @@ export class PrismaLearningPathRepository implements ITransactionalLearningPathR
     return path ? this.findById(path.id) : null;
   }
 
+  public async list(): Promise<LearningPathDto[]> {
+    const paths = await this.prisma.learningPath.findMany({ orderBy: { updatedAt: 'desc' } });
+    return Promise.all(paths.map(async path => {
+      const version = await this.prisma.learningPathVersion.findUnique({
+        where: { learningPathId_versionNumber: { learningPathId: path.id, versionNumber: path.version } },
+        include: { courses: true },
+      });
+      return this.map(path, version?.courses ?? []);
+    }));
+  }
+
   public async updateStatus(id: string, status: LearningPathStatus): Promise<LearningPathDto> {
     return this.serializable(async db => {
       await db.$queryRaw`SELECT id FROM "LearningPath" WHERE id = ${id} FOR UPDATE`;

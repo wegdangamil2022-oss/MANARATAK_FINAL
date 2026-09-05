@@ -25,7 +25,7 @@ check('P14-ISSUER-006',
   hasAll(files.entity, ['CertificateIssuerDto', 'issuerLogoAssetId', 'signingKeyReference', 'CertificateIssuerStatus']) &&
   files.schema.includes('model CertificateIssuer') &&
   hasAll(files.repo, ['requireActiveIssuer', 'CERTIFICATE_ISSUER_SIGNING_KEY_MISMATCH']) &&
-  files.usecase.includes('ACTIVE_ACCREDITED_CERTIFICATE_ISSUER_REQUIRED'),
+  files.usecase.includes('ACTIVE_CERTIFICATE_ISSUER_REQUIRED'),
   'Issuer is first-class, status-governed and signing-key-bound.');
 
 check('P14-VALIDITY-009',

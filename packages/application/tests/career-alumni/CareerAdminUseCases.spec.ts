@@ -52,7 +52,7 @@ describe('CareerAdminUseCases', () => {
   beforeEach(() => {
     repository = {
       createEmployer: vi.fn().mockImplementation((data) => Promise.resolve({ id: 'emp-1', createdAt: new Date(), updatedAt: new Date(), ...data })),
-      updateEmployer: vi.fn(),
+      updateEmployer: vi.fn().mockImplementation((id, data) => Promise.resolve({ ...employer, id, ...data })),
       findEmployerById: vi.fn().mockResolvedValue(employer),
       findEmployerBySlug: vi.fn(),
       findEmployerByDedupKey: vi.fn().mockResolvedValue(null),
@@ -112,5 +112,23 @@ describe('CareerAdminUseCases', () => {
 
   it('prevents publishing before READY_TO_PUBLISH', async () => {
     await expect(useCases.publish('job-1')).rejects.toThrow('READY_TO_PUBLISH');
+  });
+
+
+  it('requires a verified employer before publishing', async () => {
+    (repository.findJobById as any).mockResolvedValueOnce({ ...job, status: CareerJobStatus.READY_TO_PUBLISH });
+    await expect(useCases.publish('job-1')).rejects.toThrow('VERIFIED employers');
+  });
+
+  it('publishes a reviewed job for a verified employer', async () => {
+    (repository.findJobById as any).mockResolvedValueOnce({ ...job, status: CareerJobStatus.READY_TO_PUBLISH });
+    (repository.findEmployerById as any).mockResolvedValueOnce({ ...employer, verificationStatus: CareerEmployerStatus.VERIFIED });
+    await useCases.publish('job-1');
+    expect(repository.updateJobStatus).toHaveBeenCalledWith('job-1', CareerJobStatus.PUBLISHED);
+  });
+
+  it('supports explicit employer verification and suspension', async () => {
+    await useCases.setEmployerStatus('emp-1', CareerEmployerStatus.VERIFIED);
+    expect(repository.updateEmployer).toHaveBeenCalledWith('emp-1', { verificationStatus: CareerEmployerStatus.VERIFIED });
   });
 });

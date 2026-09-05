@@ -19,7 +19,9 @@ import { useTranslation } from '../i18n/I18nProvider';
 
 type InternationalTestStatus = 'IMPORTED' | 'READY_TO_REVIEW' | 'NEEDS_REVIEW' | 'INCOMPLETE' | 'READY_TO_PUBLISH' | 'PUBLISHED' | 'REJECTED' | 'ARCHIVED';
 type InternationalTestCompletenessStatus = 'INCOMPLETE' | 'COMPLETE' | 'NEEDS_REVIEW';
-type InternationalTestCategory = 'LANGUAGE' | 'ACADEMIC_ADMISSION' | 'GRADUATE_ADMISSION' | 'PROFESSIONAL' | 'OTHER' | 'LANGUAGE_PROFICIENCY' | 'UNDERGRAD_ADMISSION' | 'GRAD_ADMISSION' | 'PROFESSIONAL_LICENSING' | 'ACADEMIC_PLACEMENT';
+type InternationalTestCategory = 'ENGLISH_LANGUAGE' | 'NON_ENGLISH_LANGUAGE' | 'GENERAL_UNDERGRADUATE_ADMISSION' | 'GRADUATE_ADMISSION' | 'NATIONAL_INTERNATIONAL_ADMISSION' | 'SPECIALIZED_ADMISSION' | 'PROFESSIONAL_LICENSING_CERTIFICATION' | 'LANGUAGE_PROFICIENCY' | 'UNDERGRAD_ADMISSION' | 'GRAD_ADMISSION' | 'PROFESSIONAL_LICENSING' | 'ACADEMIC_PLACEMENT' | 'OTHER';
+
+const TEST_CATEGORY_OPTIONS: InternationalTestCategory[] = ['ENGLISH_LANGUAGE','NON_ENGLISH_LANGUAGE','GENERAL_UNDERGRADUATE_ADMISSION','GRADUATE_ADMISSION','NATIONAL_INTERNATIONAL_ADMISSION','SPECIALIZED_ADMISSION','PROFESSIONAL_LICENSING_CERTIFICATION','LANGUAGE_PROFICIENCY','UNDERGRAD_ADMISSION','GRAD_ADMISSION','PROFESSIONAL_LICENSING','ACADEMIC_PLACEMENT','OTHER'];
 
 interface Variant {
   id?: string;
@@ -74,6 +76,7 @@ interface OfficialLink {
 interface InternationalTestDetail {
   id: string;
   publicId?: string;
+  slug?: string;
   canonicalName: string;
   displayName?: string;
   localizedNameAr?: string | null;
@@ -81,6 +84,7 @@ interface InternationalTestDetail {
   abbreviation?: string | null;
   testCategory: InternationalTestCategory;
   providerName: string;
+  providerId?: string | null;
   status: InternationalTestStatus;
   completenessStatus?: InternationalTestCompletenessStatus | null;
   isPubliclyVisible?: boolean;
@@ -184,7 +188,7 @@ export function InternationalTestDetailPage() {
     );
   }
 
-  const isPublished = test.status === 'PUBLISHED';
+  const isPublished = test.status === 'PUBLISHED' && test.isPubliclyVisible === true;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -219,7 +223,7 @@ export function InternationalTestDetailPage() {
           {/* Public Link Rule */}
           {isPublished ? (
             <a
-              href={`/international-tests/${test.id}`}
+              href={`/international-tests/${test.slug}`}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 bg-black text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800"
@@ -305,13 +309,13 @@ export function InternationalTestDetailPage() {
       {/* Tab Content */}
       <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
         {activeTab === 'description' && (
-          <DescriptionTab test={test} isRtl={isRtl} />
+          <DescriptionTab test={test} onRefresh={fetchDetail} isRtl={isRtl} />
         )}
         {activeTab === 'requirements' && (
           <RequirementsTab test={test} isRtl={isRtl} />
         )}
         {activeTab === 'cross_phase' && (
-          <CrossPhaseTab isRtl={isRtl} />
+          <CrossPhaseTab testId={test.id} isRtl={isRtl} />
         )}
         {activeTab === 'variants' && (
           <VariantsTab testId={test.id} initialVariants={test.variants || []} onRefresh={fetchDetail} isRtl={isRtl} />
@@ -827,7 +831,7 @@ function ScoringTab({
     try {
       await adminApiClient.upsertInternationalTestScoreScale(testId, payload);
       setSuccess(isRtl ? 'تم حفظ نظام ومقياس الدرجات بنجاح.' : 'Score scale saved successfully.');
-      onRefresh();
+      await onRefresh();
     } catch (err: any) {
       setError(err.message || (isRtl ? 'تعذر حفظ نظام الدرجات.' : 'Failed to save score scale.'));
     } finally {
@@ -1020,7 +1024,7 @@ function FeesTab({
         hasRegionalVariation: false,
         validityWindowNotes: ''
       });
-      onRefresh();
+      await onRefresh();
     } catch (err: any) {
       setError(err.message || (isRtl ? 'تعذر حفظ بيانات الرسوم.' : 'Failed to save fee metadata.'));
     } finally {
@@ -1200,7 +1204,7 @@ function OfficialLinksTab({
         url: '',
         description: ''
       });
-      onRefresh();
+      await onRefresh();
     } catch (err: any) {
       setError(err.message || (isRtl ? 'تعذر حفظ الرابط الرسمي.' : 'Failed to save official link.'));
     } finally {
@@ -1383,21 +1387,19 @@ function getCompletenessLabel(status?: InternationalTestCompletenessStatus | nul
 
 function getCategoryLabel(category: InternationalTestCategory): string {
   switch (category) {
-    case 'LANGUAGE':
-    case 'LANGUAGE_PROFICIENCY':
-      return 'اختبار لغة';
-    case 'ACADEMIC_ADMISSION':
-    case 'UNDERGRAD_ADMISSION':
-      return 'قبول جامعي';
+    case 'ENGLISH_LANGUAGE': return 'لغة إنجليزية';
+    case 'NON_ENGLISH_LANGUAGE': return 'لغة غير إنجليزية';
+    case 'LANGUAGE_PROFICIENCY': return 'إجادة لغة';
+    case 'GENERAL_UNDERGRADUATE_ADMISSION':
+    case 'UNDERGRAD_ADMISSION': return 'قبول جامعي عام';
     case 'GRADUATE_ADMISSION':
-    case 'GRAD_ADMISSION':
-      return 'قبول دراسات عليا';
-    case 'PROFESSIONAL':
-    case 'PROFESSIONAL_LICENSING':
-      return 'ترخيص مهني';
-    case 'OTHER':
-    case 'ACADEMIC_PLACEMENT':
-      return 'تحديد مستوى أكاديمي';
+    case 'GRAD_ADMISSION': return 'قبول دراسات عليا';
+    case 'NATIONAL_INTERNATIONAL_ADMISSION': return 'قبول وطني/دولي';
+    case 'SPECIALIZED_ADMISSION': return 'قبول تخصصي';
+    case 'PROFESSIONAL_LICENSING_CERTIFICATION':
+    case 'PROFESSIONAL_LICENSING': return 'ترخيص/اعتماد مهني';
+    case 'ACADEMIC_PLACEMENT': return 'تحديد مستوى أكاديمي';
+    case 'OTHER': return 'أخرى';
     default:
       return category;
   }
@@ -1464,10 +1466,10 @@ function mapSourceTrustLevel(level?: string, isRtl?: boolean): string {
   if (!level) return isRtl ? 'غير محدد' : 'Undefined';
   if (isRtl) {
     switch (level) {
-      case 'OFFICIAL_PROVIDER': return 'مزود رسمي';
-      case 'VERIFIED_PARTNER': return 'شريك معتمد';
-      case 'COMMUNITY': return 'مجتمعي';
-      case 'UNTRUSTED': return 'غير موثوق';
+      case 'AUTHORITATIVE': return 'مصدر رسمي مباشر';
+      case 'HIGH': return 'ثقة عالية';
+      case 'MEDIUM': return 'ثقة متوسطة';
+      case 'LOW': return 'ثقة منخفضة';
       default: return level;
     }
   }
@@ -1951,7 +1953,7 @@ function EvidenceTab({
     sourceId: '',
     sourceUrl: '',
     evidenceSnippet: '',
-    sourceTrustLevel: 'OFFICIAL_PROVIDER'
+    sourceTrustLevel: 'AUTHORITATIVE'
   });
 
 
@@ -1973,7 +1975,7 @@ function EvidenceTab({
         sourceId: '',
         sourceUrl: '',
         evidenceSnippet: '',
-        sourceTrustLevel: 'OFFICIAL_PROVIDER'
+        sourceTrustLevel: 'AUTHORITATIVE'
       });
       await onRefresh();
     } catch (err: any) {
@@ -2102,10 +2104,10 @@ function EvidenceTab({
               onChange={(e) => setForm({ ...form, sourceTrustLevel: e.target.value as any })}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-black"
             >
-              <option value="OFFICIAL_PROVIDER">{isRtl ? 'مزود رسمي (Official Provider)' : 'Official Provider'}</option>
-              <option value="VERIFIED_PARTNER">{isRtl ? 'شريك معتمد (Verified Partner)' : 'Verified Partner'}</option>
-              <option value="COMMUNITY">{isRtl ? 'مجتمعي (Community)' : 'Community'}</option>
-              <option value="UNTRUSTED">{isRtl ? 'غير موثوق (Untrusted)' : 'Untrusted'}</option>
+              <option value="AUTHORITATIVE">{isRtl ? 'رسمي مباشر (Authoritative)' : 'Authoritative'}</option>
+              <option value="HIGH">{isRtl ? 'ثقة عالية (High)' : 'High'}</option>
+              <option value="MEDIUM">{isRtl ? 'ثقة متوسطة (Medium)' : 'Medium'}</option>
+              <option value="LOW">{isRtl ? 'ثقة منخفضة (Low)' : 'Low'}</option>
             </select>
           </div>
 
@@ -2181,6 +2183,30 @@ function ReadinessTab({
   const [success, setSuccess] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<'publish' | 'archive' | null>(null);
 
+  const [readiness, setReadiness] = useState<any | null>(null);
+
+  const loadReadiness = async () => {
+    try {
+      setReadiness(await adminApiClient.getInternationalTestReadiness<any>(test.id));
+    } catch (err: any) {
+      setError(err.message || (isRtl ? 'تعذر تحميل تقرير الجاهزية.' : 'Failed to load readiness report.'));
+    }
+  };
+
+  useEffect(() => { void loadReadiness(); }, [test.id, test.status, test.isSourceVerified, test.providerId]);
+
+  const handleVerifySource = async () => {
+    setError(null); setSuccess(null); setActionLoading('verify');
+    try {
+      await adminApiClient.verifyInternationalTestSource(test.id);
+      setSuccess(isRtl ? 'تم اعتماد المصدر بناءً على دليل رسمي/عالي الثقة.' : 'Source verified from authoritative/high-trust evidence.');
+      await onRefresh();
+      await loadReadiness();
+    } catch (err: any) {
+      setError(err.message || (isRtl ? 'يلزم دليل يحتوي رابط مصدر بمستوى ثقة رسمي أو عالٍ.' : 'Trusted source evidence is required.'));
+    } finally { setActionLoading(null); }
+  };
+
   const handleMarkPublishable = async () => {
     setError(null);
     setSuccess(null);
@@ -2234,7 +2260,7 @@ function ReadinessTab({
     }
   };
 
-  const isPublished = test.status === 'PUBLISHED';
+  const isPublished = test.status === 'PUBLISHED' && test.isPubliclyVisible === true;
 
   return (
     <div className="space-y-6">
@@ -2299,7 +2325,7 @@ function ReadinessTab({
                   ? 'الاختبار منشور الآن بالكامل ورابط الصفحة العامة فعال.'
                   : 'Test is published now and public page link is active.'}{' '}
                 <a
-                  href={`/international-tests/${test.id}`}
+                  href={`/international-tests/${test.slug}`}
                   target="_blank"
                   rel="noreferrer"
                   className="font-bold underline text-amber-950 inline-flex items-center gap-1"
@@ -2317,21 +2343,28 @@ function ReadinessTab({
           </p>
         </div>
 
-        {/* Completeness Report Details if present */}
-        {test.completenessReport && (
-          <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg text-xs space-y-2">
-            <h5 className="font-bold text-gray-900 text-sm">{isRtl ? 'تقرير اكتمال البيانات' : 'Completeness Report'}</h5>
-            <div className="flex items-center gap-4">
-              <span>{isRtl ? 'نسبة الاكتمال: ' : 'Completeness Score: '} <strong>{test.completenessReport.score ?? 0}%</strong></span>
-              <span>{isRtl ? 'جاهز للنشر: ' : 'Ready to Publish: '} <strong>{test.completenessReport.isReadyToPublish ? (isRtl ? 'نعم' : 'Yes') : (isRtl ? 'لا' : 'No')}</strong></span>
+        {/* Publication Readiness Policy */}
+        {readiness && (
+          <div className={`border p-4 rounded-lg text-xs space-y-3 ${readiness.ready ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+            <div className="flex items-center justify-between gap-3">
+              <h5 className="font-bold text-gray-900 text-sm">{isRtl ? 'سياسة الجاهزية الفعلية للنشر' : 'Live Publication Readiness Policy'}</h5>
+              <span className={`font-bold ${readiness.ready ? 'text-green-700' : 'text-red-700'}`}>
+                {readiness.ready ? (isRtl ? 'جاهز' : 'READY') : (isRtl ? 'غير جاهز' : 'BLOCKED')}
+              </span>
             </div>
-            {test.completenessReport.missingFields && test.completenessReport.missingFields.length > 0 && (
+            {readiness.blockingIssues?.length > 0 && (
               <div>
-                <span className="text-red-700 font-semibold block mb-1">{isRtl ? 'الحقول الناقصة:' : 'Missing Fields:'}</span>
-                <ul className="list-disc list-inside space-y-0.5 text-red-600">
-                  {test.completenessReport.missingFields.map((field: string, idx: number) => (
-                    <li key={idx}>{field}</li>
-                  ))}
+                <div className="font-semibold text-red-800 mb-1">{isRtl ? 'عوامل المنع:' : 'Blocking issues:'}</div>
+                <ul className="list-disc list-inside space-y-1 text-red-700">
+                  {readiness.blockingIssues.map((issue: any) => <li key={`${issue.code}-${issue.field || ''}`}><span className="font-mono">{issue.code}</span>{issue.field ? ` — ${issue.field}` : ''}: {issue.message}</li>)}
+                </ul>
+              </div>
+            )}
+            {readiness.warnings?.length > 0 && (
+              <div>
+                <div className="font-semibold text-amber-800 mb-1">{isRtl ? 'تحذيرات:' : 'Warnings:'}</div>
+                <ul className="list-disc list-inside space-y-1 text-amber-700">
+                  {readiness.warnings.map((issue: any) => <li key={`${issue.code}-${issue.field || ''}`}>{issue.message}</li>)}
                 </ul>
               </div>
             )}
@@ -2344,6 +2377,16 @@ function ReadinessTab({
         <h4 className="font-bold text-gray-900 text-sm border-b pb-2">{isRtl ? 'إجراءات التحكم بالنشر والأرشفة' : 'Publishing & Archiving Controls'}</h4>
 
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleVerifySource}
+            disabled={actionLoading !== null || test.isSourceVerified === true}
+            className="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {actionLoading === 'verify' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+            {isRtl ? 'اعتماد المصدر' : 'Verify Source'}
+          </button>
+
           <button
             type="button"
             onClick={handleMarkPublishable}
@@ -2423,22 +2466,122 @@ function ReadinessTab({
 // ----------------------------------------------------------------------
 // DESCRIPTION TAB
 // ----------------------------------------------------------------------
-function DescriptionTab({ test, isRtl }: { test: any; isRtl: boolean }) {
+function DescriptionTab({ test, onRefresh, isRtl }: { test: InternationalTestDetail; onRefresh: () => void; isRtl: boolean }) {
+  const [providers, setProviders] = useState<any[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    providerId: test.providerId || '',
+    testCategory: test.testCategory,
+    abbreviation: test.abbreviation || '',
+  });
+  const [providerDraft, setProviderDraft] = useState({ key: '', displayName: '', officialWebsite: '', countryIso2Code: '' });
+
+  useEffect(() => {
+    setForm({ providerId: test.providerId || '', testCategory: test.testCategory, abbreviation: test.abbreviation || '' });
+  }, [test.id, test.providerId, test.testCategory, test.abbreviation]);
+
+  const loadProviders = async () => {
+    try {
+      const rows = await adminApiClient.listInternationalTestProviders<any[]>();
+      setProviders(Array.isArray(rows) ? rows : []);
+    } catch (err: any) {
+      setError(err.message || (isRtl ? 'تعذر تحميل مزودي الاختبارات.' : 'Failed to load test providers.'));
+    }
+  };
+
+  useEffect(() => { void loadProviders(); }, []);
+
+  const saveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true); setError(null); setSuccess(null);
+    try {
+      await adminApiClient.updateInternationalTest(test.id, {
+        providerId: form.providerId || undefined,
+        testCategory: form.testCategory,
+        abbreviation: form.abbreviation.trim() || undefined,
+      });
+      setSuccess(isRtl ? 'تم حفظ الملف الأساسي وربطه بالمزود المعياري.' : 'Core profile and canonical provider saved.');
+      await onRefresh();
+    } catch (err: any) {
+      setError(err.message || (isRtl ? 'تعذر حفظ الملف الأساسي.' : 'Failed to save core profile.'));
+    } finally { setSaving(false); }
+  };
+
+  const createProvider = async () => {
+    setSaving(true); setError(null); setSuccess(null);
+    try {
+      const created = await adminApiClient.upsertInternationalTestProvider<any>({
+        key: providerDraft.key,
+        displayName: providerDraft.displayName,
+        ...(providerDraft.officialWebsite.trim() ? { officialWebsite: providerDraft.officialWebsite.trim() } : {}),
+        ...(providerDraft.countryIso2Code.trim() ? { countryIso2Code: providerDraft.countryIso2Code.trim().toUpperCase() } : {}),
+      });
+      await loadProviders();
+      setForm((current) => ({ ...current, providerId: created.id }));
+      setProviderDraft({ key: '', displayName: '', officialWebsite: '', countryIso2Code: '' });
+      setSuccess(isRtl ? 'تم إنشاء المزود المعياري. احفظ الملف لربطه بالاختبار.' : 'Canonical provider created. Save the profile to link it to this test.');
+    } catch (err: any) {
+      setError(err.message || (isRtl ? 'تعذر إنشاء المزود.' : 'Failed to create provider.'));
+    } finally { setSaving(false); }
+  };
+
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-bold text-gray-900 border-b pb-3">
-        {isRtl ? 'الوصف والاستخدامات' : 'Description & Use Cases'}
+        {isRtl ? 'الملف الأساسي والمزود المعياري' : 'Core Profile & Canonical Provider'}
       </h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg text-sm">{error}</div>}
+      {success && <div className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-lg text-sm">{success}</div>}
+
+      <div className="bg-blue-50 border border-blue-200 text-blue-900 p-4 rounded-lg text-sm">
+        {isRtl
+          ? 'الأسماء العربية والإنجليزية للعرض مقروءة هنا فقط؛ تحرير الترجمة يبقى ضمن Translation Infrastructure ولا يتم نسخه داخل شاشة الاختبارات.'
+          : 'Localized display names are read-only here; translation authoring remains owned by Translation Infrastructure.'}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
         <DetailField label={isRtl ? 'الاسم بالعربية' : 'Localized Name AR'} value={test.localizedNameAr || (isRtl ? 'غير متوفر' : 'N/A')} />
         <DetailField label={isRtl ? 'الاسم بالإنجليزية' : 'Localized Name EN'} value={test.localizedNameEn || (isRtl ? 'غير متوفر' : 'N/A')} />
-        <DetailField label={isRtl ? 'نبذة تعريفية' : 'Introductory Brief'} value={<span className="text-gray-400 font-mono text-xs">{isRtl ? 'غير متوفر حالياً' : 'Pending'}</span>} />
-        <DetailField label={isRtl ? 'فائدة الاختبار' : 'Test Purpose/Benefit'} value={<span className="text-gray-400 font-mono text-xs">{isRtl ? 'غير متوفر حالياً' : 'Pending'}</span>} />
-        <DetailField label={isRtl ? 'من يحتاجه' : 'Who Needs It'} value={<span className="text-gray-400 font-mono text-xs">{isRtl ? 'غير متوفر حالياً' : 'Pending'}</span>} />
-        <DetailField label={isRtl ? 'الاستخدامات' : 'Use Cases'} value={<span className="text-gray-400 font-mono text-xs">{isRtl ? 'غير متوفر حالياً (قبول جامعي، منح، الخ)' : 'Pending (Admissions, Scholarships, etc.)'}</span>} />
-        <DetailField label={isRtl ? 'الجمهور المستهدف' : 'Target Audience'} value={<span className="text-gray-400 font-mono text-xs">{isRtl ? 'غير متوفر حالياً' : 'Pending'}</span>} />
-        <DetailField label={isRtl ? 'الدول التي يستخدم فيها غالبًا' : 'Commonly Used Countries'} value={<span className="text-gray-400 font-mono text-xs">{isRtl ? 'غير متوفر حالياً' : 'Pending'}</span>} />
-        <DetailField label={isRtl ? 'اللغات المرتبطة' : 'Associated Languages'} value={<span className="text-gray-400 font-mono text-xs">{isRtl ? 'غير متوفر حالياً' : 'Pending'}</span>} />
+      </div>
+
+      <form onSubmit={saveProfile} className="border rounded-xl p-5 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <label className="block font-medium text-gray-700 mb-1">{isRtl ? 'المزود المعياري' : 'Canonical Provider'}</label>
+            <select value={form.providerId} onChange={(e) => setForm({ ...form, providerId: e.target.value })} className="w-full border rounded-lg px-3 py-2">
+              <option value="">{isRtl ? 'اختر المزود' : 'Select provider'}</option>
+              {providers.map((provider) => <option key={provider.id} value={provider.id}>{provider.displayName}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block font-medium text-gray-700 mb-1">{isRtl ? 'فئة الاختبار' : 'Test Category'}</label>
+            <select value={form.testCategory} onChange={(e) => setForm({ ...form, testCategory: e.target.value as InternationalTestCategory })} className="w-full border rounded-lg px-3 py-2">
+              {TEST_CATEGORY_OPTIONS.map((category) => <option key={category} value={category}>{getCategoryLabel(category)}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block font-medium text-gray-700 mb-1">{isRtl ? 'الاختصار' : 'Abbreviation'}</label>
+            <input value={form.abbreviation} onChange={(e) => setForm({ ...form, abbreviation: e.target.value })} className="w-full border rounded-lg px-3 py-2" />
+          </div>
+        </div>
+        <button type="submit" disabled={saving} className="inline-flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg text-sm disabled:opacity-50">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{isRtl ? 'حفظ الملف الأساسي' : 'Save Core Profile'}
+        </button>
+      </form>
+
+      <div className="border rounded-xl p-5 space-y-4">
+        <h4 className="font-bold text-sm">{isRtl ? 'إضافة مزود معياري جديد' : 'Create Canonical Provider'}</h4>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+          <input placeholder={isRtl ? 'المفتاح، مثال ETS' : 'Key, e.g. ETS'} value={providerDraft.key} onChange={(e) => setProviderDraft({ ...providerDraft, key: e.target.value })} className="border rounded-lg px-3 py-2" />
+          <input placeholder={isRtl ? 'اسم المزود' : 'Provider name'} value={providerDraft.displayName} onChange={(e) => setProviderDraft({ ...providerDraft, displayName: e.target.value })} className="border rounded-lg px-3 py-2" />
+          <input placeholder="https://..." value={providerDraft.officialWebsite} onChange={(e) => setProviderDraft({ ...providerDraft, officialWebsite: e.target.value })} className="border rounded-lg px-3 py-2" />
+          <input placeholder="US" maxLength={2} value={providerDraft.countryIso2Code} onChange={(e) => setProviderDraft({ ...providerDraft, countryIso2Code: e.target.value })} className="border rounded-lg px-3 py-2 uppercase" />
+        </div>
+        <button type="button" onClick={createProvider} disabled={saving || !providerDraft.key.trim() || !providerDraft.displayName.trim()} className="inline-flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded-lg text-sm disabled:opacity-50">
+          <Plus className="h-4 w-4" />{isRtl ? 'إنشاء المزود' : 'Create Provider'}
+        </button>
       </div>
     </div>
   );
@@ -2469,19 +2612,76 @@ function RequirementsTab({ test, isRtl }: { test: any; isRtl: boolean }) {
 // ----------------------------------------------------------------------
 // CROSS PHASE TAB
 // ----------------------------------------------------------------------
-function CrossPhaseTab({ isRtl }: { isRtl: boolean }) {
+function CrossPhaseTab({ testId, isRtl }: { testId: string; isRtl: boolean }) {
+  const [graph, setGraph] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+    adminApiClient.getInternationalTestRelationships<any>(testId, isRtl ? 'ar' : 'en')
+      .then((value) => { if (active) setGraph(value); })
+      .catch((err: any) => { if (active) setError(err.message || (isRtl ? 'تعذر تحميل العلاقات.' : 'Failed to load relationships.')); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [testId, isRtl]);
+
+  if (loading) return <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>;
+  if (error) return <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg text-sm">{error}</div>;
+
+  const relationships = graph?.relationships || {};
+  const universities = relationships.universities?.data || [];
+  const scholarships = relationships.scholarships?.data || [];
+  const editorial = relationships.editorialContent || [];
+  const preparationCourses = relationships.preparationCourses?.data || [];
+
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-bold text-gray-900 border-b pb-3">
-        {isRtl ? 'الربط بالمراحل الأخرى (مراجع فقط)' : 'Cross-Phase References (Read-only)'}
+        {isRtl ? 'الترابط بين المجالات — قراءة حقيقية' : 'Cross-domain Relationships — Live Read Model'}
       </h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-        <DetailField label={isRtl ? 'جامعات تقبل الاختبار' : 'Universities Accepting Test'} value={<span className="text-gray-400 font-mono text-xs">{isRtl ? 'سيتم التفعيل في Phase 11' : 'Pending Phase 11'}</span>} />
-        <DetailField label={isRtl ? 'منح تطلب الاختبار' : 'Scholarships Requiring Test'} value={<span className="text-gray-400 font-mono text-xs">{isRtl ? 'سيتم التفعيل في Phase 12' : 'Pending Phase 12'}</span>} />
-        <DetailField label={isRtl ? 'دورات تحضيرية' : 'Preparation Courses'} value={<span className="text-gray-400 font-mono text-xs">{isRtl ? 'سيتم التفعيل في Phase 13' : 'Pending Phase 13'}</span>} />
-        <DetailField label={isRtl ? 'أدلة CMS' : 'CMS Guides'} value={<span className="text-gray-400 font-mono text-xs">{isRtl ? 'سيتم التفعيل في Phase 16' : 'Pending Phase 16'}</span>} />
-        <DetailField label={isRtl ? 'أدوات طلابية' : 'Student Tools'} value={<span className="text-gray-400 font-mono text-xs">{isRtl ? 'سيتم التفعيل في Phase 18' : 'Pending Phase 18'}</span>} />
-        <DetailField label={isRtl ? 'خدمات تسجيل ودعم' : 'Registration & Support Services'} value={<span className="text-gray-400 font-mono text-xs">{isRtl ? 'سيتم التفعيل في Phase 20' : 'Pending Phase 20'}</span>} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div className="border rounded-lg p-4">
+          <div className="font-semibold text-gray-900">{isRtl ? 'الجامعات التي تقبل الاختبار' : 'Universities Accepting Test'}</div>
+          <div className="text-2xl font-bold mt-1">{relationships.universities?.total ?? universities.length}</div>
+          <div className="mt-2 space-y-1 text-xs text-gray-600">
+            {universities.slice(0, 6).map((item: any) => (
+              <div key={item.ownerId}>{item.displayName} — {item.matchingPrograms?.length || 0} {isRtl ? 'برنامج' : 'program(s)'}</div>
+            ))}
+          </div>
+        </div>
+        <div className="border rounded-lg p-4">
+          <div className="font-semibold text-gray-900">{isRtl ? 'المنح التي تشترط الاختبار' : 'Scholarships Requiring Test'}</div>
+          <div className="text-2xl font-bold mt-1">{relationships.scholarships?.total ?? scholarships.length}</div>
+          <div className="mt-2 space-y-1 text-xs text-gray-600">
+            {scholarships.slice(0, 6).map((item: any) => <div key={item.ownerId}>{item.displayName}</div>)}
+          </div>
+        </div>
+        <div className="border rounded-lg p-4">
+          <div className="font-semibold text-gray-900">{isRtl ? 'محتوى CMS المرتبط' : 'Related CMS Content'}</div>
+          <div className="text-2xl font-bold mt-1">{editorial.length}</div>
+          <div className="mt-2 space-y-1 text-xs text-gray-600">
+            {editorial.slice(0, 6).map((item: any) => <div key={item.contentId}>{item.title}</div>)}
+          </div>
+        </div>
+        <div className="border rounded-lg p-4">
+          <div className="font-semibold text-gray-900">{isRtl ? 'الدورات التحضيرية المعتمدة' : 'Approved Preparation Courses'}</div>
+          <div className="text-2xl font-bold mt-1">{relationships.preparationCourses?.total ?? preparationCourses.length}</div>
+          <div className="mt-2 space-y-1 text-xs text-gray-600">
+            {preparationCourses.slice(0, 6).map((item: any) => <div key={item.ownerId}>{item.displayName}{item.providerName ? ` — ${item.providerName}` : ''}</div>)}
+            {!preparationCourses.length && <div>{isRtl ? 'لا توجد دورات تحضيرية منشورة ومعتمدة لهذا الاختبار حاليًا.' : 'No published approved preparation courses are linked to this test yet.'}</div>}
+          </div>
+        </div>
+        <div className="border rounded-lg p-4 bg-gray-50">
+          <div className="font-semibold text-gray-900">{isRtl ? 'الأدوات الطلابية' : 'Student Tools'}</div>
+          <div className="text-xs text-gray-600 mt-2">{isRtl ? 'غير موصولة — الملكية لمجال الأدوات.' : 'Not integrated — owned by Student Tools.'}</div>
+        </div>
+        <div className="border rounded-lg p-4 bg-gray-50">
+          <div className="font-semibold text-gray-900">{isRtl ? 'الخدمات' : 'Services'}</div>
+          <div className="text-xs text-gray-600 mt-2">{isRtl ? 'غير موصولة — الملكية لمجال الخدمات.' : 'Not integrated — owned by Services.'}</div>
+        </div>
       </div>
     </div>
   );

@@ -20,6 +20,7 @@ import {
   ScholarshipUniversityLinkDto,
 } from '@manaratak/domain';
 import type { IScholarshipCanonicalLookupGateway, ScholarshipCanonicalLookupTarget } from '../resolution';
+import { assertNoTranslationPayloadFields } from '@manaratak/shared';
 import { AtomicDomainMutationCoordinator, AtomicMutationRequestContext } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
 
 type AdminScholarshipRepository = IScholarshipRepository & {
@@ -186,6 +187,8 @@ export class AdminScholarshipUseCases {
   }
 
   public async updateScholarship(id: string, updates: UpdateScholarshipDto, context?: AtomicMutationRequestContext): Promise<ScholarshipDto> {
+    assertNoTranslationPayloadFields('SCHOLARSHIP', updates as unknown as Record<string, unknown>, ['localizedNames']);
+    assertNoTranslationPayloadFields('SCHOLARSHIP', updates.optionalFields, ['localizedNames']);
     const existing = await this.getScholarship(id);
     if (existing.publicationStatus === ScholarshipPublicationStatus.PUBLISHED && Object.keys(updates).length > 0) {
       throw new Error('SCHOLARSHIP_PUBLISHED_STRUCTURE_IMMUTABLE');

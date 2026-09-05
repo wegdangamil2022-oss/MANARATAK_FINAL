@@ -12,7 +12,7 @@ export const CoursesList: React.FC<CoursesListProps> = ({ courses }) => {
     <div className="w-full px-4 py-3 space-y-3 pb-20">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-black text-[var(--mn-heading)] flex items-center gap-1.5">
+          <h2 className="text-sm font-bold text-[var(--mn-heading)] flex items-center gap-1.5">
             <BookOpen className="w-4 h-4 text-[var(--mn-heading)]" />
             <span>الدورات التدريبية والتأهيلية للمنح</span>
           </h2>
@@ -36,16 +36,16 @@ export const CoursesList: React.FC<CoursesListProps> = ({ courses }) => {
               />
               <div className="flex-1">
                 <div className="flex items-center justify-between gap-1">
-                  <span className="px-2 py-0.5 rounded-full bg-[var(--mn-surface-muted)] text-[var(--mn-heading)] font-extrabold text-[9px] mn-panel ">
+                  <span className="px-2 py-0.5 rounded-full bg-[var(--mn-surface-muted)] text-[var(--mn-heading)] font-semibold text-[9px] mn-panel ">
                     {course.isFree ? 'مجانية بالكامل' : 'مدفوعة'}
                   </span>
-                  <div className="flex items-center gap-1 text-[var(--mn-accent-text)] text-[10px] font-black">
+                  <div className="flex items-center gap-1 text-[var(--mn-accent-text)] text-[10px] font-bold">
                     <Star className="w-3 h-3 fill-[var(--mn-accent-soft)]" />
                     <span>{course.rating}</span>
                   </div>
                 </div>
 
-                <h3 className="text-xs font-black text-[var(--mn-heading)] mt-1 leading-snug">
+                <h3 className="text-xs font-bold text-[var(--mn-heading)] mt-1 leading-snug">
                   {course.title}
                 </h3>
                 <p className="text-[10px] text-[var(--mn-text-muted)] font-semibold mt-0.5">

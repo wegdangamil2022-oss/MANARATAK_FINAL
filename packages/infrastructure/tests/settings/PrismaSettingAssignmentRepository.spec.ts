@@ -8,13 +8,15 @@ describe('PrismaSettingAssignmentRepository', () => {
 
   beforeEach(() => {
     mockPrisma = {
+      $transaction: vi.fn(async (callback: (tx: any) => Promise<unknown>) => callback(mockPrisma)),
       settingAssignmentRecord: {
         findUnique: vi.fn(),
         findMany: vi.fn(),
         upsert: vi.fn()
       },
       settingVersionRecord: {
-        upsert: vi.fn()
+        findUnique: vi.fn(),
+        create: vi.fn()
       }
     };
     repository = new PrismaSettingAssignmentRepository(mockPrisma as any);
@@ -64,7 +66,8 @@ describe('PrismaSettingAssignmentRepository', () => {
     expect(versions?.[0].value.getValue()).toBe('test-value');
 
     mockPrisma.settingAssignmentRecord.upsert.mockResolvedValue(record);
-    mockPrisma.settingVersionRecord.upsert.mockResolvedValue(record.versions[0]);
+    mockPrisma.settingVersionRecord.findUnique.mockResolvedValue(record.versions[0]);
+    mockPrisma.settingVersionRecord.create.mockResolvedValue(record.versions[0]);
 
     if (assignment) {
       await repository.save(assignment);
@@ -84,22 +87,85 @@ describe('PrismaSettingAssignmentRepository', () => {
         })
       );
 
-      expect(mockPrisma.settingVersionRecord.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 'v-1' },
-          create: expect.objectContaining({
-            id: 'v-1',
-            assignmentId: 'assign-1',
-            value: 'test-value',
-            valueType: 'String',
-            authorId: 'admin-1'
-          }),
-          update: expect.objectContaining({
-            value: 'test-value'
-          })
-        })
-      );
+      expect(mockPrisma.settingVersionRecord.findUnique).toHaveBeenCalledWith({ where: { id: 'v-1' } });
+      expect(mockPrisma.settingVersionRecord.create).not.toHaveBeenCalled();
     }
+  });
+
+  it('rejects moving the current pointer directly to an existing historical version', async () => {
+    const assignment = new SettingAssignment({
+      id: 'assign-1',
+      key: new NamespacedKey('test.key'),
+      scope: new ScopeIdentifier('TENANT', 'tenant-123'),
+      versions: [
+        new SettingVersion('v-2', new StringValue('current'), new Date('2026-09-05T00:00:00Z'), 'admin-1'),
+        new SettingVersion('v-1', new StringValue('old'), new Date('2026-09-04T00:00:00Z'), 'admin-1'),
+      ]
+    });
+
+    mockPrisma.settingAssignmentRecord.findUnique.mockImplementation(async (args: any) => {
+      if ('id' in args.where || 'key_scopeLevel_scopeId' in args.where) {
+        return {
+          id: 'assign-1', key: 'test.key', scopeLevel: 'TENANT', scopeId: 'tenant-123',
+          currentVersionId: 'v-2', createdAt: new Date(), updatedAt: new Date()
+        };
+      }
+      return null;
+    });
+    mockPrisma.settingVersionRecord.findUnique.mockImplementation(async ({ where: { id } }: any) => ({
+      id,
+      assignmentId: 'assign-1',
+      value: id === 'v-2' ? 'current' : 'old',
+      valueType: 'String',
+      authorId: 'admin-1',
+      createdAt: new Date(),
+      rollbackOfVersionId: null,
+    }));
+
+    await expect(repository.save(assignment)).rejects.toThrow(/rollback must create a new immutable version/i);
+    expect(mockPrisma.settingAssignmentRecord.upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects assignment identity collisions across key/scope boundaries', async () => {
+    const assignment = new SettingAssignment({
+      id: 'assign-shared',
+      key: new NamespacedKey('feature.new'),
+      scope: new ScopeIdentifier('GLOBAL'),
+      versions: [new SettingVersion('v-new', new StringValue('enabled'), new Date(), 'admin-2')]
+    }, true);
+
+    mockPrisma.settingAssignmentRecord.findUnique.mockImplementation(async (args: any) => {
+      if ('id' in args.where) {
+        return {
+          id: 'assign-shared', key: 'feature.old', scopeLevel: 'GLOBAL', scopeId: 'GLOBAL',
+          currentVersionId: 'v-old', createdAt: new Date(), updatedAt: new Date()
+        };
+      }
+      return null;
+    });
+
+    await expect(repository.save(assignment)).rejects.toThrow(/already belongs to another key or scope/i);
+    expect(mockPrisma.settingVersionRecord.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.settingAssignmentRecord.upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects reusing a persisted version id for another assignment', async () => {
+    const assignment = new SettingAssignment({
+      id: 'assign-2',
+      key: new NamespacedKey('test.other'),
+      scope: new ScopeIdentifier('GLOBAL'),
+      versions: [new SettingVersion('shared-version', new StringValue('new-value'), new Date(), 'admin-2')]
+    }, true);
+
+    mockPrisma.settingAssignmentRecord.findUnique.mockResolvedValue(null);
+    mockPrisma.settingAssignmentRecord.upsert.mockResolvedValue({});
+    mockPrisma.settingVersionRecord.findUnique.mockResolvedValue({
+      id: 'shared-version', assignmentId: 'assign-1', value: 'old-value', valueType: 'String',
+      authorId: 'admin-1', createdAt: new Date(), rollbackOfVersionId: null
+    });
+
+    await expect(repository.save(assignment)).rejects.toThrow(/cannot be mutated or reassigned/i);
+    expect(mockPrisma.settingVersionRecord.create).not.toHaveBeenCalled();
   });
 
   it('findBy returns all assignments that satisfy the spec', async () => {

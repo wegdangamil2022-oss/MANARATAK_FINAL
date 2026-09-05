@@ -12,6 +12,7 @@ export * from './scholarships/PrismaScholarshipImportDecisionPorts';
 export * from './scholarships/InMemoryScholarshipImportDecisionPorts';
 export * from './scholarships/PrismaScholarshipCanonicalLookupGateway';
 export * from './majors/PrismaMajorRepository';
+export * from './majors/PrismaNewMajorCandidateRepository';
 export * from './majors/PrismaFellowshipDefinitionRepository';
 export * from './majors/Phase10CatalogRepository';
 export * from './international-tests/PrismaInternationalTestRepository';
@@ -156,7 +157,7 @@ export * from './universities/PrismaUniversityImportChangeExecutorGateway';
 
 export * from './translation-import';
 export * from './courses/PrismaCourseEnrollmentPolicyRepository';
-export * from './courses/PrismaCourseFinancialClearanceGateway';
+export * from './courses/Phase19CourseFinancialClearanceGateway';
 export * from './courses/PrismaLearningPathRepository';
 
 export * from './services-platform';
@@ -164,3 +165,5 @@ export * from './services-platform';
 export * from './career-alumni';
 export * from './students/StudentSavedItemHydrationGateways';
 export * from './students/StudentDashboardOwnerReadGateways';
+
+export * from './study-destinations/PrismaStudyDestinationRepository';

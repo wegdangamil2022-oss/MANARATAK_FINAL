@@ -175,6 +175,51 @@ export class PrismaAuditRecordRepository implements ITransactionalAuditRecordRep
     });
   }
 
+  async listRecentImportOperations(limit = 20): Promise<Array<{
+    id: string;
+    actorId: string;
+    action: string;
+    severity: string;
+    targetId: string;
+    timestamp: Date;
+    method?: string;
+    path?: string;
+    httpStatus?: number;
+    result: 'SUCCESS' | 'FAILURE';
+  }>> {
+    const safeLimit = Math.min(50, Math.max(1, Math.trunc(limit || 20)));
+    const rows = await (this.prisma as any).auditRecord.findMany({
+      where: {
+        category: 'CRITICAL_MUTATION',
+        action: 'MUTATION_OUTCOME_RECORDED',
+      },
+      orderBy: { timestamp: 'desc' },
+      take: Math.max(50, safeLimit * 10),
+    });
+
+    return rows
+      .map((row: any) => {
+        const context = row?.contextMetadata && typeof row.contextMetadata === 'object' ? row.contextMetadata : {};
+        const requestedPath = String(context.requestedPath ?? context.path ?? '');
+        const httpStatus = Number(context.httpStatus ?? context.statusCode ?? 0);
+        return { row, context, requestedPath, httpStatus };
+      })
+      .filter(({ requestedPath }: any) => requestedPath.includes('/admin/imports'))
+      .slice(0, safeLimit)
+      .map(({ row, context, requestedPath, httpStatus }: any) => ({
+        id: String(row.id),
+        actorId: String(row.actorId ?? 'SYSTEM'),
+        action: String(context.operation ?? context.action ?? row.action ?? 'IMPORT_OPERATION'),
+        severity: String(row.severity ?? 'INFO'),
+        targetId: String(row.targetId ?? ''),
+        timestamp: new Date(row.timestamp),
+        method: context.requestedMethod ? String(context.requestedMethod) : undefined,
+        path: requestedPath || undefined,
+        httpStatus: Number.isFinite(httpStatus) && httpStatus > 0 ? httpStatus : undefined,
+        result: Number.isFinite(httpStatus) && httpStatus >= 400 ? 'FAILURE' : 'SUCCESS',
+      }));
+  }
+
   async findBy(specification: ISpecification<AuditRecord>): Promise<AuditRecord[]> {
     const criteria = (specification as any)?.criteria;
     const where: any = {};

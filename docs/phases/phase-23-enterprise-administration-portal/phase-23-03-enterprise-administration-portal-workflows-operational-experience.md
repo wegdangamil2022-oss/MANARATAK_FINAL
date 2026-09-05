@@ -610,22 +610,19 @@ Phase 23 provides non-destructive, read-only system monitoring and readiness ins
 
 ---
 
-## 23.C.23 Admin Settings & Access Control Operational Workflow
+## 23.C.23 Admin Settings & Configuration Operational Workflow
+
+> **2026-09-05 SOURCE-CLOSURE CORRECTION:** The former preview workflow with hardcoded admin-user counts, role matrices, session counts, login metrics, and masked API-key cards is historical and must not be recreated. Those records belong to IAM/Audit/Health/Secret Provider boundaries.
 
 **Operational Philosophy**  
-Phase 23 provides a secure, non-destructive control plane (`/admin/settings`) for managing admin users, role permissions, access control policies, feature flag visibility states, read-only integration health, and access audit logs across MANARATAK 2.0.
+`/admin/settings` is a small governed configuration workspace, not a catch-all control panel. Every displayed value must originate from the Settings API and every mutation must preserve version history.
 
-**Settings & Access Control Operational Experience**  
-- **Main Settings Workspace (`/admin/settings`)**:
-  - **Masked Security Banner**: Highlights active security governance with zero exposed secrets or tokens.
-  - **8 Top Metric Cards**: Active admin users (8), High privilege users (2 Super Admins), Active roles (5), Pending invitations (1), Active sessions (12), Security compliance (100%), Access events today (142), Failed logins in 24h (0).
-  - **6 Workstation Tabs**:
-    1. **Admin Users Directory**: Table showing Admin name, Email, Role, Permission level, Status (`Active` / `Suspended` / `Invited`), MFA status (`Enabled` / `Required`), Last login, IP/Device summary, and Safe Actions (*Invite Admin*, *Edit Role*, *Suspend/Reactivate*, *View Details*). Root Super Admin deletion/suspension is strictly guarded and blocked.
-    2. **Roles & Permissions Matrix**: Detailed breakdown of 5 core roles with access scope mapped across all 15 core admin modules (Scholarships, Universities, Majors, Courses, International Tests, Services, CMS, Student Tools, Certificates, Finance, Careers, Import Management, AI Governance, Health/Readiness, Settings) across 9 permission types.
-    3. **Access & Security Policies**: Configuration settings for Mandatory MFA, Session inactivity timeouts (30 min), Password complexity, Failed login lockouts (5 attempts -> 15 min lock), Bearer JWT tokens, and Studio Preview read-only simulation.
-    4. **Feature Flags & Visibility**: Visibility state controls (`Active`, `Coming Soon`, `Hidden Admin Only`, `Disabled`, `Retired`) for student tools registry and platform modules.
-    5. **Environment & Integration Status**: Read-only status panel for PostgreSQL/Prisma, Redis, JWT Tokens, AI Keys, Payment Sandbox, and EAP Asset Handles.
-    6. **Admin Access Audit Log**: Immutable log table displaying Event ID, Admin User, Action, Module Affected, Timestamps, Results (`Success`, `Blocked`), and Detail Modals.
+**Canonical Operational Experience**  
+- **Definitions tab:** list/create dynamic settings with key, value type, description, feature-flag marker, lifecycle metadata, and optional non-secret default value.
+- **Scoped Values & History tab:** assign values at `GLOBAL`, `DOMAIN`, `TENANT`, or `IDENTITY`; inspect the complete immutable version chain; roll back by creating a new version that records its source version.
+- **Boundary cards/deep links:** direct admins to IAM/RBAC for identities and permissions, Secret Provider/Environment for credentials, and Reference Data for canonical countries/currencies/languages/cities.
+- **Secret rules:** secret definitions may exist as metadata, but raw secret defaults, writes, reads, and rollback through the Settings API are prohibited.
+- **Failure behavior:** API errors are shown as errors. The page must never substitute demo metrics, fake successful saves, or static readiness status.
 
 ---
 

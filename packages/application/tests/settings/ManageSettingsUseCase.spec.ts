@@ -18,6 +18,10 @@ class InMemoryDefinitionRepository implements ISettingDefinitionRepository {
     return this.definitions.get(key.getValue()) || null;
   }
 
+  async findAll(): Promise<SettingDefinition[]> {
+    return Array.from(this.definitions.values());
+  }
+
   async save(definition: SettingDefinition): Promise<void> {
     this.definitions.set(definition.key.getValue(), definition);
   }
@@ -87,6 +91,13 @@ describe('ManageSettingsUseCase', () => {
     expect(assignment?.getCurrentVersion().value.getValue()).toBe(true);
   });
 
+  it('rejects database writes for secret definitions', async () => {
+    await useCase.createDefinition({ id: 'secret-1', key: 'integration.provider.key', valueType: ValueType.String, isSecret: true });
+    await expect(useCase.assignValue({
+      assignmentId: 'assign-secret', key: 'integration.provider.key', level: 'GLOBAL', versionId: 'v-secret', value: 'raw-secret', type: ValueType.String, authorId: 'admin-1'
+    })).rejects.toThrow(/Secret values cannot be written/);
+  });
+
   it('supports version update and rollback', async () => {
     await useCase.createDefinition({
       id: 'def-2',
@@ -116,6 +127,10 @@ describe('ManageSettingsUseCase', () => {
       type: ValueType.String,
       authorId: 'admin-2',
     });
+
+    await expect(useCase.assignValue({
+      assignmentId: 'assign-2', key: 'ui.theme', level: 'TENANT', scopeId: 'tenant-99', versionId: 'v2', value: 'overwrite', type: ValueType.String, authorId: 'admin-3'
+    })).rejects.toThrow(/already exists/);
 
     await useCase.rollbackValue({
       assignmentId: 'assign-2',

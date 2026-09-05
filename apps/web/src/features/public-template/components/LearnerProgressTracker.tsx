@@ -12,6 +12,7 @@ import {
   Trash2,
   Trophy,
   BellRing,
+  X,
 } from 'lucide-react';
 
 interface LearnerProgressTrackerProps {
@@ -116,7 +117,7 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
             <Trophy className="w-4 h-4 text-[var(--mn-accent-text)]" />
             تقدمك التعليمي العام
           </span>
-          <span className="text-[var(--mn-accent-text)] font-black text-sm">
+          <span className="text-[var(--mn-accent-text)] font-bold text-sm">
             {overallPercentage}%
           </span>
         </div>
@@ -188,7 +189,7 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
               <span>{m.country}</span>
               <span>{m.scholarshipTitle}</span>
               <span
-                className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${
+                className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
                   isSelected
                     ? 'bg-[var(--mn-accent)] text-[var(--mn-on-accent)] mn-gold '
                     : 'bg-[var(--mn-surface-muted)] text-[var(--mn-text-muted)] mn-panel '
@@ -208,7 +209,7 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
           <div className="flex items-start justify-between gap-2 border-b border-[var(--mn-border)] pb-3">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-black text-[var(--mn-heading)]">
+                <span className="text-sm font-bold text-[var(--mn-heading)]">
                   {activeMilestone.scholarshipTitle}
                 </span>
                 <span className="text-xs text-[var(--mn-text-muted)]">{activeMilestone.country}</span>
@@ -290,8 +291,9 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
                   </div>
 
                   {task.completed && (
-                    <span className="text-[9px] font-bold text-[var(--mn-heading)] bg-[var(--mn-primary)]/10 px-2 py-0.5 rounded-full">
-                      مكتمل ✓
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[var(--mn-primary)]/10 px-2 py-0.5 text-[9px] font-bold text-[var(--mn-heading)]">
+                      <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                      مكتمل
                     </span>
                   )}
                 </div>
@@ -366,14 +368,16 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-[var(--mn-surface)] rounded-3xl p-5 max-w-sm w-full shadow-2xl border border-[var(--mn-accent)]/30 space-y-4 animate-in fade-in zoom-in-95 duration-150 text-right mn-panel ">
             <div className="flex items-center justify-between border-b border-[var(--mn-border)] pb-2">
-              <h3 className="text-sm font-extrabold text-[var(--mn-heading)]">
+              <h3 className="text-sm font-semibold text-[var(--mn-heading)]">
                 إضافة منحة جديدة لنظام المتابعة
               </h3>
               <button
+                type="button"
                 onClick={() => setShowAddModal(false)}
-                className="text-[var(--mn-text-muted)] hover:text-[var(--mn-text)] text-sm font-bold cursor-pointer"
+                aria-label="إغلاق"
+                className="grid min-h-10 min-w-10 place-items-center rounded-xl text-[var(--mn-text-muted)] hover:bg-[var(--mn-surface-muted)] hover:text-[var(--mn-text)]"
               >
-                ✕
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
 

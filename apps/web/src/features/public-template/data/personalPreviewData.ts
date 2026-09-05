@@ -56,7 +56,7 @@ export const INITIAL_NOTIFICATIONS: PushNotificationItem[] = [
   },
   {
     id: 'notif-2',
-    title: '🎓 فرصة مميزة: منحة الحكومة الصينية CSC 2026',
+    title: 'فرصة مميزة: منحة الحكومة الصينية CSC 2026',
     body: 'إعفاء كامل من الرسوم مع سكن جامعي وراتب شهري مجزي في كبرى الجامعات الصينية المرموقة.',
     timestamp: 'منذ ساعة',
     type: 'opportunity',
@@ -75,7 +75,7 @@ export const INITIAL_NOTIFICATIONS: PushNotificationItem[] = [
   },
   {
     id: 'notif-4',
-    title: '⏰ تنبيه اقتراب موعد: منحة داد الألمانية DAAD',
+    title: 'تنبيه اقتراب موعد: منحة داد الألمانية DAAD',
     body: 'تذكير: متبقي 44 يوماً فقط على إغلاق باب التقديم لبرامج الهندسة والتنمية المستدامة في ألمانيا.',
     timestamp: 'أمس',
     type: 'deadline',

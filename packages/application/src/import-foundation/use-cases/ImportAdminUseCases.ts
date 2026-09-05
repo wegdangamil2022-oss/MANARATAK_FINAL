@@ -22,6 +22,10 @@ type ImportRepository = {
   listBatches(filters?: Record<string, unknown>): Promise<any[]>;
   listRecords(filters?: Record<string, unknown>): Promise<any>;
   findBySourceDedupKey?(sourceDedupKey: string): Promise<any | null>;
+  findExistingSourceDedupKeys?(sourceDedupKeys: string[]): Promise<string[]>;
+  getOverview?(filters?: { dataType?: string }): Promise<any>;
+  getOperationalInsights?(filters?: { dataType?: string }): Promise<any>;
+  getErrorReport?(filters?: { dataType?: string; batchId?: string; limit?: number }): Promise<any>;
 };
 
 export interface StageImportRowsInput {
@@ -65,7 +69,7 @@ export class ImportAdminUseCases {
     const text = input.dataText.trim();
     const ownerDomain = this.resolveOwnerDomain(input.dataType);
     const maxLength = 90 * 1024;
-    if (text.length > maxLength) {
+    if (new TextEncoder().encode(text).byteLength > maxLength) {
       throw new Error('Import payload is too large. Large imports must use the artifact import flow.');
     }
 
@@ -75,6 +79,168 @@ export class ImportAdminUseCases {
       sourceSystem: input.sourceSystem || 'ADMIN_CONSOLE',
       rows: rows.map((row) => ({ ...row })),
     });
+  }
+
+  async preflightData(input: { dataText: string; sourceSystem?: string; dataType?: string }) {
+    const text = input.dataText.trim();
+    const ownerDomain = this.resolveOwnerDomain(input.dataType);
+    const sourceSystem = input.sourceSystem?.trim() || 'ADMIN_CONSOLE';
+    const maxLength = 90 * 1024;
+    if (!text) throw new Error('Import text or CSV content is required.');
+    if (new TextEncoder().encode(text).byteLength > maxLength) {
+      throw new Error('Import payload is too large. Large imports must use the artifact import flow.');
+    }
+
+    const rows = await InlineDataParser.parse(text);
+    const seen = new Set<string>();
+    const uniqueSourceKeys: string[] = [];
+    let invalidRows = 0;
+    let duplicatesInPayload = 0;
+    let duplicatesAlreadyStaged = 0;
+    const previewRows: Array<Record<string, unknown>> = [];
+
+    for (const row of rows) {
+      const validObject = row !== null && typeof row === 'object' && Object.keys(row).length > 0;
+      if (!validObject) {
+        invalidRows++;
+        continue;
+      }
+      const identity = ImportSourceIdentity.create({ sourceSystem, ownerDomain, payload: row });
+      if (seen.has(identity.sourceDedupKey)) {
+        duplicatesInPayload++;
+        continue;
+      }
+      seen.add(identity.sourceDedupKey);
+      uniqueSourceKeys.push(identity.sourceDedupKey);
+      if (previewRows.length < 5) previewRows.push({ ...row });
+    }
+
+    if (uniqueSourceKeys.length > 0) {
+      if (this.importRepository.findExistingSourceDedupKeys) {
+        duplicatesAlreadyStaged = (await this.importRepository.findExistingSourceDedupKeys(uniqueSourceKeys)).length;
+      } else if (this.importRepository.findBySourceDedupKey) {
+        const existing = await Promise.all(uniqueSourceKeys.map((key) => this.importRepository.findBySourceDedupKey!(key)));
+        duplicatesAlreadyStaged = existing.filter(Boolean).length;
+      }
+    }
+
+    const duplicateRows = duplicatesInPayload + duplicatesAlreadyStaged;
+    const newRows = Math.max(0, rows.length - invalidRows - duplicateRows);
+    return {
+      ownerDomain,
+      sourceSystem,
+      totalRows: rows.length,
+      newRows,
+      invalidRows,
+      duplicateRows,
+      duplicatesInPayload,
+      duplicatesAlreadyStaged,
+      previewRows,
+      warnings: [
+        ...(invalidRows ? [`${invalidRows} row(s) are empty or structurally invalid and will require review.`] : []),
+        ...(duplicateRows ? [`${duplicateRows} duplicate row(s) will be skipped by source identity deduplication.`] : []),
+        'Generic preflight validates parsing and source identity only. Domain completeness and merge policy remain owned by the target domain.',
+        'Staging never publishes records automatically.',
+      ],
+    };
+  }
+
+  async getOverview(filters?: { dataType?: string }) {
+    const dataType = filters?.dataType ? this.resolveOwnerDomain(filters.dataType) : undefined;
+    if (this.importRepository.getOverview) {
+      return this.importRepository.getOverview(dataType ? { dataType } : undefined);
+    }
+
+    const batches = await this.importRepository.listBatches(dataType ? { dataType } : {});
+    const statuses = ['NEEDS_REVIEW', 'INCOMPLETE', 'FAILED', 'DLQ', 'PROMOTED'];
+    const [all, ...statusResults] = await Promise.all([
+      this.importRepository.listRecords({ dataType, page: 1, pageSize: 1 }),
+      ...statuses.map((status) => this.importRepository.listRecords({ dataType, status, page: 1, pageSize: 1 })),
+    ]);
+    const statusTotals = Object.fromEntries(statuses.map((status, index) => [status, statusResults[index]?.total ?? 0]));
+    return {
+      totalBatches: batches.length,
+      totalRecords: all.total ?? 0,
+      activeBatches: batches.filter((batch: any) => ['CREATED', 'QUEUED', 'RUNNING', 'PAUSED', 'RESUMING', 'CANCELLING', 'PROCESSING'].includes(batch.batchStatus)).length,
+      needsReview: (statusTotals.NEEDS_REVIEW ?? 0) + (statusTotals.INCOMPLETE ?? 0),
+      failedRecords: (statusTotals.FAILED ?? 0) + (statusTotals.DLQ ?? 0),
+      transferredRecords: statusTotals.PROMOTED ?? 0,
+      recordStatusCounts: statusTotals,
+      batchStatusCounts: {},
+      byDomain: {},
+      latestBatch: batches[0] ?? null,
+      generatedAt: new Date(),
+    };
+  }
+
+
+  async getOperationalInsights(filters?: { dataType?: string }) {
+    const dataType = filters?.dataType ? this.resolveOwnerDomain(filters.dataType) : undefined;
+    if (this.importRepository.getOperationalInsights) {
+      return this.importRepository.getOperationalInsights(dataType ? { dataType } : undefined);
+    }
+
+    const batches = await this.importRepository.listBatches({ ...(dataType ? { dataType } : {}), limit: 100 });
+    const now = Date.now();
+    const staleBefore = now - 15 * 60 * 1000;
+    const activeStatuses = new Set(['CREATED', 'QUEUED', 'RUNNING', 'PAUSED', 'RESUMING', 'CANCELLING', 'PROCESSING']);
+    const stuck = batches.filter((batch: any) => ['RUNNING', 'PROCESSING'].includes(String(batch.batchStatus)) && new Date(batch.updatedAt ?? batch.createdAt).getTime() < staleBefore);
+    const highFailure = batches.filter((batch: any) => Number(batch.totalRecords ?? 0) > 0 && (Number(batch.failedRecords ?? 0) / Number(batch.totalRecords)) > 0.10);
+    return {
+      stuckBatches: stuck.length,
+      highFailureBatches: highFailure.length,
+      retryableBatches: batches.filter((batch: any) => String(batch.batchStatus) === 'FAILED_RETRYABLE').length,
+      pausedBatches: batches.filter((batch: any) => String(batch.batchStatus) === 'PAUSED').length,
+      queuedBatches: batches.filter((batch: any) => ['CREATED', 'QUEUED', 'RESUMING'].includes(String(batch.batchStatus))).length,
+      dlqBatches: batches.filter((batch: any) => String(batch.batchStatus) === 'DLQ').length,
+      oldestActiveBatch: batches.filter((batch: any) => activeStatuses.has(String(batch.batchStatus))).sort((a: any, b: any) => new Date(a.updatedAt ?? a.createdAt).getTime() - new Date(b.updatedAt ?? b.createdAt).getTime())[0] ?? null,
+      recentProblemBatches: [...stuck, ...highFailure]
+        .filter((batch: any, index: number, all: any[]) => all.findIndex((candidate: any) => candidate.id === batch.id) === index)
+        .sort((a: any, b: any) => new Date(b.updatedAt ?? b.createdAt).getTime() - new Date(a.updatedAt ?? a.createdAt).getTime())
+        .slice(0, 8),
+      generatedAt: new Date(),
+    };
+  }
+
+  async getErrorReport(filters?: { dataType?: string; batchId?: string; limit?: number }) {
+    const dataType = filters?.dataType ? this.resolveOwnerDomain(filters.dataType) : undefined;
+    const limit = this.boundedNumber(filters?.limit, 500, 1, 1000);
+    if (this.importRepository.getErrorReport) {
+      return this.importRepository.getErrorReport({
+        ...(dataType ? { dataType } : {}),
+        ...(filters?.batchId ? { batchId: filters.batchId } : {}),
+        limit,
+      });
+    }
+
+    const failed = await this.importRepository.listRecords({ dataType, batchId: filters?.batchId, status: 'FAILED', page: 1, pageSize: Math.min(100, limit) });
+    const dlq = await this.importRepository.listRecords({ dataType, batchId: filters?.batchId, status: 'DLQ', page: 1, pageSize: Math.min(100, limit) });
+    const rows = [...(failed.data ?? []), ...(dlq.data ?? [])].slice(0, limit);
+    return {
+      total: Number(failed.total ?? 0) + Number(dlq.total ?? 0),
+      failed: Number(failed.total ?? 0),
+      dlq: Number(dlq.total ?? 0),
+      rows,
+      truncated: Number(failed.total ?? 0) + Number(dlq.total ?? 0) > rows.length,
+      generatedAt: new Date(),
+    };
+  }
+
+  getDomainCapabilities(domains: string[]) {
+    return {
+      data: domains.map((ownerDomain) => {
+        const resolvedDomain = this.resolveOwnerDomain(ownerDomain);
+        const handoffReady = this.hasHandoffConsumer(resolvedDomain);
+        return {
+          ownerDomain: resolvedDomain,
+          stagingReady: true,
+          handoffReady,
+          integrationMode: handoffReady ? 'DOMAIN_HANDOFF_READY' : 'STAGING_ONLY',
+          semanticPromotionOwner: 'OWNING_DOMAIN',
+        };
+      }),
+      generatedAt: new Date(),
+    };
   }
 
   async stageNormalizedRows(input: StageImportRowsInput) {
@@ -143,15 +309,22 @@ export class ImportAdminUseCases {
 
           // In the durable worker composition, persist work before dispatching it. If the API/worker
           // dies, the record remains an authoritative recovery instruction and the queue lease can be reclaimed.
+          const handoffReady = Boolean(
+            handoffEnvelope && this.hasHandoffConsumer(handoffEnvelope.ownerDomain),
+          );
           const handoff =
-            !durableWorkerPath && this.handoffDispatcher && handoffEnvelope
+            !durableWorkerPath && handoffReady && this.handoffDispatcher && handoffEnvelope
               ? await this.handoffDispatcher.dispatch(handoffEnvelope as any)
               : null;
+          const persistedStatus =
+            !durableWorkerPath && handoffEnvelope && !handoffReady && status === ImportRecordStatus.COMPLETE
+              ? ImportRecordStatus.NEEDS_REVIEW
+              : status;
 
           records.push({
             id: `rec-${uuidv4().substring(0, 8)}`,
             batchId: batch.id,
-            status,
+            status: persistedStatus,
             rawPayload: {
               ...payload,
               _sourceRowNumber: sourceRowNumber,
@@ -159,8 +332,10 @@ export class ImportAdminUseCases {
               ...(durableWorkerPath && handoffEnvelope
                 ? { _phase6HandoffEnvelope: handoffEnvelope }
                 : handoff
-                  ? { _domainHandoff: handoff }
-                  : {}),
+                  ? { _domainHandoff: handoff, _phase6HandoffState: 'DISPATCHED' }
+                  : handoffEnvelope
+                    ? { _phase6HandoffEnvelope: handoffEnvelope, _phase6HandoffState: 'AWAITING_DOMAIN_INTEGRATION' }
+                    : {}),
             },
             validationErrors:
               issues.length > 0 ? issues : validObject ? null : ['EMPTY_NORMALIZED_PAYLOAD'],
@@ -314,6 +489,20 @@ export class ImportAdminUseCases {
           : undefined;
 
         if (envelope) {
+          if (!this.hasHandoffConsumer(envelope.ownerDomain)) {
+            await this.importRepository.updateRecord(record.id, {
+              status: ImportRecordStatus.NEEDS_REVIEW,
+              rawPayload: {
+                ...rawPayload,
+                _phase6HandoffState: 'AWAITING_DOMAIN_INTEGRATION',
+              },
+              processingNotes: 'Phase 06 staging completed; owning-domain handoff integration is not registered yet.',
+            });
+            processedRecords++;
+            if (typeof record.sourceDedupKey === 'string') acceptedRecordKeys.push(record.sourceDedupKey);
+            continue;
+          }
+
           const handoffResult = await this.handoffDispatcher.dispatch(envelope as any);
           const nextPayload: Record<string, unknown> = { ...rawPayload };
           delete nextPayload._phase6HandoffEnvelope;
@@ -401,6 +590,12 @@ export class ImportAdminUseCases {
       correlationId: input.handoffContext?.correlationId,
       referenceMetadata: input.handoffContext?.referenceMetadata,
     };
+  }
+
+  private hasHandoffConsumer(ownerDomain: string): boolean {
+    if (!this.handoffDispatcher) return false;
+    const detector = (this.handoffDispatcher as any).hasConsumer;
+    return typeof detector === 'function' ? Boolean(detector.call(this.handoffDispatcher, ownerDomain)) : true;
   }
 
   private toTargetDomain(ownerDomain: string): ImportTargetDomain {

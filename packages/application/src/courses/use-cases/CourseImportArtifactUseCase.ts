@@ -13,7 +13,7 @@ import {
   CourseMasterArtifactIssue,
   CourseMasterArtifactParser,
   CourseMasterParseResult,
-} from '../../import-foundation/parsers/CourseMasterArtifactParser';
+} from '../parsers/CourseMasterArtifactParser';
 
 export interface CourseArtifactPreflightInput {
   assetId: string;

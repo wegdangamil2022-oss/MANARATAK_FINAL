@@ -112,7 +112,7 @@ const checks = {
   'GUARD-IG-H-PHASE17-SAME-ROUTER':
     /capabilityReadiness/.test(ai) &&
     /providerCircuitCanAttempt/.test(ai) &&
-    /adapter\.status\(\) !== 'READY'/.test(ai) &&
+    /isProviderExecutable\(adapter\.status\(\)\)/.test(ai) &&
     /phase18-student-tools/.test(gateways),
 };
 

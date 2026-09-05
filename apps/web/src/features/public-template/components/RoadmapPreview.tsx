@@ -1,116 +1,61 @@
 import React from 'react';
-import { Compass, ArrowUpLeft, Search, FileEdit, GraduationCap, PlaneTakeoff } from 'lucide-react';
+import { BookmarkCheck, Compass, FileCheck2, Search, Sparkles } from 'lucide-react';
 
-export const RoadmapPreview: React.FC<{onOpen: () => void}> = ({onOpen}) => {
+type RoadmapTarget = 'smart-search' | 'scholarships' | 'exams' | 'tools' | 'student';
+
+const STEPS: Array<{
+  number: number;
+  title: string;
+  description: string;
+  target: RoadmapTarget;
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { number: 1, title: 'حدّد هدفك الأكاديمي', description: 'اختر الدرجة والتخصص والدولة المناسبة.', target: 'smart-search', icon: Compass },
+  { number: 2, title: 'اكتشف وقارن الفرص', description: 'قارن الجامعات والمنح والدول والتكاليف.', target: 'scholarships', icon: Search },
+  { number: 3, title: 'تحقق من الأهلية والمتطلبات', description: 'راجع شروط القبول واللغة والوثائق والمواعيد النهائية.', target: 'exams', icon: FileCheck2 },
+  { number: 4, title: 'جهّز طلبك', description: 'استخدم أدوات السيرة الذاتية وخطاب الدافع والتوصيات وقائمة المستندات.', target: 'tools', icon: Sparkles },
+  { number: 5, title: 'احفظ وتابع تقدمك', description: 'أضف الفرص إلى المفضلة وتابع الطلب والتنبيهات من مساحة الطالب.', target: 'student', icon: BookmarkCheck },
+];
+
+export const RoadmapPreview: React.FC<{
+  onOpen?: () => void;
+  onNavigate?: (target: RoadmapTarget) => void;
+}> = ({ onOpen, onNavigate }) => {
+  const activate = (target: RoadmapTarget) => onNavigate ? onNavigate(target) : onOpen?.();
+
   return (
-    <section className="px-0.5 sm:px-1 py-3 w-full font-['Cairo',sans-serif]">
-      {/* Premium Minimalist Container */}
-      <div className="relative rounded-3xl p-4 sm:p-5 bg-[var(--mn-surface)] border border-[var(--mn-border)] shadow-sm overflow-hidden flex flex-col gap-7 sm:gap-8 border-t-2 border-t-[var(--mn-primary)]/40 mn-panel ">
-        {/* Background Decorative Elements */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--mn-page)] rounded-full blur-[80px] -translate-y-1/2 translate-x-1/3 pointer-events-none mn-panel "></div>
-
-        {/* Top Header: Title */}
-        <div className="relative z-10 flex justify-between items-end w-full px-1">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-[var(--mn-primary)]/10 to-[var(--mn-hero-secondary)]/5 flex items-center justify-center shrink-0 border border-[var(--mn-border-brand)]/10">
-              <Compass className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-[var(--mn-heading)]" />
-            </div>
-            <div>
-              <h3 className="text-sm sm:text-base font-bold text-[var(--mn-heading)]">
-                كيف تبدأ رحلتك الأكاديمية؟
-              </h3>
-              <p className="text-[10px] sm:text-[11px] text-[var(--mn-text-muted)] mt-0.5 max-w-xs line-clamp-1 sm:line-clamp-none">
-                خطوات واضحة تأخذ بيدك من مرحلة البحث وحتى مقعدك الجامعي
-              </p>
-            </div>
+    <section className="w-full py-3 font-['Cairo',sans-serif]" aria-labelledby="academic-roadmap-title">
+      <div className="mn-card p-3.5 sm:p-5">
+        <div className="mb-3 flex items-start gap-2.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-[var(--mn-border-gold)] bg-[var(--mn-gold-surface)] text-[var(--mn-accent-text)]">
+            <Compass className="h-4.5 w-4.5" />
+          </span>
+          <div className="min-w-0">
+            <h2 id="academic-roadmap-title" className="text-[16px] font-bold leading-6 text-[var(--mn-heading)] sm:text-[18px]">كيف تبدأ رحلتك الأكاديمية؟</h2>
+            <p className="mt-0.5 text-[11px] leading-5 text-[var(--mn-text-muted)] sm:text-xs">خمس خطوات عملية داخل منارتك، من تحديد الهدف حتى متابعة طلبك.</p>
           </div>
         </div>
 
-        {/* Middle: Micro-Steps Preview (Visual) */}
-        <div className="relative z-10 w-full flex items-center justify-center px-1 sm:px-8 py-2">
-          <div className="flex items-center justify-between w-full relative">
-            {/* Connecting Dashed Line */}
-            <div
-              className="absolute top-1/2 right-0 left-0 h-[2px] border-t-2 border-dashed border-[var(--mn-border)] -translate-y-1/2 z-0"
-              style={{ right: '5%', left: '5%' }}
-            ></div>
-
-            {/* Step 1 */}
-            <div className="relative z-10 flex flex-col items-center gap-2.5 group cursor-default">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full p-[2px] bg-gradient-to-br from-[var(--mn-surface-muted)] to-[var(--mn-surface-muted)] group-hover:from-[var(--mn-primary)] group-hover:to-[var(--mn-accent-soft)] transition-all duration-300 group-hover:-translate-y-1 shadow-sm group-hover:shadow-md relative mn-panel group-hover:mn-inverse ">
-                <div className="w-full h-full rounded-full overflow-hidden border-2 border-white bg-[var(--mn-surface)] mn-panel ">
-                  <img
-                    src="https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&q=80&w=150"
-                    alt="ابحث"
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    referrerPolicy="no-referrer"
-                  />
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          {STEPS.map((step, index) => {
+            const Icon = step.icon;
+            const lastOdd = index === STEPS.length - 1;
+            return (
+              <button
+                type="button"
+                key={step.number}
+                onClick={() => activate(step.target)}
+                className={`mn-card-subtle group min-h-[126px] p-3 text-right transition hover:-translate-y-0.5 hover:border-[var(--mn-accent)]/65 hover:shadow-sm ${lastOdd ? 'col-span-2 sm:col-span-1' : ''}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--mn-primary)] text-white mn-inverse"><Icon className="h-4 w-4" /></span>
+                  <span className="text-[10px] font-semibold text-[var(--mn-accent-text)]">0{step.number}</span>
                 </div>
-              </div>
-              <span className="text-[10px] sm:text-xs font-bold text-[var(--mn-text-muted)] group-hover:text-[var(--mn-heading)] transition-colors bg-[var(--mn-surface)] px-2 rounded-full relative z-10 mn-panel ">
-                ابحث
-              </span>
-            </div>
-
-            {/* Step 2 */}
-            <div className="relative z-10 flex flex-col items-center gap-2.5 group cursor-default">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full p-[2px] bg-gradient-to-br from-[var(--mn-surface-muted)] to-[var(--mn-surface-muted)] group-hover:from-[var(--mn-primary)] group-hover:to-[var(--mn-accent-soft)] transition-all duration-300 group-hover:-translate-y-1 shadow-sm group-hover:shadow-md relative mn-panel group-hover:mn-inverse ">
-                <div className="w-full h-full rounded-full overflow-hidden border-2 border-white bg-[var(--mn-surface)] mn-panel ">
-                  <img
-                    src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&q=80&w=150"
-                    alt="جهّز"
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-              </div>
-              <span className="text-[10px] sm:text-xs font-bold text-[var(--mn-text-muted)] group-hover:text-[var(--mn-heading)] transition-colors bg-[var(--mn-surface)] px-2 rounded-full relative z-10 mn-panel ">
-                جهّز
-              </span>
-            </div>
-
-            {/* Step 3 */}
-            <div className="relative z-10 flex flex-col items-center gap-2.5 group cursor-default">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full p-[2px] bg-gradient-to-br from-[var(--mn-surface-muted)] to-[var(--mn-surface-muted)] group-hover:from-[var(--mn-primary)] group-hover:to-[var(--mn-accent-soft)] transition-all duration-300 group-hover:-translate-y-1 shadow-sm group-hover:shadow-md relative mn-panel group-hover:mn-inverse ">
-                <div className="w-full h-full rounded-full overflow-hidden border-2 border-white bg-[var(--mn-surface)] mn-panel ">
-                  <img
-                    src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80&w=150"
-                    alt="قدّم"
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-              </div>
-              <span className="text-[10px] sm:text-xs font-bold text-[var(--mn-text-muted)] group-hover:text-[var(--mn-heading)] transition-colors bg-[var(--mn-surface)] px-2 rounded-full relative z-10 mn-panel ">
-                قدّم
-              </span>
-            </div>
-
-            {/* Step 4 */}
-            <div className="relative z-10 flex flex-col items-center gap-2.5 group cursor-default">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full p-[2px] bg-gradient-to-br from-[var(--mn-accent)] to-[var(--mn-accent)] transition-all duration-300 group-hover:-translate-y-1 shadow-md group-hover:shadow-lg relative mn-gold ">
-                <div className="w-full h-full rounded-full overflow-hidden border-2 border-white bg-[var(--mn-surface)] mn-panel ">
-                  <img
-                    src="https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&q=80&w=150"
-                    alt="سافر"
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-              </div>
-              <span className="text-[10px] sm:text-xs font-bold text-[var(--mn-accent-text)] group-hover:text-[var(--mn-accent-text)] transition-colors bg-[var(--mn-surface)] px-2 rounded-full relative z-10 mn-panel ">
-                سافر
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom: Main CTA - Styled like other sections */}
-        <div className="relative z-10 w-full flex justify-center px-1">
-          <button onClick={onOpen} className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-2.5 sm:py-3 bg-[var(--mn-surface)] hover:bg-[var(--mn-accent)]/10 text-[var(--mn-heading)] border border-[var(--mn-accent)]/50 rounded-full text-xs sm:text-sm font-bold transition-all shadow-[0_0_15px_rgba(214,164,59,0.3)] hover:shadow-[0_0_25px_rgba(214,164,59,0.5)] animate-pulse hover:animate-none active:scale-95 font-['Cairo',sans-serif] mx-auto mn-panel ">
-            <span>تصفح تفاصيل رحلتك</span>
-            <ArrowUpLeft className="w-4 h-4 text-[var(--mn-heading)] transition-transform group-hover:-translate-y-1 group-hover:-translate-x-1" />
-          </button>
+                <h3 className="mt-2 text-[12px] font-semibold leading-5 text-[var(--mn-heading)] sm:text-[13px]">{step.title}</h3>
+                <p className="mt-1 text-[10px] leading-4.5 text-[var(--mn-text-muted)] sm:text-[11px]">{step.description}</p>
+              </button>
+            );
+          })}
         </div>
       </div>
     </section>

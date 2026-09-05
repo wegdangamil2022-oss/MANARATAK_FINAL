@@ -1,381 +1,1044 @@
-import { useEffect, useState } from "react";
-import { useTranslation } from "../i18n/I18nProvider";
-import { 
-  FileSpreadsheet, 
-  Layers, 
-  Clock, 
-  AlertTriangle, 
-  CheckCircle2, 
-  UploadCloud, 
-  RefreshCw, 
-  Loader2, 
-  Check, 
-  PlusCircle,
-  HelpCircle,
-  FolderOpen,
-  ArrowRight
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type ReactNode,
+} from 'react';
+import { Link } from 'react-router-dom';
+import {
+  AlertTriangle,
+  ArchiveRestore,
+  ArrowLeft,
+  ArrowRight,
+  BookOpen,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  CirclePlay,
+  Clock3,
+  Database,
+  Download,
+  ExternalLink,
+  Eye,
+  FileJson2,
+  FileSpreadsheet,
+  FileText,
+  Filter,
+  Globe2,
+  GraduationCap,
+  HardDriveUpload,
+  Layers3,
+  ListChecks,
+  Loader2,
+  PauseCircle,
+  PlayCircle,
+  RefreshCw,
+  RotateCcw,
+  School,
+  SearchCheck,
+  ShieldCheck,
+  ShieldX,
+  Sparkles,
+  Square,
+  TestTube2,
+  UploadCloud,
+  Wrench,
+  X,
 } from 'lucide-react';
-import { adminApiClient } from "../api/client";
+import { adminApiClient } from '../api/client';
+import { useTranslation } from '../i18n/I18nProvider';
 
-export function ImportAdminPage() {
-  const { t, language } = useTranslation();
+const BRAND = {
+  primary: '#142B5F',
+  secondary: '#0E7C86',
+  digital: '#21A7B4',
+  gold: '#D6A43B',
+  highlight: '#F2CD78',
+  fog: '#DDEFF2',
+  ivory: '#FAF7F0',
+  text: '#203442',
+  white: '#FFFFFF',
+} as const;
 
-  const [loading, setLoading] = useState<boolean>(true);
-  const [records, setRecords] = useState<any[]>([]);
-  const [batches, setBatches] = useState<any[]>([]);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  
-  const handleQueueAction = async (batchId: string, action: 'pause' | 'resume' | 'cancel' | 'replay') => {
-    setActionLoading(`${batchId}-${action}`);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-    try {
-      await adminApiClient.request(`/admin/imports/queue/jobs/${batchId}/${action}`, { method: 'POST' });
-      setSuccessMsg(`Successfully executed ${action} on job ${batchId}`);
-      await loadData(selectedDomain);
-    } catch(err: any) {
-      setErrorMsg(err.message || `Failed to ${action} queue job`);
-    } finally {
-      setActionLoading(null);
-    }
+const INLINE_LIMIT_BYTES = 90 * 1024;
+const RECORD_PAGE_SIZE = 25;
+
+export type DomainKey = 'ALL' | 'SCHOLARSHIPS' | 'UNIVERSITIES' | 'MAJORS' | 'COURSES' | 'TESTS' | 'SERVICES' | 'CMS';
+type LoadState = 'idle' | 'loading' | 'ready' | 'unavailable';
+type SourceStatus = 'ACTIVE' | 'NEEDS_REVIEW' | 'DISABLED' | 'BLOCKED';
+type InputMode = 'file' | 'paste';
+
+type ImportBatch = {
+  id: string;
+  sourceSystem?: string;
+  dataType?: string;
+  batchStatus?: string;
+  totalRecords?: number;
+  processedRecords?: number;
+  failedRecords?: number;
+  attemptCount?: number;
+  availableAt?: string;
+  claimedBy?: string | null;
+  claimUntil?: string | null;
+  lastError?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+type ImportRecord = {
+  id: string;
+  batchId: string;
+  status?: string;
+  rawPayload?: Record<string, unknown>;
+  validationErrors?: unknown;
+  processingNotes?: string | null;
+  sourceDedupKey?: string | null;
+  promotedEntityId?: string | null;
+  sourceRowNumber?: number | null;
+  recordOffset?: number | null;
+  chunkIndex?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+  batch?: ImportBatch | null;
+};
+
+type PaginatedRecords = {
+  data: ImportRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages?: number;
+};
+
+type DomainOverview = {
+  batches: number;
+  records: number;
+  activeBatches: number;
+  needsReview: number;
+  failedRecords: number;
+  transferredRecords: number;
+  recordStatusCounts?: Record<string, number>;
+};
+
+type ImportOverview = {
+  totalBatches: number;
+  totalRecords: number;
+  activeBatches: number;
+  needsReview: number;
+  failedRecords: number;
+  transferredRecords: number;
+  recordStatusCounts: Record<string, number>;
+  batchStatusCounts: Record<string, number>;
+  byDomain: Record<string, DomainOverview>;
+  latestBatch?: ImportBatch | null;
+  generatedAt?: string;
+};
+
+type ImportSource = {
+  sourceId: string;
+  displayName: string;
+  baseUrl: string;
+  category: string;
+  accessClassification: string;
+  status: SourceStatus;
+  rateLimitPerMinute?: number;
+  robotsPolicyUrl?: string;
+  connectorId: string;
+  connectorVersion: string;
+  metadata?: Record<string, unknown>;
+};
+
+type SourceResponse = { data: ImportSource[] };
+
+type PreflightResult = {
+  ownerDomain: string;
+  sourceSystem: string;
+  totalRows: number;
+  newRows: number;
+  invalidRows: number;
+  duplicateRows: number;
+  duplicatesInPayload: number;
+  duplicatesAlreadyStaged: number;
+  previewRows: Array<Record<string, unknown>>;
+  warnings: string[];
+};
+
+type ImportResult = {
+  batch?: ImportBatch;
+  records?: ImportRecord[];
+  summary?: {
+    totalRows?: number;
+    stagedRecords?: number;
+    skippedDuplicates?: number;
+    failedRecords?: number;
   };
-  const [selectedDomain, setSelectedDomain] = useState<string>('ALL');
-  
-  const [metrics, setMetrics] = useState({
-    batchesCount: 0,
-    totalRecords: 0,
-    needsReviewCount: 0,
-    failedCount: 0,
-    readyCount: 0,
-  });
+};
 
-  const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
-  const [modalDomain, setModalDomain] = useState<string>('SCHOLARSHIPS');
-  const [importText, setImportText] = useState<string>('');
-  const [submitting, setSubmitting] = useState<boolean>(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<React.ReactNode | null>(null);
+type OperationalInsights = {
+  stuckBatches: number;
+  highFailureBatches: number;
+  retryableBatches: number;
+  pausedBatches: number;
+  queuedBatches: number;
+  dlqBatches: number;
+  oldestActiveBatch?: ImportBatch | null;
+  recentProblemBatches?: Array<ImportBatch & { stuck?: boolean; highFailureRate?: boolean; failureRate?: number }>;
+  thresholds?: { stuckAfterMinutes?: number; highFailureRate?: number };
+  generatedAt?: string;
+};
 
-  const loadData = async (domain = selectedDomain) => {
-    setLoading(true);
-    try {
-      const domainParam = domain === 'ALL' ? '' : domain;
-      const batchesUrl = `/admin/imports/batches` + (domainParam ? `?dataType=${domainParam}` : '');
-      const recordsUrl = `/admin/imports/records?pageSize=50` + (domainParam ? `&dataType=${domainParam}` : '');
+type DomainCapability = {
+  ownerDomain: string;
+  stagingReady: boolean;
+  handoffReady: boolean;
+};
 
-      const [fetchedBatches, recordsRes] = await Promise.all([
-        adminApiClient.request<any[]>(batchesUrl),
-        adminApiClient.request<{ data: any[]; total: number }>(recordsUrl),
-      ]);
+type DomainCapabilitiesResponse = { data: DomainCapability[]; generatedAt?: string };
 
-      
-      const recs = recordsRes.data || [];
-      const batchList = fetchedBatches || [];
-      // Also fetch queue jobs status for each batch
-      const batchesWithJobs = await Promise.all(batchList.map(async (b: any) => {
-        try {
-          const jobRes = await adminApiClient.request(`/admin/imports/queue/jobs/${b.id}`);
-          return { ...b, jobStatus: jobRes ? (jobRes as any).status : 'NO_JOB' };
-        } catch(e) {
-          return { ...b, jobStatus: 'UNKNOWN' };
-        }
-      }));
-      setBatches(batchesWithJobs);
+type ImportActivity = {
+  id: string;
+  actorId: string;
+  action: string;
+  severity: string;
+  targetId: string;
+  timestamp: string;
+  method?: string;
+  path?: string;
+  httpStatus?: number;
+  result?: 'SUCCESS' | 'FAILURE';
+};
 
-      setRecords(recs);
+type ImportActivityResponse = { data: ImportActivity[] };
 
-      setMetrics({
-        batchesCount: (fetchedBatches || []).length,
-        totalRecords: recordsRes.total || recs.length,
-        needsReviewCount: recs.filter((r: any) => r.status === 'NEEDS_REVIEW' || r.status === 'INCOMPLETE').length,
-        failedCount: recs.filter((r: any) => r.status === 'FAILED').length,
-        readyCount: recs.filter((r: any) => r.status === 'READY_FOR_REVIEW').length,
-      });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+type ErrorReport = {
+  total: number;
+  failed: number;
+  dlq: number;
+  rows: ImportRecord[];
+  truncated?: boolean;
+  generatedAt?: string;
+};
+
+type DomainConfig = {
+  key: Exclude<DomainKey, 'ALL'>;
+  ar: string;
+  en: string;
+  workspace: string;
+  icon: typeof GraduationCap;
+  template: string;
+  advancedWorkspace?: string;
+  importPath: string;
+};
+
+const DOMAIN_CONFIG: DomainConfig[] = [
+  {
+    key: 'SCHOLARSHIPS',
+    ar: 'المنح الدراسية',
+    en: 'Scholarships',
+    workspace: '/scholarships',
+    importPath: '/imports/scholarships',
+    advancedWorkspace: '/imports/scholarships',
+    icon: GraduationCap,
+    template: 'scholarshipName,fundingCoverage,degreeLevel,applicationLink,officialSourceUrl,sponsorName,studyCountry,applicationDeadline,eligibleMajorsOrFields',
+  },
+  {
+    key: 'UNIVERSITIES',
+    ar: 'الجامعات',
+    en: 'Universities',
+    workspace: '/universities',
+    importPath: '/imports/universities',
+    icon: School,
+    template: 'name,country,city,institutionType,officialWebsite,foundedYear',
+  },
+  {
+    key: 'MAJORS',
+    ar: 'التخصصات الأكاديمية',
+    en: 'Academic Majors',
+    workspace: '/majors',
+    importPath: '/imports/majors',
+    icon: Sparkles,
+    template: 'name,facultyName,classificationCode',
+  },
+  {
+    key: 'COURSES',
+    ar: 'الدورات التدريبية',
+    en: 'Courses & Training',
+    workspace: '/courses',
+    importPath: '/imports/courses',
+    icon: BookOpen,
+    template: 'name,directCourseUrl,providerName,learningLanguage,studyDuration,isStudyFree,isFreeCertificate,certificateType',
+  },
+  {
+    key: 'TESTS',
+    ar: 'الاختبارات الدولية',
+    en: 'International Tests',
+    workspace: '/international-tests',
+    importPath: '/imports/international-tests',
+    icon: TestTube2,
+    template: 'testCode,name,nameAr,testCategory,providerName,officialSourceUrl,description,totalDurationMinutes,skillSections,scoringScale',
+  },
+  {
+    key: 'SERVICES',
+    ar: 'الخدمات',
+    en: 'Services',
+    workspace: '/services',
+    importPath: '/imports/services',
+    icon: Wrench,
+    template: 'name,providerName,deliveryMode,officialSourceUrl',
+  },
+  {
+    key: 'CMS',
+    ar: 'المحتوى والمقالات CMS',
+    en: 'CMS Content',
+    workspace: '/cms',
+    importPath: '/imports/cms',
+    icon: FileText,
+    template: 'title,slug,contentType,language,officialSourceUrl,summary',
+  },
+];
+
+const RECORD_STATUS_OPTIONS = [
+  '',
+  'COMPLETE',
+  'INCOMPLETE',
+  'NEEDS_REVIEW',
+  'READY_FOR_REVIEW',
+  'PROMOTED',
+  'FAILED',
+  'DLQ',
+] as const;
+
+const ACTIVE_BATCH_STATUSES = new Set(['CREATED', 'QUEUED', 'RUNNING', 'PAUSED', 'RESUMING', 'CANCELLING', 'PROCESSING']);
+const REPLAYABLE_BATCH_STATUSES = new Set(['PARTIALLY_COMPLETED', 'FAILED_RETRYABLE', 'FAILED_PERMANENT', 'DLQ', 'CANCELLED']);
+
+export function ImportAdminPage({ fixedDomain }: { fixedDomain?: Exclude<DomainKey, 'ALL'> } = {}) {
+  const { language } = useTranslation();
+  const isArabic = language === 'ar';
+  const txt = useCallback((ar: string, en: string) => (isArabic ? ar : en), [isArabic]);
+
+  const [overview, setOverview] = useState<ImportOverview | null>(null);
+  const [overviewState, setOverviewState] = useState<LoadState>('idle');
+  const [sources, setSources] = useState<ImportSource[]>([]);
+  const [sourcesState, setSourcesState] = useState<LoadState>('idle');
+  const [batches, setBatches] = useState<ImportBatch[]>([]);
+  const [operations, setOperations] = useState<OperationalInsights | null>(null);
+  const [operationsState, setOperationsState] = useState<LoadState>('idle');
+  const [capabilities, setCapabilities] = useState<DomainCapability[]>([]);
+  const [capabilitiesState, setCapabilitiesState] = useState<LoadState>('idle');
+  const [activity, setActivity] = useState<ImportActivity[]>([]);
+  const [activityState, setActivityState] = useState<LoadState>('idle');
+  const [errorExportLoading, setErrorExportLoading] = useState(false);
+  const [records, setRecords] = useState<PaginatedRecords>({ data: [], total: 0, page: 1, pageSize: RECORD_PAGE_SIZE });
+  const [dataState, setDataState] = useState<LoadState>('idle');
+
+  const [selectedDomain, setSelectedDomain] = useState<DomainKey>(fixedDomain ?? 'ALL');
+  const [recordStatus, setRecordStatus] = useState('');
+  const [selectedBatchId, setSelectedBatchId] = useState('');
+  const [recordPage, setRecordPage] = useState(1);
+  const [selectedRecord, setSelectedRecord] = useState<ImportRecord | null>(null);
+
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [modalDomain, setModalDomain] = useState<Exclude<DomainKey, 'ALL'>>(fixedDomain ?? 'SCHOLARSHIPS');
+  const [inputMode, setInputMode] = useState<InputMode>('file');
+  const [sourceSystem, setSourceSystem] = useState('ADMIN_CONSOLE_MANUAL');
+  const [importText, setImportText] = useState('');
+  const [selectedFileName, setSelectedFileName] = useState('');
+  const [preflight, setPreflight] = useState<PreflightResult | null>(null);
+  const [preflightLoading, setPreflightLoading] = useState(false);
+  const [importSubmitting, setImportSubmitting] = useState(false);
+
+  const [actionLoading, setActionLoading] = useState('');
+  const [sourceActionLoading, setSourceActionLoading] = useState('');
+  const [notice, setNotice] = useState<{ tone: 'success' | 'error' | 'warning'; content: ReactNode } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    loadData(selectedDomain);
-  }, [selectedDomain]);
+    if (!fixedDomain) return;
+    setSelectedDomain(fixedDomain);
+    setModalDomain(fixedDomain);
+    setSelectedBatchId('');
+    setRecordStatus('');
+    setRecordPage(1);
+    setSelectedRecord(null);
+  }, [fixedDomain]);
 
-  const insertSampleCsv = (domain = modalDomain) => {
-    let sample = '';
-    if (domain === 'SCHOLARSHIPS') {
-      sample = `scholarshipName,fundingCoverage,degreeLevel,applicationLink,officialSourceUrl,sponsorName,studyCountry,applicationDeadline,eligibleMajorsOrFields
-King Abdulaziz University Scholarship,Fully Funded,Master,https://kau.edu.sa/apply,https://kau.edu.sa,Ministry of Education,Saudi Arabia,2027-11-30,Computer Science
-Chevening UK Leadership Scholarship,Fully Funded,Master,https://chevening.org/apply,https://chevening.org,UK Foreign Office,United Kingdom,2027-11-03,All Majors
-DAAD German Academic Exchange,Fully Funded,Master,https://daad.de/apply,https://daad.de,DAAD Germany,Germany,2027-10-15,Engineering`;
-    } else if (domain === 'UNIVERSITIES') {
-      sample = `name,country,city,institutionType,officialWebsite,foundedYear
-Qatar University,Qatar,Doha,Public,https://www.qu.edu.qa,1977
-Istanbul Technical University,Turkey,Istanbul,Public,https://www.itu.edu.tr,1773`;
-    } else if (domain === 'MAJORS') {
-      sample = `name,facultyName,classificationCode
-Software Engineering,College of Engineering,SWE-404
-Financial Technology,School of Business,FIN-302`;
-    } else if (domain === 'INTERNATIONAL_TESTS') {
-      sample = `testCode,name,nameAr,testCategory,providerName,officialSourceUrl,description,totalDurationMinutes,skillSections,scoringScale
-IELTS-ACAD,IELTS Academic,اختبار آيلتس الأكاديمي,Language,IDP / British Council / Cambridge,https://ielts.org/take-a-test/test-types/ielts-academic,Official English language proficiency test for academic study,165,Listening;Reading;Writing;Speaking,1.0 - 9.0 Band Scale
-TOEFL-IBT,TOEFL iBT,اختبار توفل الرقمي,Language,ETS,https://ets.org/toefl/ibt/about,Standardized academic English assessment for university entry,120,Reading;Listening;Speaking;Writing,0 - 120 Total Score`;
-    } else if (domain === 'COURSES') {
-      sample = `name,learningLanguage,duration,accessType
-Python Essentials,English,4 weeks,Free
-Academic Writing in Arabic,Arabic,6 weeks,Paid`;
-    } else if (domain === 'SERVICES') {
-      sample = `name,providerName,deliveryMode
-Student Visa Advisory,Manaratak Concierge,Online
-Academic Translation,Verified Partner,Manual`;
+  const apiDomain = useCallback((domain: DomainKey) => (domain === 'ALL' ? '' : domain), []);
+
+  const loadControlPlane = useCallback(async () => {
+    setOverviewState('loading');
+    setSourcesState('loading');
+    setCapabilitiesState('loading');
+    setActivityState('loading');
+    const [overviewResult, sourcesResult, capabilitiesResult, activityResult] = await Promise.allSettled([
+      adminApiClient.request<ImportOverview>('/admin/imports/overview'),
+      adminApiClient.request<SourceResponse>('/admin/imports/sources'),
+      adminApiClient.request<DomainCapabilitiesResponse>('/admin/imports/capabilities'),
+      adminApiClient.request<ImportActivityResponse>('/admin/imports/activity?limit=20'),
+    ]);
+
+    if (overviewResult.status === 'fulfilled') {
+      setOverview(overviewResult.value);
+      setOverviewState('ready');
+    } else {
+      setOverview(null);
+      setOverviewState('unavailable');
     }
 
-    setImportText(sample);
-    setErrorMsg(null);
+    if (sourcesResult.status === 'fulfilled') {
+      setSources(Array.isArray(sourcesResult.value.data) ? sourcesResult.value.data : []);
+      setSourcesState('ready');
+    } else {
+      setSources([]);
+      setSourcesState('unavailable');
+    }
+
+    if (capabilitiesResult.status === 'fulfilled') {
+      setCapabilities(Array.isArray(capabilitiesResult.value.data) ? capabilitiesResult.value.data : []);
+      setCapabilitiesState('ready');
+    } else {
+      setCapabilities([]);
+      setCapabilitiesState('unavailable');
+    }
+
+    if (activityResult.status === 'fulfilled') {
+      setActivity(Array.isArray(activityResult.value.data) ? activityResult.value.data : []);
+      setActivityState('ready');
+    } else {
+      setActivity([]);
+      setActivityState('unavailable');
+    }
+  }, []);
+
+  const loadDomainData = useCallback(async () => {
+    setDataState('loading');
+    setOperationsState('loading');
+    const domain = apiDomain(selectedDomain);
+    const batchParams = new URLSearchParams();
+    if (domain) batchParams.set('dataType', domain);
+
+    const recordParams = new URLSearchParams({
+      page: String(recordPage),
+      pageSize: String(RECORD_PAGE_SIZE),
+    });
+    if (domain) recordParams.set('dataType', domain);
+    if (recordStatus) recordParams.set('status', recordStatus);
+    if (selectedBatchId) recordParams.set('batchId', selectedBatchId);
+
+    const operationsParams = new URLSearchParams();
+    if (domain) operationsParams.set('dataType', domain);
+
+    const [batchResult, recordResult, operationsResult] = await Promise.allSettled([
+      adminApiClient.request<ImportBatch[]>(`/admin/imports/batches${batchParams.toString() ? `?${batchParams}` : ''}`),
+      adminApiClient.request<PaginatedRecords>(`/admin/imports/records?${recordParams}`),
+      adminApiClient.request<OperationalInsights>(`/admin/imports/operations${operationsParams.toString() ? `?${operationsParams}` : ''}`),
+    ]);
+
+    if (batchResult.status === 'fulfilled' && recordResult.status === 'fulfilled') {
+      setBatches(Array.isArray(batchResult.value) ? batchResult.value : []);
+      setRecords({
+        data: Array.isArray(recordResult.value.data) ? recordResult.value.data : [],
+        total: Number(recordResult.value.total ?? 0),
+        page: Number(recordResult.value.page ?? recordPage),
+        pageSize: Number(recordResult.value.pageSize ?? RECORD_PAGE_SIZE),
+        totalPages: recordResult.value.totalPages,
+      });
+      setDataState('ready');
+    } else {
+      setBatches([]);
+      setRecords({ data: [], total: 0, page: recordPage, pageSize: RECORD_PAGE_SIZE });
+      setDataState('unavailable');
+    }
+
+    if (operationsResult.status === 'fulfilled') {
+      setOperations(operationsResult.value);
+      setOperationsState('ready');
+    } else {
+      setOperations(null);
+      setOperationsState('unavailable');
+    }
+
+    if (batchResult.status === 'rejected' || recordResult.status === 'rejected') {
+      const reason = batchResult.status === 'rejected' ? batchResult.reason : recordResult.status === 'rejected' ? recordResult.reason : null;
+      setNotice({
+        tone: 'error',
+        content: reason instanceof Error ? reason.message : txt('تعذر تحميل بيانات الاستيراد.', 'Unable to load import data.'),
+      });
+    }
+  }, [apiDomain, recordPage, recordStatus, selectedBatchId, selectedDomain, txt]);
+
+  useEffect(() => {
+    void loadControlPlane();
+  }, [loadControlPlane]);
+
+  useEffect(() => {
+    void loadDomainData();
+  }, [loadDomainData]);
+
+  const refreshAll = useCallback(async () => {
+    setNotice(null);
+    await Promise.all([loadControlPlane(), loadDomainData()]);
+  }, [loadControlPlane, loadDomainData]);
+
+  const mergedDomainOverview = useCallback((domain: Exclude<DomainKey, 'ALL'>): DomainOverview => {
+    const direct = overview?.byDomain?.[domain];
+    if (domain !== 'TESTS') {
+      return direct ?? { batches: 0, records: 0, activeBatches: 0, needsReview: 0, failedRecords: 0, transferredRecords: 0 };
+    }
+    const legacy = overview?.byDomain?.INTERNATIONAL_TESTS;
+    if (!direct && !legacy) return { batches: 0, records: 0, activeBatches: 0, needsReview: 0, failedRecords: 0, transferredRecords: 0 };
+    return {
+      batches: (direct?.batches ?? 0) + (legacy?.batches ?? 0),
+      records: (direct?.records ?? 0) + (legacy?.records ?? 0),
+      activeBatches: (direct?.activeBatches ?? 0) + (legacy?.activeBatches ?? 0),
+      needsReview: (direct?.needsReview ?? 0) + (legacy?.needsReview ?? 0),
+      failedRecords: (direct?.failedRecords ?? 0) + (legacy?.failedRecords ?? 0),
+      transferredRecords: (direct?.transferredRecords ?? 0) + (legacy?.transferredRecords ?? 0),
+    };
+  }, [overview]);
+
+  const scopedMetrics = useMemo(() => {
+    if (!overview) return null;
+    if (selectedDomain === 'ALL') {
+      return {
+        batches: overview.totalBatches,
+        records: overview.totalRecords,
+        active: overview.activeBatches,
+        review: overview.needsReview,
+        failed: overview.failedRecords,
+        transferred: overview.transferredRecords,
+      };
+    }
+    const domain = mergedDomainOverview(selectedDomain);
+    return {
+      batches: domain.batches,
+      records: domain.records,
+      active: domain.activeBatches,
+      review: domain.needsReview,
+      failed: domain.failedRecords,
+      transferred: domain.transferredRecords,
+    };
+  }, [mergedDomainOverview, overview, selectedDomain]);
+
+  const otherDomainEntries = useMemo(() => {
+    const primary = new Set<string>([...DOMAIN_CONFIG.map((item) => item.key), 'INTERNATIONAL_TESTS']);
+    return (Object.entries(overview?.byDomain ?? {}) as Array<[string, DomainOverview]>)
+      .filter(([key, value]) => !primary.has(key) && Number(value?.batches ?? 0) + Number(value?.records ?? 0) > 0)
+      .sort((a, b) => Number(b[1]?.records ?? 0) - Number(a[1]?.records ?? 0));
+  }, [overview]);
+
+  const sourceOwnerDomain = useCallback((source: ImportSource) => String(source.metadata?.ownerDomain ?? source.metadata?.domain ?? '').toUpperCase(), []);
+  const visibleSources = useMemo(() => {
+    if (selectedDomain === 'ALL') return sources;
+    return sources.filter((source) => {
+      const owner = sourceOwnerDomain(source);
+      return !owner || owner === selectedDomain || (selectedDomain === 'TESTS' && owner === 'INTERNATIONAL_TESTS');
+    });
+  }, [selectedDomain, sourceOwnerDomain, sources]);
+
+  const capabilityFor = useCallback((domain: Exclude<DomainKey, 'ALL'>) => {
+    const normalized = domain === 'TESTS' ? 'TESTS' : domain;
+    return capabilities.find((item) => normalizeDomain(item.ownerDomain) === normalized);
+  }, [capabilities]);
+
+  const fixedDomainConfig = fixedDomain ? DOMAIN_CONFIG.find((item) => item.key === fixedDomain) : undefined;
+
+  const activeSources = sources.filter((source) => source.status === 'ACTIVE').length;
+  const sourcesNeedReview = sources.filter((source) => source.status === 'NEEDS_REVIEW').length;
+  const dlqRecords = overview?.recordStatusCounts?.DLQ ?? 0;
+  const failedJobs = (overview?.batchStatusCounts?.FAILED_RETRYABLE ?? 0)
+    + (overview?.batchStatusCounts?.FAILED_PERMANENT ?? 0)
+    + (overview?.batchStatusCounts?.DLQ ?? 0);
+
+  const totalRecordPages = Math.max(1, Math.ceil(records.total / Math.max(1, records.pageSize)));
+
+  const selectDomain = (domain: DomainKey) => {
+    if (fixedDomain && domain !== fixedDomain) return;
+    setSelectedDomain(domain);
+    setSelectedBatchId('');
+    setRecordStatus('');
+    setRecordPage(1);
   };
 
-  const handleProcessImport = async () => {
-    if (!importText.trim()) {
-      setErrorMsg('Please enter or upload CSV/JSON data.');
+  const openImport = (domain?: Exclude<DomainKey, 'ALL'>) => {
+    const target = fixedDomain ?? domain ?? (selectedDomain === 'ALL' ? 'SCHOLARSHIPS' : selectedDomain);
+    setModalDomain(target);
+    setSourceSystem('ADMIN_CONSOLE_MANUAL');
+    setInputMode('file');
+    setImportText('');
+    setSelectedFileName('');
+    setPreflight(null);
+    setNotice(null);
+    setShowImportModal(true);
+  };
+
+  const readFile = async (file: File) => {
+    if (file.size > INLINE_LIMIT_BYTES) {
+      setNotice({
+        tone: 'error',
+        content: txt('الملف أكبر من 90KB. استخدم مسار Artifact/المجال للملفات الكبيرة بدل الاستيراد النصي المباشر.', 'The file exceeds 90KB. Use the domain/artifact import path for large files instead of inline import.'),
+      });
       return;
     }
+    const allowed = /\.(csv|json|ndjson|txt)$/i.test(file.name);
+    if (!allowed) {
+      setNotice({ tone: 'error', content: txt('الأنواع المدعومة هنا: CSV وJSON وNDJSON وTXT.', 'Supported inline formats are CSV, JSON, NDJSON, and TXT.') });
+      return;
+    }
+    const text = await file.text();
+    setSelectedFileName(file.name);
+    setImportText(text);
+    setPreflight(null);
+  };
 
-    setSubmitting(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files?.[0];
+    if (file) void readFile(file);
+  };
 
+  const runPreflight = async () => {
+    if (!importText.trim()) return;
+    setPreflightLoading(true);
+    setNotice(null);
     try {
-      const res = await adminApiClient.request<{ batch: any; records: any[] }>('/admin/imports', {
+      const result = await adminApiClient.request<PreflightResult>('/admin/imports/preflight', {
         method: 'POST',
-        body: JSON.stringify({ 
-          dataText: importText, 
-          sourceSystem: 'ADMIN_PORTAL',
+        body: JSON.stringify({
+          dataText: importText,
+          sourceSystem: sourceSystem.trim() || 'ADMIN_CONSOLE_MANUAL',
           dataType: modalDomain,
-          
         }),
       });
-
-      setSuccessMsg(
-        <div className="flex flex-col gap-1 w-full text-xs font-semibold">
-          <span>{`${t('import_success_msg') || 'Import batch processed!'} ${res.records.length} records ingested.`}</span>
-          <span className="text-slate-600 font-medium">
-            {language === 'ar' 
-              ? 'السجلات محفوظة في جداول الاستيراد العامة لـ Phase 06. الترقية غير مفعلة هنا ويجب أن تتم عبر مساحة عمل المجال الخادمة.' 
-              : 'Records are staged in Phase 06 generic import tables. Domain review proposal is active. Approval must be performed by the owning domain workspace.'}
-          </span>
-        </div>
-      );
-      setImportText('');
-      setShowUploadModal(false);
-      loadData(selectedDomain);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to process import');
+      setPreflight(result);
+    } catch (error) {
+      setPreflight(null);
+      setNotice({ tone: 'error', content: error instanceof Error ? error.message : txt('فشل فحص ما قبل الاستيراد.', 'Import preflight failed.') });
     } finally {
-      setSubmitting(false);
+      setPreflightLoading(false);
     }
   };
 
-  const domains = [
-    { key: 'ALL', label: t('all_domains') || 'All Domains' },
-    { key: 'SCHOLARSHIPS', label: t('domain_scholarships') || 'Scholarships' },
-    { key: 'UNIVERSITIES', label: t('domain_universities') || 'Universities' },
-    { key: 'MAJORS', label: t('domain_majors') || 'Majors' },
-    { key: 'INTERNATIONAL_TESTS', label: t('domain_tests') || 'International Tests' },
-    { key: 'COURSES', label: t('domain_courses') || 'Courses' },
-    { key: 'SERVICES', label: t('domain_services') || 'Services' },
-  ];
+  const stageImport = async () => {
+    if (!preflight || !importText.trim()) return;
+    setImportSubmitting(true);
+    setNotice(null);
+    try {
+      const result = await adminApiClient.request<ImportResult>('/admin/imports', {
+        method: 'POST',
+        body: JSON.stringify({
+          dataText: importText,
+          sourceSystem: sourceSystem.trim() || 'ADMIN_CONSOLE_MANUAL',
+          dataType: modalDomain,
+        }),
+      });
+      const staged = result.summary?.stagedRecords ?? result.records?.length ?? preflight.newRows;
+      const skipped = result.summary?.skippedDuplicates ?? preflight.duplicateRows;
+      setShowImportModal(false);
+      setImportText('');
+      setPreflight(null);
+      const handoffReady = capabilityFor(modalDomain)?.handoffReady === true;
+      setNotice({
+        tone: handoffReady ? 'success' : 'warning',
+        content: handoffReady
+          ? txt(
+              `تم إنشاء دفعة الاستيراد وتخزين ${staged} سجلًا في منطقة التجهيز${skipped ? `، وتجاوز ${skipped} سجلًا مكررًا` : ''}. تسليم المجال متصل، ولا يوجد نشر تلقائي.`,
+              `Import batch created with ${staged} staged record(s)${skipped ? ` and ${skipped} duplicate row(s) skipped` : ''}. Owning-domain handoff is connected; nothing is auto-published.`,
+            )
+          : txt(
+              `تم تجهيز ${staged} سجلًا${skipped ? ` وتجاوز ${skipped} مكررًا` : ''}. تسليم المجال غير مربوط بعد؛ ستبقى السجلات NEEDS_REVIEW / AWAITING_DOMAIN_INTEGRATION ولن يدّعي النظام أنها سُلّمت للمجال.`,
+              `${staged} record(s) staged${skipped ? ` with ${skipped} duplicate(s) skipped` : ''}. Owning-domain handoff is not connected yet; records remain NEEDS_REVIEW / AWAITING_DOMAIN_INTEGRATION and are not falsely marked as dispatched.`,
+            ),
+      });
+      await refreshAll();
+    } catch (error) {
+      setNotice({ tone: 'error', content: error instanceof Error ? error.message : txt('فشلت عملية التجهيز.', 'Staging failed.') });
+    } finally {
+      setImportSubmitting(false);
+    }
+  };
+
+  const queueAction = async (batch: ImportBatch, action: 'pause' | 'resume' | 'cancel' | 'replay') => {
+    const key = `${batch.id}:${action}`;
+    let reason: string | undefined;
+    if (action === 'cancel') {
+      if (!window.confirm(txt('إلغاء الدفعة يوقف معالجتها مع الاحتفاظ بسجل التدقيق. هل تريد المتابعة؟', 'Cancelling stops the batch while preserving its audit trail. Continue?'))) return;
+      reason = window.prompt(txt('سبب الإلغاء (اختياري):', 'Cancellation reason (optional):')) ?? undefined;
+    }
+    if (action === 'pause') {
+      reason = window.prompt(txt('سبب الإيقاف المؤقت (اختياري):', 'Pause reason (optional):')) ?? undefined;
+    }
+    if (action === 'replay' && !window.confirm(txt('ستُعاد جدولة هذه الدفعة للمعالجة. هل تريد المتابعة؟', 'This batch will be queued for replay. Continue?'))) return;
+
+    setActionLoading(key);
+    setNotice(null);
+    try {
+      await adminApiClient.request(`/admin/imports/queue/jobs/${batch.id}/${action}`, {
+        method: 'POST',
+        body: JSON.stringify(reason ? { reason } : action === 'replay' ? { fromCheckpoint: true } : {}),
+      });
+      setNotice({ tone: 'success', content: txt('تم تنفيذ الإجراء على الدفعة بنجاح.', 'Batch action completed successfully.') });
+      await refreshAll();
+    } catch (error) {
+      setNotice({ tone: 'error', content: error instanceof Error ? error.message : txt('تعذر تنفيذ الإجراء.', 'Unable to execute batch action.') });
+    } finally {
+      setActionLoading('');
+    }
+  };
+
+  const changeSourceStatus = async (source: ImportSource, nextStatus: SourceStatus) => {
+    if (source.status === nextStatus) return;
+    const risky = nextStatus === 'DISABLED' || nextStatus === 'BLOCKED';
+    if (risky && !window.confirm(txt(`سيتم تغيير حالة المصدر «${source.displayName}» إلى ${sourceStatusLabel(nextStatus, isArabic)}. هل تريد المتابعة؟`, `Change “${source.displayName}” to ${sourceStatusLabel(nextStatus, isArabic)}?`))) return;
+    const reason = risky ? window.prompt(txt('سبب تغيير الحالة (اختياري):', 'Reason (optional):')) ?? undefined : undefined;
+    setSourceActionLoading(source.sourceId);
+    try {
+      await adminApiClient.request(`/admin/imports/sources/${encodeURIComponent(source.sourceId)}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: nextStatus, reason }),
+      });
+      setNotice({ tone: 'success', content: txt('تم تحديث حالة المصدر.', 'Source status updated.') });
+      await loadControlPlane();
+    } catch (error) {
+      setNotice({ tone: 'error', content: error instanceof Error ? error.message : txt('تعذر تحديث المصدر.', 'Unable to update source.') });
+    } finally {
+      setSourceActionLoading('');
+    }
+  };
+
+  const exportErrorReport = async () => {
+    setErrorExportLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: '1000' });
+      if (selectedDomain !== 'ALL') params.set('dataType', selectedDomain);
+      if (selectedBatchId) params.set('batchId', selectedBatchId);
+      const report = await adminApiClient.request<ErrorReport>(`/admin/imports/error-report?${params}`);
+      if (!Array.isArray(report.rows) || report.rows.length === 0) {
+        setNotice({ tone: 'warning', content: txt('لا توجد سجلات FAILED أو DLQ ضمن العرض الحالي.', 'There are no FAILED or DLQ records in the current scope.') });
+        return;
+      }
+      const headers = ['recordId', 'batchId', 'domain', 'sourceSystem', 'status', 'sourceRow', 'validationErrors', 'processingNotes', 'createdAt'];
+      const rows = report.rows.map((record) => {
+        const batch = record.batch;
+        return [
+          record.id,
+          record.batchId,
+          normalizeDomain(batch?.dataType),
+          batch?.sourceSystem ?? '',
+          record.status ?? '',
+          record.sourceRowNumber ?? '',
+          normalizeErrors(record.validationErrors).join(' | '),
+          record.processingNotes ?? '',
+          record.createdAt ?? '',
+        ];
+      });
+      const csv = [headers, ...rows].map((row) => row.map(csvCell).join(',')).join('\n');
+      const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = `manaratak-import-errors-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(href);
+      if (report.truncated) {
+        setNotice({ tone: 'warning', content: txt('تم تصدير أول 1000 سجل خطأ فقط. استخدم تصفية المجال أو الدفعة لتضييق التقرير.', 'Only the first 1000 error rows were exported. Filter by domain or batch to narrow the report.') });
+      }
+    } catch (error) {
+      setNotice({ tone: 'error', content: error instanceof Error ? error.message : txt('تعذر تصدير تقرير الأخطاء.', 'Unable to export the error report.') });
+    } finally {
+      setErrorExportLoading(false);
+    }
+  };
+
+  const selectedDomainConfig = DOMAIN_CONFIG.find((item) => item.key === modalDomain)!;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">{t('admin_imports') || 'Import Management'}</h2>
-          <p className="text-sm text-slate-500 mt-1">{t('import_control_plane_desc') || 'Control plane visibility for data import batches, validation logs, error queues, and domain review proposal.'}</p>
+    <main
+      dir={isArabic ? 'rtl' : 'ltr'}
+      className="mx-auto min-h-screen max-w-7xl space-y-6 rounded-3xl p-1 sm:p-2"
+      style={{ fontFamily: "'Cairo', sans-serif", backgroundColor: BRAND.ivory, color: BRAND.text }}
+    >
+      <section className="relative overflow-hidden rounded-3xl border border-white/15 p-6 text-white shadow-xl sm:p-8" style={{ background: `linear-gradient(125deg, ${BRAND.primary} 0%, ${BRAND.secondary} 72%, ${BRAND.digital} 125%)` }}>
+        <div className="absolute -top-20 end-0 h-52 w-52 rounded-full opacity-20" style={{ backgroundColor: BRAND.highlight }} />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-3xl">
+            <div className="mb-2 flex items-center gap-2 text-xs font-black tracking-wide" style={{ color: BRAND.highlight }}>
+              <HardDriveUpload className="h-4 w-4" />
+              {txt('منصة الاستيراد — Control Plane', 'Import Platform — Control Plane')}
+            </div>
+            <h1 className="text-3xl font-black sm:text-4xl">{fixedDomainConfig ? txt(`مركز استيراد ${fixedDomainConfig.ar}`, `${fixedDomainConfig.en} Import Center`) : txt('مركز الاستيراد الموحد', 'Unified Import Control Center')}</h1>
+            <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-white/80">
+              {fixedDomainConfig
+                ? txt('مساحة تشغيل مخصصة لهذا المجال: فحص مسبق، تجهيز، طوابير، أخطاء وتتبع. قرار القبول والدمج والنشر يبقى داخل المجال المالك.', 'Domain-specific operations workspace: preflight, staging, queues, errors and traceability. Acceptance, merge and publication remain owned by the domain.')
+                : txt('راقب المصادر والدفعات والسجلات على مستوى المنصة، ثم ادخل إلى مركز كل مجال لتنفيذ الاستيراد. الاستيراد لا يعني النشر.', 'Monitor platform-wide import operations, then open each domain center to execute imports. Import never means publish.')}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-black">
+              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5">{txt('لا نشر تلقائي', 'No auto-publish')}</span>
+              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5">{txt('لا كتابة فوقية صامتة', 'No silent overwrite')}</span>
+              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5">{txt('المجال يملك قرار الدمج', 'Domain owns merge decisions')}</span>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {fixedDomainConfig ? (
+              <>
+                <Link to="/imports" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-black text-white transition hover:bg-white/15">
+                  {isArabic ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}{txt('مركز الاستيراد العام', 'Import Overview')}
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => openImport(fixedDomain)}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black shadow-lg transition hover:-translate-y-0.5"
+                  style={{ backgroundColor: BRAND.gold, color: BRAND.primary }}
+                >
+                  <UploadCloud className="h-4 w-4" />
+                  {txt('استيراد جديد', 'New Import')}
+                </button>
+              </>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void refreshAll()}
+              disabled={overviewState === 'loading' || dataState === 'loading'}
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-black text-white transition hover:bg-white/15 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${overviewState === 'loading' || dataState === 'loading' ? 'animate-spin' : ''}`} />
+              {txt('تحديث', 'Refresh')}
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <button
-            onClick={() => {
-              setShowUploadModal(true);
-              const defaultModalDomain = selectedDomain === 'ALL' ? 'SCHOLARSHIPS' : selectedDomain;
-              setModalDomain(defaultModalDomain);
-              insertSampleCsv(defaultModalDomain);
-            }}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition-all"
-          >
-            <UploadCloud className="w-4 h-4" />
-            <span>{t('start_import') || 'Start Import'}</span>
-          </button>
-          <button
-            onClick={() => loadData(selectedDomain)}
-            className="p-2 border border-slate-200 bg-white rounded-lg hover:bg-slate-50 text-slate-600 transition-colors"
-            title={t('refresh') || 'Refresh'}
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
+      </section>
 
-      {/* Architecture Note Alert Box */}
-      <div className="bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-4 flex gap-3 items-start shadow-sm">
-        <HelpCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-        <div className="space-y-1">
-          <h4 className="text-sm font-bold text-slate-900">{t('boundary_note') || 'Architecture Boundary Note'}</h4>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            {t('import_boundary_note') || 'Phase 06 owns generic import mechanics such as CSV/JSON parsing, batch creation, records, errors, and retries. Domain validation and review rules remain owned by each target domain.'}
-          </p>
-        </div>
-      </div>
+      {notice && <Notice tone={notice.tone}>{notice.content}</Notice>}
 
-      {/* Success/Error Alerts */}
-      {successMsg && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-100 text-emerald-800 text-xs rounded-xl flex items-center gap-2.5">
-          <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600 shrink-0" />
-          <span className="font-medium">{successMsg}</span>
+      <section className="grid gap-3 rounded-2xl border bg-white p-4 shadow-sm lg:grid-cols-[1.2fr_1fr]" style={{ borderColor: `${BRAND.fog}` }}>
+        <div className="flex gap-3">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" style={{ color: BRAND.secondary }} />
+          <div>
+            <h2 className="text-sm font-black">{txt('حدود الاستيراد واضحة', 'Import boundary is explicit')}</h2>
+            <p className="mt-1 text-xs font-semibold leading-6 text-slate-600">
+              {txt('المركز يدير الاكتساب المصرح، التحليل، التجهيز، التكرار التقني، الطوابير والتتبع. قواعد اكتمال المنحة أو الجامعة أو الدورة والدمج والنشر تبقى داخل المجال نفسه.', 'This center owns authorized ingestion, parsing, staging, technical deduplication, queue operations and traceability. Domain completeness, merge and publication rules stay in the owning domain.')}
+            </p>
+          </div>
         </div>
+        <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-black">
+          {[
+            [txt('المصدر', 'Source'), '1'],
+            [txt('فحص مسبق', 'Preflight'), '2'],
+            [txt('تجهيز', 'Staging'), '3'],
+            [txt('مراجعة المجال', 'Domain Review'), '4'],
+          ].map(([label, number]) => (
+            <div key={number} className="rounded-xl border px-2 py-3" style={{ borderColor: BRAND.fog, backgroundColor: `${BRAND.fog}55` }}>
+              <div className="mx-auto mb-1 grid h-6 w-6 place-items-center rounded-full text-white" style={{ backgroundColor: BRAND.primary }}>{number}</div>
+              {label}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {((operations?.stuckBatches ?? 0) > 0 || (operations?.highFailureBatches ?? 0) > 0 || failedJobs > 0 || dlqRecords > 0 || sourcesNeedReview > 0) && (
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {(operations?.stuckBatches ?? 0) > 0 && <AttentionCard icon={Clock3} value={operations?.stuckBatches ?? 0} title={txt('دفعات عالقة', 'Stuck batches')} detail={txt('RUNNING/PROCESSING بلا تقدم لأكثر من 15 دقيقة.', 'RUNNING/PROCESSING with no progress for more than 15 minutes.')} />}
+          {(operations?.highFailureBatches ?? 0) > 0 && <AttentionCard icon={AlertTriangle} value={operations?.highFailureBatches ?? 0} title={txt('معدل فشل مرتفع', 'High failure rate')} detail={txt('أكثر من 10% من سجلات الدفعة فشلت.', 'More than 10% of batch records failed.')} />}
+          {failedJobs > 0 && <AttentionCard icon={AlertTriangle} value={failedJobs} title={txt('دفعات فاشلة / DLQ', 'Failed / DLQ batches')} detail={txt('تحتاج فحص الخطأ أو إعادة التشغيل.', 'Inspect the error or replay safely.')} />}
+          {dlqRecords > 0 && <AttentionCard icon={ArchiveRestore} value={dlqRecords} title={txt('سجلات Dead Letter', 'Dead-letter records')} detail={txt('لم تنجح بعد سياسة إعادة المحاولة.', 'Retry policy was exhausted.')} />}
+          {sourcesNeedReview > 0 && <AttentionCard icon={SearchCheck} value={sourcesNeedReview} title={txt('مصادر تحتاج مراجعة', 'Sources need review')} detail={txt('تحقق من الوصول والسياسة والموصل.', 'Verify access policy and connector state.')} />}
+        </section>
       )}
 
-      {errorMsg && (
-        <div className="p-3.5 bg-rose-50 border border-rose-100 text-rose-800 text-xs rounded-xl flex items-center gap-2.5">
-          <AlertTriangle className="w-4.5 h-4.5 text-rose-600 shrink-0" />
-          <span className="font-medium">{errorMsg}</span>
+      <section>
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-black">{txt('ملخص العمليات', 'Operations Summary')}</h2>
+            <p className="text-xs font-semibold text-slate-500">
+              {selectedDomain === 'ALL' ? txt('إجمالي مركز الاستيراد — أرقام محسوبة من الخادم.', 'Whole import center — server-derived counters.') : txt(`عرض ${domainLabel(selectedDomain, isArabic)} فقط.`, `${domainLabel(selectedDomain, isArabic)} only.`)}
+            </p>
+          </div>
+          {!fixedDomain && (
+            <div className="flex flex-wrap gap-1.5 rounded-xl p-1" style={{ backgroundColor: `${BRAND.fog}70` }}>
+              <button onClick={() => selectDomain('ALL')} className={domainPillClass(selectedDomain === 'ALL')} style={selectedDomain === 'ALL' ? { backgroundColor: BRAND.primary, color: 'white' } : undefined}>{txt('الكل', 'All')}</button>
+              {DOMAIN_CONFIG.map((domain) => (
+                <button key={domain.key} onClick={() => selectDomain(domain.key)} className={domainPillClass(selectedDomain === domain.key)} style={selectedDomain === domain.key ? { backgroundColor: BRAND.primary, color: 'white' } : undefined}>{isArabic ? domain.ar : domain.en}</button>
+              ))}
+            </div>
+          )}
         </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <MetricCard icon={Layers3} label={txt('إجمالي الدفعات', 'Total Batches')} value={metricValue(scopedMetrics?.batches, overviewState)} accent={BRAND.primary} />
+          <MetricCard icon={FileSpreadsheet} label={txt('السجلات المستوردة', 'Imported Records')} value={metricValue(scopedMetrics?.records, overviewState)} accent={BRAND.secondary} />
+          <MetricCard icon={PlayCircle} label={txt('دفعات نشطة', 'Active Batches')} value={metricValue(scopedMetrics?.active, overviewState)} accent={BRAND.digital} />
+          <MetricCard icon={Clock3} label={txt('بحاجة لمراجعة', 'Needs Review')} value={metricValue(scopedMetrics?.review, overviewState)} accent={BRAND.gold} />
+          <MetricCard icon={AlertTriangle} label={txt('فشل / أخطاء', 'Failed / Errors')} value={metricValue(scopedMetrics?.failed, overviewState)} accent="#B94A48" />
+          <MetricCard icon={CheckCircle2} label={txt('رُحّلت للمجالات', 'Transferred')} value={metricValue(scopedMetrics?.transferred, overviewState)} accent="#2E7D5A" />
+        </div>
+      </section>
+
+      <section className="rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor: BRAND.fog }}>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2"><ListChecks className="h-5 w-5" style={{ color: BRAND.secondary }} /><h2 className="text-lg font-black">{txt('تشخيص العمليات والطوابير', 'Operations & Queue Diagnostics')}</h2></div>
+            <p className="mt-1 text-xs font-semibold text-slate-500">{txt('كشف الدفعات العالقة، معدلات الفشل المرتفعة، Retry وDLQ من بيانات التشغيل الفعلية.', 'Real operational diagnostics for stuck batches, high failure rates, retries and DLQ.')}</p>
+          </div>
+          <button type="button" onClick={() => void exportErrorReport()} disabled={errorExportLoading} className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px] font-black disabled:opacity-40" style={{ borderColor: BRAND.fog, color: BRAND.primary }}>
+            {errorExportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}{txt('تصدير تقرير الأخطاء', 'Export Error Report')}
+          </button>
+        </div>
+        {operationsState === 'loading' ? <LoadingBlock label={txt('تحميل تشخيص العمليات...', 'Loading operational diagnostics...')} /> : operationsState === 'unavailable' ? <EmptyBlock icon={AlertTriangle} title={txt('تشخيص العمليات غير متاح', 'Operational diagnostics unavailable')} detail={txt('لن نعرض قياسات تقديرية. افحص API أو التخزين الدائم.', 'No estimated metrics are substituted. Check API or durable storage.')} /> : (
+          <>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+              <MiniStat label={txt('عالقة >15د', 'Stuck >15m')} value={operations?.stuckBatches ?? 0} />
+              <MiniStat label={txt('فشل >10%', 'Failure >10%')} value={operations?.highFailureBatches ?? 0} />
+              <MiniStat label={txt('قابلة لإعادة المحاولة', 'Retryable')} value={operations?.retryableBatches ?? 0} />
+              <MiniStat label={txt('متوقفة مؤقتًا', 'Paused')} value={operations?.pausedBatches ?? 0} />
+              <MiniStat label={txt('في الانتظار', 'Queued')} value={operations?.queuedBatches ?? 0} />
+              <MiniStat label={txt('DLQ', 'DLQ')} value={operations?.dlqBatches ?? 0} />
+            </div>
+            {(operations?.recentProblemBatches?.length ?? 0) > 0 && (
+              <div className="mt-4 overflow-x-auto rounded-xl border" style={{ borderColor: BRAND.fog }}>
+                <table className="w-full min-w-[850px] text-xs">
+                  <thead style={{ backgroundColor: `${BRAND.fog}65` }}><tr className="font-black text-slate-500"><th className="p-3">{txt('الدفعة', 'Batch')}</th><th className="p-3">{txt('المجال', 'Domain')}</th><th className="p-3">{txt('الحالة', 'Status')}</th><th className="p-3">{txt('الفشل', 'Failure')}</th><th className="p-3">{txt('آخر تحديث', 'Updated')}</th><th className="p-3 text-end">{txt('فتح', 'Open')}</th></tr></thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {operations?.recentProblemBatches?.map((batch) => (
+                      <tr key={batch.id}>
+                        <td className="p-3 font-mono text-[10px] font-black">{shortHash(batch.id)}</td>
+                        <td className="p-3 font-black">{domainLabel(normalizeDomain(batch.dataType), isArabic)}</td>
+                        <td className="p-3"><StatusBadge value={String(batch.batchStatus ?? 'UNKNOWN')} isArabic={isArabic} /></td>
+                        <td className="p-3 font-black">{Math.round(Number(batch.failureRate ?? 0) * 100)}%{batch.stuck ? ` · ${txt('عالقة', 'stuck')}` : ''}</td>
+                        <td className="p-3 font-bold text-slate-500">{formatDate(batch.updatedAt, isArabic)}</td>
+                        <td className="p-3 text-end"><button onClick={() => { setSelectedBatchId(batch.id); setRecordPage(1); }} className="rounded-lg border px-2.5 py-1.5 text-[10px] font-black" style={{ borderColor: BRAND.fog, color: BRAND.secondary }}>{txt('سجلات الدفعة', 'Batch records')}</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
+      {!fixedDomain && (
+      <section className="rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor: BRAND.fog }}>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-black">{txt('مجالات الاستيراد', 'Import Domains')}</h2>
+            <p className="text-xs font-semibold text-slate-500">{txt('سبعة مجالات تشغيلية. كل مجال يملك قواعده وقراراته بعد التجهيز.', 'Seven operational domains. Each owns its rules and decisions after staging.')}</p>
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {DOMAIN_CONFIG.map((domain) => {
+            const stat = mergedDomainOverview(domain.key);
+            const capability = capabilityFor(domain.key);
+            const Icon = domain.icon;
+            return (
+              <article key={domain.key} className="rounded-2xl border p-4 transition hover:-translate-y-0.5 hover:shadow-md" style={{ borderColor: selectedDomain === domain.key ? BRAND.digital : BRAND.fog, backgroundColor: selectedDomain === domain.key ? `${BRAND.fog}55` : BRAND.white }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white" style={{ backgroundColor: BRAND.primary }}><Icon className="h-5 w-5" /></div>
+                    <div className="min-w-0">
+                      <h3 className="truncate text-sm font-black">{isArabic ? domain.ar : domain.en}</h3>
+                      <p className="mt-0.5 text-[10px] font-bold text-slate-400">CSV · JSON · NDJSON</p>
+                      <div className="mt-1">
+                        {capabilitiesState === 'ready' ? (
+                          <span className={`rounded-full px-2 py-0.5 text-[8px] font-black ${capability?.handoffReady ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                            {capability?.handoffReady ? txt('Handoff متصل', 'Handoff connected') : txt('Staging فقط', 'Staging only')}
+                          </span>
+                        ) : <span className="text-[8px] font-bold text-slate-400">{txt('حالة الربط غير متاحة', 'Handoff status unavailable')}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={() => selectDomain(domain.key)} className="rounded-lg border px-2 py-1 text-[10px] font-black" style={{ borderColor: BRAND.fog, color: BRAND.secondary }}>{txt('تصفية', 'Filter')}</button>
+                </div>
+                <div className="mt-4 grid grid-cols-4 gap-1.5 text-center">
+                  <MiniStat label={txt('سجل', 'Records')} value={stat.records} />
+                  <MiniStat label={txt('مراجعة', 'Review')} value={stat.needsReview} />
+                  <MiniStat label={txt('فشل', 'Failed')} value={stat.failedRecords} />
+                  <MiniStat label={txt('رُحّل', 'Moved')} value={stat.transferredRecords} />
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link to={domain.importPath} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-black text-white" style={{ backgroundColor: BRAND.secondary }}><UploadCloud className="h-3.5 w-3.5" />{txt('فتح مركز المجال', 'Open Domain Center')}</Link>
+                  <Link to={domain.workspace} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] font-black" style={{ borderColor: BRAND.fog, color: BRAND.primary }}>{txt('مساحة المجال', 'Domain Workspace')}{isArabic ? <ArrowLeft className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}</Link>
+                  {domain.advancedWorkspace && <Link to={domain.advancedWorkspace} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-black" style={{ color: BRAND.gold }}>{txt('مركز المنح المتقدم', 'Advanced scholarship center')}</Link>}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+        {otherDomainEntries.length > 0 && (
+          <div className="mt-4 rounded-xl border p-3" style={{ borderColor: `${BRAND.gold}55`, backgroundColor: `${BRAND.highlight}18` }}>
+            <div className="text-[11px] font-black">{txt('بيانات داخلية/قديمة خارج المجالات السبعة', 'Internal / legacy staging outside the seven primary domains')}</div>
+            <p className="mt-1 text-[10px] font-semibold text-slate-500">{txt('لا نخفي هذه البيانات ولا نتيح استيرادًا عامًا جديدًا إليها من هذه الصفحة؛ تظهر هنا للتتبع فقط حتى تُعالج في المسار المالك.', 'These records are not hidden and new generic imports are not opened for them here; they remain visible for traceability until handled by their owning flow.')}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {otherDomainEntries.map(([key, value]) => <span key={key} className="rounded-lg border bg-white px-3 py-2 text-[10px] font-black" style={{ borderColor: BRAND.fog }}>{key}: {Number(value.records ?? 0).toLocaleString()} {txt('سجل', 'records')} · {Number(value.batches ?? 0).toLocaleString()} {txt('دفعة', 'batches')}</span>)}
+            </div>
+          </div>
+        )}
+      </section>
       )}
 
-      {/* Domain Filtering Selector */}
-      <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 rounded-xl w-fit max-w-full overflow-x-auto">
-        {domains.map((dom) => (
-          <button
-            key={dom.key}
-            onClick={() => setSelectedDomain(dom.key)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-              selectedDomain === dom.key
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-            }`}
-          >
-            {dom.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-white border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <Layers className="w-5 h-5 text-blue-600" />
-            <span className="text-2xl font-bold text-slate-800">{metrics.batchesCount}</span>
+      <section className="rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor: BRAND.fog }}>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2"><Globe2 className="h-5 w-5" style={{ color: BRAND.secondary }} /><h2 className="text-lg font-black">{txt('سجل المصادر والموصلات', 'Source & Connector Registry')}</h2></div>
+            <p className="mt-1 text-xs font-semibold text-slate-500">{txt('مصادر مسجلة فعليًا في Import Source Registry. لا نعرض موصلات تجريبية أو مصادر مخترعة.', 'Only sources actually registered in the Import Source Registry are shown. No demo connectors or invented feeds.')}</p>
           </div>
-          <div className="font-semibold text-slate-800 mb-1 text-xs uppercase tracking-wider">{t('batches') || 'Import Batches'}</div>
-          <span className="inline-block text-[10px] text-slate-500 font-medium">Active Ingestions</span>
+          <div className="flex gap-2 text-[11px] font-black">
+            <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: `${BRAND.secondary}12`, color: BRAND.secondary }}>{txt('نشط', 'Active')}: {sourcesState === 'ready' ? activeSources : '—'}</span>
+            <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: `${BRAND.gold}18`, color: '#8A671C' }}>{txt('يحتاج مراجعة', 'Needs review')}: {sourcesState === 'ready' ? sourcesNeedReview : '—'}</span>
+          </div>
         </div>
 
-        <div className="bg-white border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <FileSpreadsheet className="w-5 h-5 text-teal-600" />
-            <span className="text-2xl font-bold text-slate-800">{metrics.totalRecords}</span>
-          </div>
-          <div className="font-semibold text-slate-800 mb-1 text-xs uppercase tracking-wider">{t('records') || 'Imported Records'}</div>
-          <span className="inline-block text-[10px] text-slate-500 font-medium">Across Batches</span>
-        </div>
-
-        <div className="bg-white border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <Clock className="w-5 h-5 text-amber-600" />
-            <span className="text-2xl font-bold text-amber-700">{metrics.needsReviewCount}</span>
-          </div>
-          <div className="font-semibold text-slate-800 mb-1 text-xs uppercase tracking-wider">{t('needs_review') || 'Needs Review'}</div>
-          <span className="inline-block text-[10px] text-slate-500 font-medium">Pending Review</span>
-        </div>
-
-        <div className="bg-white border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <AlertTriangle className="w-5 h-5 text-rose-600" />
-            <span className="text-2xl font-bold text-rose-700">{metrics.failedCount}</span>
-          </div>
-          <div className="font-semibold text-slate-800 mb-1 text-xs uppercase tracking-wider">{t('issues') || 'Failed / Errors'}</div>
-          <span className="inline-block text-[10px] text-slate-500 font-medium">Verification Issues</span>
-        </div>
-
-        <div className="bg-white border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <CheckCircle2 className="w-5 h-5 text-purple-600" />
-            <span className="text-2xl font-bold text-purple-700">{metrics.readyCount}</span>
-          </div>
-          <div className="font-semibold text-slate-800 mb-1 text-xs uppercase tracking-wider">{t('ready') || 'Ready for Review'}</div>
-          <span className="inline-block text-[10px] text-slate-500 font-medium">Awaiting owning domain approval</span>
-        </div>
-      </div>
-
-      
-      {/* Batches Table */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm mb-6">
-        <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center justify-between">
-          <span>{'Import Batches & Queue Jobs'}</span>
-          <span className="text-xs text-slate-400 font-normal">{batches.length} batches</span>
-        </h3>
-        
-        {loading ? (
-          <div className="p-12 text-center text-slate-400">
-            <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600" />
-            <span className="text-xs font-semibold">Loading batches...</span>
-          </div>
-        ) : batches.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 border border-dashed border-slate-200 rounded-xl text-xs">
-            No batches found.
-          </div>
+        {sourcesState === 'loading' ? <LoadingBlock label={txt('تحميل سجل المصادر...', 'Loading source registry...')} /> : sourcesState === 'unavailable' ? (
+          <EmptyBlock icon={ShieldX} title={txt('سجل المصادر غير متاح', 'Source registry unavailable')} detail={txt('لن نعرض مصادر تجريبية كبديل. افحص اتصال API أو التخزين الدائم.', 'No demo sources are substituted. Check API or durable registry availability.')} />
+        ) : visibleSources.length === 0 ? (
+          <EmptyBlock icon={Globe2} title={txt('لا توجد مصادر مسجلة لهذا العرض', 'No registered sources for this view')} detail={txt('هذا يعني أن Source Registry لا يحتوي مصادر مطابقة حاليًا، وليس أن النظام اخترع قائمة بديلة.', 'The Source Registry currently has no matching entries; the UI does not fabricate a fallback list.')} />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="p-3 font-semibold text-slate-500">Batch ID</th>
-                  <th className="p-3 font-semibold text-slate-500">Domain</th>
-                  <th className="p-3 font-semibold text-slate-500">Status</th>
-                  <th className="p-3 font-semibold text-slate-500 text-right">Job Controls</th>
+          <div className="overflow-x-auto rounded-xl border" style={{ borderColor: BRAND.fog }}>
+            <table className="w-full min-w-[950px] text-xs">
+              <thead style={{ backgroundColor: `${BRAND.fog}65` }}>
+                <tr className="text-start font-black text-slate-500">
+                  <th className="p-3">{txt('المصدر', 'Source')}</th>
+                  <th className="p-3">{txt('النوع', 'Category')}</th>
+                  <th className="p-3">{txt('الوصول', 'Access')}</th>
+                  <th className="p-3">{txt('الموصل', 'Connector')}</th>
+                  <th className="p-3">{txt('المجال', 'Domain')}</th>
+                  <th className="p-3">{txt('حوكمة الجلب', 'Acquisition Governance')}</th>
+                  <th className="p-3">{txt('الحالة', 'Status')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {batches.map((batch: any) => (
-                  <tr key={batch.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="p-3 font-mono text-[10px] text-slate-600">{batch.id}</td>
-                    <td className="p-3 font-semibold text-slate-800">{batch.targetDomain}</td>
+                {visibleSources.map((source) => (
+                  <tr key={source.sourceId} className="hover:bg-slate-50/70">
                     <td className="p-3">
-                      <span className="px-2 py-1 rounded bg-slate-100 text-slate-700 font-medium">
-                        {batch.status}
-                      </span>
+                      <div className="font-black">{source.displayName}</div>
+                      <a href={source.baseUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex max-w-[280px] items-center gap-1 truncate text-[10px] font-bold" style={{ color: BRAND.secondary }}><ExternalLink className="h-3 w-3 shrink-0" />{source.baseUrl}</a>
                     </td>
-                    <td className="p-3 font-medium text-slate-600">{batch.jobStatus || 'N/A'}</td>
-                    <td className="p-3 flex justify-end gap-2">
-                      <button 
-                        onClick={() => handleQueueAction(batch.id, 'pause')} 
-                        disabled={actionLoading === `${batch.id}-pause`}
-                        className="px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded hover:bg-amber-100 disabled:opacity-50 font-medium"
+                    <td className="p-3"><TagBadge>{sourceCategoryLabel(source.category, isArabic)}</TagBadge></td>
+                    <td className="p-3"><TagBadge>{sourceAccessLabel(source.accessClassification, isArabic)}</TagBadge></td>
+                    <td className="p-3"><div className="font-mono text-[10px] font-bold">{source.connectorId}</div><div className="text-[10px] text-slate-400">v{source.connectorVersion}</div></td>
+                    <td className="p-3 font-bold">{sourceOwnerDomain(source) ? domainLabel(sourceOwnerDomain(source), isArabic) : txt('عام', 'Generic')}</td>
+                    <td className="p-3">
+                      <div className="text-[10px] font-black text-slate-600">{txt('الحد', 'Rate')}: {source.rateLimitPerMinute ?? '—'} {source.rateLimitPerMinute ? txt('طلب/دقيقة', 'req/min') : ''}</div>
+                      {source.robotsPolicyUrl ? <a href={source.robotsPolicyUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[9px] font-black" style={{ color: BRAND.secondary }}><ExternalLink className="h-3 w-3" />robots</a> : <div className="mt-1 text-[9px] font-bold text-slate-400">{txt('لا يوجد رابط سياسة مسجل', 'No policy URL registered')}</div>}
+                    </td>
+                    <td className="p-3">
+                      <select
+                        value={source.status}
+                        disabled={sourceActionLoading === source.sourceId}
+                        onChange={(event) => void changeSourceStatus(source, event.target.value as SourceStatus)}
+                        className="min-h-9 rounded-lg border bg-white px-2 text-[10px] font-black outline-none disabled:opacity-50"
+                        style={{ borderColor: BRAND.fog, color: sourceStatusColor(source.status) }}
                       >
-                        {actionLoading === `${batch.id}-pause` ? '...' : 'Pause'}
-                      </button>
-                      <button 
-                        onClick={() => handleQueueAction(batch.id, 'resume')} 
-                        disabled={actionLoading === `${batch.id}-resume`}
-                        className="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded hover:bg-emerald-100 disabled:opacity-50 font-medium"
-                      >
-                        {actionLoading === `${batch.id}-resume` ? '...' : 'Resume'}
-                      </button>
-                      <button 
-                        onClick={() => handleQueueAction(batch.id, 'cancel')} 
-                        disabled={actionLoading === `${batch.id}-cancel`}
-                        className="px-2 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded hover:bg-rose-100 disabled:opacity-50 font-medium"
-                      >
-                        {actionLoading === `${batch.id}-cancel` ? '...' : 'Cancel'}
-                      </button>
-                      <button 
-                        onClick={() => handleQueueAction(batch.id, 'replay')} 
-                        disabled={actionLoading === `${batch.id}-replay`}
-                        className="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 disabled:opacity-50 font-medium"
-                      >
-                        {actionLoading === `${batch.id}-replay` ? '...' : 'Replay'}
-                      </button>
+                        {(['ACTIVE', 'NEEDS_REVIEW', 'DISABLED', 'BLOCKED'] as SourceStatus[]).map((status) => <option key={status} value={status} disabled={source.accessClassification === 'BLOCKED' && status === 'ACTIVE'}>{sourceStatusLabel(status, isArabic)}</option>)}
+                      </select>
+                      {typeof source.metadata?.lastRegistryStatusChange === 'object' && source.metadata.lastRegistryStatusChange && (
+                        <div className="mt-1 max-w-[210px] text-[9px] font-semibold text-slate-400">
+                          {txt('آخر تغيير مسجل في الحوكمة', 'Last governed status change')}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -383,163 +1046,64 @@ Academic Translation,Verified Partner,Manual`;
             </table>
           </div>
         )}
-      </div>
-      
-      {/* Records Table */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-        <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center justify-between">
-          <span>{t('imported_records_queue') || 'Imported Records Queue'}</span>
-          <span className="text-xs text-slate-400 font-normal">{records.length} {t('records') || 'records'}</span>
-        </h3>
+      </section>
 
-        {loading ? (
-          <div className="p-12 text-center text-slate-400">
-            <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600" />
-            <span className="text-xs font-semibold">{t('loading') || 'Loading records...'}</span>
+      <section className="rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor: BRAND.fog }}>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2"><Layers3 className="h-5 w-5" style={{ color: BRAND.primary }} /><h2 className="text-lg font-black">{txt('دفعات الاستيراد والطابور', 'Import Batches & Queue')}</h2></div>
+            <p className="mt-1 text-xs font-semibold text-slate-500">{txt('تعرض أحدث الدفعات من قاعدة الاستيراد. الأزرار تظهر فقط عندما تسمح حالة الوظيفة بالفعل.', 'Shows the latest persisted batches. Queue actions appear only when valid for the current state.')}</p>
           </div>
-        ) : records.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 border border-dashed border-slate-200 rounded-xl text-xs">
-            {t('no_records_yet') || 'No records found. Click "Start Import" to ingest data.'}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
-                  <th className="p-3 text-center w-12">#</th>
-                  {selectedDomain === 'ALL' && <th className="p-3">{t('domain') || 'Domain'}</th>}
-                  <th className="p-3">{t('display_name') || 'Record Name'}</th>
-                  <th className="p-3">{t('status') || 'Validation Status'}</th>
-                  <th className="p-3">{t('missing_fields') || 'Missing Fields'}</th>
-                  <th className="p-3 text-right">{t('actions') || 'Actions'}</th>
+          {selectedBatchId && <button onClick={() => { setSelectedBatchId(''); setRecordPage(1); }} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] font-black" style={{ borderColor: BRAND.fog, color: BRAND.secondary }}><X className="h-3.5 w-3.5" />{txt('إلغاء تصفية الدفعة', 'Clear batch filter')}</button>}
+        </div>
+
+        {dataState === 'loading' ? <LoadingBlock label={txt('تحميل الدفعات...', 'Loading batches...')} /> : dataState === 'unavailable' ? <EmptyBlock icon={AlertTriangle} title={txt('تعذر تحميل الدفعات', 'Unable to load batches')} detail={txt('تحقق من اتصال API ثم أعد المحاولة.', 'Check API connectivity and retry.')} /> : batches.length === 0 ? <EmptyBlock icon={Layers3} title={txt('لا توجد دفعات', 'No import batches')} detail={txt('ابدأ استيرادًا جديدًا لإنشاء أول دفعة.', 'Start a new import to create the first batch.')} /> : (
+          <div className="overflow-x-auto rounded-xl border" style={{ borderColor: BRAND.fog }}>
+            <table className="w-full min-w-[1100px] text-xs">
+              <thead style={{ backgroundColor: `${BRAND.fog}65` }}>
+                <tr className="font-black text-slate-500">
+                  <th className="p-3">{txt('الدفعة / المصدر', 'Batch / Source')}</th>
+                  <th className="p-3">{txt('المجال', 'Domain')}</th>
+                  <th className="p-3">{txt('الحالة', 'Status')}</th>
+                  <th className="p-3">{txt('التقدم', 'Progress')}</th>
+                  <th className="p-3">{txt('المحاولات', 'Attempts')}</th>
+                  <th className="p-3">{txt('آخر تحديث', 'Updated')}</th>
+                  <th className="p-3 text-end">{txt('إجراءات آمنة', 'Safe Actions')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-150">
-                {records.map((rec) => {
-                  const raw = rec.rawPayload || {};
-                  const name = raw.displayName || raw.scholarshipName || raw.name || raw.title || 'Unnamed Record';
-                  const domainLabel = rec.batch?.dataType || 'SCHOLARSHIPS';
-                  
-                  // Extract secondary metadata
-                  const secondary = raw.sponsorName || raw.providerName || raw.country || raw.facultyName || '';
-                  const missing: string[] = rec.validationErrors || [];
-                  const isReady = rec.status === 'READY_FOR_REVIEW';
-
+              <tbody className="divide-y divide-slate-100">
+                {batches.map((batch) => {
+                  const status = String(batch.batchStatus ?? 'UNKNOWN').toUpperCase();
+                  const total = Number(batch.totalRecords ?? 0);
+                  const done = Number(batch.processedRecords ?? 0) + Number(batch.failedRecords ?? 0);
+                  const progress = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
                   return (
-                    <tr key={rec.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3 font-mono text-slate-400 font-bold text-center">
-                        {rec.rawPayload?._sourceRowNumber ? `#${rec.rawPayload._sourceRowNumber}` : '-'}
-                      </td>
-                      {selectedDomain === 'ALL' && (
-                        <td className="p-3 font-semibold">
-                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">
-                            <FolderOpen className="w-3 h-3" />
-                            {domainLabel}
-                          </span>
-                        </td>
-                      )}
+                    <tr key={batch.id} className={`${selectedBatchId === batch.id ? 'bg-cyan-50/60' : 'hover:bg-slate-50/70'} cursor-pointer`} onClick={() => { setSelectedBatchId(batch.id); setRecordPage(1); }}>
                       <td className="p-3">
-                        <div className="font-bold text-slate-900">{name}</div>
-                        {secondary && <div className="text-[10px] text-slate-500 font-medium mt-0.5">{secondary}</div>}
+                        <div className="font-mono text-[10px] font-black">{batch.id}</div>
+                        <div className="mt-1 text-[10px] font-bold text-slate-500">{batch.sourceSystem ?? '—'}</div>
+                        {batch.lastError && <div className="mt-1 max-w-[300px] truncate text-[10px] font-bold text-red-600" title={batch.lastError}>{batch.lastError}</div>}
                       </td>
+                      <td className="p-3 font-black">{domainLabel(normalizeDomain(batch.dataType), isArabic)}</td>
+                      <td className="p-3"><StatusBadge value={status} isArabic={isArabic} /></td>
                       <td className="p-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold 
-                          ${rec.status === 'READY_FOR_REVIEW' ? 'bg-purple-100 text-purple-800' :
-                            rec.status === 'COMPLETE' ? 'bg-emerald-100 text-emerald-800' :
-                            rec.status === 'NEEDS_REVIEW' ? 'bg-amber-100 text-amber-800' :
-                            rec.status === 'FAILED' ? 'bg-rose-100 text-rose-800' :
-                            'bg-slate-100 text-slate-700'}`}>
-                          {rec.status === 'READY_FOR_REVIEW' ? ('Ready for Review') :
-                           rec.status === 'COMPLETE' ? (language === 'ar' ? 'مكتمل' : 'Complete') :
-                           rec.status === 'NEEDS_REVIEW' ? (language === 'ar' ? 'بحاجة لمراجعة' : 'Needs Review') :
-                           rec.status === 'FAILED' ? (language === 'ar' ? 'فشل' : 'Failed') :
-                           rec.status.replace(/_/g, ' ')}
-                        </span>
+                        <div className="min-w-[170px]">
+                          <div className="mb-1 flex justify-between text-[10px] font-black"><span>{done}/{total}</span><span>{progress}%</span></div>
+                          <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${progress}%`, backgroundColor: Number(batch.failedRecords ?? 0) > 0 ? BRAND.gold : BRAND.secondary }} /></div>
+                          <div className="mt-1 text-[9px] font-bold text-slate-400">{txt('فشل', 'Failed')}: {batch.failedRecords ?? 0}</div>
+                        </div>
                       </td>
-                      <td className="p-3">
-                        {missing.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {missing.map((m, idx) => (
-                              <span key={idx} className="bg-rose-50 text-rose-700 text-[10px] px-1.5 py-0.5 rounded border border-rose-100 font-medium">
-                                {m}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-emerald-600 font-semibold text-[10px]">{'Ready for Domain Review'}</span>
-                        )}
-                      </td>
-                      <td className="p-3 text-right">
-                        {isReady ? (
-                          <div className="flex flex-col items-end gap-1">
-                            <span className="text-[11px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 font-bold inline-flex items-center gap-1">
-                              <Check className="w-3.5 h-3.5 text-purple-600" />
-                              {'Ready for Review'}
-                            </span>
-                            <a
-                              href={
-                                domainLabel === 'SCHOLARSHIPS' ? '/admin/scholarships' :
-                                domainLabel === 'UNIVERSITIES' ? '/admin/universities' :
-                                domainLabel === 'MAJORS' ? '/admin/majors' :
-                                domainLabel === 'COURSES' ? '/admin/courses' :
-                                domainLabel === 'INTERNATIONAL_TESTS' ? '/admin/international-tests' :
-                                '/admin/services'
-                              }
-                              className="text-[10px] text-blue-600 hover:text-blue-800 font-bold hover:underline inline-flex items-center gap-0.5"
-                            >
-                              <span>
-                                {domainLabel === 'SCHOLARSHIPS' ? (t('view_in_scholarships') || 'View in Scholarships') :
-                                 domainLabel === 'UNIVERSITIES' ? (language === 'ar' ? 'عرض في لوحة الجامعات' : 'View in Universities') :
-                                 domainLabel === 'MAJORS' ? (language === 'ar' ? 'عرض في لوحة التخصصات' : 'View in Majors') :
-                                 domainLabel === 'COURSES' ? (language === 'ar' ? 'عرض في لوحة الدورات' : 'View in Courses') :
-                                 domainLabel === 'INTERNATIONAL_TESTS' ? (language === 'ar' ? 'عرض في لوحة الاختبارات' : 'View in Tests') :
-                                 (language === 'ar' ? 'عرض في لوحة الخدمات' : 'View in Services')}
-                              </span>
-                              <ArrowRight className="w-3 h-3 text-blue-600" />
-                            </a>
-                          </div>
-                        ) : domainLabel === 'SERVICES' ? (
-                          <div className="flex flex-col items-end gap-1">
-                            <span className="text-[10px] text-slate-400 font-semibold italic">
-                              {t('requires_domain_integration') || 'Requires owning domain workflow'}
-                            </span>
-                            <button
-                              disabled
-                              className="px-2.5 py-1 bg-slate-100 text-slate-400 font-semibold rounded text-[10px] border border-slate-200 cursor-not-allowed inline-flex items-center gap-1"
-                            >
-                              <PlusCircle className="w-3 h-3 text-slate-300" />
-                              <span>{'Ready for Domain Review'}</span>
-                            </button>
-                          </div>
-                        ) : rec.status === 'INCOMPLETE' || rec.status === 'FAILED' ? (
-                          <button
-                            disabled
-                            className="px-2.5 py-1 bg-slate-100 text-slate-400 font-semibold rounded text-[10px] border border-slate-200 cursor-not-allowed inline-flex items-center gap-1"
-                          >
-                            <AlertTriangle className="w-3 h-3 text-slate-300" />
-                            <span>
-                              {rec.status === 'FAILED' 
-                                ? (language === 'ar' ? 'فشل الاستيراد - بيانات تالفة' : 'Import failed - corrupted data') 
-                                : ('Cannot propose - missing fields')}
-                            </span>
-                          </button>
-                        ) : (
-                          <div className="flex flex-col items-end gap-1">
-                            <span className="text-[10px] text-slate-500 font-medium">
-                              {language === 'ar'
-                                ? 'الترقية تتم عبر مساحة عمل المجال'
-                                : 'Approval must be done in domain workspace'}
-                            </span>
-                            <button
-                              disabled
-                              className="px-2.5 py-1 bg-slate-100 text-slate-400 font-semibold rounded text-[10px] border border-slate-200 cursor-not-allowed inline-flex items-center gap-1"
-                              title="Domain review proposal is active. Approval must be performed by the owning domain workspace."
-                            >
-                              <PlusCircle className="w-3 h-3 text-slate-300" />
-                              <span>{'Ready for Domain Review'}</span>
-                            </button>
-                          </div>
-                        )}
+                      <td className="p-3 font-black">{batch.attemptCount ?? 0}</td>
+                      <td className="p-3 text-[10px] font-bold text-slate-500">{formatDate(batch.updatedAt ?? batch.createdAt, isArabic)}</td>
+                      <td className="p-3" onClick={(event) => event.stopPropagation()}>
+                        <div className="flex justify-end gap-1.5">
+                          {['QUEUED', 'RUNNING'].includes(status) && <ActionButton icon={PauseCircle} label={txt('إيقاف', 'Pause')} loading={actionLoading === `${batch.id}:pause`} onClick={() => void queueAction(batch, 'pause')} />}
+                          {['PAUSED', 'RESUMING'].includes(status) && <ActionButton icon={CirclePlay} label={txt('استئناف', 'Resume')} loading={actionLoading === `${batch.id}:resume`} onClick={() => void queueAction(batch, 'resume')} />}
+                          {['CREATED', 'QUEUED', 'RUNNING', 'PAUSED', 'RESUMING', 'CANCELLING'].includes(status) && <ActionButton icon={Square} label={txt('إلغاء', 'Cancel')} loading={actionLoading === `${batch.id}:cancel`} onClick={() => void queueAction(batch, 'cancel')} danger />}
+                          {REPLAYABLE_BATCH_STATUSES.has(status) && <ActionButton icon={RotateCcw} label={txt('إعادة تشغيل', 'Replay')} loading={actionLoading === `${batch.id}:replay`} onClick={() => void queueAction(batch, 'replay')} />}
+                          {!ACTIVE_BATCH_STATUSES.has(status) && !REPLAYABLE_BATCH_STATUSES.has(status) && <span className="text-[10px] font-bold text-slate-400">{txt('لا إجراء متاح', 'No queue action')}</span>}
+                          {status === 'PROCESSING' && <span className="text-[10px] font-bold text-slate-400">{txt('معالجة متزامنة قديمة', 'Legacy synchronous processing')}</span>}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -548,100 +1112,462 @@ Academic Translation,Verified Partner,Manual`;
             </table>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Start Import Modal */}
-      {showUploadModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full p-6 shadow-lg border border-slate-200">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <UploadCloud className="w-5 h-5 text-blue-600" />
-                <span>{t('upload_import_batch') || 'Upload Import Batch'}</span>
-              </h3>
-              <button onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-slate-600 font-semibold text-sm">✕</button>
+      <section className="rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor: BRAND.fog }}>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2"><Database className="h-5 w-5" style={{ color: BRAND.secondary }} /><h2 className="text-lg font-black">{txt('السجلات المجهزة', 'Staged Records')}</h2></div>
+            <p className="mt-1 text-xs font-semibold text-slate-500">{txt('هذه بيانات في منطقة الاستيراد وليست محتوى منشورًا. افتح المجال المالك لإتمام المراجعة.', 'These are import-stage records, not published content. Open the owning domain to complete review.')}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Filter className="pointer-events-none absolute start-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              <select value={recordStatus} onChange={(event) => { setRecordStatus(event.target.value); setRecordPage(1); }} className="min-h-9 rounded-lg border bg-white py-1.5 pe-7 ps-8 text-[11px] font-black outline-none" style={{ borderColor: BRAND.fog }}>
+                {RECORD_STATUS_OPTIONS.map((status) => <option key={status || 'ALL'} value={status}>{status ? recordStatusLabel(status, isArabic) : txt('كل حالات السجلات', 'All record statuses')}</option>)}
+              </select>
             </div>
-
-            <div className="space-y-4">
-              {/* Target Domain Selector Inside Modal */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700">{t('select_target_domain') || 'Select Target Domain:'}</label>
-                <select
-                  value={modalDomain}
-                  onChange={(e) => {
-                    const nextDom = e.target.value;
-                    setModalDomain(nextDom);
-                    insertSampleCsv(nextDom);
-                  }}
-                  className="w-full bg-white border border-slate-200 rounded-lg py-2 pl-3 pr-8 text-xs focus:outline-none focus:ring-1 focus:ring-blue-600"
-                >
-                  {domains.filter(d => d.key !== 'ALL').map(d => (
-                    <option key={d.key} value={d.key}>{d.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Staging Notice */}
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs leading-relaxed text-slate-700">
-                <span className="font-bold text-slate-900 block mb-0.5">
-                  {language === 'ar' ? 'ملاحظة تخزين المرحلة Phase 06:' : 'Phase 06 Staging Notice:'}
-                </span>
-                {language === 'ar'
-                  ? 'السجلات محفوظة في جداول الاستيراد العامة لـ Phase 06. الترقية غير مفعلة هنا ويجب أن تتم عبر مساحة عمل المجال الخادمة.'
-                  : 'Records are staged in Phase 06 generic import tables. Domain review proposal is active. Approval must be performed by the owning domain workspace.'}
-              </div>
-
-              {modalDomain === 'SCHOLARSHIPS' && (
-                <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-lg text-[11px] text-blue-800 leading-relaxed">
-                  <strong>Scholarships (Phase 12 Specific Validation Rules):</strong> Automatically maps fields to scholarships, triggering completeness validations (fundingCoverage, degreeLevel, applicationLink/officialSourceUrl, and scholarshipName).
-                </div>
-              )}
-
-              {modalDomain !== 'SCHOLARSHIPS' && (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-600 leading-relaxed">
-                  <strong>{modalDomain} General Ingestion:</strong> Phase 06 ingestion mechanics. Automatically accepts fields with basic record creation and generic review workflows.
-                </div>
-              )}
-
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-semibold text-slate-700">{t('paste_data_below') || 'Paste CSV or JSON payload below (Max 90KB):'}</span>
-                <button
-                  type="button"
-                  onClick={() => insertSampleCsv(modalDomain)}
-                  className="px-2.5 py-1 bg-slate-100 text-slate-700 font-semibold rounded text-[11px] hover:bg-slate-200"
-                >
-                  {t('insert_sample_csv') || 'Insert Sample CSV'}
-                </button>
-              </div>
-
-              <textarea
-                rows={7}
-                value={importText}
-                onChange={(e) => setImportText(e.target.value)}
-                placeholder="Paste CSV or JSON rows here..."
-                className="w-full font-mono text-[11px] p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none focus:border-transparent leading-normal bg-slate-50/30"
-              />
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                <button
-                  onClick={() => setShowUploadModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
-                >
-                  {t('cancel') || 'Cancel'}
-                </button>
-                <button
-                  disabled={submitting || !importText.trim()}
-                  onClick={handleProcessImport}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs shadow-sm flex items-center gap-2 disabled:opacity-50"
-                >
-                  {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>{t('process_batch') || 'Process Batch'}</span>
-                </button>
-              </div>
-            </div>
+            <span className="rounded-lg px-3 py-2 text-[11px] font-black" style={{ backgroundColor: `${BRAND.fog}70` }}>{txt('الإجمالي', 'Total')}: {records.total}</span>
           </div>
         </div>
+
+        {dataState === 'loading' ? <LoadingBlock label={txt('تحميل السجلات...', 'Loading records...')} /> : dataState === 'unavailable' ? <EmptyBlock icon={AlertTriangle} title={txt('تعذر تحميل السجلات', 'Unable to load records')} detail={txt('تحقق من اتصال API.', 'Check API connectivity.')} /> : records.data.length === 0 ? <EmptyBlock icon={Database} title={txt('لا توجد سجلات مطابقة', 'No matching staged records')} detail={txt('غيّر الفلاتر أو ابدأ دفعة جديدة.', 'Adjust filters or start a new batch.')} /> : (
+          <>
+            <div className="overflow-x-auto rounded-xl border" style={{ borderColor: BRAND.fog }}>
+              <table className="w-full min-w-[1080px] text-xs">
+                <thead style={{ backgroundColor: `${BRAND.fog}65` }}>
+                  <tr className="font-black text-slate-500">
+                    <th className="p-3">#</th>
+                    <th className="p-3">{txt('السجل', 'Record')}</th>
+                    <th className="p-3">{txt('المجال / المصدر', 'Domain / Source')}</th>
+                    <th className="p-3">{txt('الحالة', 'Status')}</th>
+                    <th className="p-3">{txt('التحقق', 'Validation')}</th>
+                    <th className="p-3">{txt('التتبع', 'Trace')}</th>
+                    <th className="p-3 text-end">{txt('الإجراء', 'Action')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {records.data.map((record) => {
+                    const payload = record.rawPayload ?? {};
+                    const batch = record.batch;
+                    const domain = normalizeDomain(batch?.dataType);
+                    const config = DOMAIN_CONFIG.find((item) => item.key === domain);
+                    const validationErrors = normalizeErrors(record.validationErrors);
+                    return (
+                      <tr key={record.id} className="hover:bg-slate-50/70">
+                        <td className="p-3 font-mono text-[10px] font-black text-slate-400">{String(record.sourceRowNumber ?? payload._sourceRowNumber ?? '—')}</td>
+                        <td className="p-3">
+                          <div className="max-w-[300px] truncate font-black">{recordTitle(payload)}</div>
+                          <div className="mt-1 font-mono text-[9px] font-bold text-slate-400">{record.id}</div>
+                        </td>
+                        <td className="p-3"><div className="font-black">{domainLabel(domain, isArabic)}</div><div className="mt-1 text-[10px] font-bold text-slate-400">{batch?.sourceSystem ?? '—'}</div></td>
+                        <td className="p-3"><StatusBadge value={String(record.status ?? 'UNKNOWN')} isArabic={isArabic} /></td>
+                        <td className="p-3">
+                          {validationErrors.length ? <div className="flex max-w-[260px] flex-wrap gap-1">{validationErrors.slice(0, 3).map((error, index) => <span key={`${record.id}:${index}`} className="rounded-md bg-red-50 px-1.5 py-1 text-[9px] font-bold text-red-700">{error}</span>)}{validationErrors.length > 3 && <span className="text-[9px] font-black text-slate-400">+{validationErrors.length - 3}</span>}</div> : <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" />{txt('لا أخطاء عامة', 'No generic errors')}</span>}
+                        </td>
+                        <td className="p-3"><div className="font-mono text-[9px] font-bold text-slate-500">{record.sourceDedupKey ? shortHash(record.sourceDedupKey) : '—'}</div>{record.promotedEntityId && <div className="mt-1 text-[9px] font-black text-emerald-700">{txt('كيان', 'Entity')}: {record.promotedEntityId}</div>}</td>
+                        <td className="p-3">
+                          <div className="flex justify-end gap-1.5">
+                            <button onClick={() => setSelectedRecord(record)} className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[10px] font-black" style={{ borderColor: BRAND.fog, color: BRAND.secondary }}><Eye className="h-3.5 w-3.5" />{txt('تفاصيل', 'Details')}</button>
+                            {config && <Link to={config.workspace} className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-black text-white" style={{ backgroundColor: BRAND.primary }}>{txt('فتح المجال', 'Open Domain')}{isArabic ? <ArrowLeft className="h-3 w-3" /> : <ArrowRight className="h-3 w-3" />}</Link>}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs font-bold text-slate-500">
+              <span>{txt('صفحة', 'Page')} {records.page} / {totalRecordPages} · {records.total} {txt('سجل', 'records')}</span>
+              <div className="flex gap-1.5">
+                <button disabled={recordPage <= 1} onClick={() => setRecordPage((value) => Math.max(1, value - 1))} className="grid h-9 w-9 place-items-center rounded-lg border bg-white disabled:opacity-30" style={{ borderColor: BRAND.fog }}>{isArabic ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}</button>
+                <button disabled={recordPage >= totalRecordPages} onClick={() => setRecordPage((value) => Math.min(totalRecordPages, value + 1))} className="grid h-9 w-9 place-items-center rounded-lg border bg-white disabled:opacity-30" style={{ borderColor: BRAND.fog }}>{isArabic ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</button>
+              </div>
+            </div>
+          </>
+        )}
+      </section>
+
+      <section className="rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor: BRAND.fog }}>
+        <div className="mb-4">
+          <div className="flex items-center gap-2"><ListChecks className="h-5 w-5" style={{ color: BRAND.secondary }} /><h2 className="text-lg font-black">{txt('سجل عمليات مركز الاستيراد', 'Import Operations Audit Log')}</h2></div>
+          <p className="mt-1 text-xs font-semibold text-slate-500">{txt('آخر عمليات التغيير الفعلية على مسارات الاستيراد. هذا سجل تدقيق للقراءة فقط وليس قائمة نشاط تجريبية.', 'Recent real mutations on import routes. This is a read-only audit trail, not demo activity.')}</p>
+        </div>
+        {activityState === 'loading' ? <LoadingBlock label={txt('تحميل سجل التدقيق...', 'Loading audit activity...')} /> : activityState === 'unavailable' ? <EmptyBlock icon={ShieldX} title={txt('سجل عمليات الاستيراد غير متاح', 'Import audit activity unavailable')} detail={txt('لا يتم إنشاء نشاط بديل. تحقق من Audit persistence والتوصيل.', 'No fallback activity is fabricated. Check audit persistence and wiring.')} /> : activity.length === 0 ? <EmptyBlock icon={ListChecks} title={txt('لا توجد عمليات مسجلة بعد', 'No import mutations recorded yet')} detail={txt('سيظهر هنا Pause/Resume/Cancel/Replay وتغييرات المصادر وعمليات الاستيراد عندما يسجلها Audit middleware.', 'Pause/resume/cancel/replay, source changes and import mutations will appear here when recorded by the audit middleware.')} /> : (
+          <div className="overflow-x-auto rounded-xl border" style={{ borderColor: BRAND.fog }}>
+            <table className="w-full min-w-[900px] text-xs">
+              <thead style={{ backgroundColor: `${BRAND.fog}65` }}><tr className="font-black text-slate-500"><th className="p-3">{txt('الوقت', 'Time')}</th><th className="p-3">{txt('المشرف', 'Actor')}</th><th className="p-3">{txt('العملية', 'Operation')}</th><th className="p-3">{txt('المسار', 'Path')}</th><th className="p-3">{txt('النتيجة', 'Result')}</th></tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {activity.map((item) => (
+                  <tr key={item.id}>
+                    <td className="p-3 font-bold text-slate-500">{formatDate(item.timestamp, isArabic)}</td>
+                    <td className="p-3 font-mono text-[10px] font-black">{item.actorId || 'SYSTEM'}</td>
+                    <td className="p-3 font-black">{item.method ? `${item.method} · ` : ''}{item.action}</td>
+                    <td className="p-3 font-mono text-[9px] font-bold text-slate-500">{item.path ?? item.targetId ?? '—'}</td>
+                    <td className="p-3"><span className={`rounded-full px-2 py-1 text-[9px] font-black ${item.result === 'FAILURE' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>{item.result ?? 'SUCCESS'}{item.httpStatus ? ` · ${item.httpStatus}` : ''}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-2xl border p-4" style={{ borderColor: `${BRAND.gold}55`, backgroundColor: `${BRAND.highlight}25` }}>
+        <div className="flex gap-3">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" style={{ color: '#8A671C' }} />
+          <div className="text-xs font-semibold leading-6 text-slate-700">
+            <span className="font-black">{txt('قواعد الحوكمة:', 'Governance rules:')}</span>{' '}
+            {txt('كل وظيفة ظاهرة مدعومة بمسار backend فعلي أو حالة فارغة صريحة. الجلب غير المصرح، النشر المباشر، الدمج الصامت، والأوامر الجماعية الخطرة لا تنفذ من مركز الاستيراد العام.', 'Every visible operation is backed by a real backend path or an explicit empty state. Unauthorized acquisition, direct publication, silent merge, and unsafe bulk commands are not executed from the generic import center.')}
+          </div>
+        </div>
+      </section>
+
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B1730]/70 p-3 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowImportModal(false); }}>
+          <section className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-3xl border bg-white shadow-2xl" style={{ borderColor: BRAND.fog }} dir={isArabic ? 'rtl' : 'ltr'}>
+            <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-white/95 px-5 py-4 backdrop-blur" style={{ borderColor: BRAND.fog }}>
+              <div>
+                <div className="flex items-center gap-2"><UploadCloud className="h-5 w-5" style={{ color: BRAND.secondary }} /><h2 className="text-lg font-black">{txt('إنشاء دفعة استيراد', 'Create Import Batch')}</h2></div>
+                <p className="mt-1 text-[11px] font-semibold text-slate-500">{txt('إدخال → فحص مسبق → تجهيز. لا يوجد نشر في هذه النافذة.', 'Input → preflight → staging. No publication occurs here.')}</p>
+              </div>
+              <button onClick={() => setShowImportModal(false)} className="grid h-9 w-9 place-items-center rounded-full hover:bg-slate-100"><X className="h-4 w-4" /></button>
+            </header>
+
+            <div className="space-y-5 p-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-1.5 text-xs font-black">
+                  <span>{txt('المجال المستهدف', 'Target Domain')}</span>
+                  <select value={modalDomain} disabled={Boolean(fixedDomain)} onChange={(event) => { setModalDomain(event.target.value as Exclude<DomainKey, 'ALL'>); setImportText(''); setSelectedFileName(''); setPreflight(null); }} className="w-full rounded-xl border bg-white px-3 py-2.5 text-xs font-bold outline-none disabled:bg-slate-50 disabled:text-slate-500" style={{ borderColor: BRAND.fog }}>
+                    {DOMAIN_CONFIG.map((domain) => <option key={domain.key} value={domain.key}>{isArabic ? domain.ar : domain.en}</option>)}
+                  </select>
+                </label>
+                <label className="space-y-1.5 text-xs font-black">
+                  <span>{txt('مرجع المصدر / Source System', 'Source Reference / System')}</span>
+                  <input value={sourceSystem} onChange={(event) => { setSourceSystem(event.target.value); setPreflight(null); }} className="w-full rounded-xl border px-3 py-2.5 text-xs font-bold outline-none" style={{ borderColor: BRAND.fog }} placeholder="ADMIN_CONSOLE_MANUAL" />
+                </label>
+              </div>
+
+              {capabilitiesState === 'ready' && (
+                <div className={`rounded-xl border p-3 text-[10px] font-semibold leading-6 ${capabilityFor(modalDomain)?.handoffReady ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                  <span className="font-black">{capabilityFor(modalDomain)?.handoffReady ? txt('تسليم المجال متصل:', 'Domain handoff connected:') : txt('تنبيه تكاملي:', 'Integration notice:')}</span>{' '}
+                  {capabilityFor(modalDomain)?.handoffReady
+                    ? txt('السجلات الصالحة يمكن تسليمها عبر Consumer مسجل للمجال، مع بقاء النشر قرارًا بشريًا داخل المجال.', 'Valid staged records can be handed off through a registered domain consumer; publication still requires the owning-domain workflow.')
+                    : txt('لا يوجد Handoff Consumer مسجل لهذا المجال حاليًا. سيتم حفظ السجلات في Staging بحالة NEEDS_REVIEW وAWAITING_DOMAIN_INTEGRATION، ولن تُعلّم كأنها سُلّمت للمجال.', 'No owning-domain handoff consumer is registered yet. Records remain in staging as NEEDS_REVIEW / AWAITING_DOMAIN_INTEGRATION and are not marked as dispatched.')}
+                </div>
+              )}
+
+              {sources.length > 0 && (
+                <div className="rounded-xl border p-3" style={{ borderColor: BRAND.fog, backgroundColor: `${BRAND.fog}35` }}>
+                  <label className="flex flex-col gap-2 text-xs font-black sm:flex-row sm:items-center sm:justify-between">
+                    <span>{txt('أو اربط الدفعة بمصدر مسجل', 'Or attribute this batch to a registered source')}</span>
+                    <select value={sources.some((source) => source.sourceId === sourceSystem) ? sourceSystem : ''} onChange={(event) => { if (event.target.value) setSourceSystem(event.target.value); setPreflight(null); }} className="min-h-9 rounded-lg border bg-white px-3 text-[11px] font-bold" style={{ borderColor: BRAND.fog }}>
+                      <option value="">{txt('اختر مصدرًا مسجلًا (اختياري)', 'Choose registered source (optional)')}</option>
+                      {visibleSources.filter((source) => source.status === 'ACTIVE').map((source) => <option key={source.sourceId} value={source.sourceId}>{source.displayName} · {sourceStatusLabel(source.status, isArabic)}</option>)}
+                    </select>
+                  </label>
+                  <p className="mt-2 text-[10px] font-semibold text-slate-500">{txt('هذا يحدد مصدر البيانات للتتبع فقط؛ لا ينفذ جلبًا آليًا غير موجود في الـbackend.', 'This attributes provenance only; it does not pretend to run an automated acquisition flow that is not exposed by the backend.')}</p>
+                </div>
+              )}
+
+              <div className="flex w-fit gap-1 rounded-xl p-1" style={{ backgroundColor: `${BRAND.fog}70` }}>
+                <button onClick={() => { setInputMode('file'); setPreflight(null); }} className="rounded-lg px-4 py-2 text-[11px] font-black" style={inputMode === 'file' ? { backgroundColor: BRAND.primary, color: 'white' } : undefined}><span className="inline-flex items-center gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5" />{txt('رفع ملف صغير', 'Upload Small File')}</span></button>
+                <button onClick={() => { setInputMode('paste'); setPreflight(null); }} className="rounded-lg px-4 py-2 text-[11px] font-black" style={inputMode === 'paste' ? { backgroundColor: BRAND.primary, color: 'white' } : undefined}><span className="inline-flex items-center gap-1.5"><FileJson2 className="h-3.5 w-3.5" />{txt('لصق CSV/JSON', 'Paste CSV/JSON')}</span></button>
+              </div>
+
+              {inputMode === 'file' ? (
+                <div
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="cursor-pointer rounded-2xl border-2 border-dashed p-8 text-center transition hover:bg-slate-50"
+                  style={{ borderColor: BRAND.digital }}
+                >
+                  <input ref={fileInputRef} type="file" accept=".csv,.json,.ndjson,.txt" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void readFile(file); event.currentTarget.value = ''; }} />
+                  <HardDriveUpload className="mx-auto h-9 w-9" style={{ color: BRAND.secondary }} />
+                  <div className="mt-3 text-sm font-black">{selectedFileName || txt('اسحب الملف هنا أو اضغط للاختيار', 'Drop a file here or click to choose')}</div>
+                  <p className="mt-2 text-[10px] font-semibold text-slate-500">CSV / JSON / NDJSON / TXT · ≤ 90KB</p>
+                </div>
+              ) : (
+                <textarea rows={10} value={importText} onChange={(event) => { setImportText(event.target.value); setPreflight(null); setSelectedFileName(''); }} className="w-full rounded-2xl border bg-slate-50/40 p-4 font-mono text-[11px] leading-6 outline-none focus:ring-2" style={{ borderColor: BRAND.fog }} placeholder={txt('الصق البيانات هنا...', 'Paste data here...')} />
+              )}
+
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3" style={{ borderColor: BRAND.fog }}>
+                <div className="text-[10px] font-semibold text-slate-500">
+                  {txt('قالب الحقول ليس بيانات تجريبية؛ يضيف صف العناوين فقط لتعرف الشكل المتوقع.', 'The field template is not demo data; it inserts headers only to show the expected shape.')}
+                </div>
+                <button onClick={() => { setInputMode('paste'); setImportText(selectedDomainConfig.template); setSelectedFileName(''); setPreflight(null); }} className="rounded-lg border px-3 py-2 text-[10px] font-black" style={{ borderColor: BRAND.gold, color: '#8A671C' }}>{txt('إدراج قالب الحقول فقط', 'Insert headers-only template')}</button>
+              </div>
+
+              {importText.trim() && (
+                <div className="rounded-xl border p-3 text-[10px] font-bold text-slate-500" style={{ borderColor: BRAND.fog }}>
+                  {txt('الحجم الحالي', 'Current size')}: {new Blob([importText]).size.toLocaleString()} bytes · {txt('الحد', 'limit')}: {INLINE_LIMIT_BYTES.toLocaleString()} bytes
+                </div>
+              )}
+
+              {preflight && (
+                <section className="rounded-2xl border p-4" style={{ borderColor: BRAND.digital, backgroundColor: `${BRAND.fog}30` }}>
+                  <div className="flex items-center gap-2"><SearchCheck className="h-5 w-5" style={{ color: BRAND.secondary }} /><h3 className="text-sm font-black">{txt('نتيجة الفحص المسبق', 'Preflight Result')}</h3></div>
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <MiniStat label={txt('الصفوف', 'Rows')} value={preflight.totalRows} />
+                    <MiniStat label={txt('جديدة', 'New')} value={preflight.newRows} />
+                    <MiniStat label={txt('مكررة', 'Duplicates')} value={preflight.duplicateRows} />
+                    <MiniStat label={txt('غير صالحة بنيويًا', 'Invalid')} value={preflight.invalidRows} />
+                  </div>
+                  <div className="mt-3 space-y-1.5">
+                    {preflight.warnings.map((warning, index) => <div key={index} className="flex gap-2 text-[10px] font-semibold text-slate-600"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: BRAND.gold }} />{warning}</div>)}
+                  </div>
+                  {preflight.previewRows.length > 0 && (
+                    <details className="mt-3 rounded-xl border bg-white p-3" style={{ borderColor: BRAND.fog }}>
+                      <summary className="cursor-pointer text-[10px] font-black">{txt('معاينة أول 5 صفوف محللة', 'Preview first 5 parsed rows')}</summary>
+                      <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-slate-950 p-3 text-left text-[9px] leading-5 text-slate-100" dir="ltr">{JSON.stringify(preflight.previewRows, null, 2)}</pre>
+                    </details>
+                  )}
+                </section>
+              )}
+
+              <div className="rounded-xl border p-3 text-[10px] font-semibold leading-6" style={{ borderColor: `${BRAND.gold}55`, backgroundColor: `${BRAND.highlight}22` }}>
+                <span className="font-black">{txt('قاعدة الأمان:', 'Safety rule:')}</span>{' '}
+                {txt('الفحص العام هنا يختبر التحليل والتكرار التقني فقط. التحقق الدلالي، الاكتمال، المطابقة والدمج مسؤولية المجال المالك. لا يتم نشر أي سجل من هذه النافذة.', 'Generic preflight checks parsing and technical source identity only. Semantic validation, completeness, matching and merge are owned by the target domain. Nothing is published from this dialog.')}
+              </div>
+
+              <div className="flex flex-wrap justify-end gap-2 border-t pt-4" style={{ borderColor: BRAND.fog }}>
+                <button onClick={() => setShowImportModal(false)} className="rounded-xl px-4 py-2.5 text-xs font-black text-slate-500 hover:bg-slate-100">{txt('إلغاء', 'Cancel')}</button>
+                <button disabled={!importText.trim() || preflightLoading || importSubmitting || new Blob([importText]).size > INLINE_LIMIT_BYTES} onClick={() => void runPreflight()} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-black disabled:opacity-40" style={{ borderColor: BRAND.secondary, color: BRAND.secondary }}>{preflightLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <SearchCheck className="h-4 w-4" />}{txt('فحص قبل الاستيراد', 'Run Preflight')}</button>
+                <button disabled={!preflight || importSubmitting || preflight.newRows <= 0} onClick={() => void stageImport()} className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-black text-white shadow-sm disabled:opacity-40" style={{ backgroundColor: BRAND.secondary }}>{importSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}{txt('تجهيز الدفعة', 'Stage Batch')}</button>
+              </div>
+            </div>
+          </section>
+        </div>
       )}
-    </div>
+
+      {selectedRecord && (
+        <div className="fixed inset-0 z-50 bg-[#0B1730]/55" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedRecord(null); }}>
+          <aside className="h-full w-full max-w-2xl overflow-y-auto bg-[#FAF7F0] shadow-2xl" style={{ fontFamily: "'Cairo', sans-serif" }} dir={isArabic ? 'rtl' : 'ltr'}>
+            <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-white/95 px-5 py-4 backdrop-blur" style={{ borderColor: BRAND.fog }}>
+              <div><h2 className="text-lg font-black">{txt('تفاصيل سجل الاستيراد', 'Import Record Details')}</h2><p className="font-mono text-[9px] font-bold text-slate-400">{selectedRecord.id}</p></div>
+              <button onClick={() => setSelectedRecord(null)} className="grid h-9 w-9 place-items-center rounded-full hover:bg-slate-100"><X className="h-4 w-4" /></button>
+            </header>
+            <div className="space-y-4 p-5">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <DetailStat label={txt('الحالة', 'Status')} value={recordStatusLabel(String(selectedRecord.status ?? 'UNKNOWN'), isArabic)} />
+                <DetailStat label={txt('المجال', 'Domain')} value={domainLabel(normalizeDomain(selectedRecord.batch?.dataType), isArabic)} />
+                <DetailStat label={txt('الصف', 'Row')} value={String(selectedRecord.sourceRowNumber ?? selectedRecord.rawPayload?._sourceRowNumber ?? '—')} />
+                <DetailStat label={txt('تاريخ التجهيز', 'Staged At')} value={formatDate(selectedRecord.createdAt, isArabic)} />
+              </div>
+
+              <DetailSection title={txt('المصدر والتتبع', 'Provenance & Trace')}>
+                <KeyValue label={txt('Batch ID', 'Batch ID')} value={selectedRecord.batchId} mono />
+                <KeyValue label={txt('Source System', 'Source System')} value={selectedRecord.batch?.sourceSystem ?? '—'} />
+                <KeyValue label={txt('Dedup Key', 'Dedup Key')} value={selectedRecord.sourceDedupKey ?? '—'} mono />
+                <KeyValue label={txt('Promoted Entity', 'Transferred Entity')} value={selectedRecord.promotedEntityId ?? '—'} mono />
+                <KeyValue label={txt('Chunk / Offset', 'Chunk / Offset')} value={`${selectedRecord.chunkIndex ?? '—'} / ${selectedRecord.recordOffset ?? '—'}`} />
+                <KeyValue label={txt('Handoff State', 'Handoff State')} value={String(selectedRecord.rawPayload?._phase6HandoffState ?? '—')} mono />
+              </DetailSection>
+
+              {selectedRecord.rawPayload?._phase6HandoffState === 'AWAITING_DOMAIN_INTEGRATION' && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-semibold leading-6 text-amber-800">
+                  <span className="font-black">{txt('بانتظار تكامل المجال:', 'Awaiting domain integration:')}</span>{' '}
+                  {txt('تم حفظ السجل بأمان في منطقة التجهيز، لكن لم يُسلّم إلى نموذج المجال لأن Consumer حقيقي غير مسجل بعد. Envelope محفوظ لإعادة المعالجة لاحقًا.', 'The record is safely staged but has not been handed to the owning domain because no real consumer is registered yet. The envelope is retained for later replay.')}
+                </div>
+              )}
+
+              <DetailSection title={txt('التحقق والملاحظات', 'Validation & Processing Notes')}>
+                {normalizeErrors(selectedRecord.validationErrors).length ? <div className="space-y-1.5">{normalizeErrors(selectedRecord.validationErrors).map((error, index) => <div key={index} className="rounded-lg bg-red-50 px-3 py-2 text-[10px] font-bold text-red-700">{error}</div>)}</div> : <div className="text-[11px] font-bold text-emerald-700">{txt('لا توجد أخطاء تحقق عامة مسجلة.', 'No generic validation errors recorded.')}</div>}
+                {selectedRecord.processingNotes && <p className="mt-3 rounded-lg bg-slate-50 p-3 text-[10px] font-semibold leading-6 text-slate-600">{selectedRecord.processingNotes}</p>}
+              </DetailSection>
+
+              <DetailSection title={txt('الحمولة الخام المخزنة', 'Stored Raw Payload')}>
+                <pre className="max-h-[440px] overflow-auto whitespace-pre-wrap break-all rounded-xl bg-slate-950 p-4 text-left text-[9px] leading-5 text-slate-100" dir="ltr">{JSON.stringify(selectedRecord.rawPayload ?? {}, null, 2)}</pre>
+              </DetailSection>
+
+              {(() => {
+                const config = DOMAIN_CONFIG.find((item) => item.key === normalizeDomain(selectedRecord.batch?.dataType));
+                return config ? <Link to={config.workspace} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black text-white" style={{ backgroundColor: BRAND.primary }}>{txt('فتح مساحة المجال للمراجعة', 'Open owning domain for review')}{isArabic ? <ArrowLeft className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}</Link> : null;
+              })()}
+            </div>
+          </aside>
+        </div>
+      )}
+    </main>
   );
+}
+
+function MetricCard({ icon: Icon, label, value, accent }: { icon: typeof Database; label: string; value: string; accent: string }) {
+  return <div className="rounded-2xl border bg-white p-4 shadow-sm" style={{ borderColor: '#DDEFF2' }}><div className="flex items-center justify-between"><div className="grid h-9 w-9 place-items-center rounded-xl" style={{ backgroundColor: `${accent}12`, color: accent }}><Icon className="h-4.5 w-4.5" /></div><div className="text-2xl font-black" style={{ color: accent }}>{value}</div></div><div className="mt-3 text-[11px] font-black text-slate-600">{label}</div></div>;
+}
+
+function MiniStat({ label, value }: { label: string; value: number }) {
+  return <div className="rounded-lg bg-slate-50 px-1.5 py-2"><div className="text-sm font-black text-[#142B5F]">{value.toLocaleString()}</div><div className="mt-0.5 text-[8px] font-black text-slate-400">{label}</div></div>;
+}
+
+function AttentionCard({ icon: Icon, value, title, detail }: { icon: typeof AlertTriangle; value: number; title: string; detail: string }) {
+  return <div className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700"><Icon className="h-5 w-5" /></div><div><div className="text-lg font-black text-amber-800">{value}</div><div className="text-xs font-black text-slate-700">{title}</div><div className="mt-1 text-[10px] font-semibold text-slate-500">{detail}</div></div></div>;
+}
+
+function Notice({ tone, children }: { tone: 'success' | 'error' | 'warning'; children: ReactNode }) {
+  const style = tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : tone === 'error' ? 'border-red-200 bg-red-50 text-red-800' : 'border-amber-200 bg-amber-50 text-amber-800';
+  const Icon = tone === 'success' ? CheckCircle2 : AlertTriangle;
+  return <div className={`flex gap-2.5 rounded-2xl border p-4 text-xs font-bold leading-6 ${style}`}><Icon className="mt-0.5 h-4 w-4 shrink-0" /><div>{children}</div></div>;
+}
+
+function LoadingBlock({ label }: { label: string }) {
+  return <div className="grid min-h-40 place-items-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-xs font-bold text-slate-400"><div className="text-center"><Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-[#0E7C86]" />{label}</div></div>;
+}
+
+function EmptyBlock({ icon: Icon, title, detail }: { icon: typeof Database; title: string; detail: string }) {
+  return <div className="grid min-h-40 place-items-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center"><div><Icon className="mx-auto h-7 w-7 text-slate-300" /><div className="mt-2 text-sm font-black text-slate-600">{title}</div><div className="mx-auto mt-1 max-w-lg text-[10px] font-semibold leading-5 text-slate-400">{detail}</div></div></div>;
+}
+
+function TagBadge({ children }: { children: ReactNode }) {
+  return <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black text-slate-600">{children}</span>;
+}
+
+function StatusBadge({ value, isArabic }: { value: string; isArabic: boolean }) {
+  const normalized = value.toUpperCase();
+  const good = ['COMPLETED', 'COMPLETE', 'PROMOTED', 'VALID'].includes(normalized);
+  const bad = ['FAILED', 'FAILED_PERMANENT', 'DLQ', 'BLOCKED'].includes(normalized);
+  const warn = ['INCOMPLETE', 'NEEDS_REVIEW', 'READY_FOR_REVIEW', 'PAUSED', 'FAILED_RETRYABLE', 'PARTIALLY_COMPLETED'].includes(normalized);
+  const className = good ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : bad ? 'bg-red-50 text-red-700 border-red-200' : warn ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-cyan-50 text-cyan-800 border-cyan-200';
+  return <span className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-black ${className}`}>{recordStatusLabel(normalized, isArabic)}</span>;
+}
+
+function ActionButton({ icon: Icon, label, loading, onClick, danger = false }: { icon: typeof PauseCircle; label: string; loading: boolean; onClick: () => void; danger?: boolean }) {
+  return <button disabled={loading} onClick={onClick} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 text-[9px] font-black disabled:opacity-40 ${danger ? 'border-red-200 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>{loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3" />}{label}</button>;
+}
+
+function DetailStat({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-xl border bg-white p-3" style={{ borderColor: '#DDEFF2' }}><div className="text-[9px] font-black text-slate-400">{label}</div><div className="mt-1 break-words text-[11px] font-black text-[#203442]">{value}</div></div>;
+}
+
+function DetailSection({ title, children }: { title: string; children: ReactNode }) {
+  return <section className="rounded-2xl border bg-white p-4" style={{ borderColor: '#DDEFF2' }}><h3 className="mb-3 text-sm font-black text-[#142B5F]">{title}</h3>{children}</section>;
+}
+
+function KeyValue({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return <div className="grid gap-1 border-b border-slate-100 py-2 last:border-0 sm:grid-cols-[150px_1fr]"><span className="text-[10px] font-black text-slate-400">{label}</span><span className={`break-all text-[10px] font-bold text-slate-600 ${mono ? 'font-mono' : ''}`}>{value}</span></div>;
+}
+
+function csvCell(value: unknown) {
+  const text = value === null || value === undefined ? '' : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function domainPillClass(active: boolean) {
+  return `rounded-lg px-3 py-2 text-[10px] font-black transition ${active ? 'shadow-sm' : 'text-slate-500 hover:bg-white/70'}`;
+}
+
+function metricValue(value: number | undefined | null, state: LoadState) {
+  return state === 'ready' && typeof value === 'number' ? value.toLocaleString() : '—';
+}
+
+function normalizeDomain(value?: string | null): string {
+  const domain = String(value ?? '').trim().toUpperCase();
+  if (domain === 'INTERNATIONAL_TESTS') return 'TESTS';
+  return domain || 'UNKNOWN';
+}
+
+function domainLabel(domain: DomainKey | string, isArabic: boolean) {
+  if (domain === 'ALL') return isArabic ? 'جميع المجالات' : 'All Domains';
+  const normalized = domain === 'INTERNATIONAL_TESTS' ? 'TESTS' : domain;
+  const config = DOMAIN_CONFIG.find((item) => item.key === normalized);
+  return config ? (isArabic ? config.ar : config.en) : String(domain || (isArabic ? 'غير معروف' : 'Unknown'));
+}
+
+function sourceStatusLabel(status: SourceStatus, isArabic: boolean) {
+  const labels: Record<SourceStatus, [string, string]> = {
+    ACTIVE: ['نشط', 'Active'],
+    NEEDS_REVIEW: ['يحتاج مراجعة', 'Needs Review'],
+    DISABLED: ['معطل', 'Disabled'],
+    BLOCKED: ['محظور', 'Blocked'],
+  };
+  return labels[status]?.[isArabic ? 0 : 1] ?? status;
+}
+
+function sourceStatusColor(status: SourceStatus) {
+  return status === 'ACTIVE' ? '#2E7D5A' : status === 'NEEDS_REVIEW' ? '#9A6E12' : status === 'BLOCKED' ? '#B94A48' : '#64748B';
+}
+
+function sourceCategoryLabel(value: string, isArabic: boolean) {
+  const map: Record<string, [string, string]> = {
+    OFFICIAL_API: ['واجهة رسمية API', 'Official API'],
+    OFFICIAL_FEED: ['تغذية رسمية', 'Official Feed'],
+    SITEMAP: ['خريطة موقع', 'Sitemap'],
+    JSON_LD: ['JSON-LD', 'JSON-LD'],
+    STATIC_HTML: ['صفحة ثابتة', 'Static HTML'],
+    DOCUMENT: ['مستند', 'Document'],
+    BROWSER_ASSISTED: ['متصفح مساعد', 'Browser-assisted'],
+    MANUAL_UPLOAD: ['رفع يدوي', 'Manual Upload'],
+  };
+  return map[value]?.[isArabic ? 0 : 1] ?? value;
+}
+
+function sourceAccessLabel(value: string, isArabic: boolean) {
+  const map: Record<string, [string, string]> = {
+    PUBLIC_ALLOWED: ['عام ومسموح', 'Public Allowed'],
+    PUBLIC_ROBOTS_RESTRICTED: ['مقيد بسياسة robots', 'Robots Restricted'],
+    AUTHORIZED_ACCOUNT: ['حساب مصرح', 'Authorized Account'],
+    DATA_AGREEMENT: ['اتفاقية بيانات', 'Data Agreement'],
+    MANUAL_ONLY: ['يدوي فقط', 'Manual Only'],
+    BLOCKED: ['محظور', 'Blocked'],
+  };
+  return map[value]?.[isArabic ? 0 : 1] ?? value;
+}
+
+function recordStatusLabel(value: string, isArabic: boolean) {
+  const normalized = value.replace(/_/g, ' ').toUpperCase();
+  const map: Record<string, [string, string]> = {
+    COMPLETE: ['مجهز / مكتمل بنيويًا', 'Staged / Structurally Complete'],
+    VALID: ['صالح بنيويًا', 'Structurally Valid'],
+    INCOMPLETE: ['غير مكتمل', 'Incomplete'],
+    NEEDS_REVIEW: ['يحتاج مراجعة', 'Needs Review'],
+    READY_FOR_REVIEW: ['جاهز لمراجعة المجال', 'Ready for Domain Review'],
+    PROMOTED: ['رُحّل إلى المجال', 'Transferred to Domain'],
+    FAILED: ['فشل', 'Failed'],
+    DLQ: ['Dead Letter', 'Dead Letter'],
+    CREATED: ['أُنشئت', 'Created'],
+    QUEUED: ['في الطابور', 'Queued'],
+    RUNNING: ['قيد المعالجة', 'Running'],
+    PAUSED: ['متوقفة مؤقتًا', 'Paused'],
+    RESUMING: ['قيد الاستئناف', 'Resuming'],
+    CANCELLING: ['قيد الإلغاء', 'Cancelling'],
+    CANCELLED: ['ملغاة', 'Cancelled'],
+    COMPLETED: ['مكتملة', 'Completed'],
+    PARTIALLY_COMPLETED: ['مكتملة جزئيًا', 'Partially Completed'],
+    FAILED_RETRYABLE: ['فشل قابل للمحاولة', 'Retryable Failure'],
+    FAILED_PERMANENT: ['فشل نهائي', 'Permanent Failure'],
+    PROCESSING: ['معالجة متزامنة', 'Synchronous Processing'],
+  };
+  const key = normalized.replace(/ /g, '_');
+  return map[key]?.[isArabic ? 0 : 1] ?? value.replace(/_/g, ' ');
+}
+
+function recordTitle(payload: Record<string, unknown>) {
+  const candidates = ['displayName', 'scholarshipName', 'canonicalName', 'name', 'title', 'testCode', 'slug'];
+  for (const key of candidates) {
+    const value = payload[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return 'Untitled staged record';
+}
+
+function normalizeErrors(value: unknown): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map((item) => typeof item === 'string' ? item : JSON.stringify(item)).filter(Boolean);
+  if (typeof value === 'string') return [value];
+  if (typeof value === 'object') return Object.entries(value as Record<string, unknown>).map(([key, item]) => `${key}: ${typeof item === 'string' ? item : JSON.stringify(item)}`);
+  return [String(value)];
+}
+
+function shortHash(value: string) {
+  if (value.length <= 24) return value;
+  return `${value.slice(0, 10)}…${value.slice(-8)}`;
+}
+
+function formatDate(value: string | undefined | null, isArabic: boolean) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat(isArabic ? 'ar-YE' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }

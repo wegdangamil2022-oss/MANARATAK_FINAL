@@ -21,6 +21,7 @@ import {
   InternationalTestImportDraftRequestDto,
   InternationalTestImportDraftResultDto,
   InternationalTestVersionDto,
+  InternationalTestProviderDto,
   UpsertInternationalTestAcademicTaxonomyRelationshipDto,
   UpsertInternationalTestDegreeRelationshipReference,
   UpsertInternationalTestReferenceRelationshipDto
@@ -71,6 +72,9 @@ export interface IInternationalTestRepository {
 
   createImportDraftVersion?(testId: string, data: InternationalTestImportDraftRequestDto): Promise<InternationalTestImportDraftResultDto>;
   listImportVersions?(testId: string): Promise<InternationalTestVersionDto[]>;
+  findProviderById?(providerId: string): Promise<InternationalTestProviderDto | null>;
+  listProviders?(search?: string): Promise<InternationalTestProviderDto[]>;
+  upsertProvider?(data: Omit<InternationalTestProviderDto, 'id'> & { id?: string }): Promise<InternationalTestProviderDto>;
   upsertCountryRelationship?(testId: string, data: UpsertInternationalTestReferenceRelationshipDto): Promise<void>;
   upsertLanguageRelationship?(testId: string, data: UpsertInternationalTestReferenceRelationshipDto): Promise<void>;
   upsertAcademicTaxonomyRelationship?(testId: string, data: UpsertInternationalTestAcademicTaxonomyRelationshipDto): Promise<void>;

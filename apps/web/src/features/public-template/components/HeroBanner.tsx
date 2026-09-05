@@ -8,7 +8,7 @@ interface HeroBannerProps {
 
 export const HeroBanner: React.FC<HeroBannerProps> = ({ onExploreClick }) => {
   return (
-    <div className="w-full my-2.5 px-0.5 sm:px-1">
+    <div className="w-full my-2.5 px-0">
       {/* Compact Proportional Hero Card Container */}
       <div className="relative w-full overflow-hidden shadow-sm border border-[var(--mn-accent)]/25 rounded-2xl group bg-[var(--mn-primary)] mn-inverse ">
         {/* Background Image: Scaled to a compact, well-proportioned height */}
@@ -31,7 +31,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ onExploreClick }) => {
               {/* Compact Headline */}
               <h2 className="text-sm sm:text-base md:text-lg font-bold text-white tracking-wide leading-tight mb-1 drop-shadow-md font-['Cairo',sans-serif]">
                 مستقبلك الأكاديمي يبدأ
-                <span className="inline-block mx-1 text-[var(--mn-accent-text)] font-extrabold">
+                <span className="inline-block mx-1 text-[var(--mn-accent-text)] font-semibold">
                   من هنا
                 </span>
               </h2>

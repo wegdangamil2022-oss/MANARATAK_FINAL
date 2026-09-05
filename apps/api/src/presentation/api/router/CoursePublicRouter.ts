@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { CourseAccessType, CourseOriginType } from '@manaratak/domain';
 import { CourseRelationshipQueryService, PublicCourseUseCases } from '@manaratak/application';
+import { parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract';
 
 export class CoursePublicRouter {
   public static create(cradle: { publicCourseUseCases: PublicCourseUseCases; courseRelationshipQueryService: CourseRelationshipQueryService }): Router {
@@ -22,14 +23,17 @@ export class CoursePublicRouter {
       taxonomyNodeId: z.string().trim().min(1).optional(),
       learningLanguageReferenceId: z.string().trim().min(1).optional(),
       providerHeadquartersCountryReferenceId: z.string().trim().min(1).optional(),
+      internationalTestId: z.string().trim().min(1).optional(),
       page: z.coerce.number().int().min(1).default(1),
       pageSize: z.coerce.number().int().min(1).transform((value) => Math.min(value, 50)).default(20),
     });
 
     router.get('/', asyncHandler(async (req: Request, res: Response) => {
-      const filters = listQuerySchema.parse(req.query);
-      const { majorId, taxonomyNodeId, learningLanguageReferenceId, providerHeadquartersCountryReferenceId, ...baseFilters } = filters;
-      const hasRelationshipFilter = Boolean(majorId || taxonomyNodeId || learningLanguageReferenceId || providerHeadquartersCountryReferenceId);
+      const locale = parseRequestLocale(req.query);
+      const { locale: _locale, ...query } = req.query;
+      const filters = listQuerySchema.parse(query);
+      const { majorId, taxonomyNodeId, learningLanguageReferenceId, providerHeadquartersCountryReferenceId, internationalTestId, ...baseFilters } = filters;
+      const hasRelationshipFilter = Boolean(majorId || taxonomyNodeId || learningLanguageReferenceId || providerHeadquartersCountryReferenceId || internationalTestId);
       const result = hasRelationshipFilter
         ? await courseRelationshipQueryService.listPublishedRelatedCourses({
             ...baseFilters,
@@ -37,14 +41,16 @@ export class CoursePublicRouter {
             taxonomyNodeId,
             learningLanguageReferenceId,
             providerHeadquartersCountryReferenceId,
+            internationalTestId,
           })
-        : await publicCourseUseCases.listCourses(baseFilters);
-      res.json(result);
+        : await publicCourseUseCases.listCourses(baseFilters, locale);
+      res.json(hasRelationshipFilter ? publicCourseUseCases.localizeRelationshipPage(result, locale) : result);
     }));
 
     router.get('/:slug', asyncHandler(async (req: Request, res: Response) => {
       try {
-        const course = await publicCourseUseCases.getCourse(req.params.slug);
+        const locale = parseRequestLocale(req.query);
+        const course = await publicCourseUseCases.getCourse(req.params.slug, locale);
         res.json(course);
       } catch (err: any) {
         if (err.message === 'Course not found') {
@@ -56,7 +62,7 @@ export class CoursePublicRouter {
 
     router.use((err: any, req: Request, res: Response, next: NextFunction) => {
       if (err instanceof z.ZodError) {
-        return res.status(400).json({ error: 'Validation Error', details: err.issues });
+        return res.status(400).json(toApiValidationErrorPayload(err));
       }
       res.status(500).json({ error: 'Internal Server Error' });
     });

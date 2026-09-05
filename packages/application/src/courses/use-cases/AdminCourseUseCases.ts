@@ -9,6 +9,7 @@ import {
   PaginatedCourseResult,
   UpdateCourseDto,
 } from '@manaratak/domain';
+import { assertNoTranslationPayloadFields } from '@manaratak/shared';
 import { AtomicMutationRequestContext } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
 import { CoursePublicationService } from '../services/CoursePublicationService';
 
@@ -37,6 +38,7 @@ export class AdminCourseUseCases {
   }
 
   public async updateCourse(id: string, updates: UpdateCourseDto): Promise<CourseDto> {
+    assertNoTranslationPayloadFields('COURSE', updates.optionalFields, ['localizedNames', 'titleEn']);
     const existing = await this.getCourse(id);
     if (updates.originType && updates.originType !== existing.originType) {
       throw new Error('COURSE_ORIGIN_TYPE_MUTATION_FORBIDDEN');
@@ -60,6 +62,9 @@ export class AdminCourseUseCases {
       return this.repository.update(id, {
         ...updates,
         originType: undefined,
+        learningLanguageRaw: updates.learningLanguage !== undefined
+          ? updates.learningLanguage
+          : updates.learningLanguageRaw,
         completenessStatus: existing.completenessStatus,
       });
     }

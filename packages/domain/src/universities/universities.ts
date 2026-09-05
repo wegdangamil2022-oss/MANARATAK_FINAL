@@ -237,6 +237,8 @@ export interface UniversityFilters {
   institutionType?: string;
   /** Canonical P10 Major owner ID. Public reverse reads are projected from P11 AcademicProgram. */
   majorId?: string;
+  /** Canonical P8 International Test owner ID. Reverse reads are projected from program admission requirements. */
+  internationalTestId?: string;
   city?: string;
   search?: string;
   page?: number;
@@ -252,6 +254,10 @@ export type PublicUniversityDto = Omit<
   | 'status'
   | 'completenessStatus'
   | 'optionalFields'
+  | 'sourceRecords'
+  | 'translations'
+  | 'localizedTexts'
+  | 'localizedNames'
   | 'createdAt'
 >;
 
@@ -277,6 +283,40 @@ export interface PublishedAcademicProgramReadModel {
   status: string;
 }
 
+
+export interface UniversityOrganizationUnitSummaryDto {
+  id: string;
+  universityId: string;
+  universityPublicId: string;
+  universityDisplayName: string;
+  campusId?: string | null;
+  parentOrganizationUnitId?: string | null;
+  unitType: 'FACULTY' | 'SCHOOL' | 'COLLEGE' | 'DEPARTMENT' | string;
+  name: string;
+  status: string;
+  programCount: number;
+  mappedMajorCount: number;
+  unresolvedMajorCount: number;
+  activeProgramCount: number;
+}
+
+export interface UniversityOrganizationUnitFilters {
+  universityId?: string;
+  unitType?: 'FACULTY' | 'SCHOOL' | 'COLLEGE' | 'DEPARTMENT';
+  status?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PaginatedUniversityOrganizationUnitResult {
+  data: UniversityOrganizationUnitSummaryDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export interface IUniversityRepository {
   create(
     data: Omit<UniversityDto, 'id' | 'createdAt' | 'updatedAt'> &
@@ -291,6 +331,7 @@ export interface IUniversityRepository {
   listPublished(
     filters: PublicUniversityFilters,
   ): Promise<PaginatedUniversityResult<UniversityDto>>;
+  listOrganizationUnits?(filters: UniversityOrganizationUnitFilters): Promise<PaginatedUniversityOrganizationUnitResult>;
   findPublishedByPublicIds?(publicIds: string[]): Promise<UniversityDto[]>;
   findPublishedByIds?(ids: string[]): Promise<UniversityDto[]>;
   findPublishedAcademicProgramsByIds?(ids: string[]): Promise<PublishedAcademicProgramReadModel[]>;

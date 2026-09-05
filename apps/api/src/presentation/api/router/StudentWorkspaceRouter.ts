@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { ISessionManager, ITokenProvider } from '@manaratak/core';
-import { FinanceStudentUseCases, StudentWorkspaceUseCases, StudentSavedItemHydrationService, StudentDashboardHydrationService, StudentServiceRequestUseCases } from '@manaratak/application';
+import { FinancePlatformUseCases, FinanceStudentUseCases, StudentWorkspaceUseCases, StudentSavedItemHydrationService, StudentDashboardHydrationService, StudentServiceRequestUseCases } from '@manaratak/application';
 import { ServiceRequestStatus, StudentSavedItemType } from '@manaratak/domain';
 import { AuthMiddleware } from '../../middleware/AuthMiddleware';
 
@@ -9,6 +9,7 @@ export class StudentWorkspaceRouter {
   public static create(cradle: {
     studentWorkspaceUseCases: StudentWorkspaceUseCases;
     financeStudentUseCases: FinanceStudentUseCases;
+    financePlatformUseCases: FinancePlatformUseCases;
     studentSavedItemHydrationService: StudentSavedItemHydrationService;
     studentDashboardHydrationService: StudentDashboardHydrationService;
     studentServiceRequestUseCases: StudentServiceRequestUseCases;
@@ -16,7 +17,7 @@ export class StudentWorkspaceRouter {
     sessionManager?: ISessionManager;
   }): Router {
     const router = Router();
-    const { studentWorkspaceUseCases, financeStudentUseCases, studentSavedItemHydrationService, studentDashboardHydrationService, studentServiceRequestUseCases, tokenProvider, sessionManager } = cradle;
+    const { studentWorkspaceUseCases, financeStudentUseCases, financePlatformUseCases, studentSavedItemHydrationService, studentDashboardHydrationService, studentServiceRequestUseCases, tokenProvider, sessionManager } = cradle;
 
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
@@ -90,6 +91,24 @@ export class StudentWorkspaceRouter {
       if (!req.authUserId) throw new Error('STUDENT_AUTHENTICATION_REQUIRED');
       return req.authUserId;
     };
+
+
+    const ownStudentPath = (req: Request): string => {
+      const studentReferenceId = ownStudent(req);
+      if (req.params.studentReferenceId && req.params.studentReferenceId !== studentReferenceId) {
+        throw new Error('STUDENT_ROUTE_OWNERSHIP_MISMATCH');
+      }
+      return studentReferenceId;
+    };
+    const paymentAttemptSchema = z.object({
+      amount: z.object({
+        amountMinorUnits: z.string().regex(/^\d+$/),
+        currencyCode: z.string().regex(/^[A-Z]{3}$/),
+        scale: z.number().int().min(0).max(6),
+      }),
+      paymentMethodToken: z.string().trim().min(1).max(512),
+      gatewayProvider: z.string().trim().min(1).max(80),
+    }).strict();
 
     router.get(
       '/workspace',
@@ -436,7 +455,7 @@ export class StudentWorkspaceRouter {
     router.get(
       '/:studentReferenceId/finance/invoices',
       asyncHandler(async (req: Request, res: Response) => {
-        res.json(await financeStudentUseCases.listStudentInvoices(req.params.studentReferenceId));
+        res.json(await financeStudentUseCases.listStudentInvoices(ownStudentPath(req)));
       }),
     );
 
@@ -444,7 +463,7 @@ export class StudentWorkspaceRouter {
       '/:studentReferenceId/finance/overview',
       asyncHandler(async (req: Request, res: Response) => {
         res.json(
-          await financeStudentUseCases.getStudentFinancialOverview(req.params.studentReferenceId),
+          await financeStudentUseCases.getStudentFinancialOverview(ownStudentPath(req)),
         );
       }),
     );
@@ -454,7 +473,7 @@ export class StudentWorkspaceRouter {
       asyncHandler(async (req: Request, res: Response) => {
         res.json(
           await financeStudentUseCases.getStudentInvoice(
-            req.params.studentReferenceId,
+            ownStudentPath(req),
             req.params.invoiceId,
           ),
         );
@@ -466,10 +485,36 @@ export class StudentWorkspaceRouter {
       asyncHandler(async (req: Request, res: Response) => {
         res.json({
           data: await financeStudentUseCases.listStudentInvoicePayments(
-            req.params.studentReferenceId,
+            ownStudentPath(req),
             req.params.invoiceId,
           ),
         });
+      }),
+    );
+
+
+    router.post(
+      '/:studentReferenceId/finance/invoices/:invoiceId/payment-attempts',
+      asyncHandler(async (req: Request, res: Response) => {
+        const studentReferenceId = ownStudentPath(req);
+        await financeStudentUseCases.getStudentInvoice(studentReferenceId, req.params.invoiceId);
+        const idempotencyKey = String(req.headers['idempotency-key'] || '').trim();
+        if (!idempotencyKey) throw new Error('PAYMENT_IDEMPOTENCY_KEY_REQUIRED');
+        const body = paymentAttemptSchema.parse(req.body);
+        res.status(201).json(await financePlatformUseCases.capturePayment(
+          {
+            invoiceId: req.params.invoiceId,
+            amount: body.amount,
+            paymentMethodToken: body.paymentMethodToken,
+            gatewayProvider: body.gatewayProvider,
+          },
+          {
+            actorId: studentReferenceId,
+            idempotencyKey,
+            correlationId: String(req.headers['x-correlation-id'] || '').trim() || undefined,
+            reason: 'Authenticated student payment attempt',
+          },
+        ));
       }),
     );
 
@@ -478,7 +523,11 @@ export class StudentWorkspaceRouter {
         return res.status(400).json({ error: 'Validation Error', details: err.issues });
       }
       const code = err.message || 'An error occurred';
-      const status = code.includes('VERSION_CONFLICT')
+      const status = code.includes('NOT_CONFIGURED') || code.includes('RUNTIME_PENDING') || code.includes('runtime transport is pending')
+        ? 503
+        : code.includes('STUDENT_ROUTE_OWNERSHIP_MISMATCH')
+          ? 404
+          : code.includes('VERSION_CONFLICT')
         ? 409
         : code.includes('SUSPENDED') || code.includes('ARCHIVED')
           ? 423

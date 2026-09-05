@@ -10,6 +10,7 @@ import {
   FinanceApprovalBinding,
   FinanceMutationContext,
   FinancePaymentDto,
+  FinancePaymentFilters,
   IFinanceRepository,
   InvoiceStatus,
   MoneyAmount,
@@ -50,12 +51,22 @@ export class PrismaFinanceRepository implements IFinanceRepository {
   ): Promise<PaginatedFinanceResult<FinanceInvoiceDto>> {
     const page = Math.max(1, filters.page || 1);
     const pageSize = Math.min(100, Math.max(1, filters.pageSize || 20));
+    const search = filters.search?.trim();
     const where = {
       ...(filters.status && { status: filters.status }),
       ...(filters.originDomain && { originDomain: filters.originDomain }),
       ...(filters.originReferenceId && { originReferenceId: filters.originReferenceId }),
       ...(filters.studentReferenceId && { studentReferenceId: filters.studentReferenceId }),
       ...(filters.payerReferenceId && { payerReferenceId: filters.payerReferenceId }),
+      ...(search && {
+        OR: [
+          { invoiceNumber: { contains: search, mode: 'insensitive' } },
+          { publicId: { contains: search, mode: 'insensitive' } },
+          { originReferenceId: { contains: search, mode: 'insensitive' } },
+          { studentReferenceId: { contains: search, mode: 'insensitive' } },
+          { payerReferenceId: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
     };
     const [rows, total] = await Promise.all([
       this.db.financeInvoiceRecord.findMany({
@@ -80,6 +91,41 @@ export class PrismaFinanceRepository implements IFinanceRepository {
       orderBy: { createdAt: 'desc' },
     });
     return rows.map((row: any) => this.payment(row));
+  }
+  async listPayments(
+    filters: FinancePaymentFilters,
+  ): Promise<PaginatedFinanceResult<FinancePaymentDto>> {
+    const page = Math.max(1, filters.page || 1);
+    const pageSize = Math.min(100, Math.max(1, filters.pageSize || 20));
+    const search = filters.search?.trim();
+    const where = {
+      ...(filters.status && { status: filters.status }),
+      ...(filters.invoiceId && { invoiceId: filters.invoiceId }),
+      ...(filters.gatewayProvider && { gatewayProvider: filters.gatewayProvider }),
+      ...(search && {
+        OR: [
+          { publicId: { contains: search, mode: 'insensitive' } },
+          { gatewayReference: { contains: search, mode: 'insensitive' } },
+          { failureReason: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+    const [rows, total] = await Promise.all([
+      this.db.financePaymentRecord.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.db.financePaymentRecord.count({ where }),
+    ]);
+    return {
+      data: rows.map((row: any) => this.payment(row)),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
   }
   async createDraftInvoice(
     data: Omit<CreateFinanceInvoiceDto, 'status' | 'issuedAt'>,
@@ -236,41 +282,192 @@ export class PrismaFinanceRepository implements IFinanceRepository {
       return this.invoice(row);
     });
   }
+  async preparePaymentAttempt(
+    data: CreateFinancePaymentDto,
+    ctx: FinanceMutationContext,
+  ): Promise<FinancePaymentDto> {
+    return this.tx(async (tx) => {
+      const keyHash = hash(ctx.idempotencyKey);
+      const existing = await tx.financePaymentRecord.findUnique({ where: { idempotencyKeyHash: keyHash } });
+      if (existing) {
+        const sameRequest =
+          existing.invoiceId === data.invoiceId &&
+          existing.amountMinorUnits === data.amount.amountMinorUnits &&
+          existing.currencyCode === data.amount.currencyCode &&
+          existing.scale === data.amount.scale &&
+          existing.gatewayProvider === data.gatewayProvider &&
+          existing.paymentMethod === data.paymentMethod;
+        if (!sameRequest) throw new Error('Payment idempotency key was reused with a different request');
+        return this.payment(existing);
+      }
+      const invoice = await tx.financeInvoiceRecord.findUnique({ where: { id: data.invoiceId } });
+      if (!invoice || ![InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.OVERDUE].includes(invoice.status))
+        throw new Error('Invoice is not payable');
+      if (
+        data.amount.currencyCode !== invoice.currencyCode ||
+        data.amount.scale !== invoice.scale ||
+        BigInt(data.amount.amountMinorUnits) <= 0n ||
+        BigInt(data.amount.amountMinorUnits) > BigInt(invoice.dueMinorUnits)
+      ) throw new Error('Invalid payment attempt amount');
+      const row = await tx.financePaymentRecord.create({
+        data: {
+          ...this.paymentCreate({ ...data, status: PaymentStatus.PENDING, gatewayReference: null, capturedAt: null }),
+          idempotencyKeyHash: keyHash,
+          attempts: { create: [{ sequence: 1, status: PaymentStatus.PENDING }] },
+        },
+      });
+      await this.govern(tx, ctx, 'FINANCE_PAYMENT_ATTEMPT_STARTED', row.id, {
+        invoiceId: invoice.id,
+        gatewayProvider: data.gatewayProvider,
+      });
+      return this.payment(row);
+    });
+  }
+
+  async recordPaymentAuthorization(
+    paymentId: string,
+    evidence: { gatewayReference: string; safeMaskedMetadata?: Record<string, string> },
+    ctx: FinanceMutationContext,
+  ): Promise<FinancePaymentDto> {
+    return this.tx(async (tx) => {
+      const current = await tx.financePaymentRecord.findUnique({ where: { id: paymentId } });
+      if (!current) throw new Error('Payment attempt not found');
+      if ([PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED].includes(current.status)) {
+        if (current.gatewayReference && current.gatewayReference !== evidence.gatewayReference)
+          throw new Error('Authorization replay reference mismatch');
+        return this.payment(current);
+      }
+      if (current.status !== PaymentStatus.PENDING) throw new Error(`Payment cannot authorize from ${current.status}`);
+      if (!evidence.gatewayReference.trim()) throw new Error('Gateway authorization reference is required');
+      const externalDuplicate = await tx.financePaymentRecord.findFirst({
+        where: {
+          gatewayProvider: current.gatewayProvider,
+          gatewayReference: evidence.gatewayReference,
+          NOT: { id: current.id },
+        },
+      });
+      if (externalDuplicate) throw new Error('Duplicate external payment authorization rejected');
+      const row = await tx.financePaymentRecord.update({
+        where: { id: current.id },
+        data: {
+          status: PaymentStatus.AUTHORIZED,
+          gatewayReference: evidence.gatewayReference,
+          safeMaskedMetadata: evidence.safeMaskedMetadata as any,
+          attempts: {
+            create: {
+              sequence: 2,
+              status: PaymentStatus.AUTHORIZED,
+              gatewayReference: evidence.gatewayReference,
+            },
+          },
+        },
+      });
+      await this.govern(tx, ctx, 'FINANCE_PAYMENT_AUTHORIZED', row.id, {
+        gatewayProvider: row.gatewayProvider,
+        gatewayReference: evidence.gatewayReference,
+      });
+      return this.payment(row);
+    });
+  }
+
+  async recordPaymentFailure(
+    paymentId: string,
+    failureCode: string,
+    ctx: FinanceMutationContext,
+  ): Promise<FinancePaymentDto> {
+    return this.tx(async (tx) => {
+      const current = await tx.financePaymentRecord.findUnique({ where: { id: paymentId } });
+      if (!current) throw new Error('Payment attempt not found');
+      if (current.status === PaymentStatus.FAILED) return this.payment(current);
+      if (![PaymentStatus.PENDING, PaymentStatus.AUTHORIZED].includes(current.status))
+        throw new Error(`Payment cannot fail from ${current.status}`);
+      const attemptCount = await tx.financePaymentAttemptRecord.count({ where: { paymentId: current.id } });
+      const safeFailureCode = failureCode.trim().slice(0, 120) || 'UNKNOWN';
+      const row = await tx.financePaymentRecord.update({
+        where: { id: current.id },
+        data: {
+          status: PaymentStatus.FAILED,
+          failureReason: safeFailureCode,
+          attempts: {
+            create: {
+              sequence: attemptCount + 1,
+              status: PaymentStatus.FAILED,
+              gatewayReference: current.gatewayReference,
+              safeFailureCode,
+            },
+          },
+        },
+      });
+      await this.govern(tx, ctx, 'FINANCE_PAYMENT_FAILED', row.id, { failureCode: safeFailureCode });
+      return this.payment(row);
+    });
+  }
+
   async recordCapturedPaymentAtomic(
     data: CreateFinancePaymentDto,
     ctx: FinanceMutationContext,
   ): Promise<FinancePaymentDto> {
     return this.tx(async (tx) => {
       const keyHash = hash(ctx.idempotencyKey);
-      const duplicate = await tx.financePaymentRecord.findUnique({ where: { idempotencyKeyHash: keyHash } });
-      if (duplicate) return this.payment(duplicate);
+      const current = await tx.financePaymentRecord.findUnique({ where: { idempotencyKeyHash: keyHash } });
+      if (!current) throw new Error('Payment attempt must be prepared before capture');
+      if (current.status === PaymentStatus.CAPTURED) return this.payment(current);
+      if (current.status !== PaymentStatus.AUTHORIZED)
+        throw new Error(`Payment cannot capture from ${current.status}`);
       if (!data.gatewayProvider || !data.gatewayReference)
         throw new Error('Captured payment requires authenticated gateway evidence');
+      if (
+        current.invoiceId !== data.invoiceId ||
+        current.amountMinorUnits !== data.amount.amountMinorUnits ||
+        current.currencyCode !== data.amount.currencyCode ||
+        current.scale !== data.amount.scale ||
+        current.gatewayProvider !== data.gatewayProvider
+      ) throw new Error('Captured payment evidence does not match the prepared payment attempt');
+      if (current.gatewayReference && current.gatewayReference !== data.gatewayReference)
+        throw new Error('Captured gateway reference does not match the authorization reference');
       const gatewayDuplicate = await tx.financePaymentRecord.findFirst({
-        where: { gatewayProvider: data.gatewayProvider, gatewayReference: data.gatewayReference },
+        where: {
+          gatewayProvider: data.gatewayProvider,
+          gatewayReference: data.gatewayReference,
+          NOT: { id: current.id },
+        },
       });
       if (gatewayDuplicate) throw new Error('Duplicate external payment capture rejected');
       const invoice = await tx.financeInvoiceRecord.findUnique({ where: { id: data.invoiceId } });
       if (!invoice || ![InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.OVERDUE].includes(invoice.status))
         throw new Error('Invoice is not payable');
       const amount = data.amount;
-      if (amount.currencyCode !== invoice.currencyCode || amount.scale !== invoice.scale ||
-          BigInt(amount.amountMinorUnits) <= 0n || BigInt(amount.amountMinorUnits) > BigInt(invoice.dueMinorUnits))
-        throw new Error('Invalid captured amount');
-      const row = await tx.financePaymentRecord.create({
+      if (
+        amount.currencyCode !== invoice.currencyCode ||
+        amount.scale !== invoice.scale ||
+        BigInt(amount.amountMinorUnits) <= 0n ||
+        BigInt(amount.amountMinorUnits) > BigInt(invoice.dueMinorUnits)
+      ) throw new Error('Invalid captured amount');
+      const attemptCount = await tx.financePaymentAttemptRecord.count({ where: { paymentId: current.id } });
+      const row = await tx.financePaymentRecord.update({
+        where: { id: current.id },
         data: {
-          ...this.paymentCreate(data), idempotencyKeyHash: keyHash,
-          attempts: { create: [
-            { sequence: 1, status: PaymentStatus.PENDING },
-            { sequence: 2, status: PaymentStatus.AUTHORIZED, gatewayReference: data.gatewayReference },
-            { sequence: 3, status: PaymentStatus.CAPTURED, gatewayReference: data.gatewayReference },
-          ] },
+          status: PaymentStatus.CAPTURED,
+          gatewayReference: data.gatewayReference,
+          capturedAt: data.capturedAt ? new Date(data.capturedAt) : new Date(),
+          safeMaskedMetadata: data.metadata as any,
+          failureReason: null,
+          attempts: {
+            create: {
+              sequence: attemptCount + 1,
+              status: PaymentStatus.CAPTURED,
+              gatewayReference: data.gatewayReference,
+            },
+          },
         },
       });
       const cash = await this.systemAccount(tx, 'PAYMENT_CLEARING', 'ASSET', amount.currencyCode, amount.scale);
       const receivable = await this.systemAccount(tx, 'ACCOUNTS_RECEIVABLE', 'ASSET', amount.currencyCode, amount.scale);
       await this.postWithinTx(tx, {
-        ...ctx, idempotencyKey: `${ctx.idempotencyKey}:ledger`, businessReferenceType: 'PAYMENT', businessReferenceId: row.id,
+        ...ctx,
+        idempotencyKey: `${ctx.idempotencyKey}:ledger`,
+        businessReferenceType: 'PAYMENT',
+        businessReferenceId: row.id,
         postings: [
           { accountId: cash.id, direction: 'DEBIT', amount },
           { accountId: receivable.id, direction: 'CREDIT', amount },
@@ -279,17 +476,34 @@ export class PrismaFinanceRepository implements IFinanceRepository {
       const due = BigInt(invoice.dueMinorUnits) - BigInt(amount.amountMinorUnits);
       await tx.financeInvoiceRecord.update({
         where: { id: invoice.id, version: invoice.version },
-        data: { dueMinorUnits: due.toString(), status: due === 0n ? InvoiceStatus.PAID : InvoiceStatus.PARTIALLY_PAID,
-                paidAt: due === 0n ? new Date() : null, version: { increment: 1 } },
+        data: {
+          dueMinorUnits: due.toString(),
+          status: due === 0n ? InvoiceStatus.PAID : InvoiceStatus.PARTIALLY_PAID,
+          paidAt: due === 0n ? new Date() : null,
+          version: { increment: 1 },
+        },
       });
       await tx.financeDocumentRecord.create({
-        data: { publicId: `fin_receipt_${randomUUID()}`, type: 'RECEIPT', invoiceId: invoice.id, paymentId: row.id,
-                amountMinorUnits: amount.amountMinorUnits, currencyCode: amount.currencyCode, scale: amount.scale, issuedBy: ctx.actorId },
+        data: {
+          publicId: `fin_receipt_${randomUUID()}`,
+          type: 'RECEIPT',
+          invoiceId: invoice.id,
+          paymentId: row.id,
+          amountMinorUnits: amount.amountMinorUnits,
+          currencyCode: amount.currencyCode,
+          scale: amount.scale,
+          issuedBy: ctx.actorId,
+        },
       });
-      await this.govern(tx, ctx, 'FINANCE_PAYMENT_CAPTURED', row.id, { invoiceId: invoice.id, gatewayProvider: data.gatewayProvider, gatewayReference: data.gatewayReference });
+      await this.govern(tx, ctx, 'FINANCE_PAYMENT_CAPTURED', row.id, {
+        invoiceId: invoice.id,
+        gatewayProvider: data.gatewayProvider,
+        gatewayReference: data.gatewayReference,
+      });
       return this.payment(row);
     });
   }
+
   async createCreditNote(
     invoiceId: string, amount: MoneyAmount, reason: string, ctx: FinanceMutationContext,
   ) {
@@ -811,6 +1025,15 @@ export class PrismaFinanceRepository implements IFinanceRepository {
       if (!payment || !payment.gatewayProvider || !payment.gatewayReference) throw new Error('Original payment gateway evidence missing');
       if (providerEvidence.gatewayProvider !== payment.gatewayProvider || !providerEvidence.gatewayReference.trim())
         throw new Error('Refund provider evidence does not match original payment provider');
+      const duplicateEvidence = await tx.financeRefundRecord.findFirst({
+        where: {
+          gatewayProvider: providerEvidence.gatewayProvider,
+          gatewayReference: providerEvidence.gatewayReference,
+          status: 'COMPLETED',
+          NOT: { id: refund.id },
+        },
+      });
+      if (duplicateEvidence) throw new Error('Duplicate external refund completion rejected');
       const amount = money(refund.amountMinorUnits, refund.currencyCode, refund.scale);
       const cash = await this.systemAccount(tx, 'PAYMENT_CLEARING', 'ASSET', refund.currencyCode, refund.scale);
       const receivable = await this.systemAccount(tx, 'ACCOUNTS_RECEIVABLE', 'ASSET', refund.currencyCode, refund.scale);
@@ -824,8 +1047,18 @@ export class PrismaFinanceRepository implements IFinanceRepository {
       const invoice = await tx.financeInvoiceRecord.findUnique({ where: { id: payment.invoiceId } });
       if (invoice) {
         const newDue = BigInt(invoice.dueMinorUnits) + BigInt(refund.amountMinorUnits);
-        await tx.financeInvoiceRecord.update({ where: { id: invoice.id, version: invoice.version }, data: { dueMinorUnits: newDue.toString(),
-          status: newDue > 0n ? InvoiceStatus.PARTIALLY_PAID : invoice.status, paidAt: null, version: { increment: 1 } } });
+        const reopenedStatus = newDue === BigInt(invoice.totalMinorUnits)
+          ? InvoiceStatus.ISSUED
+          : InvoiceStatus.PARTIALLY_PAID;
+        await tx.financeInvoiceRecord.update({
+          where: { id: invoice.id, version: invoice.version },
+          data: {
+            dueMinorUnits: newDue.toString(),
+            status: reopenedStatus,
+            paidAt: null,
+            version: { increment: 1 },
+          },
+        });
       }
       const row = await tx.financeRefundRecord.update({ where: { id: refund.id }, data: { status: 'COMPLETED',
         gatewayProvider: providerEvidence.gatewayProvider, gatewayReference: providerEvidence.gatewayReference, completedAt: new Date() } });
@@ -1005,7 +1238,9 @@ export class PrismaFinanceRepository implements IFinanceRepository {
       pendingApprovals,
       reconciliationHealth: issues.some((item) => item.severity === 'CRITICAL')
         ? 'CRITICAL'
-        : 'HEALTHY',
+        : issues.some((item) => item.severity === 'HIGH')
+          ? 'DEGRADED'
+          : 'HEALTHY',
       attention: issues,
     };
   }
@@ -1073,7 +1308,9 @@ export class PrismaFinanceRepository implements IFinanceRepository {
       ),
       reconciliationStatus: issues.some((item) => item.severity === 'CRITICAL')
         ? 'CRITICAL'
-        : 'HEALTHY',
+        : issues.some((item) => item.severity === 'HIGH')
+          ? 'DEGRADED'
+          : 'HEALTHY',
     };
   }
 

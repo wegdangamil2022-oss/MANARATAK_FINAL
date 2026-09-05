@@ -708,9 +708,9 @@ export interface StudentToolPreview {
   serviceSuggestions?: StudentToolServiceSuggestion[];
 }
 
-export type CareerOpportunityKind = 'وظيفة' | 'تدريب' | 'برنامج خريجين';
-export type CareerWorkMode = 'حضوري' | 'عن بعد';
-export type CareerExperienceLevel = 'طالب جامعي' | 'حديث التخرج' | 'مبتدئ';
+export type CareerOpportunityKind = 'وظيفة' | 'تدريب' | 'برنامج خريجين' | 'إرشاد مهني' | 'فعالية مهنية';
+export type CareerWorkMode = 'حضوري' | 'عن بعد' | 'هجين';
+export type CareerExperienceLevel = 'طالب جامعي' | 'حديث التخرج' | 'مبتدئ' | 'غير محدد';
 
 export interface CareerContextLink {
   category: CategoryType;
@@ -747,6 +747,8 @@ export interface CareerOpportunityPreview {
   targetSkills: string[];
   benefits: string[];
   applicationSteps: string[];
+  applicationDeadline?: string;
+  externalPostingUrl?: string;
   contextLinks?: CareerContextLink[];
   suggestTools?: boolean;
 }

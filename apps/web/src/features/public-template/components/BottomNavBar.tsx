@@ -58,7 +58,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
             }`}
           />
           {favoritesCount > 0 && (
-            <span className="absolute -top-1.5 -right-2 min-w-[15px] h-[15px] px-1 bg-[var(--mn-accent)] text-[var(--mn-on-accent)] font-black text-[8px] rounded-full flex items-center justify-center shadow-xs animate-pulse mn-gold ">
+            <span className="absolute -top-1.5 -right-2 min-w-[15px] h-[15px] px-1 bg-[var(--mn-accent)] text-[var(--mn-on-accent)] font-bold text-[8px] rounded-full flex items-center justify-center shadow-xs animate-pulse mn-gold ">
               {favoritesCount}
             </span>
           )}
@@ -98,7 +98,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
             }`}
           />
           {unreadNotificationsCount > 0 && (
-            <span className="absolute -top-1.5 -right-2 min-w-[15px] h-[15px] px-1 bg-[var(--mn-accent)] text-[var(--mn-on-accent)] font-black text-[8px] rounded-full flex items-center justify-center shadow-xs mn-gold ">
+            <span className="absolute -top-1.5 -right-2 min-w-[15px] h-[15px] px-1 bg-[var(--mn-accent)] text-[var(--mn-on-accent)] font-bold text-[8px] rounded-full flex items-center justify-center shadow-xs mn-gold ">
               {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
             </span>
           )}
@@ -112,7 +112,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
       id="manaratak-bottom-nav"
       className="w-full select-none fixed bottom-0 left-0 right-0 z-30 bg-[var(--mn-surface)] mn-dark:bg-[var(--mn-surface)] border-t-2 border-[var(--mn-border)] mn-dark:border-[var(--mn-border)] shadow-[0_-6px_25px_rgba(0,0,0,0.15)] mn-dark:shadow-[0_-6px_25px_rgba(0,0,0,0.5)] pt-1.5 pb-[max(8px,env(safe-area-inset-bottom,8px))] transition-colors mn-panel mn-dark:mn-panel "
     >
-      <div className="max-w-md mx-auto flex items-center justify-around w-full px-2">
+      <div className="max-w-md mx-auto flex items-stretch justify-around w-full px-[var(--mn-container-mobile)]">
         {tabs.map((tab) => {
           const isActive = tab.id === 'notifications' ? isNotificationsOpen : activeTab === tab.id;
 
@@ -121,7 +121,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
               key={tab.id}
               id={`tab-nav-${tab.id}`}
               onClick={() => onTabChange(tab.id)}
-              className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all duration-150 active:scale-90 relative cursor-pointer ${
+              className={`flex min-w-0 flex-1 flex-col items-center justify-center min-h-[52px] py-1.5 px-1 rounded-xl transition-all duration-150 active:scale-90 relative cursor-pointer ${
                 isActive
                   ? 'text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)] font-bold'
                   : 'text-[var(--mn-text-muted)] mn-dark:text-[var(--mn-text-muted)] hover:text-[var(--mn-heading)] mn-dark:hover:text-[var(--mn-text)]'
@@ -136,7 +136,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
               <span
                 className={`text-[10px] sm:text-[11px] leading-tight font-medium ${
                   isActive
-                    ? 'text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)] !font-bold'
+                    ? 'text-[var(--mn-heading)] mn-dark:text-[var(--mn-accent-text)] font-bold'
                     : 'text-[var(--mn-text-muted)] mn-dark:text-[var(--mn-text-muted)]'
                 }`}
               >

@@ -24,7 +24,7 @@ export const FeaturedServices: React.FC<FeaturedServicesProps> = ({
   const services = sourceServices.filter((service) => service.audience === activeTab);
 
   return (
-    <section className="px-0.5 sm:px-1 py-3 w-full font-['Cairo',sans-serif]">
+    <section className="px-0 py-3 w-full font-['Cairo',sans-serif]">
       <div className="relative overflow-hidden rounded-3xl border border-[var(--mn-border)] border-t-2 border-t-[var(--mn-accent)]/40 bg-gradient-to-b from-[var(--mn-surface)] to-[var(--mn-page)]/80 p-4 shadow-sm sm:p-5 mn-panel ">
         <div className="mb-5 flex flex-col items-center gap-4">
           <div className="text-center">
@@ -85,7 +85,7 @@ export const FeaturedServices: React.FC<FeaturedServicesProps> = ({
                   {service.title}
                 </h4>
                 <p className="mt-0.5 line-clamp-1 text-[10px] text-[var(--mn-text-muted)] sm:text-[11px]">{service.shortDescription}</p>
-                <span className="mt-1 inline-flex items-center gap-1 text-[8.5px] font-black text-[var(--mn-accent-text)]">
+                <span className="mt-1 inline-flex items-center gap-1 text-[8.5px] font-bold text-[var(--mn-accent-text)]">
                   عرض التفاصيل
                   <ChevronLeft className="h-3 w-3" />
                 </span>
