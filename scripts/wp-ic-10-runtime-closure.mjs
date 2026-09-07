@@ -4,7 +4,6 @@ import path from 'node:path';
 import process from 'node:process';
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
-import { writeXlsxMatrix } from './lib/spreadsheet-workbook-adapter.mjs';
 import {
   WPIC10_EXPECTED_ROWS,
   WPIC10_HEADERS,
@@ -43,6 +42,7 @@ if (command === 'memory') {
     bytes = fs.readFileSync(workbookPath);
     source = `workbook:${path.basename(workbookPath)}`;
   } else {
+    const { writeXlsxMatrix } = await import('./lib/spreadsheet-workbook-adapter.mjs');
     const matrix = [WPIC10_HEADERS, ...Array.from({ length: rowsExpected }, (_, index) => [
       index + 1,
       'WP-IC-10 Synthetic Provider',
@@ -60,7 +60,7 @@ if (command === 'memory') {
     source = 'synthetic-3663-shape';
   }
 
-  const parserSource = path.join(repoRoot, 'packages/application/src/import-foundation/parsers/CourseMasterArtifactParser.ts');
+  const parserSource = path.join(repoRoot, 'packages/application/src/courses/parsers/CourseMasterArtifactParser.ts');
   const parserModule = path.join(outputDir, 'wpic10-memory-parser.cjs');
   if (!fs.existsSync(parserSource)) fatal('CourseMasterArtifactParser source not found.');
   // Bundle the production parser as Node-loadable ESM; this avoids relying on
@@ -201,4 +201,4 @@ function parse(values) {
 function positiveInt(value, fallback) { const n = Number.parseInt(String(value ?? ''), 10); return Number.isInteger(n) && n > 0 ? n : fallback; }
 function positiveNumber(value, fallback) { const n = Number(value); return Number.isFinite(n) && n > 0 ? n : fallback; }
 function fatal(message) { console.error(message); process.exit(1); }
-function currentGitSha(root) { try { return execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); } catch { return 'UNAVAILABLE'; } }
+function currentGitSha(root) { try { return execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return 'UNAVAILABLE'; } }

@@ -24,8 +24,8 @@ export class ServicePublicRouter {
       deliveryMode: z.nativeEnum(ServiceDeliveryMode).optional(),
       supportedCountryReferenceId: z.string().min(1).optional(),
       supportedLanguageReferenceId: z.string().min(1).optional(),
-      page: z.string().optional().transform((value) => value ? parseInt(value, 10) : 1),
-      pageSize: z.string().optional().transform((value) => value ? Math.min(parseInt(value, 10), 50) : 20)
+      cursor: z.string().trim().min(1).max(2048).optional(),
+      limit: z.coerce.number().int().min(1).max(100).default(20)
     });
 
     router.get('/', asyncHandler(async (req: Request, res: Response) => {

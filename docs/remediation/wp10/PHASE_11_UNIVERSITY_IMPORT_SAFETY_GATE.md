@@ -1,5 +1,7 @@
 # Phase 11 University Import Safety Gate
 
+> **Operational supersession notice (2026-09-06):** Any instruction in this historical remediation artifact that requires an “Original Development Database”, a Google Studio recovery gate, or `WP1_RECOVERY_GATE` is superseded by [`docs/operations/GREENFIELD_DATABASE_PROVISIONING.md`](../../operations/GREENFIELD_DATABASE_PROVISIONING.md). This file remains historical/evidence context and is not current database-operation authority.
+
 Status: `UNIVERSITY BULK IMPORT = BLOCKED`
 
 Relationship closure audit: [PHASE_11_UNIVERSITY_RELATIONSHIP_CLOSURE_AUDIT_2026-08-14.md](./PHASE_11_UNIVERSITY_RELATIONSHIP_CLOSURE_AUDIT_2026-08-14.md). Source publication safety is closed, but canonical relationship persistence remains blocked by the Database Recovery Gate.

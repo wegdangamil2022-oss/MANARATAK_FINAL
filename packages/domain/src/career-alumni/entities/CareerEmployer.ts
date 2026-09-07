@@ -22,9 +22,10 @@ export interface CareerEmployerDto {
   metadata?: Record<string, unknown> | null;
   createdAt: Date | string;
   updatedAt: Date | string;
+  version: number;
 }
 
-export interface CreateCareerEmployerDto extends Omit<CareerEmployerDto, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface CreateCareerEmployerDto extends Omit<CareerEmployerDto, 'id' | 'createdAt' | 'updatedAt' | 'version'> {}
 
 export interface UpdateCareerEmployerDto {
   displayName?: string;

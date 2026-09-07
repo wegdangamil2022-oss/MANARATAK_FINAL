@@ -4,12 +4,14 @@
 
 
 **Document ID:** PHASE-24-01-ARCH-SPEC  
-**Status:** Baselined & Approved  
+**Status:** SOURCE_REBASELINED — RUNTIME_EVIDENCE_PENDING  
 **Phase:** 24  
 **Domain:** Enterprise Public Platform  
 **Artifact:** Part A - Public Platform Vision & Boundaries  
 
 ---
+
+> **W7 source-rebaseline notice (2026-09-07):** This specification is source-rebaselined under `MNT-AUD-0045` against the remediated owner APIs, Admin/Public composition, source tests and cross-phase traceability. This status is not runtime or production certification; external DB/provider/deployment/browser evidence remains `RUNTIME_EVIDENCE_PENDING`. See `docs/remediation/P23_P24_REBASELINE_TRACEABILITY.md`.
 
 ### Navigation
 [← Phase 23: Enterprise Administration Portal](../phase-23-enterprise-administration-portal/phase-23-01-enterprise-administration-portal-architecture-specification.md) | [Phase 24: Structure Contracts (Part B)](./phase-24-02-enterprise-public-platform-structure-contracts.md) | [Phase 24: Public Pages & User Experience (Part C)](./phase-24-03-enterprise-public-platform-public-pages-user-experience.md) | [Roadmap Completion ]
@@ -76,11 +78,11 @@ The architecture ensures that educational terminology inside public content auto
 **Architectural Commentary**  
 The relationship between Phase 24 — Enterprise Public Platform and Phase 23 — Enterprise Administration Portal is strictly governed by command and presentation separation:
 
-- **Command Authority:** Phase 23 issues administrative publication, unpublication, section visibility, and feature-toggle commands through approved domain APIs and event dispatchers.
+- **Command Authority:** Phase 23 invokes publication/unpublication/availability commands through the owning domain APIs. Section ordering/navigation is authored through Phase 16 CMS contracts; Phase 23 owns no duplicate public-visibility store.
 - **Composition Ownership:** Phase 24 owns final public page composition, visitor routing, SEO rendering, client-side layout assembly, and visitor-facing page state.
 - **Domain Record Origin:** Published domain records originate exclusively from their owning domain platforms (Phase 07 Countries, Phase 11 Universities, Phase 12 Scholarships, Phase 13 Courses, Phase 16 CMS, Phase 18 Tools, Phase 20 Services, Phase 21 Career/Alumni), NOT from Phase 23 or Phase 24.
 
-Phase 24 presents a pristine, real-time reflection of approved domain records based on administrative visibility commands.
+Phase 24 presents a real-time composition of owner-approved public records plus published Phase 16 CMS navigation/blocks. It does not consume a separate Phase 23 visibility database.
 
 ---
 

@@ -1,10 +1,13 @@
-import { UseCase, Result, ResultFactory } from '@manaratak/core';
+import { ISessionManager, UseCase, Result, ResultFactory } from '@manaratak/core';
 import { IIdentityRepository } from '@manaratak/domain';
 import { IdentityDto } from './dtos';
 import { IdentityDtoMapper } from './mapper';
 
 export class ArchiveIdentityUseCase implements UseCase<{ identityId: string; reason?: string }, Result<IdentityDto>> {
-  constructor(private readonly identityRepository: IIdentityRepository) {}
+  constructor(
+    private readonly identityRepository: IIdentityRepository,
+    private readonly sessionManager: ISessionManager,
+  ) {}
 
   public async execute(input: { identityId: string; reason?: string }): Promise<Result<IdentityDto>> {
     try {
@@ -15,6 +18,9 @@ export class ArchiveIdentityUseCase implements UseCase<{ identityId: string; rea
 
       identity.archive(input.reason);
       await this.identityRepository.save(identity);
+      // Lifecycle denial is enforced at every authentication boundary; revoke
+      // persisted sessions as an idempotent server-side cut-off as well.
+      await this.sessionManager.revokeAllSessions(input.identityId);
 
       return ResultFactory.success(IdentityDtoMapper.toDto(identity));
     } catch (error: any) {

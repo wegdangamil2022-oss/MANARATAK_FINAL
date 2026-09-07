@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import {
   ISettingAssignmentRepository,
@@ -139,6 +140,7 @@ export class PrismaSettingAssignmentRepository implements ISettingAssignmentRepo
     const scopeLevel = assignment.scope.getLevel();
     const scopeId = assignment.scope.getScopeId() || 'GLOBAL';
     const currentVersion = assignment.getCurrentVersion();
+    const events = [...assignment.domainEvents];
 
     await this.prisma.$transaction(async (tx) => {
       const client = tx as unknown as SettingsAssignmentPrismaClient;
@@ -246,6 +248,32 @@ export class PrismaSettingAssignmentRepository implements ISettingAssignmentRepo
       for (const version of versionsToCreate) {
         await client.settingVersionRecord.create({ data: version });
       }
+
+      if (events.length) {
+        const outbox = (tx as any).transactionalOutboxRecord;
+        if (!outbox?.create) throw new Error('SETTINGS_DURABLE_OUTBOX_REQUIRED');
+        for (const event of events) {
+          const value = event as any;
+          const name = value?.constructor?.name;
+          const map: Record<string, string> = {
+            SettingValueAssignedEvent: 'SettingValueAssigned.v1',
+            SettingValueUpdatedEvent: 'SettingValueUpdated.v1',
+            SettingValueRolledBackEvent: 'SettingValueRolledBack.v1',
+          };
+          const eventType = map[name];
+          if (!eventType) throw new Error(`SETTINGS_DOMAIN_EVENT_NOT_MAPPED:${String(name || 'UNKNOWN')}`);
+          const payload: Record<string, unknown> = { assignmentId: assignment.id, key: keyStr, scopeLevel, scopeId };
+          if (value.versionId) payload.versionId = value.versionId;
+          if (value.previousVersionId) payload.previousVersionId = value.previousVersionId;
+          if (value.newVersionId) payload.newVersionId = value.newVersionId;
+          await outbox.create({ data: {
+            id: randomUUID(), eventType, domain: 'SETTINGS', aggregateType: 'SettingAssignment', aggregateId: assignment.id,
+            payload, metadata: { schemaVersion: 1, ownerDomain: 'SETTINGS' }, correlationId: randomUUID(), state: 'PENDING', attempts: 0,
+            availableAt: new Date(), createdAt: value.dateTimeOccurred ?? new Date(),
+          }});
+        }
+      }
     });
+    if (events.length) assignment.clearEvents();
   }
 }

@@ -1,5 +1,7 @@
 # WP8 Google Studio Closure Master Register
 
+> **Operational supersession notice (2026-09-06):** Any instruction in this historical remediation artifact that requires an “Original Development Database”, a Google Studio recovery gate, or `WP1_RECOVERY_GATE` is superseded by [`docs/operations/GREENFIELD_DATABASE_PROVISIONING.md`](../../operations/GREENFIELD_DATABASE_PROVISIONING.md). This file remains historical/evidence context and is not current database-operation authority.
+
 Governance update (2026-08-13): the historical 96 groups are now classified in [WP8_96_GROUP_RECLASSIFICATION_REGISTER.md](./WP8_96_GROUP_RECLASSIFICATION_REGISTER.md). Google Studio is the final evidence/runtime environment, not the owner of unfinished product implementation. University Stage 2+ and Scholarships are tracked separately in [EXPANSION_CLOSURE_REGISTER.md](../EXPANSION_CLOSURE_REGISTER.md).
 
 Status date: 2026-08-12

@@ -52,7 +52,8 @@ export class PublicServiceCatalogUseCases {
       deliveryArtifactTypes: service.deliveryArtifactTypes,
       pricingReferenceId: service.pricingReferenceId,
       thumbnailAssetId: service.thumbnailAssetId,
-      publicDisplayMetadata: service.publicDisplayMetadata
+      publicDisplayMetadata: service.publicDisplayMetadata,
+      version: service.version,
     };
   }
 }

@@ -17,6 +17,10 @@ export class InMemoryRoleRepository implements IRoleRepository {
     return all.filter(role => specification.isSatisfiedBy(role));
   }
 
+  async listAll(): Promise<Role[]> {
+    return Array.from(this.roles.values());
+  }
+
   async delete(id: string): Promise<void> {
     this.roles.delete(id);
   }

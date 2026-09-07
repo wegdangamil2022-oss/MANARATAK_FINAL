@@ -18,7 +18,7 @@ interface ScholarshipDetail {
   benefits?: BenefitRow[]; degreeTargets?: DegreeRow[]; majorTargets?: MajorRow[];
   eligibilityItems?: EligibilityRow[]; requiredDocumentItems?: DocumentRow[]; universityLinks?: UniversityLinkRow[];
 }
-const key = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+const key = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 
 export function ScholarshipRelationshipEditorPage() {
   const { id = '' } = useParams();

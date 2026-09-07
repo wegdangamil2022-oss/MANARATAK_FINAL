@@ -1,5 +1,6 @@
 export * from './core/Result';
 export * from './domain/Identifier';
+export * from './domain/IdentifierGenerator';
 export * from './domain/Entity';
 export * from './domain/ValueObject';
 export * from './domain/AggregateRoot';
@@ -52,3 +53,5 @@ export * from './monitoring/IMonitoringService';
 export * from './security/IRateLimiter';
 export * from './security/ISecurityService';
 export * from './domain/ISpecification';
+
+export * from './application/auth/IPrincipalAccessValidator';

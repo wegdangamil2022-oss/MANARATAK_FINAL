@@ -86,9 +86,10 @@ export interface ServiceCatalogItemDto {
   optionalFields?: Record<string, unknown> | null;
   createdAt: Date | string;
   updatedAt: Date | string;
+  version: number;
 }
 
-export type CreateServiceCatalogItemDto = Omit<ServiceCatalogItemDto, 'id' | 'createdAt' | 'updatedAt'>;
+export type CreateServiceCatalogItemDto = Omit<ServiceCatalogItemDto, 'id' | 'createdAt' | 'updatedAt' | 'version'>;
 export type UpdateServiceCatalogItemDto = Partial<Omit<CreateServiceCatalogItemDto, 'publicId' | 'canonicalDedupKey' | 'canonicalName'>>;
 export type ServiceCatalogRepositoryUpdateDto = UpdateServiceCatalogItemDto & { canonicalName?: string; canonicalDedupKey?: string };
 
@@ -105,7 +106,7 @@ export interface ServiceCatalogFilters {
   pageSize?: number;
 }
 
-export type PublicServiceCatalogFilters = Omit<ServiceCatalogFilters, 'status' | 'completenessStatus'>;
+export type PublicServiceCatalogFilters = Omit<ServiceCatalogFilters, 'status' | 'completenessStatus' | 'page' | 'pageSize'> & { cursor?: string; limit?: number };
 export type PublicServiceCatalogItemDto = Omit<
   ServiceCatalogItemDto,
   'id' | 'canonicalName' | 'canonicalDedupKey' | 'status' | 'completenessStatus' | 'optionalFields' | 'createdAt' | 'updatedAt'
@@ -117,6 +118,8 @@ export interface PaginatedServiceCatalogResult<T> {
   page: number;
   pageSize: number;
   totalPages: number;
+  hasMore?: boolean;
+  nextCursor?: string | null;
 }
 
 export interface ServiceRequestDto {
@@ -133,6 +136,7 @@ export interface ServiceRequestDto {
   createdAt: Date | string;
   updatedAt: Date | string;
   completedAt?: Date | string | null;
+  version: number;
 }
 
 export interface CreateServiceRequestDto {
@@ -161,11 +165,11 @@ export interface PaginatedServiceRequestResult {
 
 export interface IServiceCatalogRepository {
   create(data: CreateServiceCatalogItemDto): Promise<ServiceCatalogItemDto>;
-  update(id: string, data: ServiceCatalogRepositoryUpdateDto): Promise<ServiceCatalogItemDto>;
+  update(id: string, data: ServiceCatalogRepositoryUpdateDto, expectedVersion: number): Promise<ServiceCatalogItemDto>;
   findById(id: string): Promise<ServiceCatalogItemDto | null>;
   findBySlug(slug: string): Promise<ServiceCatalogItemDto | null>;
   findByDedupKey(dedupKey: string): Promise<ServiceCatalogItemDto | null>;
-  updateStatus(id: string, status: ServiceStatus): Promise<void>;
+  updateStatus(id: string, status: ServiceStatus, expectedVersion: number): Promise<ServiceCatalogItemDto>;
   list(filters: ServiceCatalogFilters): Promise<PaginatedServiceCatalogResult<ServiceCatalogItemDto>>;
   listPublished(filters: PublicServiceCatalogFilters): Promise<PaginatedServiceCatalogResult<ServiceCatalogItemDto>>;
 }
@@ -175,9 +179,9 @@ export interface IServiceRequestRepository {
   findRequestById(id: string): Promise<ServiceRequestDto | null>;
   findRequestByPublicId(publicId: string): Promise<ServiceRequestDto | null>;
   listRequests(filters: ServiceRequestFilters): Promise<PaginatedServiceRequestResult>;
-  updateRequestStatus(id: string, status: ServiceRequestStatus, fulfillmentMetadata?: Record<string, unknown> | null): Promise<ServiceRequestDto>;
-  linkFinanceInvoice(id: string, financeInvoiceId: string, financeInvoicePublicId: string): Promise<ServiceRequestDto>;
-  assignProvider(id: string, providerReferenceId: string): Promise<ServiceRequestDto>;
+  updateRequestStatus(id: string, status: ServiceRequestStatus, expectedVersion: number, fulfillmentMetadata?: Record<string, unknown> | null): Promise<ServiceRequestDto>;
+  linkFinanceInvoice(id: string, financeInvoiceId: string, financeInvoicePublicId: string, expectedVersion: number): Promise<ServiceRequestDto>;
+  assignProvider(id: string, providerReferenceId: string, expectedVersion: number): Promise<ServiceRequestDto>;
 }
 
 export interface IServiceReferenceGateway {
@@ -233,3 +237,6 @@ export interface ServiceFinanceInvoiceLinkedEvent {
   financeInvoiceId: string;
   occurredAt: Date | string;
 }
+
+
+export * from './operations';

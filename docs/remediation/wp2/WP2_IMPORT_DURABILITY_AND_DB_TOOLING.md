@@ -20,19 +20,14 @@ Entry point: `scripts/db-remediation-gate.ts`.
 |---|---|---:|
 | `npm run db:remediation:plan` | Migration and checksum inventory | 0 |
 | `npm run db:remediation:status` | Prisma migration status against configured DB | 0 |
-| `npm run db:remediation:baseline` | Read-only migration and domain counters | 0 |
+| `npm run db:remediation:baseline` | Fail-closed read-only migration ledger + all persisted-model counters + source/database fingerprints | 0 |
 | `npm run db:remediation:dry-run` | Source migration/rollback inventory and execution sequence | 0 |
 | `npm run db:remediation:rollback-plan` | Lists rollback artifacts; never executes rollback | 0 |
 | `npm run db:remediation:deploy` | Prisma deploy, blocked unless both mutation gates are explicit | Potential write |
 
-Deployment requires both:
+Deployment is governed by `docs/operations/GREENFIELD_DATABASE_PROVISIONING.md`. It requires explicit `DATABASE_PROVISIONING_GATE=APPROVED`, `ALLOW_DATABASE_MUTATIONS=YES`, a matching `DATABASE_MUTATION_ENVIRONMENT`, an allowed `DATABASE_MUTATION_PURPOSE` (`provision` or `migrate` for this command), and an exact `DATABASE_MUTATION_TARGET` confirmation. Production also requires `ALLOW_PRODUCTION_DATABASE_MUTATIONS=YES` and `DATABASE_PRODUCTION_CHANGE_ID`.
 
-```text
-WP1_RECOVERY_GATE=CLOSED
-ALLOW_DATABASE_MUTATIONS=YES
-```
-
-Without both values the command exits before invoking Prisma. Rollback remains manual, reviewed, and stage-specific; the tool does not execute rollback SQL automatically.
+Without the complete declaration the command exits before invoking Prisma. Rollback remains manual, reviewed, and stage-specific; the tool does not execute rollback SQL automatically.
 
 ## Verification
 
@@ -47,4 +42,9 @@ Without both values the command exits before invoking Prisma. Rollback remains m
 | Database connection | NONE |
 | Database writes | 0 |
 
-Runtime closure still requires persisted checkpoint recovery, concurrent worker transitions, process restart, and DLQ replay evidence against the approved Development DB.
+Runtime closure still requires persisted checkpoint recovery, concurrent worker transitions, process restart, and DLQ replay evidence against an explicitly selected isolated PostgreSQL target.
+
+
+### MNT-AUD-0083 strengthened baseline evidence
+
+`npm run db:remediation:baseline` must succeed for every required counter and the Prisma migration ledger. Use `npm run db:baseline:compare -- <before> <after> [expected-mutations]` for governed before/after reconciliation; undeclared count or source-fingerprint drift fails closed.

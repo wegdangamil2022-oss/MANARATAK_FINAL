@@ -17,7 +17,7 @@ This document provides the definitive implementation guide for **Phase 15 (Enter
 
 **Architectural Commentary**
 
-- **Runtime Environment**: Node.js with TypeScript (v20+ recommended)
+- **Runtime Environment**: Node.js 22.16.0 (`>=22.16.0 <23`) with TypeScript
 - **Web API Framework**: Express.js for BFF/Presentation API Layer
 - **Primary Persistence**: Prisma with PostgreSQL (Workspace State, Configurations, Timeline)
 - **Background Workers & Queue Management**: BullMQ with Redis (for asynchronous inbox/outbox relays, timeline ingestion, and statistics processing)

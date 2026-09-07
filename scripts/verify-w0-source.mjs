@@ -13,7 +13,9 @@ const check = (name, ok, detail='') => checks.push({ name, ok: Boolean(ok), deta
 const roadmap = read('docs/governance/roadmap/MANARATAK-2.0-Roadmap-v6.0.md');
 check('roadmap_version_6', roadmap.includes('**Version:** 6.0'));
 check('roadmap_source_through_phase19', roadmap.includes('Source implementation is present through **Phase 19'));
-check('roadmap_runtime_boundary', roadmap.includes('PENDING_GOOGLE_STUDIO'));
+check('roadmap_runtime_boundary', roadmap.includes('runtime-pending') && roadmap.includes('Greenfield database mutation gate'));
+check('roadmap_no_obsolete_recovery_authority', !roadmap.includes('Original Development Database'));
+
 
 const phase2Dir = path.join(root, 'docs/phases/phase-02-solution-architecture');
 const phase2Files = fs.readdirSync(phase2Dir).filter((f) => f.endsWith('.md'));
@@ -44,6 +46,76 @@ check('nvmrc_pinned', read('.nvmrc').trim() === '22.16.0');
 const turbo = JSON.parse(read('turbo.json'));
 check('turbo_v2_tasks_config', Boolean(turbo.tasks) && !('pipeline' in turbo));
 
+const envExample = read('.env.example');
+for (const variable of [
+  'DATABASE_PROVISIONING_GATE',
+  'ALLOW_DATABASE_MUTATIONS',
+  'DATABASE_MUTATION_ENVIRONMENT',
+  'DATABASE_MUTATION_PURPOSE',
+  'DATABASE_MUTATION_TARGET',
+  'ALLOW_PRODUCTION_DATABASE_MUTATIONS',
+  'DATABASE_PRODUCTION_CHANGE_ID',
+]) {
+  check(`greenfield_env_${variable.toLowerCase()}`, new RegExp(`^${variable}=`, 'm').test(envExample));
+}
+check('greenfield_env_safe_default_provisioning', /^DATABASE_PROVISIONING_GATE=PENDING$/m.test(envExample));
+check('greenfield_env_safe_default_mutation', /^ALLOW_DATABASE_MUTATIONS=NO$/m.test(envExample));
+
+const mutationGate = read('scripts/lib/database-mutation-gate.mjs');
+check('greenfield_gate_requires_provisioning_approval', mutationGate.includes('DATABASE_PROVISIONING_GATE') && mutationGate.includes('APPROVED'));
+check('greenfield_gate_requires_target_identity', mutationGate.includes('DATABASE_MUTATION_TARGET') && mutationGate.includes('databaseTargetIdentity'));
+check('greenfield_gate_requires_production_change_id', mutationGate.includes('ALLOW_PRODUCTION_DATABASE_MUTATIONS') && mutationGate.includes('DATABASE_PRODUCTION_CHANGE_ID'));
+
+const walkFiles = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+  const full = path.join(dir, entry.name);
+  if (entry.isDirectory()) return walkFiles(full);
+  return /\.(?:ts|mjs|js|cjs)$/.test(entry.name) ? [full] : [];
+});
+const activeScriptText = walkFiles(path.join(root, 'scripts')).map((file) => fs.readFileSync(file, 'utf8')).join('\n');
+check('active_scripts_no_wp1_recovery_gate', !activeScriptText.includes('WP1_' + 'RECOVERY_GATE'));
+
+const greenfieldRunbookPath = 'docs/operations/GREENFIELD_DATABASE_PROVISIONING.md';
+check('greenfield_runbook_exists', fs.existsSync(path.join(root, greenfieldRunbookPath)));
+if (fs.existsSync(path.join(root, greenfieldRunbookPath))) {
+  const runbook = read(greenfieldRunbookPath);
+  check('greenfield_runbook_is_active_authority', runbook.includes('ACTIVE OPERATIONAL AUTHORITY'));
+  check('greenfield_runbook_separates_provision_migrate', runbook.includes('provision') && runbook.includes('migrate'));
+}
+
+const readme = read('README.md');
+const handoff = read('docs/remediation/final-repository-organization/FINAL_HANDOFF_MANIFEST.md');
+check('readme_node_pin_current', readme.includes('Node.js 22.16.0'));
+check('handoff_node_pin_current', handoff.includes('Node.js 22.16.0'));
+check('readme_no_packages_utils_layout', !readme.includes('packages/utils'));
+check('readme_greenfield_db_authority', readme.includes('GREENFIELD_DATABASE_PROVISIONING.md'));
+check('handoff_greenfield_db_authority', handoff.includes('GREENFIELD_DATABASE_PROVISIONING.md'));
+
+const relationshipMatrix = read('docs/remediation/CROSS_PHASE_RELATIONSHIP_CLOSURE_MATRIX.md');
+check('relationship_matrix_source_rebaselined', relationshipMatrix.includes('ACTIVE — SOURCE_REBASELINED / RUNTIME_EVIDENCE_PENDING'));
+for (const edge of ['X-001', 'X-002', 'X-003', 'X-004', 'X-005', 'X-006', 'X-007', 'X-008']) {
+  check(`relationship_matrix_${edge.toLowerCase()}_present`, relationshipMatrix.includes(edge));
+}
+check('relationship_matrix_rows_source_rebaselined', relationshipMatrix.includes('Source-rebaselined relationship rows'));
+
+const p23p24AuthorityDocs = [
+  'docs/phases/phase-23-enterprise-administration-portal/phase-23-01-enterprise-administration-portal-architecture-specification.md',
+  'docs/phases/phase-23-enterprise-administration-portal/phase-23-02-enterprise-administration-portal-structure-contracts.md',
+  'docs/phases/phase-23-enterprise-administration-portal/phase-23-03-enterprise-administration-portal-workflows-operational-experience.md',
+  'docs/phases/phase-24-enterprise-public-platform/phase-24-01-enterprise-public-platform-architecture-specification.md',
+  'docs/phases/phase-24-enterprise-public-platform/phase-24-02-enterprise-public-platform-structure-contracts.md',
+  'docs/phases/phase-24-enterprise-public-platform/phase-24-03-enterprise-public-platform-public-pages-user-experience.md',
+  'docs/phases/phase-24-enterprise-public-platform/phase-24-04-public-page-detail-requirements-backlog.md',
+];
+for (const doc of p23p24AuthorityDocs) {
+  check(`rebaseline_${path.basename(doc).replace(/[^a-z0-9]+/gi, '_').toLowerCase()}`, read(doc).includes('SOURCE_REBASELINED — RUNTIME_EVIDENCE_PENDING'));
+}
+check('p23_p24_traceability_register_exists', fs.existsSync(path.join(root, 'docs/remediation/P23_P24_REBASELINE_TRACEABILITY.md')));
+check('branch_protection_policy_authored', fs.existsSync(path.join(root, '.github/BRANCH_PROTECTION_POLICY.md')));
+if (fs.existsSync(path.join(root, '.github/BRANCH_PROTECTION_POLICY.md'))) {
+  const policy = read('.github/BRANCH_PROTECTION_POLICY.md');
+  check('branch_protection_policy_does_not_claim_external_closure', policy.includes('BLOCKED_EXTERNAL') && !policy.includes('PROTECTION_ENABLED=YES'));
+}
+
 const ci = read('.github/workflows/ci.yml');
 check('ci_node_pin', ci.includes('node-version: 22.16.0'));
 check('ci_quality_gate', ci.includes('npm run quality:source'));
@@ -71,6 +143,13 @@ try {
   check('quality_gate_executes', quality.includes('SOURCE_QUALITY_GATE=PASS'));
 } catch (error) {
   check('quality_gate_executes', false, error.stdout || error.stderr || String(error));
+}
+
+try {
+  const mutationGateTests = execFileSync(process.execPath, ['--test', path.join(root, 'tests/operations/database-mutation-gate.test.mjs')], { encoding: 'utf8' });
+  check('greenfield_mutation_gate_tests_execute', /# fail 0/.test(mutationGateTests));
+} catch (error) {
+  check('greenfield_mutation_gate_tests_execute', false, error.stdout || error.stderr || String(error));
 }
 
 for (const item of checks) console.log(`${item.name}=${item.ok ? 'PASS' : 'FAIL'}${item.detail ? ` ${item.detail}` : ''}`);

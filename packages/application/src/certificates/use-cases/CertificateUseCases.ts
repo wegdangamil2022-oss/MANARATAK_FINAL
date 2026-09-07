@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'crypto';
 import {
   AssetId,
   AssetLifecycleState,
+  AssetSecurityClassification,
   AttachCertificateArtifactsDto,
   CertificateAuthoritativeEventEnvelope,
   CertificateDto,
@@ -588,6 +589,12 @@ export class CertificateUseCases {
     const asset = await this.assetRepository.findById(new AssetId(assetId));
     if (!asset) throw new Error(`${prefix}_NOT_FOUND`);
     if (asset.state !== AssetLifecycleState.ACTIVE) throw new Error(`${prefix}_NOT_ACTIVE:${asset.state}`);
+    if (![AssetSecurityClassification.PUBLIC, AssetSecurityClassification.INTERNAL].includes(asset.classification)) {
+      throw new Error(`${prefix}_CLASSIFICATION_NOT_ALLOWED:${asset.classification}`);
+    }
+    if (!asset.metadata.mimeType.toLowerCase().startsWith('image/')) {
+      throw new Error(`${prefix}_MIME_NOT_ALLOWED:${asset.metadata.mimeType}`);
+    }
   }
 
   private persistedIdentityMatchesEnvelope(certificate: CertificateDto, envelope: CertificateSignedEnvelopeV2): boolean {

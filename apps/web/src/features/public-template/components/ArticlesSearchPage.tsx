@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   Clock3,
   FileCheck2,
+  FileText,
   Newspaper,
   Search,
   Tag,
@@ -38,6 +39,16 @@ const TYPE_STYLE: Record<ArticleType, { icon: React.ReactNode; label: string; cl
     icon: <FileCheck2 className="h-4 w-4" />,
     label: 'قائمة تحقق',
     className: 'bg-[var(--mn-success-soft)] text-[var(--mn-success-text)] border-[var(--mn-success-border)]',
+  },
+  FAQ: {
+    icon: <FileText className="h-4 w-4" />,
+    label: 'أسئلة شائعة',
+    className: 'bg-[var(--mn-page)] text-[var(--mn-text)] border-[var(--mn-border)] mn-panel',
+  },
+  STATIC_PAGE: {
+    icon: <FileText className="h-4 w-4" />,
+    label: 'صفحة ثابتة',
+    className: 'bg-[var(--mn-surface-muted)] text-[var(--mn-text)] border-[var(--mn-border)] mn-panel',
   },
 };
 
@@ -256,4 +267,3 @@ export const ArticlesSearchPage: React.FC<ArticlesSearchPageProps> = ({ articles
     </main>
   );
 };
-

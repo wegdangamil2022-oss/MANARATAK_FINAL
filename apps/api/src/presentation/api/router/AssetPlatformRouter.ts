@@ -17,12 +17,13 @@ export interface AssetPlatformRouterCradle {
   ingestAssetUseCase: IngestAssetUseCase;
   processAssetLifecycleUseCase: ProcessAssetLifecycleUseCase;
   auditRecordRepo?: IAuditRecordRepository;
+  assetRecordRepository?: { queryAdmin(input: any): Promise<{ items: any[]; nextCursor: string | null; hasMore: boolean }>; findById(id: any): Promise<any> };
 }
 
 export class AssetPlatformRouter {
   public static create(cradle: AssetPlatformRouterCradle): Router {
     const router = Router();
-    const { ingestAssetUseCase, processAssetLifecycleUseCase, auditRecordRepo } = cradle;
+    const { ingestAssetUseCase, processAssetLifecycleUseCase, auditRecordRepo, assetRecordRepository } = cradle;
 
     const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) =>
       (req: Request, res: Response, next: NextFunction) => {
@@ -50,7 +51,7 @@ export class AssetPlatformRouter {
       classification: z.nativeEnum(AssetSecurityClassification),
       retentionCategory: z.nativeEnum(AssetRetentionCategory).optional(),
       expiresAt: z.string().optional()
-    });
+    }).strict();
 
     const registerQuarantinedSchema = z.object({
       assetId: z.string().min(1, 'assetId is required').superRefine((val, ctx) => urlCheck(val, ctx, 'assetId')),
@@ -64,7 +65,61 @@ export class AssetPlatformRouter {
       classification: z.nativeEnum(AssetSecurityClassification),
       retentionCategory: z.nativeEnum(AssetRetentionCategory).optional(),
       expiresAt: z.string().optional()
-    });
+    }).strict();
+
+
+    const emptyMutationBodySchema = z.object({}).strict();
+    const malwareFailureSchema = z.object({ reason: z.string().trim().min(1).max(5000).default('Malware scan failed') }).strict();
+    const sanitizeAssetSchema = z.object({}).strict();
+    const activateAssetSchema = z.object({}).strict();
+    const deliveryGrantSchema = z.object({
+      expiresInSeconds: z.number().int().min(1).max(3600).optional(),
+    }).strict();
+    const assetSelectionAuditSchema = z.object({
+      purpose: z.string().trim().min(2).max(160),
+      context: z.string().trim().max(240).optional(),
+    }).strict();
+
+
+    const assetListQuerySchema = z.object({
+      lifecycleState: z.string().trim().min(1).max(80).optional(),
+      ownerType: z.string().trim().min(1).max(120).optional(),
+      ownerId: z.string().trim().min(1).max(240).optional(),
+      securityClassification: z.nativeEnum(AssetSecurityClassification).optional(),
+      mimeTypePrefix: z.string().trim().min(1).max(120).optional(),
+      createdFrom: z.string().datetime().optional(),
+      createdTo: z.string().datetime().optional(),
+      q: z.string().trim().min(1).max(240).optional(),
+      limit: z.coerce.number().int().min(1).max(100).optional(),
+      cursor: z.string().trim().min(1).max(2048).optional(),
+    }).strict();
+
+    router.get('/', asyncHandler(async (req: Request, res: Response) => {
+      if (!assetRecordRepository?.queryAdmin) throw new Error('ASSET_ADMIN_READ_MODEL_UNAVAILABLE');
+      const query = assetListQuerySchema.parse(req.query);
+      const result = await assetRecordRepository.queryAdmin(query);
+      res.status(200).json(result);
+    }));
+
+    router.get('/:assetId', asyncHandler(async (req: Request, res: Response) => {
+      if (!assetRecordRepository) throw new Error('ASSET_ADMIN_READ_MODEL_UNAVAILABLE');
+      const { AssetId } = await import('@manaratak/domain');
+      const asset = await assetRecordRepository.findById(new AssetId(req.params.assetId));
+      if (!asset) return void res.status(404).json({ error: 'ASSET_NOT_FOUND' });
+      res.status(200).json({
+        id: asset.id.value,
+        reference: asset.reference.value,
+        ownerId: asset.owner.ownerId, ownerType: asset.owner.ownerType,
+        lifecycleState: asset.state, securityClassification: asset.classification,
+        retentionCategory: asset.retention.category, retentionExpiresAt: asset.retention.expiresAt,
+        metadata: {
+          originalFilename: asset.metadata.originalFilename, mimeType: asset.metadata.mimeType,
+          fileExtension: asset.metadata.fileExtension, byteSize: asset.metadata.byteSize,
+          width: asset.metadata.width, height: asset.metadata.height, duration: asset.metadata.duration,
+        },
+        checksum: asset.checksum ? { algorithm: asset.checksum.algorithm, hash: asset.checksum.hash } : null,
+      });
+    }));
 
     // POST /upload-locator
     router.post('/upload-locator', asyncHandler(async (req: Request, res: Response) => {
@@ -122,6 +177,7 @@ export class AssetPlatformRouter {
 
     // POST /:assetId/validate
     router.post('/:assetId/validate', asyncHandler(async (req: Request, res: Response) => {
+      emptyMutationBodySchema.parse(req.body ?? {});
       const assetId = req.params.assetId;
       if (/^https?:\/\//i.test(assetId.trim())) {
         return res.status(400).json({ error: 'AssetId must be a Phase 05 EAP handle, not a raw URL' });
@@ -155,7 +211,7 @@ export class AssetPlatformRouter {
       if (/^https?:\/\//i.test(assetId.trim())) {
         return res.status(400).json({ error: 'AssetId must be a Phase 05 EAP handle, not a raw URL' });
       }
-      const reason = req.body?.reason || 'Malware scan failed';
+      const { reason } = malwareFailureSchema.parse(req.body ?? {});
       try {
         const result = await processAssetLifecycleUseCase.markMalwareScanFailed({ assetId, reason });
         await AuditHelper.recordMutation(auditRecordRepo, req, {
@@ -186,20 +242,15 @@ export class AssetPlatformRouter {
       if (/^https?:\/\//i.test(assetId.trim())) {
         return res.status(400).json({ error: 'AssetId must be a Phase 05 EAP handle, not a raw URL' });
       }
-      const { exifStripped, sanitizerNotes } = req.body || {};
+      sanitizeAssetSchema.parse(req.body ?? {});
       try {
-        const result = await processAssetLifecycleUseCase.sanitizeAsset({
-          assetId,
-          exifStripped,
-          sanitizerNotes
-        });
+        const result = await processAssetLifecycleUseCase.sanitizeAsset({ assetId });
         await AuditHelper.recordMutation(auditRecordRepo, req, {
           action: 'SANITIZE_ASSET',
           category: 'ASSET_PLATFORM',
           targetType: 'ASSET',
           targetId: assetId,
-          result: 'SUCCESS',
-          metadata: { exifStripped }
+          result: 'SUCCESS'
         });
         res.json(result);
       } catch (error: any) {
@@ -221,15 +272,9 @@ export class AssetPlatformRouter {
       if (/^https?:\/\//i.test(assetId.trim())) {
         return res.status(400).json({ error: 'AssetId must be a Phase 05 EAP handle, not a raw URL' });
       }
-      const { cleanBucketName, cleanPathKey, checksumAlgorithm, checksumHash } = req.body || {};
+      activateAssetSchema.parse(req.body ?? {});
       try {
-        const result = await processAssetLifecycleUseCase.activateAsset({
-          assetId,
-          cleanBucketName,
-          cleanPathKey,
-          checksumAlgorithm,
-          checksumHash
-        });
+        const result = await processAssetLifecycleUseCase.activateAsset({ assetId });
         await AuditHelper.recordMutation(auditRecordRepo, req, {
           action: 'ACTIVATE_ASSET',
           category: 'ASSET_PLATFORM',
@@ -251,8 +296,61 @@ export class AssetPlatformRouter {
       }
     }));
 
+    // POST /:assetId/delivery-grant — temporary provider-signed delivery only for ACTIVE/CLEAN assets.
+    router.post('/:assetId/delivery-grant', asyncHandler(async (req: Request, res: Response) => {
+      const assetId = req.params.assetId;
+      if (/^https?:\/\//i.test(assetId.trim())) {
+        return res.status(400).json({ error: 'AssetId must be a Phase 05 EAP handle, not a raw URL' });
+      }
+      const { expiresInSeconds } = deliveryGrantSchema.parse(req.body ?? {});
+      try {
+        const result = await processAssetLifecycleUseCase.requestDeliveryGrant({ assetId, expiresInSeconds });
+        await AuditHelper.recordMutation(auditRecordRepo, req, {
+          action: 'REQUEST_ASSET_DELIVERY_GRANT',
+          category: 'ASSET_PLATFORM',
+          targetType: 'ASSET',
+          targetId: assetId,
+          result: 'SUCCESS',
+          metadata: { expiresInSeconds: expiresInSeconds ?? 300 }
+        });
+        res.json(result);
+      } catch (error: any) {
+        await AuditHelper.recordMutation(auditRecordRepo, req, {
+          action: 'REQUEST_ASSET_DELIVERY_GRANT',
+          category: 'ASSET_PLATFORM',
+          targetType: 'ASSET',
+          targetId: assetId,
+          result: 'FAILURE',
+          error
+        });
+        throw error;
+      }
+    }));
+
+
+    // POST /:assetId/selection-audit — records governed Admin reuse without exposing storage locators.
+    router.post('/:assetId/selection-audit', asyncHandler(async (req: Request, res: Response) => {
+      const assetId = req.params.assetId;
+      const payload = assetSelectionAuditSchema.parse(req.body ?? {});
+      if (!assetRecordRepository) throw new Error('ASSET_ADMIN_READ_MODEL_UNAVAILABLE');
+      const { AssetId, AssetLifecycleState } = await import('@manaratak/domain');
+      const asset = await assetRecordRepository.findById(new AssetId(assetId));
+      if (!asset) return void res.status(404).json({ error: 'ASSET_NOT_FOUND' });
+      if (asset.state !== AssetLifecycleState.ACTIVE) return void res.status(409).json({ error: 'ASSET_NOT_ACTIVE' });
+      await AuditHelper.recordMutation(auditRecordRepo, req, {
+        action: 'SELECT_ASSET_REFERENCE',
+        category: 'ASSET_PLATFORM',
+        targetType: 'ASSET',
+        targetId: assetId,
+        result: 'SUCCESS',
+        metadata: { purpose: payload.purpose, context: payload.context ?? null }
+      });
+      res.status(204).send();
+    }));
+
     // POST /:assetId/archive
     router.post('/:assetId/archive', asyncHandler(async (req: Request, res: Response) => {
+      emptyMutationBodySchema.parse(req.body ?? {});
       const assetId = req.params.assetId;
       if (/^https?:\/\//i.test(assetId.trim())) {
         return res.status(400).json({ error: 'AssetId must be a Phase 05 EAP handle, not a raw URL' });
@@ -282,6 +380,7 @@ export class AssetPlatformRouter {
 
     // DELETE /:assetId
     router.delete('/:assetId', asyncHandler(async (req: Request, res: Response) => {
+      emptyMutationBodySchema.parse(req.body ?? {});
       const assetId = req.params.assetId;
       if (/^https?:\/\//i.test(assetId.trim())) {
         return res.status(400).json({ error: 'AssetId must be a Phase 05 EAP handle, not a raw URL' });
@@ -311,6 +410,7 @@ export class AssetPlatformRouter {
 
     // POST /:assetId/restore
     router.post('/:assetId/restore', asyncHandler(async (req: Request, res: Response) => {
+      emptyMutationBodySchema.parse(req.body ?? {});
       const assetId = req.params.assetId;
       if (/^https?:\/\//i.test(assetId.trim())) {
         return res.status(400).json({ error: 'AssetId must be a Phase 05 EAP handle, not a raw URL' });
@@ -340,6 +440,7 @@ export class AssetPlatformRouter {
 
     // DELETE /:assetId/purge
     router.delete('/:assetId/purge', asyncHandler(async (req: Request, res: Response) => {
+      emptyMutationBodySchema.parse(req.body ?? {});
       const assetId = req.params.assetId;
       if (/^https?:\/\//i.test(assetId.trim())) {
         return res.status(400).json({ error: 'AssetId must be a Phase 05 EAP handle, not a raw URL' });

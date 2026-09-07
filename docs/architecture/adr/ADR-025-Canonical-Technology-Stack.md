@@ -10,6 +10,7 @@
 - **Decision Owner:** Chief Enterprise Software Architect
 - **Reviewers:** Principal Domain Architects, Backend Architect, Frontend Architect
 - **Approval Authority (ARB):** Architecture Review Board
+- **Partial supersession:** ADR-029 supersedes the BullMQ-specific task-queue choice; PostgreSQL durable workers are the canonical cross-cutting background-job authority.
 
 ## 2. Decision Status
 
@@ -55,7 +56,7 @@ All documentation—including Specifications, Domain Contracts (`*-02-domain-con
 - **Dependency Injection (DI) & IoC:** Awilix (high-performance dependency injection container for Node.js)
 - **Object-Relational Mapping (ORM):** Prisma ORM (type-safe database client and auto-generated migrations)
 - **Primary Database:** PostgreSQL (open-source relational database)
-- **Task Queues & Background Processing:** BullMQ (Redis-backed message queue for background workers and asynchronous jobs)
+- **Task Queues & Background Processing:** PostgreSQL durable worker foundation per ADR-029. BullMQ is no longer mandatory and requires a future workload-specific ADR if introduced.
 - **Testing Framework (Unit, Integration, and Component):** Vitest (high-performance unit test runner)
 - **End-to-End (E2E) Testing:** Playwright (robust cross-browser web testing)
 

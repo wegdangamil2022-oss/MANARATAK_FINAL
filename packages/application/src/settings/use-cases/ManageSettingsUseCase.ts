@@ -15,7 +15,6 @@ import {
   ValueType,
   SettingValueData
 } from '@manaratak/domain';
-import { DomainEvents, IAggregateRoot } from '@manaratak/core';
 import { CreateSettingDefinitionInput, AssignSettingValueInput, RollbackSettingValueInput } from '../dtos/SettingsDtos';
 
 export interface SettingDefinitionAdminView {
@@ -137,8 +136,6 @@ export class ManageSettingsUseCase {
     }, true);
 
     await this.definitionRepo.save(definition);
-    DomainEvents.markAggregateForDispatch(definition as unknown as IAggregateRoot);
-    DomainEvents.dispatchEventsForAggregate(definition.id);
   }
 
   private createValueData(type: ValueType, value: unknown): SettingValueData {
@@ -183,8 +180,6 @@ export class ManageSettingsUseCase {
     }
 
     await this.assignmentRepo.save(assignment);
-    DomainEvents.markAggregateForDispatch(assignment as unknown as IAggregateRoot);
-    DomainEvents.dispatchEventsForAggregate(assignment.id);
   }
 
   public async rollbackValue(input: RollbackSettingValueInput): Promise<void> {
@@ -204,7 +199,5 @@ export class ManageSettingsUseCase {
 
     assignment.rollbackTo(input.previousVersionId, input.newVersionId, input.authorId);
     await this.assignmentRepo.save(assignment);
-    DomainEvents.markAggregateForDispatch(assignment as unknown as IAggregateRoot);
-    DomainEvents.dispatchEventsForAggregate(assignment.id);
   }
 }

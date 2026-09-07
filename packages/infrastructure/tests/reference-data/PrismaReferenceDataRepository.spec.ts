@@ -11,6 +11,10 @@ import {
 
 function createMockPrismaClient() {
   return {
+    $queryRaw: vi.fn().mockResolvedValue([{
+      lifecycleState: 'ACTIVE', versionNumber: 1, effectiveFrom: new Date(), effectiveTo: null, isActive: true,
+    }]),
+    $executeRaw: vi.fn().mockResolvedValue(1),
     referenceCountry: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -190,6 +194,7 @@ describe('PrismaReferenceDataRepository', () => {
         update: {
           iso3Code: 'EGY',
           name: 'Egypt',
+          nameAr: undefined,
           officialName: undefined,
           region: undefined,
           subregion: undefined,
@@ -197,13 +202,13 @@ describe('PrismaReferenceDataRepository', () => {
           defaultLanguageCode: undefined,
           callingCode: undefined,
           flagAssetId: undefined,
-          isActive: true,
           metadata: { key: 'value' }
         },
         create: {
           iso2Code: 'EG',
           iso3Code: 'EGY',
           name: 'Egypt',
+          nameAr: undefined,
           officialName: undefined,
           region: undefined,
           subregion: undefined,
@@ -262,9 +267,14 @@ describe('PrismaReferenceDataRepository', () => {
           isoCode: 'USD',
           numericCode: '840',
           name: 'US Dollar',
+          nameAr: undefined,
           symbol: '$',
           minorUnit: 2,
           isActive: true,
+          lifecycleState: undefined,
+          versionNumber: undefined,
+          effectiveFrom: undefined,
+          effectiveTo: undefined,
           metadata: undefined
         }
       ]);
@@ -322,15 +332,16 @@ describe('PrismaReferenceDataRepository', () => {
         update: {
           numericCode: undefined,
           name: 'US Dollar',
+          nameAr: undefined,
           symbol: '$',
           minorUnit: undefined,
-          isActive: true,
           metadata: undefined
         },
         create: {
           isoCode: 'USD',
           numericCode: undefined,
           name: 'US Dollar',
+          nameAr: undefined,
           symbol: '$',
           minorUnit: undefined,
           isActive: true,
@@ -436,14 +447,15 @@ describe('PrismaReferenceDataRepository', () => {
         where: { isoCode: 'en' },
         update: {
           name: 'English',
+          nameAr: undefined,
           nativeName: undefined,
           direction: 'LTR',
-          isActive: true,
           metadata: undefined
         },
         create: {
           isoCode: 'en',
           name: 'English',
+          nameAr: undefined,
           nativeName: undefined,
           direction: 'LTR',
           isActive: true,

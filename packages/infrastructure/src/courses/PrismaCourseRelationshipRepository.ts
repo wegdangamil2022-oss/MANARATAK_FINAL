@@ -19,6 +19,7 @@ import {
   CourseRelationshipPublicFilters,
   PublicCourseFilters,
 } from '@manaratak/domain';
+import { queryStableCursorPage } from '../api-foundation/StableCursor';
 
 function normalize(value: string): string {
   return value.normalize('NFKC').trim().toLocaleLowerCase('en-US').replace(/\s+/g, ' ');
@@ -724,8 +725,6 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
   public async listPublishedRelatedCourses(
     filters: CourseRelationshipPublicFilters,
   ): Promise<PaginatedCourseResult<CourseRelationshipPublicCourseDto>> {
-    const page = Math.max(1, filters.page ?? 1);
-    const pageSize = Math.min(50, Math.max(1, filters.pageSize ?? 20));
     const where: Prisma.CourseWhereInput = {
       status: 'PUBLISHED',
       completenessStatus: 'COMPLETE',
@@ -782,50 +781,25 @@ export class PrismaCourseRelationshipRepository implements ICourseRelationshipRe
       };
     }
 
-    const [records, total] = await Promise.all([
-      this.prisma.course.findMany({
-        where,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          publicId: true,
-          slug: true,
-          displayName: true,
-          accessType: true,
-          originType: true,
-          directCourseUrl: true,
-          externalProviderId: true,
-          providerName: true,
-          learningLanguageRaw: true,
-          learningLanguageReferenceId: true,
-          isStudyFree: true,
-          isFreeCertificate: true,
-          certificateType: true,
-          category: true,
-          optionalFields: true,
-        },
-      }),
-      this.prisma.course.count({ where }),
-    ]);
-
-    return {
-      data: records.map(({ id, optionalFields, ...record }) => {
+    const select = {
+      id: true, publicId: true, slug: true, displayName: true, accessType: true, originType: true,
+      directCourseUrl: true, externalProviderId: true, providerName: true, learningLanguageRaw: true,
+      learningLanguageReferenceId: true, isStudyFree: true, isFreeCertificate: true, certificateType: true,
+      category: true, optionalFields: true,
+    };
+    return queryStableCursorPage({
+      delegate: this.prisma.course as any, where, select, cursor: filters.cursor, limit: filters.limit,
+      map: (row: any) => {
+        const { id, optionalFields, ...record } = row;
         const optional = optionalFields && typeof optionalFields === 'object' && !Array.isArray(optionalFields)
-          ? optionalFields as Record<string, unknown>
-          : {};
+          ? optionalFields as Record<string, unknown> : {};
         const rawNames = optional.localizedNames;
         const localizedNames = rawNames && typeof rawNames === 'object' && !Array.isArray(rawNames)
           ? Object.fromEntries(Object.entries(rawNames as Record<string, unknown>).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0))
           : undefined;
         return { ownerId: id, ...record, ...(localizedNames ? { localizedNames } : {}) };
-      }),
-      total,
-      page,
-      pageSize,
-      totalPages: Math.ceil(total / pageSize),
-    };
+      },
+    });
   }
 
   public listPublishedCoursesForMajor(

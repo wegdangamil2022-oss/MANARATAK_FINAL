@@ -22,6 +22,8 @@ export interface PaginatedCourseResult<T> {
   page: number;
   pageSize: number;
   totalPages: number;
+  hasMore?: boolean;
+  nextCursor?: string | null;
 }
 
 export interface UpdateCourseDto {

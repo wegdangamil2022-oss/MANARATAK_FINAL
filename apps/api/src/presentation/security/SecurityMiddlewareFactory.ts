@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
-import { ISecurityService, ISessionManager } from '@manaratak/core';
-import { AccountAccessState, AuthorizationEvaluatorService, IIdentityRepository, LifeStatus } from '@manaratak/domain';
-import { ITokenProvider } from '@manaratak/core';
+import { IPrincipalAccessValidator, ISecurityService, ISessionManager, ITokenProvider } from '@manaratak/core';
+import { AuthorizationEvaluatorService } from '@manaratak/domain';
 import { container } from '../../infrastructure/di/container';
 import { readAccessCookie, readRefreshCookie } from './HttpOnlyAuthCookies';
+import { CANONICAL_API_EXPOSED_HEADERS, CANONICAL_API_REQUEST_HEADERS } from './CanonicalApiCorsPolicy';
 
 export interface CorsOptions {
   allowedOrigins: string[];
@@ -30,7 +30,7 @@ export interface AdminGuardOptions {
   mode: 'strict';
   tokenProvider?: ITokenProvider;
   sessionManager?: ISessionManager;
-  identityRepository?: IIdentityRepository;
+  principalAccessValidator?: IPrincipalAccessValidator;
   authEvaluatorService?: AuthorizationEvaluatorService;
 }
 
@@ -46,13 +46,15 @@ export class SecurityMiddlewareFactory {
         directives: {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
+          styleSrc: ["'self'"],
+          styleSrcAttr: ["'none'"],
           imgSrc: ["'self'", "data:", "https:"],
           connectSrc: ["'self'"],
           fontSrc: ["'self'"],
           objectSrc: ["'none'"],
           mediaSrc: ["'self'"],
-          frameSrc: ["'none'"]
+          frameSrc: ["'none'"],
+          frameAncestors: ["'none'"]
         }
       } : false,
       crossOriginEmbedderPolicy: true,
@@ -74,8 +76,8 @@ export class SecurityMiddlewareFactory {
     return cors({
       origin: options.allowedOrigins.includes('*') ? '*' : options.allowedOrigins,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-CSRF-Token', 'x-csrf-token', 'x-student-tools-session'],
-      exposedHeaders: ['x-student-tools-session', 'x-student-tools-session-expires-at'],
+      allowedHeaders: [...CANONICAL_API_REQUEST_HEADERS],
+      exposedHeaders: [...CANONICAL_API_EXPOSED_HEADERS],
       credentials: true,
       maxAge: 86400
     });
@@ -185,7 +187,14 @@ export class SecurityMiddlewareFactory {
             const payload = provider.verifyAccessTokenSync
               ? provider.verifyAccessTokenSync(receivedToken)
               : await provider.verifyAccessToken(receivedToken);
-            if (payload?.userId && (!payload.sessionId || !options.sessionManager || await options.sessionManager.isSessionActive(payload.userId, payload.sessionId))) {
+            if (
+              payload?.userId
+              && payload.sessionId
+              && options.sessionManager
+              && options.principalAccessValidator
+              && await options.sessionManager.isSessionActive(payload.userId, payload.sessionId)
+              && await options.principalAccessValidator.isAuthenticationAllowed(payload.userId)
+            ) {
               principalId = payload.userId;
             }
           } catch (e) {
@@ -207,23 +216,18 @@ export class SecurityMiddlewareFactory {
         return;
       }
 
-      if (options.identityRepository) {
-        try {
-          const identity = await options.identityRepository.findById(principalId);
-          if (!identity || ![LifeStatus.PROVISIONED, LifeStatus.ACTIVE].includes(identity.status) || identity.account.accessState !== AccountAccessState.ACTIVE) {
-            throw new Error('Inactive identity');
-          }
-        } catch {
-          res.status(401).json({
-            error: { code: 'ADMIN_SESSION_NOT_ACTIVE', message: 'Admin authentication is required.' },
-            meta: { timestamp: new Date().toISOString() },
-          });
-          return;
-        }
+      if (!options.principalAccessValidator || !await options.principalAccessValidator.isAuthenticationAllowed(principalId)) {
+        if (options.sessionManager) await options.sessionManager.revokeAllSessions(principalId);
+        res.status(401).json({
+          error: { code: 'ADMIN_SESSION_NOT_ACTIVE', message: 'Admin authentication is required.' },
+          meta: { timestamp: new Date().toISOString() },
+        });
+        return;
       }
 
-      // A cookie-authenticated administrator must be tied to a current server session.
-      // Legacy bearer clients can remain usable until their access token expires.
+      // Canonical Admin access is server-session-bound. Stateless/service bearer
+      // access requires a separately declared service-principal boundary rather
+      // than silently omitting session/lifecycle dependencies here.
       req.authUserId = principalId;
       assignAdminContext(res, {
         authMode: options.mode,

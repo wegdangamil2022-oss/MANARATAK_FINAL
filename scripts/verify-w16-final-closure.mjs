@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -58,10 +59,25 @@ const mutations = evidence.w16_runtime_mutations || {};
 check('evidence_no_runtime_mutations', Object.values(mutations).length === 10 && Object.values(mutations).every((v) => v === false));
 
 let verifiersPresent = true;
+let verifiersGreen = true;
+const verifierFailures = [];
 for (let n = 0; n <= 15; n += 1) {
-  if (!exists(`scripts/verify-w${n}-source.mjs`)) verifiersPresent = false;
+  const verifier = `scripts/verify-w${n}-source.mjs`;
+  if (!exists(verifier)) {
+    verifiersPresent = false;
+    verifiersGreen = false;
+    verifierFailures.push(`${verifier}:MISSING`);
+    continue;
+  }
+  try {
+    execFileSync(process.execPath, [path.join(root, verifier)], { cwd: root, stdio: 'pipe' });
+  } catch (error) {
+    verifiersGreen = false;
+    verifierFailures.push(`${verifier}:EXIT_${error?.status ?? 1}`);
+  }
 }
 check('all_w0_w15_verifiers_present', verifiersPresent);
+check('all_w0_w15_verifiers_execute_green', verifiersGreen, verifierFailures.join(','));
 check('no_w16_source_finding_verifier_name', !exists('scripts/verify-w16-source.mjs'));
 
 for (const item of checks) {

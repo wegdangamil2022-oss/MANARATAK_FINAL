@@ -27,6 +27,8 @@ type AdminScholarshipFilters = ScholarshipFilters & {
   sourceType?: string; query?: string;
 };
 
+import { queryStableCursorPage } from '../api-foundation/StableCursor';
+
 const LEGACY_COMPATIBILITY_KEYS = [
   'fundingCoverage',
   'coverageDetails',
@@ -314,7 +316,6 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
   async list(filters: AdminScholarshipFilters): Promise<ScholarshipPage<ScholarshipDto>> {
     const page = filters.page || 1;
     const pageSize = filters.pageSize || 20;
-
     const where: Prisma.ScholarshipWhereInput = {};
     if (filters.status) where.status = filters.status;
     if (filters.completenessStatus) where.completenessStatus = filters.completenessStatus;
@@ -385,8 +386,6 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
   }
 
   async listPublished(filters: PublicScholarshipFilters): Promise<ScholarshipPage<ScholarshipDto>> {
-    const page = filters.page || 1;
-    const pageSize = filters.pageSize || 20;
     const where: Prisma.ScholarshipWhereInput = {
       publicationStatus: ScholarshipPublicationStatus.PUBLISHED,
       verificationStatus: ScholarshipVerificationStatus.VERIFIED,
@@ -427,11 +426,10 @@ export class PrismaScholarshipRepository implements ITransactionalScholarshipRep
       lte: filters.applicationDeadlineTo,
     };
     if (constraints.length) where.AND = constraints;
-    const [data, total] = await Promise.all([
-      this.prisma.scholarship.findMany({ where, skip: (page - 1) * pageSize, take: pageSize, orderBy: { createdAt: 'desc' }, include: this.normalizedInclude }),
-      this.prisma.scholarship.count({ where }),
-    ]);
-    return { data: data.map((record) => this.mapToDto(record)), total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+    return queryStableCursorPage({
+      delegate: this.prisma.scholarship as any, where, include: this.normalizedInclude,
+      cursor: filters.cursor, limit: filters.limit, map: (record: any) => this.mapToDto(record),
+    });
   }
 
   private mapToDto(record: unknown): ScholarshipDto {

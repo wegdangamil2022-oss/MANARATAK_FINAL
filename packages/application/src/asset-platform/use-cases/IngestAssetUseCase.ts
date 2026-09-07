@@ -36,7 +36,15 @@ export class IngestAssetUseCase {
     }
 
     const reference = new AssetReference(input.assetReference);
-    const quarantineLocator = await this.storageGateway.generateUploadLocator(AssetStorageZone.QUARANTINE);
+    const uploadGrant = this.storageGateway.generateUploadGrant
+      ? await this.storageGateway.generateUploadGrant(AssetStorageZone.QUARANTINE, {
+          originalFilename: input.originalFilename,
+          mimeType: input.mimeType,
+          byteSize: input.byteSize,
+        })
+      : undefined;
+    const quarantineLocator = uploadGrant?.locator
+      ?? await this.storageGateway.generateUploadLocator(AssetStorageZone.QUARANTINE);
 
     const record = new AssetRecord({
       id,
@@ -67,7 +75,13 @@ export class IngestAssetUseCase {
       storageZone: record.locator.storageZone,
       bucketName: record.locator.bucketName,
       pathKey: record.locator.pathKey,
-      lifecycleState: record.state
+      lifecycleState: record.state,
+      uploadGrant: uploadGrant ? {
+        uploadUrl: uploadGrant.uploadUrl,
+        method: uploadGrant.method,
+        headers: uploadGrant.headers,
+        expiresAt: uploadGrant.expiresAt.toISOString(),
+      } : undefined,
     };
   }
 

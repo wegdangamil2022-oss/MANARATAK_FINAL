@@ -23,8 +23,8 @@ const checks = [
   ['P10-TAX-001',
     files.canonical.includes('listNodes({ status: AcademicTaxonomyStatus.ACTIVE })') &&
     files.canonical.includes('id: node.nodeId') &&
-    files.composition.includes('new CanonicalMajorReferenceService(academicTaxonomyRepository, degreeLevelRepository)') &&
-    files.composition.includes('canonicalMajorReferenceService)).scoped()')],
+    files.composition.includes('canonicalMajorReferenceService: asFunction') &&
+    files.composition.includes('new CanonicalMajorReferenceService(academicTaxonomyRepository, degreeLevelRepository)')],
   ['P10-CAN-002',
     files.canonical.includes('DegreeLevelStatus.ACTIVE') &&
     files.canonical.includes('AcademicTaxonomyStatus.ACTIVE') &&
@@ -49,5 +49,5 @@ for (const [finding, ok] of checks) {
   if (ok) passed += 1;
 }
 console.log(`W6_SOURCE_VERIFIER=${passed === checks.length ? 'PASS' : 'FAIL'} ${passed}/${checks.length}`);
-console.log('W6_RUNTIME_DB_PROOF=PENDING_GOOGLE_STUDIO');
+console.log('W6_RUNTIME_DB_PROOF=PENDING_NON_BLOCKING');
 process.exitCode = passed === checks.length ? 0 : 1;

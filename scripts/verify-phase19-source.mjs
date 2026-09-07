@@ -47,8 +47,10 @@ const checks = {
     source.repository.includes('CAPTURE_WITHOUT_POSTING') &&
     source.repository.includes('WALLET_BALANCE_MISMATCH'),
   provider_neutral:
-    source.gateways.includes('PAYMENT_PROVIDER_NOT_CONFIGURED') &&
-    source.gateways.includes('FX_PROVIDER_NOT_CONFIGURED'),
+    source.gateways.includes('SignedProviderHttpClient') &&
+    source.gateways.includes("capabilityStatus: 'PRODUCTION_CAPABLE' | 'NOT_CONFIGURED'") &&
+    source.useCases.includes('PAYMENT_PROVIDER_NOT_CONFIGURED') &&
+    source.useCases.includes('FX_PROVIDER_NOT_CONFIGURED'),
   no_raw_pan_fields: !/\b(cardPan|cardNumber|cvv|rawCardData)\b/i.test(source.schema),
   no_production_fake_gateway: !/class\s+(Fake|Mock).*Gateway/.test(source.gateways),
   real_admin_api:

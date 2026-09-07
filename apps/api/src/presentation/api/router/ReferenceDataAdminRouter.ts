@@ -6,6 +6,7 @@ import {
   ReferenceDataUseCases,
   ReferenceDataValidationError,
 } from '@manaratak/application';
+import { ReferenceLifecycleState, type GovernedReferenceEntityType } from '@manaratak/domain';
 
 export class ReferenceDataAdminRouter {
   public static create(cradle: { referenceDataUseCases: ReferenceDataUseCases }): Router {
@@ -28,6 +29,20 @@ export class ReferenceDataAdminRouter {
       };
     };
 
+    const aliasSchema = z.object({
+      alias: z.string().min(1).max(300),
+      locale: z.string().min(2).max(35).nullable().optional(),
+      aliasType: z.enum(['COMMON', 'HISTORIC', 'PROVIDER', 'TRANSLITERATION', 'OTHER']).optional(),
+    }).strict();
+    const providerMappingSchema = z.object({
+      providerSystem: z.string().min(1).max(100),
+      providerId: z.string().min(1).max(200),
+    }).strict();
+    const governanceFields = {
+      aliases: z.array(aliasSchema).max(100).optional(),
+      providerMappings: z.array(providerMappingSchema).max(100).optional(),
+    };
+
     const countrySchema = z.object({
       iso2Code: z.string().regex(/^[A-Z]{2}$/),
       iso3Code: z.string().regex(/^[A-Z]{3}$/),
@@ -40,9 +55,9 @@ export class ReferenceDataAdminRouter {
       defaultLanguageCode: z.string().nullable().optional(),
       callingCode: z.string().nullable().optional(),
       flagAssetId: z.string().nullable().optional(),
-      isActive: z.boolean().optional(),
+      ...governanceFields,
       metadata: z.record(z.string(), z.unknown()).optional(),
-    });
+    }).strict();
 
     const currencySchema = z.object({
       isoCode: z.string().regex(/^[A-Z]{3}$/),
@@ -51,9 +66,9 @@ export class ReferenceDataAdminRouter {
       nameAr: z.string().min(1).nullable().optional(),
       symbol: z.string().nullable().optional(),
       minorUnit: z.number().int().min(0).max(4).nullable().optional(),
-      isActive: z.boolean().optional(),
+      ...governanceFields,
       metadata: z.record(z.string(), z.unknown()).optional(),
-    });
+    }).strict();
 
     const languageSchema = z.object({
       isoCode: z.string().regex(/^[a-z]{2,8}(-[a-z0-9]+)*$/),
@@ -61,9 +76,9 @@ export class ReferenceDataAdminRouter {
       nameAr: z.string().min(1).nullable().optional(),
       nativeName: z.string().nullable().optional(),
       direction: z.enum(['LTR', 'RTL']),
-      isActive: z.boolean().optional(),
+      ...governanceFields,
       metadata: z.record(z.string(), z.unknown()).optional(),
-    });
+    }).strict();
 
     const citySchema = z.object({
       countryIso2Code: z.string().regex(/^[A-Z]{2}$/),
@@ -74,9 +89,9 @@ export class ReferenceDataAdminRouter {
       latitude: z.number().min(-90).max(90).nullable().optional(),
       longitude: z.number().min(-180).max(180).nullable().optional(),
       administrativeRegionId: z.string().uuid().nullable().optional(),
-      isActive: z.boolean().optional(),
+      ...governanceFields,
       metadata: z.record(z.string(), z.unknown()).optional(),
-    });
+    }).strict();
 
     const explicitBooleanQuery = z.preprocess((value) => {
       if (value === undefined) return undefined;
@@ -94,7 +109,7 @@ export class ReferenceDataAdminRouter {
       countryIso2Code: z.string().optional(),
       q: z.string().optional(),
       activeOnly: explicitBooleanQuery,
-    });
+    }).strict();
 
     const countryImportPreviewSchema = z.object({
       sourceName: z.string().min(1).max(200),
@@ -104,7 +119,22 @@ export class ReferenceDataAdminRouter {
         .regex(/^[a-fA-F0-9]{64}$/)
         .optional(),
       records: z.array(z.record(z.string(), z.unknown())).min(1).max(500),
-    });
+    }).strict();
+
+    const countryUpdateBodySchema = countrySchema.omit({ iso2Code: true }).strict();
+    const currencyUpdateBodySchema = currencySchema.omit({ isoCode: true }).strict();
+    const languageUpdateBodySchema = languageSchema.omit({ isoCode: true }).strict();
+    const countryCodeParamSchema = z.object({ iso2Code: z.string().regex(/^[A-Z]{2}$/) }).strict();
+    const isoCodeParamSchema = z.object({ isoCode: z.string().min(2).max(8) }).strict();
+    const governanceParamSchema = z.object({
+      entityType: z.enum(['COUNTRY', 'CURRENCY', 'LANGUAGE', 'CITY']),
+      referenceId: z.string().uuid(),
+    }).strict();
+    const lifecycleTransitionSchema = z.object({
+      toState: z.nativeEnum(ReferenceLifecycleState).refine((state) => state !== ReferenceLifecycleState.ACTIVE),
+      targetReferenceId: z.string().uuid().optional(),
+      reason: z.string().min(3).max(1000),
+    }).strict();
 
     router.get(
       '/countries',
@@ -174,10 +204,41 @@ export class ReferenceDataAdminRouter {
       }),
     );
 
+    router.get(
+      '/governance/:entityType/:referenceId/history',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { entityType, referenceId } = governanceParamSchema.parse(req.params);
+        res.json({ data: await referenceDataUseCases.getReferenceHistory(entityType as GovernedReferenceEntityType, referenceId) });
+      }),
+    );
+
+    router.get(
+      '/governance/:entityType/:referenceId/relationships',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { entityType, referenceId } = governanceParamSchema.parse(req.params);
+        res.json({ data: await referenceDataUseCases.getReferenceRelationships(entityType as GovernedReferenceEntityType, referenceId) });
+      }),
+    );
+
+    router.post(
+      '/governance/:entityType/:referenceId/lifecycle',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { entityType, referenceId } = governanceParamSchema.parse(req.params);
+        const body = lifecycleTransitionSchema.parse(req.body);
+        await referenceDataUseCases.transitionReferenceLifecycle(
+          { entityType: entityType as GovernedReferenceEntityType, referenceId, ...body },
+          mutationContext(req),
+        );
+        res.status(204).send();
+      }),
+    );
+
     router.put(
       '/countries/:iso2Code',
       asyncHandler(async (req: Request, res: Response) => {
-        const body = countrySchema.parse({ ...req.body, iso2Code: req.params.iso2Code });
+        const payload = countryUpdateBodySchema.parse(req.body);
+        const { iso2Code } = countryCodeParamSchema.parse(req.params);
+        const body = countrySchema.parse({ ...payload, iso2Code });
         res.json(await referenceDataUseCases.upsertCountry(body, mutationContext(req)));
       }),
     );
@@ -185,7 +246,9 @@ export class ReferenceDataAdminRouter {
     router.put(
       '/currencies/:isoCode',
       asyncHandler(async (req: Request, res: Response) => {
-        const body = currencySchema.parse({ ...req.body, isoCode: req.params.isoCode });
+        const payload = currencyUpdateBodySchema.parse(req.body);
+        const { isoCode } = isoCodeParamSchema.parse(req.params);
+        const body = currencySchema.parse({ ...payload, isoCode });
         res.json(await referenceDataUseCases.upsertCurrency(body, mutationContext(req)));
       }),
     );
@@ -193,7 +256,9 @@ export class ReferenceDataAdminRouter {
     router.put(
       '/languages/:isoCode',
       asyncHandler(async (req: Request, res: Response) => {
-        const body = languageSchema.parse({ ...req.body, isoCode: req.params.isoCode });
+        const payload = languageUpdateBodySchema.parse(req.body);
+        const { isoCode } = isoCodeParamSchema.parse(req.params);
+        const body = languageSchema.parse({ ...payload, isoCode });
         res.json(await referenceDataUseCases.upsertLanguage(body, mutationContext(req)));
       }),
     );

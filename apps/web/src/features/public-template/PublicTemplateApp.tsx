@@ -5,12 +5,14 @@ import { usePublicNavigation } from './usePublicNavigation';
 import { usePublicLiveData } from './usePublicLiveData';
 import { usePublicRelationshipGraph } from './usePublicRelationshipGraph';
 import { ApiClient, type StablePublicGraphIdentity } from '../../api/client';
+import { useTranslation } from '../../i18n/I18nProvider';
 import { mapPublicScholarshipDto } from './publicScholarshipDataSource';
 import {
   mapArticle, mapCareer, mapCountry, mapCourse, mapExam, mapPublicMajorDto, mapPublicUniversityDto, mapService,
 } from './publicLiveDataSource';
 import { PublicInfoPage } from './components/PublicInfoPage';
 import { CourseTrackPreview } from './components/CourseTrackPreview';
+import { OwnerCourseDetail } from './components/OwnerCourseDetail';
 import {
   Scholarship,
   University,
@@ -35,6 +37,7 @@ import { INITIAL_MILESTONES, INITIAL_NOTIFICATIONS } from './data/personalPrevie
 import { Header } from './components/Header';
 import { SmartSearchBar } from './components/SmartSearchBar';
 import { GlobalSearchPage } from './components/GlobalSearchPage';
+import { ComparePage } from './components/ComparePage';
 import { FavoritesPage } from './components/FavoritesPage';
 import { SmartSearchPage } from './components/SmartSearchPage';
 import { HeroBanner } from './components/HeroBanner';
@@ -80,6 +83,7 @@ import { NavigationDrawer } from './components/NavigationDrawer';
 import { AuthPage as PrototypeAuthPage } from './components/AuthPage';
 import { StudentWorkspacePage as PrototypeStudentWorkspacePage } from './components/StudentWorkspacePage';
 import { StudentAuthPage as LiveStudentAuthPage } from '../students/StudentAuthPage';
+import { consumePostLoginAction, consumePostLoginReturn, preservePostLoginAction, preservePostLoginReturn } from '../students/postLoginIntent';
 import { StudentWorkspacePage as LiveStudentWorkspacePage } from '../students/StudentWorkspacePage';
 import {
   Filter,
@@ -102,10 +106,10 @@ import {
 } from 'lucide-react';
 
 export default function App() {
-  const language: Language = 'ar'; // English remains explicitly unavailable until the complete presentation copy is translated; live owner IDs stay locale-independent.
+  const { language } = useTranslation();
   const publicLive = usePublicLiveData(import.meta.env.VITE_PUBLIC_TEMPLATE_DATA_MODE, language);
   const publicDataMode = publicLive.mode;
-  const { scholarships, universities, majors, countries, exams, courses, importedCourses, articles, services, careers, tools } = publicLive.data;
+  const { scholarships, universities, majors, countries, exams, courses, paidCourses, importedCourses, articles, services, careers, tools } = publicLive.data;
   const scholarshipDataStatus = publicDataMode === 'prototype' ? 'prototype' : publicLive.statuses.scholarships;
   const unavailableDomains = Object.entries(publicLive.statuses).filter(([, status]) => status === 'unavailable').map(([domain]) => domain);
   const loadingDomains = Object.entries(publicLive.statuses).filter(([, status]) => status === 'loading').map(([domain]) => domain);
@@ -181,12 +185,19 @@ export default function App() {
       }
       patch = { activeTab: 'search', selectedCategory: 'majors', selectedMajor: selected };
     } else if (section === 'courses') {
-      const selected = key ? importedCourses.find(matchesKey) || null : null;
-      if (key && !selected && publicDataMode === 'api') {
-        fetchOnce(`courses:${key}`, async () => finish({ activeTab: 'search', selectedCategory: 'courses', selectedCourseTrack: 'imported', selectedImportedCourse: mapCourse(await ApiClient.getCourseBySlug(key)).imported }));
+      const ownerSelected = key ? [...courses, ...paidCourses].find(matchesKey) || null : null;
+      const importedSelected = key ? importedCourses.find(matchesKey) || null : null;
+      if (key && !ownerSelected && !importedSelected && publicDataMode === 'api') {
+        fetchOnce(`courses:${key}`, async () => {
+          const mapped = mapCourse(await ApiClient.getCourseBySlug(key));
+          finish(mapped.track === 'imported'
+            ? { activeTab: 'search', selectedCategory: 'courses', selectedCourseTrack: 'imported', selectedImportedCourse: mapped.imported }
+            : { activeTab: 'search', selectedCategory: 'courses', selectedCourseTrack: mapped.track, selectedCourse: mapped.course });
+        });
         return;
       }
-      patch = { activeTab: 'search', selectedCategory: 'courses', selectedCourseTrack: 'imported', selectedImportedCourse: selected };
+      if (ownerSelected) patch = { activeTab: 'search', selectedCategory: 'courses', selectedCourseTrack: ownerSelected.accessType === 'PAID' ? 'paid' : 'native', selectedCourse: ownerSelected };
+      else patch = { activeTab: 'search', selectedCategory: 'courses', selectedCourseTrack: 'imported', selectedImportedCourse: importedSelected };
     } else if (section === 'articles') {
       const selected = key ? articles.find(matchesKey) || null : null;
       if (key && !selected && publicDataMode === 'api') {
@@ -194,6 +205,12 @@ export default function App() {
         return;
       }
       patch = { activeTab: 'search', selectedCategory: 'articles', selectedArticle: selected };
+    } else if (section === 'content') {
+      if (key && publicDataMode === 'api') {
+        fetchOnce(`content:${key}`, async () => finish({ activeTab: 'search', selectedCategory: 'articles', selectedArticle: mapArticle(await ApiClient.getCmsContentBySlug(key, language)) }));
+        return;
+      }
+      patch = { activeTab: 'search', selectedCategory: 'articles' };
     } else if (section === 'services') {
       const selected = key ? services.find(matchesKey) || null : null;
       if (key && !selected && publicDataMode === 'api') {
@@ -242,7 +259,7 @@ export default function App() {
     }
 
     finish(patch);
-  }, [publicDataMode, scholarships, universities, majors, countriesForView, exams, importedCourses, articles, services, careersForView, tools, publicLive.statuses, replaceNavigation, language]);
+  }, [publicDataMode, scholarships, universities, majors, countriesForView, exams, courses, paidCourses, importedCourses, articles, services, careersForView, tools, publicLive.statuses, replaceNavigation, language]);
   useEffect(() => {
     if (selectedCategory !== 'courses') {
       setSelectedCourseTrack(null);
@@ -315,6 +332,7 @@ export default function App() {
   const [selectedMajor, setSelectedMajor] = navigation.field('selectedMajor');
   const [selectedUniversity, setSelectedUniversity] = navigation.field('selectedUniversity');
   const [selectedExam, setSelectedExam] = navigation.field('selectedExam');
+  const [selectedCourse, setSelectedCourse] = navigation.field('selectedCourse');
   const [selectedImportedCourse, setSelectedImportedCourse] = navigation.field('selectedImportedCourse');
   const [selectedArticle, setSelectedArticle] = navigation.field('selectedArticle');
   const [selectedService, setSelectedService] = navigation.field('selectedService');
@@ -513,6 +531,39 @@ export default function App() {
     writeStored('manaratak_favorites_v2', JSON.stringify(favoriteKeys));
   }, [favoriteKeys, publicDataMode]);
 
+
+  useEffect(() => {
+    if (publicDataMode !== 'api') return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const hydrated = await ApiClient.listMyHydratedStudentSavedItems();
+        if (cancelled) return;
+        const keys = hydrated.flatMap(({ savedItem }) => {
+          const kind = favoriteKindFromSavedType(savedItem.entityType);
+          return kind ? [makeFavoriteKey(kind, savedItem.entityId)] : [];
+        });
+        setFavoriteKeys([...new Set(keys)]);
+        const pending = consumePostLoginAction();
+        if (pending?.kind === 'SAVE_FAVORITE') {
+          await ApiClient.createMyStudentSavedItem({ entityType: pending.entityType, entityId: pending.entityId, entitySlug: pending.entitySlug ?? pending.entityId, metadata: { source: 'public-discovery-auth-handoff' } });
+          const kind = favoriteKindFromSavedType(pending.entityType);
+          if (kind && !cancelled) setFavoriteKeys((prev) => [...new Set([...prev, makeFavoriteKey(kind, pending.entityId)])]);
+        } else if (pending?.kind === 'TRACK_APPLICATION') {
+          const existing = (await ApiClient.listMyStudentApplicationTrackers()).find((item) => item.scholarshipId === pending.scholarshipId && item.status === 'ACTIVE');
+          if (!existing) await ApiClient.createMyStudentApplicationTracker({ scholarshipId: pending.scholarshipId, scholarshipSlug: pending.scholarshipSlug, notes: pending.notes ?? 'بدء متابعة طلب المنحة بعد تسجيل الدخول', checklistLabels: ['ترجمة وتصديق المستندات', 'إعداد السيرة الذاتية الأكاديمية', 'صياغة خطاب الدافع', 'الحصول على خطابات التوصية', 'تقديم الطلب الإلكتروني الرسمي'] });
+          if (!cancelled) window.location.assign('/student?tab=journey');
+        } else if (pending?.kind === 'REQUEST_SERVICE') {
+          const created = await ApiClient.createMyStudentServiceRequest({ serviceId: pending.serviceId, requestParameters: pending.requestParameters });
+          if (!cancelled) window.location.assign(`/student?tab=services&requestId=${encodeURIComponent(created.id)}`);
+        }
+      } catch {
+        // Anonymous live browsing is valid; no local fake favorite state is created.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [publicDataMode]);
+
   useEffect(() => {
     if (publicDataMode !== 'prototype') return;
     writeStored('manaratak_notifications', JSON.stringify(notifications));
@@ -631,6 +682,16 @@ export default function App() {
 
   const makeFavoriteKey = (kind: FavoriteKind, id: string): FavoriteKey => `${kind}:${id}` as FavoriteKey;
 
+  const liveSavedItemType = (kind: FavoriteKind): string | null => ({
+    scholarship: 'SCHOLARSHIP', university: 'UNIVERSITY', major: 'MAJOR', course: 'COURSE',
+    article: 'CMS_CONTENT', service: 'SERVICE', tool: 'STUDENT_TOOL',
+  } as Partial<Record<FavoriteKind, string>>)[kind] ?? null;
+
+  const favoriteKindFromSavedType = (entityType: string): FavoriteKind | null => ({
+    SCHOLARSHIP: 'scholarship', UNIVERSITY: 'university', MAJOR: 'major', COURSE: 'course',
+    CMS_CONTENT: 'article', SERVICE: 'service', STUDENT_TOOL: 'tool',
+  } as Record<string, FavoriteKind>)[entityType] ?? null;
+
   const favoriteIdsFor = (kind: FavoriteKind): string[] => {
     const prefix = `${kind}:`;
     return favoriteKeys.filter((key) => key.startsWith(prefix)).map((key) => key.slice(prefix.length));
@@ -638,61 +699,93 @@ export default function App() {
 
   const isFavorite = (kind: FavoriteKind, id: string) => favoriteKeys.includes(makeFavoriteKey(kind, id));
 
-  // Toggle a typed favorite. Entity type is part of the key to prevent cross-domain ID collisions.
-  const handleToggleFavorite = (kind: FavoriteKind, id: string) => {
+  // Live favorites are Phase 15 Saved Items. Browser-only state is prototype-only.
+  const handleToggleFavorite = async (kind: FavoriteKind, id: string) => {
     const key = makeFavoriteKey(kind, id);
-    setFavoriteKeys((prev) => (prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]));
+    if (publicDataMode === 'prototype') {
+      setFavoriteKeys((prev) => (prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]));
+      return;
+    }
+    const entityType = liveSavedItemType(kind);
+    if (!entityType) {
+      triggerInstantPush({ title: 'الحفظ غير متاح لهذا النوع بعد', body: 'لن نعرض حفظاً محلياً وهمياً في الوضع الفعلي.', type: 'system' });
+      return;
+    }
+    try {
+      await ApiClient.getCurrentStudentIdentity();
+    } catch {
+      preservePostLoginAction({ kind: 'SAVE_FAVORITE', entityType, entityId: id, entitySlug: id });
+      preservePostLoginReturn(`${window.location.pathname}${window.location.search}`);
+      setActiveTab('auth');
+      return;
+    }
+    try {
+      if (favoriteKeys.includes(key)) {
+        await ApiClient.removeMyStudentSavedItem(entityType, id);
+        setFavoriteKeys((prev) => prev.filter((item) => item !== key));
+      } else {
+        await ApiClient.createMyStudentSavedItem({ entityType, entityId: id, entitySlug: id, metadata: { source: 'public-discovery' } });
+        setFavoriteKeys((prev) => prev.includes(key) ? prev : [...prev, key]);
+      }
+    } catch (error) {
+      triggerInstantPush({ title: 'تعذر تحديث العناصر المحفوظة', body: error instanceof Error ? error.message : 'حاول مرة أخرى.', type: 'system' });
+    }
   };
 
   // Add scholarship to learner progress tracker
-  const handleAddToTracker = (sch: Scholarship) => {
-    const exists = milestones.some((m) => m.scholarshipId === sch.id);
-    if (exists) {
-      setActiveTab('tracker');
-      setSelectedScholarship(null);
-      return;
+  const handleAddToTracker = async (sch: Scholarship) => {
+    if (publicDataMode === 'prototype') {
+      const exists = milestones.some((m) => m.scholarshipId === sch.id);
+      if (exists) { setActiveTab('tracker'); setSelectedScholarship(null); return; }
+      const newMilestone: ApplicationMilestone = {
+        id: `track-${Date.now()}`,
+        scholarshipId: sch.id,
+        scholarshipTitle: sch.title,
+        country: sch.country,
+        deadline: sch.deadline,
+        stage: 'تجهيز المستندات', progress: 0,
+        notes: `بدء إعداد ملف التقديم الرسمي لمنحة ${sch.title}`,
+        checklist: [
+          { id: `c-${Date.now()}-1`, task: 'ترجمة وتصديق كشف العلامات وشهادة التخرج', completed: false },
+          { id: `c-${Date.now()}-2`, task: 'تجهيز السيرة الذاتية بصيغة أكاديمية', completed: false },
+          { id: `c-${Date.now()}-3`, task: 'صياغة خطاب الدافع بواسطة الذكاء الاصطناعي', completed: false },
+          { id: `c-${Date.now()}-4`, task: 'الحصول على خطابات التوصية الأكاديمية', completed: false },
+          { id: `c-${Date.now()}-5`, task: 'تقديم الطلب الإلكتروني على البوابة الرسمية', completed: false },
+        ],
+      };
+      setMilestones((prev) => [newMilestone, ...prev]); setSelectedScholarship(null); setActiveTab('tracker'); return;
     }
+    try {
+      await ApiClient.getCurrentStudentIdentity();
+    } catch {
+      preservePostLoginAction({ kind: 'TRACK_APPLICATION', scholarshipId: sch.id, scholarshipSlug: sch.slug ?? sch.id, notes: `بدء إعداد ملف التقديم الرسمي لمنحة ${sch.title}` });
+      preservePostLoginReturn('/student?tab=journey');
+      setSelectedScholarship(null); setActiveTab('auth'); return;
+    }
+    try {
+      const trackers = await ApiClient.listMyStudentApplicationTrackers();
+      const existing = trackers.find((item) => item.scholarshipId === sch.id && item.status === 'ACTIVE');
+      if (!existing) await ApiClient.createMyStudentApplicationTracker({ scholarshipId: sch.id, scholarshipSlug: sch.slug ?? sch.id, notes: `بدء إعداد ملف التقديم الرسمي لمنحة ${sch.title}`, checklistLabels: ['ترجمة وتصديق كشف العلامات وشهادة التخرج', 'تجهيز السيرة الذاتية بصيغة أكاديمية', 'صياغة خطاب الدافع', 'الحصول على خطابات التوصية الأكاديمية', 'تقديم الطلب الإلكتروني على البوابة الرسمية'] });
+      setSelectedScholarship(null); window.location.assign('/student?tab=journey');
+    } catch (error) {
+      triggerInstantPush({ title: 'تعذر إضافة المنحة للمتابعة', body: error instanceof Error ? error.message : 'حاول مرة أخرى.', type: 'system' });
+    }
+  };
 
-    const newMilestone: ApplicationMilestone = {
-      id: `track-${Date.now()}`,
-      scholarshipId: sch.id,
-      scholarshipTitle: sch.title,
-      country: sch.country,
-      deadline: sch.deadline,
-      stage: 'تجهيز المستندات',
-      progress: 0,
-      notes: `بدء إعداد ملف التقديم الرسمي لمنحة ${sch.title}`,
-      checklist: [
-        {
-          id: `c-${Date.now()}-1`,
-          task: 'ترجمة وتصديق كشف العلامات وشهادة التخرج',
-          completed: false,
-        },
-        { id: `c-${Date.now()}-2`, task: 'تجهيز السيرة الذاتية بصيغة أكاديمية', completed: false },
-        {
-          id: `c-${Date.now()}-3`,
-          task: 'صياغة خطاب الدافع بواسطة الذكاء الاصطناعي',
-          completed: false,
-        },
-        { id: `c-${Date.now()}-4`, task: 'الحصول على خطابات التوصية الأكاديمية', completed: false },
-        {
-          id: `c-${Date.now()}-5`,
-          task: 'تقديم الطلب الإلكتروني على البوابة الرسمية',
-          completed: false,
-        },
-      ],
-    };
-
-    setMilestones((prev) => [newMilestone, ...prev]);
-    setSelectedScholarship(null);
-    setActiveTab('tracker');
-
-    triggerInstantPush({
-      title: '🎯 تمت إضافة المنحة لنظام متابعة تقدمك',
-      body: `تم إدراج ${sch.title} في قائمة المتابعة لتتبع مهام ومواعيد التقديم.`,
-      type: 'opportunity',
-      actionType: 'tracker',
-    });
+  const handleRequestService = async (service: Service, requestParameters: Record<string, unknown>) => {
+    if (publicDataMode !== 'api') return;
+    try { await ApiClient.getCurrentStudentIdentity(); }
+    catch {
+      preservePostLoginAction({ kind: 'REQUEST_SERVICE', serviceId: service.id, serviceSlug: service.slug ?? service.id, requestParameters });
+      preservePostLoginReturn(`/services/${service.slug ?? service.id}`);
+      setSelectedService(null); setActiveTab('auth'); return;
+    }
+    try {
+      const created = await ApiClient.createMyStudentServiceRequest({ serviceId: service.id, requestParameters });
+      window.location.assign(`/student?tab=services&requestId=${encodeURIComponent(created.id)}`);
+    } catch (error) {
+      triggerInstantPush({ title: 'تعذر إنشاء طلب الخدمة', body: error instanceof Error ? error.message : 'حاول مرة أخرى.', type: 'system' });
+    }
   };
 
   // Filter scholarships logic
@@ -710,7 +803,7 @@ export default function App() {
     const matchesDegree =
       selectedDegree === 'الكل' || s.degreeLevel.includes(selectedDegree as any);
     const matchesFunding = !onlyFullyFunded || s.fundingType === 'ممولة بالكامل';
-    const matchesIelts = !onlyWithoutIelts || s.withoutIelts;
+    const matchesIelts = !onlyWithoutIelts || s.withoutIelts === true;
 
     return matchesSearch && matchesCountry && matchesDegree && matchesFunding && matchesIelts;
   });
@@ -722,9 +815,16 @@ export default function App() {
     return counts;
   }, {});
 
+  const isCompareRoute = /^\/(?:ar|en)\/compare(?:\/|$)/.test(window.location.pathname);
+
   return (
     <div className="manaratak-public flex flex-col min-h-screen w-full bg-[var(--mn-page)] text-[var(--mn-text)] selection:bg-[var(--mn-accent)]/30 selection:text-[var(--mn-heading)] font-['Cairo',sans-serif] pb-24 sm:pb-28 transition-colors mn-panel ">
       {/* App Header (Top Sticky) */}
+      {publicDataMode === 'prototype' && (
+        <div role="status" className="sticky top-0 z-[60] border-b border-amber-300 bg-amber-100 px-3 py-2 text-center text-xs font-bold text-amber-950">
+          وضع تجريبي محلي — البيانات المعروضة غير إنتاجية وليست مصدرًا رسميًا.
+        </div>
+      )}
       <Header
         language={language}
         onToggleLanguage={openLanguage}
@@ -762,7 +862,9 @@ export default function App() {
             جاري تحميل البيانات المنشورة من مصادر منارتك الحية…
           </div>
         )}
-        {navigation.state.auxiliaryPage ? (
+        {isCompareRoute ? (
+          <ComparePage locale={language} onBack={goBack} />
+        ) : navigation.state.auxiliaryPage ? (
           <PublicInfoPage page={navigation.state.auxiliaryPage} onBack={goBack} onServices={() => openSection('services')} />
         ) : isSmartSearchOpen ? (
           <SmartSearchPage
@@ -802,6 +904,7 @@ export default function App() {
             searchTerm={detailSearchTerm}
             isFavorite={isFavorite('service', selectedService.id)}
             onToggleFavorite={(id) => handleToggleFavorite('service', id)}
+            onRequestService={publicDataMode === 'api' ? (requestParameters) => handleRequestService(selectedService, requestParameters) : undefined}
             onBack={goBack}
             onOpenContext={(category) => {
               setSelectedService(null);
@@ -1084,6 +1187,12 @@ export default function App() {
               window.scrollTo({ top: 0, behavior: 'instant' });
             }}
           />
+        ) : selectedCourse ? (
+          <OwnerCourseDetail
+            course={selectedCourse}
+            track={selectedCourse.accessType === 'PAID' ? 'paid' : 'native'}
+            onBack={goBack}
+          />
         ) : selectedImportedCourse ? (
           <ImportedCourseDetail
             course={selectedImportedCourse}
@@ -1310,7 +1419,7 @@ export default function App() {
                     <div className="relative w-full">
                       <FeaturedCourses
                         courses={courses}
-                        onSelectCourse={(course) => {const imported = importedCourses.find(item => item.id === course.id); if(imported) setSelectedImportedCourse(imported); else navigate({activeTab: 'search', selectedCategory: 'courses', selectedCourseTrack: course.provider.includes('منارتك') ? 'native' : 'imported'});}}
+                        onSelectCourse={(course) => { setSelectedImportedCourse(null); setSelectedCourse(course); navigate({activeTab: 'search', selectedCategory: 'courses', selectedCourseTrack: course.accessType === 'PAID' ? 'paid' : 'native', selectedCourse: course}); }}
                         onViewAllClick={() => {
                           setActiveTab('search');
                           setSelectedCategory('courses');
@@ -1386,6 +1495,8 @@ export default function App() {
             {activeTab === 'search' && selectedCategory === 'all' ? (
               <GlobalSearchPage
                 query={globalSearchQuery}
+                searchMode={publicDataMode}
+                locale={language}
                 scholarships={scholarships}
                 universities={universities}
                 majors={majors}
@@ -1577,7 +1688,12 @@ export default function App() {
             ) : (activeTab === 'search' || (activeTab === 'home' && selectedCategory !== 'all')) &&
               selectedCategory === 'courses' ? (
               selectedCourseTrack === 'native' || selectedCourseTrack === 'paid' ? (
-                <CourseTrackPreview track={selectedCourseTrack} onBack={goBack} onImported={() => setSelectedCourseTrack('imported')} />
+                <CourseTrackPreview
+                  track={selectedCourseTrack}
+                  courses={selectedCourseTrack === 'native' ? courses : paidCourses}
+                  onBack={goBack}
+                  onSelectCourse={(course) => { setSelectedImportedCourse(null); setSelectedCourse(course); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+                />
               ) : selectedCourseTrack === 'imported' ? (
                 <CoursesSearchPage
                   importedCourses={importedCourses}
@@ -1903,6 +2019,11 @@ export default function App() {
                 <LiveStudentAuthPage onAuthenticated={(destination) => {
                   if (destination.kind === 'admin') {
                     window.location.assign(destination.path);
+                    return;
+                  }
+                  const postLoginReturn = consumePostLoginReturn();
+                  if (postLoginReturn) {
+                    window.location.assign(postLoginReturn);
                     return;
                   }
                   setActiveTab('account');

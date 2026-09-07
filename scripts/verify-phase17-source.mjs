@@ -78,6 +78,11 @@ if (existsSync('packages/application/src/ai-platform/use-cases/AIExecutionUseCas
 if (existsSync('packages/domain/src/ai-platform/services/PromptRegistryService.ts')) failures.push('hardcoded-prompt-registry');
 const asyncProtector = readFileSync('packages/infrastructure/src/ai-platform/EnvironmentAIAsyncPayloadProtector.ts', 'utf8');
 if (!/aes-256-gcm/.test(asyncProtector) || !/AI_ASYNC_PAYLOAD_KEY/.test(asyncProtector)) failures.push('async-payload-not-encrypted');
+const asyncWorker = readFileSync('packages/application/src/background-jobs/handlers/AIAsyncBackgroundJobHandler.ts', 'utf8');
+const apiServer = readFileSync('apps/api/src/server.ts', 'utf8');
+const appConfig = readFileSync('packages/config/src/AppConfig.ts', 'utf8');
+if (!/processDueAsyncJobs/.test(asyncWorker) || !/AI_ASYNC_SWEEP_JOB_TYPE/.test(apiServer)) failures.push('async-runtime-worker-not-wired');
+if (!/BACKGROUND_AI_CRON/.test(appConfig) || !/BACKGROUND_WORKER_ENABLED/.test(appConfig)) failures.push('async-runtime-worker-config-missing');
 
 if (failures.length) {
   console.error(`PHASE17_SOURCE_READY=NO\n${failures.join('\n')}`);

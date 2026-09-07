@@ -14,8 +14,8 @@ export class MajorPublicRouter {
       degreeLevel: z.string().optional(),
       academicFieldOrDiscipline: z.string().optional(),
       collegeOrFaculty: z.string().optional(),
-      page: z.string().optional().transform((val) => val ? parseInt(val, 10) : 1),
-      pageSize: z.string().optional().transform((val) => Math.min(val ? parseInt(val, 10) : 20, 50)),
+      cursor: z.string().trim().min(1).max(2048).optional(),
+      limit: z.coerce.number().int().min(1).max(100).default(20),
     }).merge(localeQuerySchema);
 
     router.get('/', asyncHandler(async (req: Request, res: Response) => {

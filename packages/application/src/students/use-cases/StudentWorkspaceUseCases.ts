@@ -1,3 +1,4 @@
+import { AssetReferencePolicy, assertAssetReferenceUsable } from '../../asset-platform/AssetReferencePolicy';
 import {
   IStudentWorkspaceDeliveryCache,
   IStudentWorkspaceRepository,
@@ -13,24 +14,40 @@ import {
   UpdateStudentPrivacyConsentDto,
   StudentWorkspaceDto,
   StudentWorkspaceIntegrationEventDto,
+  StudentSupportWorkspacePageDto,
+  StudentSupportWorkspaceDetailDto,
   StudentWorkspaceSnapshotDto,
   StudentWorkspaceStatus,
   UpsertStudentWorkspaceDto,
 } from '@manaratak/domain';
 
 export class StudentWorkspaceUseCases {
-  constructor(private readonly repository: IStudentWorkspaceRepository, private readonly deliveryCache?: IStudentWorkspaceDeliveryCache | null) {}
+  constructor(
+    private readonly repository: IStudentWorkspaceRepository,
+    private readonly deliveryCache?: IStudentWorkspaceDeliveryCache | null,
+    private readonly assetReferences?: AssetReferencePolicy,
+  ) {}
 
   public async upsertWorkspace(data: UpsertStudentWorkspaceDto): Promise<StudentWorkspaceDto> {
     this.ensureStudentReference(data.studentReferenceId);
-    if (data.avatarAssetId && /^(?:https?:\/\/|data:|blob:|file:|[a-zA-Z]:\\|\/)/i.test(data.avatarAssetId)) {
-      throw new Error('avatarAssetId must be a Phase 05 EAP handle, not a raw URL');
-    }
+    await assertAssetReferenceUsable(this.assetReferences, data.avatarAssetId, { purpose: 'STUDENT_AVATAR', expectedOwnerId: data.studentReferenceId, allowedOwnerTypes: ['STUDENT'], allowedMimeTypePrefixes: ['image/'] });
     const current = await this.requireReadableWorkspace(data.studentReferenceId);
     if (current.status === StudentWorkspaceStatus.SUSPENDED) throw new Error('STUDENT_WORKSPACE_SUSPENDED');
     if (data.status !== undefined && data.status !== current.status) throw new Error('STUDENT_WORKSPACE_LIFECYCLE_EVENT_REQUIRED');
     if (data.privacyPreferences !== undefined) throw new Error('STUDENT_PRIVACY_CONSENT_COMMAND_REQUIRED');
     return this.mutate(data.studentReferenceId, 'workspace-updated', () => this.repository.upsertWorkspace(data));
+  }
+
+  /** P15-owned privacy-minimized support read model. It deliberately excludes privacy preferences, metadata and contact data. */
+  public async listSupportWorkspaces(input: { query?: string; status?: StudentWorkspaceStatus; limit?: number; cursor?: string }): Promise<StudentSupportWorkspacePageDto> {
+    return this.repository.listSupportWorkspaces(input);
+  }
+
+  public async getSupportWorkspaceDetail(studentReferenceId: string): Promise<StudentSupportWorkspaceDetailDto> {
+    this.ensureStudentReference(studentReferenceId);
+    const detail = await this.repository.getSupportWorkspaceDetail(studentReferenceId);
+    if (!detail) throw new Error('STUDENT_WORKSPACE_NOT_FOUND');
+    return detail;
   }
 
   public async getWorkspace(studentReferenceId: string): Promise<StudentWorkspaceDto> {

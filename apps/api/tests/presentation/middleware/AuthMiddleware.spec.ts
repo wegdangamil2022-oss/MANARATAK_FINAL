@@ -10,11 +10,15 @@ describe('AuthMiddleware cookie sessions', () => {
     };
     const sessionManager = {
       isSessionActive: vi.fn().mockResolvedValue(active),
+      revokeAllSessions: vi.fn().mockResolvedValue(undefined),
+    };
+    const principalAccessValidator = {
+      isAuthenticationAllowed: vi.fn().mockResolvedValue(true),
     };
     const app = express();
-    app.use(new AuthMiddleware(tokenProvider as any, sessionManager as any).generate());
+    app.use(new AuthMiddleware(tokenProvider as any, sessionManager as any, principalAccessValidator as any).generate());
     app.get('/student', (req, res) => res.json({ userId: req.authUserId }));
-    return { app, sessionManager };
+    return { app, sessionManager, principalAccessValidator };
   }
 
   it('accepts an HttpOnly access-cookie value only while its server session is active', async () => {
@@ -31,4 +35,12 @@ describe('AuthMiddleware cookie sessions', () => {
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ message: 'Unauthorized' });
   });
+  it('rejects a previously valid session when the canonical identity becomes inactive', async () => {
+    const { app, principalAccessValidator, sessionManager } = createApp(true);
+    principalAccessValidator.isAuthenticationAllowed.mockResolvedValue(false);
+    const response = await request(app).get('/student').set('Cookie', 'manaratak_access=access-token');
+    expect(response.status).toBe(401);
+    expect(sessionManager.revokeAllSessions).toHaveBeenCalledWith('student-1');
+  });
+
 });

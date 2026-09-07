@@ -12,6 +12,7 @@ const execution = read('packages/application/src/student-tools/use-cases/Student
 const registry = read('packages/application/src/student-tools/use-cases/StudentToolRegistryUseCases.ts');
 const router = read('apps/api/src/presentation/api/router/StudentToolsPublicRouter.ts');
 const adminRouter = read('apps/api/src/presentation/api/router/StudentToolsAdminRouter.ts');
+const strictSchemas = read('apps/api/src/presentation/validation/StrictControlPlaneSchemas.ts');
 const gateways = read('packages/infrastructure/src/student-tools/StudentToolGateways.ts');
 const ai = read('packages/application/src/ai-platform/use-cases/AIPlatformUseCases.ts');
 const schema = read('packages/infrastructure/prisma/schema.prisma');
@@ -104,8 +105,10 @@ const checks = {
     /clearTransientResult/.test(repo),
 
   'GUARD-ADMIN-VERSIONED-AVAILABILITY':
-    /semanticVersion: z\.string\(\)\.regex/.test(adminRouter) &&
-    /changeNote: z\.string\(\)\.min\(1\)/.test(adminRouter) &&
+    /studentToolAvailabilitySchema/.test(adminRouter) &&
+    /parseStrict\(studentToolAvailabilitySchema, req\.body\)/.test(adminRouter) &&
+    /semanticVersion: z\.string\(\)\.trim\(\)\.regex/.test(strictSchemas) &&
+    /changeNote: z\.string\(\)\.trim\(\)\.min\(3\)/.test(strictSchemas) &&
     /updateVersionedConfiguration/.test(adminRouter) &&
     /compareSemver\(version\.semanticVersion, current\.currentVersion\.semanticVersion\) <= 0/.test(registry),
 

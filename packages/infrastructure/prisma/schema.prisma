@@ -149,6 +149,11 @@ model ImportRecord {
   recordOffset       Int?
   sourceRowNumber    Int?
   retentionExpiresAt DateTime?
+  legalHoldUntil       DateTime?
+  retentionProcessedAt DateTime?
+  retentionState       String    @default("PENDING")
+  retentionClaimUntil  DateTime?
+  retentionClaimToken  String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -157,6 +162,7 @@ model ImportRecord {
   scholarshipCanonicalResolutionDecisions ScholarshipImportCanonicalResolutionDecision[] @relation("ScholarshipCanonicalDecisionRecord")
 
   @@unique([batchId, sourceDedupKey])
+  @@index([retentionExpiresAt, retentionProcessedAt])
   @@index([batchId])
   @@index([batchId, status])
   @@index([batchId, chunkIndex])
@@ -1094,6 +1100,86 @@ model EnterpriseEventRecord {
   @@index([lifecycleState])
 }
 
+// --- Durable Background Jobs ---
+
+model BackgroundJobRecord {
+  id                 String   @id
+  reference          String   @unique
+  jobType            String
+  parameters         Json
+  ownerReference     String?
+  priority           Int      @default(0)
+  runAt              DateTime?
+  cronExpression     String?
+  timeoutSeconds     Int      @default(300)
+  concurrentLimit    Int?
+  maxAttempts        Int      @default(1)
+  backoffType        String   @default("exponential")
+  status             String   @default("SCHEDULED")
+  attempt            Int      @default(0)
+  availableAt        DateTime @default(now())
+  leasedBy           String?
+  leaseToken         String?
+  leaseUntil         DateTime?
+  heartbeatAt        DateTime?
+  startedAt          DateTime?
+  lastCompletedAt    DateTime?
+  failedAt           DateTime?
+  cancelledAt        DateTime?
+  lastErrorCode      String?
+  lastErrorText      String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  executions BackgroundJobExecutionRecord[]
+  deadLetter BackgroundJobDeadLetterRecord?
+
+  @@index([status, availableAt, priority])
+  @@index([leaseUntil])
+  @@index([jobType, status])
+  @@index([ownerReference])
+}
+
+model BackgroundJobExecutionRecord {
+  id           String   @id @default(uuid())
+  jobReference String
+  attempt      Int
+  workerId     String
+  leaseToken   String   @unique
+  startedAt    DateTime
+  heartbeatAt  DateTime?
+  finishedAt   DateTime?
+  outcome      String   @default("RUNNING")
+  errorCode    String?
+  errorText    String?
+  createdAt    DateTime @default(now())
+
+  job BackgroundJobRecord @relation(fields: [jobReference], references: [reference], onDelete: Cascade)
+
+  @@index([jobReference, attempt])
+  @@index([outcome, startedAt])
+  @@index([jobReference, startedAt])
+}
+
+model BackgroundJobDeadLetterRecord {
+  id           String   @id @default(uuid())
+  jobReference String   @unique
+  jobType      String
+  payload      Json
+  attempt      Int
+  errorCode    String
+  errorText    String
+  failedAt     DateTime
+  replayedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  job BackgroundJobRecord @relation(fields: [jobReference], references: [reference], onDelete: Cascade)
+
+  @@index([failedAt])
+  @@index([jobType, failedAt])
+}
+
 // --- Transactional Outbox ---
 
 model TransactionalOutboxRecord {
@@ -1110,6 +1196,7 @@ model TransactionalOutboxRecord {
   attempts      Int       @default(0)
   availableAt   DateTime  @default(now())
   claimedBy     String?
+  claimToken    String?
   claimUntil    DateTime?
   processedAt   DateTime?
   lastErrorCode String?
@@ -2663,12 +2750,17 @@ model AssetRecord {
   sanitizationMetadata     Json?
   malwareScanStatus        Json?
 
+  legalHoldUntil       DateTime?
+  retentionProcessedAt DateTime?
+  retentionClaimUntil  DateTime?
+  retentionClaimToken  String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   archivedAt DateTime?
   deletedAt  DateTime?
   purgedAt   DateTime?
 
+  @@index([retentionExpiresAt, retentionProcessedAt])
   @@index([ownerId, ownerType])
   @@index([lifecycleState])
 }
@@ -2697,6 +2789,7 @@ model StudentWorkspace {
 
   savedItems       StudentSavedItem[]
   savedCollections StudentSavedCollection[]
+  applicationTrackers StudentApplicationTracker[]
   timelineEntries  StudentTimelineEntry[]
   recentActivity   StudentRecentActivity[]
   recentlyViewed   StudentRecentlyViewed[]
@@ -2732,6 +2825,44 @@ model StudentSavedItem {
   @@unique([studentReferenceId, entityType, entityId])
   @@index([studentReferenceId, savedAt])
   @@index([collectionId])
+}
+
+model StudentApplicationTracker {
+  id                 String   @id @default(uuid())
+  studentReferenceId String
+  scholarshipId      String
+  scholarshipSlug    String?
+  stage               String   @default("PREPARING_DOCUMENTS")
+  notes               String?
+  deadlineAt          DateTime?
+  status              String   @default("ACTIVE")
+  version             Int      @default(1)
+  archivedAt          DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  workspace StudentWorkspace @relation(fields: [studentReferenceId], references: [studentReferenceId], onDelete: Cascade)
+  checklist StudentApplicationChecklistItem[]
+
+  @@unique([studentReferenceId, scholarshipId])
+  @@index([studentReferenceId, status, updatedAt])
+  @@index([deadlineAt, status])
+}
+
+model StudentApplicationChecklistItem {
+  id          String   @id @default(uuid())
+  trackerId   String
+  label       String
+  completed   Boolean  @default(false)
+  position    Int
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tracker StudentApplicationTracker @relation(fields: [trackerId], references: [id], onDelete: Cascade)
+
+  @@unique([trackerId, position])
+  @@index([trackerId, completed])
 }
 
 model StudentSavedCollection {
@@ -3406,6 +3537,27 @@ model RoleAssignmentRecord {
   @@index([roleId])
 }
 
+model AdminEmergencyAccessRecord {
+  id               String    @id
+  principalId      String
+  roleId           String
+  reason           String
+  changeTicket     String
+  requestedBy      String
+  approvedBy       String
+  startsAt         DateTime
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  revokedBy        String?
+  revocationReason String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([principalId, expiresAt])
+  @@index([roleId, expiresAt])
+  @@index([revokedAt, expiresAt])
+}
+
 // --- Audit Foundation ---
 
 model AuditRecord {
@@ -3428,9 +3580,14 @@ model AuditRecord {
   retentionPeriodInDays Int?
   retentionExpiresAt    DateTime?
   lifecycleState        String    @default("RECORDED")
+  legalHoldUntil       DateTime?
+  retentionProcessedAt DateTime?
+  retentionClaimUntil  DateTime?
+  retentionClaimToken  String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
+  @@index([retentionExpiresAt, retentionProcessedAt])
   @@index([actorId])
   @@index([targetId])
   @@index([action])
@@ -3438,6 +3595,25 @@ model AuditRecord {
   @@index([severity])
   @@index([correlationReference])
   @@index([timestamp])
+}
+
+model RetentionDecisionRecord {
+  id           String   @id @default(uuid())
+  decisionKey  String
+  owner        String
+  recordId     String
+  expiresAt    DateTime
+  disposition  String
+  reason       String
+  result       String
+  terminalKey  String?  @unique
+  errorMessage String?
+  decidedAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([decisionKey])
+  @@index([owner, recordId])
+  @@index([result, decidedAt])
 }
 
 // --- Reference Data ---
@@ -3456,6 +3632,10 @@ model ReferenceCountry {
   callingCode            String?
   flagAssetId            String?
   isActive               Boolean                      @default(true)
+  lifecycleState         String   @default("ACTIVE")
+  versionNumber          Int      @default(1)
+  effectiveFrom          DateTime @default(now())
+  effectiveTo            DateTime?
   metadata               Json?
   createdAt              DateTime                     @default(now())
   updatedAt              DateTime                     @updatedAt
@@ -3486,6 +3666,10 @@ model ReferenceCurrency {
   symbol                          String?
   minorUnit                       Int?
   isActive                        Boolean                          @default(true)
+  lifecycleState         String   @default("ACTIVE")
+  versionNumber          Int      @default(1)
+  effectiveFrom          DateTime @default(now())
+  effectiveTo            DateTime?
   metadata                        Json?
   createdAt                       DateTime                         @default(now())
   updatedAt                       DateTime                         @updatedAt
@@ -3508,6 +3692,10 @@ model ReferenceLanguage {
   nativeName String?
   direction  String
   isActive   Boolean  @default(true)
+  lifecycleState         String   @default("ACTIVE")
+  versionNumber          Int      @default(1)
+  effectiveFrom          DateTime @default(now())
+  effectiveTo            DateTime?
   metadata   Json?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -3588,6 +3776,10 @@ model ReferenceCity {
   latitude               Float?
   longitude              Float?
   isActive               Boolean               @default(true)
+  lifecycleState         String   @default("ACTIVE")
+  versionNumber          Int      @default(1)
+  effectiveFrom          DateTime @default(now())
+  effectiveTo            DateTime?
   metadata               Json?
   administrativeRegionId String?
   countryReference       ReferenceCountry?      @relation(fields: [countryReferenceId], references: [id], onDelete: Restrict)
@@ -3606,6 +3798,71 @@ model ReferenceCity {
   @@index([isActive])
   @@index([timezone])
   @@index([administrativeRegionId])
+}
+
+
+model ReferenceVersionRecord {
+  id             String   @id @default(uuid())
+  entityType     String
+  referenceId    String
+  versionNumber  Int
+  lifecycleState String
+  effectiveFrom  DateTime
+  effectiveTo    DateTime?
+  snapshot       Json
+  changeReason   String?
+  actorId        String?
+  createdAt      DateTime @default(now())
+
+  @@unique([entityType, referenceId, versionNumber])
+  @@index([entityType, referenceId, createdAt])
+}
+
+model ReferenceAliasRecord {
+  id              String   @id @default(uuid())
+  entityType      String
+  referenceId     String
+  alias           String
+  normalizedAlias String
+  locale          String?
+  aliasType       String   @default("COMMON")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([entityType, normalizedAlias, isActive])
+  @@index([entityType, referenceId, isActive])
+}
+
+model ReferenceProviderMappingRecord {
+  id             String   @id @default(uuid())
+  entityType     String
+  referenceId    String
+  providerSystem String
+  providerId     String
+  normalizedProviderSystem String
+  normalizedProviderId     String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([entityType, normalizedProviderSystem, normalizedProviderId])
+  @@index([entityType, referenceId, isActive])
+}
+
+model ReferenceRelationshipRecord {
+  id                 String   @id @default(uuid())
+  sourceEntityType   String
+  sourceReferenceId  String
+  relationshipType   String
+  targetEntityType   String
+  targetReferenceId  String
+  reason             String?
+  actorId            String?
+  createdAt          DateTime @default(now())
+
+  @@unique([sourceEntityType, sourceReferenceId, relationshipType])
+  @@index([targetEntityType, targetReferenceId])
 }
 
 model AdministrativeRegion {
@@ -3751,14 +4008,21 @@ model SessionRecord {
   id               String    @id @default(uuid())
   identityId       String
   refreshTokenHash String    @unique
+  familyId         String
+  parentSessionId  String?
   expiresAt        DateTime
   revokedAt        DateTime?
+  rotatedAt        DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  identity IdentityRecord @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  identity      IdentityRecord   @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  parentSession SessionRecord?   @relation("SessionRotationLineage", fields: [parentSessionId], references: [id], onDelete: SetNull)
+  childSessions SessionRecord[]  @relation("SessionRotationLineage")
 
   @@index([identityId])
+  @@index([familyId])
+  @@index([parentSessionId])
   @@index([expiresAt])
 }
 
@@ -4552,12 +4816,23 @@ model ServiceCatalogRecord {
   thumbnailAssetId           String?
   publicDisplayMetadata      Json?
   optionalFields             Json?
+  version                    Int      @default(1)
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
   supportedCountries         ServiceCatalogCountryRecord[]
   supportedLanguages         ServiceCatalogLanguageRecord[]
   requests                   ServiceRequestRecord[]
+  providerLinks              ServiceProviderServiceRecord[]
+  packageItems               ServicePackageItemRecord[]
+  bookingItems               ServiceBookingItemRecord[]
+  pricingRecords             ServicePricingRecord[]
+  discounts                  ServiceDiscountRecord[]
+  promotions                 ServicePromotionRecord[]
+  availabilitySlots          ServiceAvailabilitySlotRecord[]
+  bookings                   ServiceBookingRecord[]
+  workflowDefinitions        ServiceWorkflowDefinitionRecord[]
 
+  @@unique([id, version])
   @@index([status, serviceCategory])
   @@index([fulfillmentType, serviceAvailabilityStatus])
 }
@@ -4594,14 +4869,260 @@ model ServiceRequestRecord {
   financeInvoicePublicId String?
   fulfillmentMetadata    Json?
   completedAt            DateTime?
+  version                    Int      @default(1)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
   service                ServiceCatalogRecord @relation(fields: [serviceId], references: [id], onDelete: Restrict)
 
+  @@unique([id, version])
   @@index([studentReferenceId, status, updatedAt])
   @@index([serviceId, status])
   @@index([financeInvoiceId])
 }
+
+
+// --- Phase 20 retained owner scope (MNT-AUD-0058) ---
+model ServiceProviderRecord {
+  id                    String   @id @default(uuid())
+  publicId              String   @unique
+  displayName           String
+  status                String
+  timezone              String
+  capacity              Int
+  countryReferenceId    String?
+  qualificationMetadata Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  supportedServices     ServiceProviderServiceRecord[]
+  availabilitySlots     ServiceAvailabilitySlotRecord[]
+  bookings              ServiceBookingRecord[]
+
+  @@index([status, countryReferenceId])
+}
+
+model ServiceProviderServiceRecord {
+  providerId String
+  serviceId  String
+  provider   ServiceProviderRecord @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  service    ServiceCatalogRecord  @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@id([providerId, serviceId])
+  @@index([serviceId])
+}
+
+model ServicePackageRecord {
+  id          String   @id @default(uuid())
+  publicId    String   @unique
+  displayName String
+  status      String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  items       ServicePackageItemRecord[]
+  pricing     ServicePricingRecord[]
+  discounts   ServiceDiscountRecord[]
+  promotions  ServicePromotionRecord[]
+  bookings    ServiceBookingRecord[]
+  workflows   ServiceWorkflowDefinitionRecord[]
+
+  @@index([status, updatedAt])
+}
+
+model ServicePackageItemRecord {
+  id        String @id @default(uuid())
+  packageId String
+  serviceId String
+  sequence  Int
+  quantity  Int    @default(1)
+  required  Boolean @default(true)
+  package   ServicePackageRecord @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  service   ServiceCatalogRecord @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  bookingItems ServiceBookingItemRecord[]
+
+  @@unique([packageId, sequence])
+  @@index([serviceId])
+}
+
+model ServicePricingRecord {
+  id                   String   @id @default(uuid())
+  publicId             String   @unique
+  serviceId            String?
+  packageId            String?
+  currencyCode         String
+  scale                Int
+  amountMinorUnits     String
+  status               String
+  effectiveFrom        DateTime
+  effectiveTo          DateTime?
+  immutableFingerprint String   @unique
+  createdAt            DateTime @default(now())
+  service              ServiceCatalogRecord? @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  package              ServicePackageRecord? @relation(fields: [packageId], references: [id], onDelete: Restrict)
+
+  @@index([serviceId, status, effectiveFrom])
+  @@index([packageId, status, effectiveFrom])
+}
+
+model ServiceDiscountRecord {
+  id                    String   @id @default(uuid())
+  publicId              String   @unique
+  code                  String?  @unique
+  discountType          String
+  valueMinorUnits       String?
+  percentageBasisPoints Int?
+  currencyCode          String?
+  serviceId             String?
+  packageId             String?
+  activeFrom            DateTime
+  activeTo              DateTime?
+  maxRedemptions        Int?
+  redemptionCount       Int      @default(0)
+  createdAt             DateTime @default(now())
+  service               ServiceCatalogRecord? @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  package               ServicePackageRecord? @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  promotions            ServicePromotionRecord[]
+
+  @@index([serviceId, activeFrom, activeTo])
+  @@index([packageId, activeFrom, activeTo])
+}
+
+model ServicePromotionRecord {
+  id         String   @id @default(uuid())
+  publicId   String   @unique
+  name       String
+  status     String
+  discountId String
+  serviceId  String?
+  packageId  String?
+  activeFrom DateTime
+  activeTo   DateTime?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  discount   ServiceDiscountRecord @relation(fields: [discountId], references: [id], onDelete: Restrict)
+  service    ServiceCatalogRecord? @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  package    ServicePackageRecord? @relation(fields: [packageId], references: [id], onDelete: Restrict)
+
+  @@index([status, activeFrom, activeTo])
+  @@index([serviceId, packageId])
+}
+
+model ServiceAvailabilitySlotRecord {
+  id         String   @id @default(uuid())
+  publicId   String   @unique
+  providerId String
+  serviceId  String
+  startsAt   DateTime
+  endsAt     DateTime
+  timezone   String
+  capacity   Int
+  status     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  provider   ServiceProviderRecord @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  service    ServiceCatalogRecord  @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  bookings   ServiceBookingRecord[]
+
+  @@index([providerId, startsAt, endsAt, status])
+  @@index([serviceId, startsAt, status])
+}
+
+model ServiceBookingRecord {
+  id                 String   @id @default(uuid())
+  publicId           String   @unique
+  studentReferenceId String
+  serviceId          String?
+  packageId          String?
+  providerId         String
+  slotId             String
+  status             String
+  startsAt           DateTime
+  endsAt             DateTime
+  timezone           String
+  pricingSnapshot    Json
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  service            ServiceCatalogRecord? @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  package            ServicePackageRecord? @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  provider           ServiceProviderRecord @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  slot               ServiceAvailabilitySlotRecord @relation(fields: [slotId], references: [id], onDelete: Restrict)
+  items              ServiceBookingItemRecord[]
+  workflowExecutions ServiceWorkflowExecutionRecord[]
+  deliveryArtifacts  ServiceDeliveryArtifactRecord[]
+
+  @@index([studentReferenceId, status, updatedAt])
+  @@index([providerId, slotId, status])
+}
+
+model ServiceBookingItemRecord {
+  id            String @id @default(uuid())
+  bookingId     String
+  serviceId     String
+  packageItemId String?
+  sequence      Int
+  quantity      Int
+  status        String
+  booking       ServiceBookingRecord @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  service       ServiceCatalogRecord @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  packageItem   ServicePackageItemRecord? @relation(fields: [packageItemId], references: [id], onDelete: Restrict)
+
+  @@unique([bookingId, sequence])
+  @@index([serviceId, status])
+}
+
+model ServiceWorkflowDefinitionRecord {
+  id        String   @id @default(uuid())
+  publicId  String   @unique
+  name      String
+  serviceId String?
+  packageId String?
+  status    String
+  steps     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  service   ServiceCatalogRecord? @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  package   ServicePackageRecord? @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  executions ServiceWorkflowExecutionRecord[]
+
+  @@index([serviceId, status])
+  @@index([packageId, status])
+}
+
+model ServiceWorkflowExecutionRecord {
+  id                   String   @id @default(uuid())
+  publicId             String   @unique
+  bookingId            String
+  workflowDefinitionId String
+  status               String
+  currentStepKey       String?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  failureReason        String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  booking              ServiceBookingRecord @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  workflowDefinition   ServiceWorkflowDefinitionRecord @relation(fields: [workflowDefinitionId], references: [id], onDelete: Restrict)
+  deliveryArtifacts    ServiceDeliveryArtifactRecord[]
+
+  @@index([bookingId, status])
+  @@index([workflowDefinitionId, status])
+}
+
+model ServiceDeliveryArtifactRecord {
+  id                  String   @id @default(uuid())
+  bookingId           String
+  workflowExecutionId String?
+  artifactType        String
+  assetId             String
+  deliveredBy         String
+  deliveredAt         DateTime @default(now())
+  booking             ServiceBookingRecord @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  workflowExecution   ServiceWorkflowExecutionRecord? @relation(fields: [workflowExecutionId], references: [id], onDelete: Restrict)
+
+  @@index([bookingId, artifactType])
+  @@index([assetId])
+}
+
 
 // --- Phase 21 Career & Alumni Platform (P8 source closure) ---
 model CareerEmployerRecord {
@@ -4622,12 +5143,14 @@ model CareerEmployerRecord {
   verificationStatus    String
   description           String?
   metadata              Json?
+  version                    Int      @default(1)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   countryReference      ReferenceCountry? @relation(fields: [countryReferenceId], references: [id], onDelete: Restrict)
   cityReference         ReferenceCity?    @relation(fields: [cityReferenceId], references: [id], onDelete: Restrict)
   jobs                  CareerJobPostingRecord[]
 
+  @@unique([id, version])
   @@index([verificationStatus, employerType])
   @@index([countryReferenceId])
   @@index([cityReferenceId])
@@ -4659,13 +5182,259 @@ model CareerJobPostingRecord {
   languageRequirements  Json?
   remoteOption          Boolean  @default(false)
   metadata              Json?
+  version                    Int      @default(1)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   employer              CareerEmployerRecord @relation(fields: [employerId], references: [id], onDelete: Restrict)
   countryReference      ReferenceCountry      @relation(fields: [countryReferenceId], references: [id], onDelete: Restrict)
   cityReference         ReferenceCity?        @relation(fields: [cityReferenceId], references: [id], onDelete: Restrict)
+  applications          CareerApplicationRecord[]
 
+  @@unique([id, version])
   @@index([status, updatedAt])
   @@index([countryReferenceId, cityReferenceId])
   @@index([employerId, status])
+}
+
+
+// --- Phase 21 Career/Alumni owner persistence expansion (MNT-AUD-0055) ---
+model CareerProfileRecord {
+  id                 String   @id @default(uuid())
+  studentReferenceId String   @unique
+  headline           String?
+  summary            String?
+  skills             Json
+  resumeAssetId      String?
+  visibility         String
+  version            Int      @default(1)
+  metadata           Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([visibility, updatedAt])
+  @@index([resumeAssetId])
+}
+
+model CareerApplicationRecord {
+  id                 String   @id @default(uuid())
+  publicId           String   @unique
+  jobId              String
+  studentReferenceId String
+  cvAssetId          String
+  coverLetter        String?
+  jobSnapshot        Json
+  status             String
+  submittedAt        DateTime @default(now())
+  withdrawnAt        DateTime?
+  decisionMetadata   Json?
+  version            Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  job                CareerJobPostingRecord @relation(fields: [jobId], references: [id], onDelete: Restrict)
+
+  @@unique([jobId, studentReferenceId])
+  @@index([studentReferenceId, status, updatedAt])
+  @@index([jobId, status, updatedAt])
+  @@index([cvAssetId])
+}
+
+model CareerAlumniProfileRecord {
+  id                 String   @id @default(uuid())
+  studentReferenceId String   @unique
+  displayName        String
+  graduationYear     Int?
+  programReferenceId String?
+  employerName       String?
+  visibility         String
+  consentGrantedAt   DateTime?
+  consentGrantedBy   String?
+  consentSource      String?
+  consentRevokedAt   DateTime?
+  consentRevokedBy   String?
+  version            Int      @default(1)
+  metadata           Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([visibility, updatedAt])
+  @@index([programReferenceId])
+}
+
+// --- Phase 05 Foundation Control Plane durable persistence (MNT-AUD-0049) ---
+model WorkflowControlRecord {
+  id             String   @id
+  reference      String   @unique
+  ownerReference String
+  lifecycleState String
+  version        String
+  snapshot       Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([ownerReference])
+  @@index([lifecycleState])
+}
+
+model ApiServiceControlRecord {
+  id             String   @id
+  reference      String   @unique
+  ownerReference String
+  lifecycleState String
+  version        String
+  snapshot       Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([ownerReference])
+  @@index([lifecycleState])
+}
+
+model SharedComponentControlRecord {
+  id             String   @id
+  reference      String
+  ownerReference String
+  lifecycleState String
+  version        String
+  snapshot       Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([reference, version])
+  @@index([reference])
+  @@index([ownerReference])
+  @@index([lifecycleState])
+}
+
+model WorkflowExecutionProjection {
+  workflowReference String   @id
+  executionCount    Int      @default(0)
+  lastExecutedAt    DateTime?
+  updatedAt         DateTime @updatedAt
+}
+
+model ApiServiceExposureProjection {
+  serviceReference String   @id
+  serviceId        String
+  lifecycleState   String
+  exposureIntent   Json
+  exposedAt        DateTime?
+  decommissionedAt DateTime?
+  updatedAt        DateTime @updatedAt
+}
+
+model SharedComponentRenderingProjection {
+  componentReference String   @id
+  componentId        String
+  version            String
+  lifecycleState     String
+  definition         Json
+  renderingIntent    Json
+  synchronizedAt     DateTime?
+  decommissionedAt   DateTime?
+  updatedAt          DateTime @updatedAt
+}
+
+model NotificationTemplateRecord {
+  id                String   @id
+  channels          Json
+  requiredVariables Json
+  localizations     Json
+  version           Int      @default(1)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  intents NotificationIntentRecord[]
+}
+
+model NotificationIntentRecord {
+  id                  String   @id
+  reference           String   @unique
+  templateId          String
+  recipientReference  String
+  variables           Json
+  scheduledAt         DateTime?
+  expiresAt           DateTime?
+  retryMaxRetries     Int      @default(5)
+  retryBackoffMs      Int      @default(1000)
+  state               String   @default("CREATED")
+  deliveryState       String   @default("PENDING")
+  attempts            Int      @default(0)
+  nextAttemptAt       DateTime @default(now())
+  leaseWorkerId       String?
+  leaseToken          String?
+  leaseUntil          DateTime?
+  lastErrorCode       String?
+  lastErrorMessage    String?
+  deliveredAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  template NotificationTemplateRecord @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  receipts NotificationDeliveryReceipt[]
+
+  @@index([deliveryState, nextAttemptAt])
+  @@index([recipientReference, createdAt])
+}
+
+model NotificationDeliveryReceipt {
+  id                String   @id @default(uuid())
+  intentId          String
+  attempt           Int
+  status            String
+  providerMessageId String?
+  metadata          Json?
+  errorCode         String?
+  createdAt         DateTime @default(now())
+
+  intent NotificationIntentRecord @relation(fields: [intentId], references: [id], onDelete: Cascade)
+
+  @@unique([intentId, attempt])
+  @@index([status, createdAt])
+}
+
+// --- API Foundation: Canonical Command Idempotency ---
+
+model ApiIdempotencyRecord {
+  id                 String    @id @default(uuid())
+  scopeHash          String    @unique
+  principalId        String
+  method             String
+  routeKey           String
+  keyHash            String
+  requestFingerprint String
+  state              String
+  statusCode         Int?
+  responseBody       Json?
+  leaseToken         String?
+  leaseExpiresAt     DateTime?
+  expiresAt          DateTime
+  completedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([expiresAt])
+  @@index([principalId, createdAt])
+}
+
+// W4 — durable search execution history; public result pagination is cursor/keyset based.
+model ApiSearchRequestRecord {
+  id              String   @id
+  reference       String
+  scope           String
+  query           String
+  filters         Json
+  logicalOperator String
+  page            Int
+  limit           Int
+  sortField       String?
+  sortDirection   String?
+  state           String
+  totalCount      Int?
+  executionTimeMs Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([reference, createdAt])
+  @@index([scope, createdAt])
+  @@index([createdAt])
 }

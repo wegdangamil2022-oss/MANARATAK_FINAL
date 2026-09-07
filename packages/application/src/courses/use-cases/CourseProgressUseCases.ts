@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import {
   COURSE_COMPLETED_EVENT_TYPE,
+  COURSE_ENROLLED_EVENT_TYPE,
+  COURSE_PROGRESS_UPDATED_EVENT_TYPE,
   CourseCompletionStatus,
   CourseContentStatus,
   CourseDto,
@@ -60,21 +62,6 @@ export class CourseProgressUseCases {
     return enrollment;
   }
 
-  private async recalculateEnrollmentProgress(courseId: string, studentReferenceId: string): Promise<number> {
-    const snapshot = await this.curriculumRepository.getCurriculumSnapshot(courseId);
-    const trackableIds = new Set(snapshot.lessons
-      .filter(lesson => lesson.lessonType !== 'QUIZ' && lesson.status !== CourseContentStatus.ARCHIVED)
-      .map(lesson => lesson.id));
-    if (trackableIds.size === 0) return 0;
-    const progress = await this.progressRepository.listLessonProgress(courseId, studentReferenceId);
-    const completed = new Set(progress
-      .filter(record => trackableIds.has(record.lessonId) && record.status === CourseProgressStatus.COMPLETED)
-      .map(record => record.lessonId));
-    const percentage = Math.floor((completed.size / trackableIds.size) * 100);
-    await this.progressRepository.updateEnrollmentProgress(courseId, studentReferenceId, percentage);
-    return percentage;
-  }
-
   public async getLearningWorkspace(courseId: string, studentReferenceId: string): Promise<CourseLearnerWorkspaceDto> {
     await this.ensureTrackableCourse(courseId);
     await this.requireLearningAccessEnrollment(courseId, studentReferenceId);
@@ -126,7 +113,11 @@ export class CourseProgressUseCases {
     return { progress, curriculum: { modules, lessons, assets, quizzes, questions } };
   }
 
-  public async enroll(courseId: string, studentReferenceId: string): Promise<StudentCourseProgressSnapshotDto> {
+  public async enroll(
+    courseId: string,
+    studentReferenceId: string,
+    context?: AtomicMutationRequestContext,
+  ): Promise<StudentCourseProgressSnapshotDto> {
     const course = await this.ensureTrackableCourse(courseId);
     if (course.status !== CourseStatus.PUBLISHED) throw new Error('COURSE_ENROLLMENT_REQUIRES_PUBLISHED_COURSE');
 
@@ -141,6 +132,13 @@ export class CourseProgressUseCases {
       }
     }
 
+    const existingEnrollment = await this.progressRepository.findEnrollment(courseId, studentReferenceId);
+    if (existingEnrollment) {
+      const existingSnapshot = await this.progressRepository.getStudentProgressSnapshot(courseId, studentReferenceId);
+      if (!existingSnapshot) throw new Error('Enrollment snapshot could not be loaded');
+      return existingSnapshot;
+    }
+
     const needsFinance = Boolean(policy?.requiresFinancialClearance || course.originType === CourseOriginType.PAID_COURSE || course.accessType === 'PAID');
     if (needsFinance) {
       if (!this.financialClearance) throw new Error('COURSE_FINANCIAL_CLEARANCE_NOT_CONFIGURED');
@@ -149,31 +147,87 @@ export class CourseProgressUseCases {
       }
     }
 
-    await this.progressRepository.enrollWithCapacity(
-      { courseId, studentReferenceId },
-      policy?.isCapacityLimited ? policy.maximumSeats ?? null : null,
-      Boolean(policy?.waitlistEnabled),
-    );
+    const transactional = this.progressRepository as Partial<ITransactionalCourseProgressRepository>;
+    if (!this.atomicMutations || typeof transactional.withTransaction !== 'function') {
+      throw new Error('COURSE_ENROLLMENT_ATOMIC_PERSISTENCE_REQUIRED');
+    }
+    const occurredAt = new Date();
+    const enrollmentPayload: Record<string, unknown> = { courseId, studentReferenceId, occurredAt: occurredAt.toISOString() };
+    await this.atomicMutations.execute({
+      domain: 'COURSES', aggregateType: 'COURSE_ENROLLMENT', aggregateId: `${courseId}:${studentReferenceId}`,
+      action: 'COURSE_ENROLLED', context: context ?? { actorId: studentReferenceId, actorType: 'STUDENT', source: 'learner-api' },
+      outbox: {
+        id: `course-enrolled:${courseId}:${studentReferenceId}`,
+        eventType: COURSE_ENROLLED_EVENT_TYPE,
+        payload: enrollmentPayload,
+        metadata: { eventVersion: '1.0.0', category: 'LearningPlatform' },
+      },
+    }, async persistence => {
+      const tx = (this.progressRepository as ITransactionalCourseProgressRepository).withTransaction(persistence);
+      const enrollment = await tx.enrollWithCapacity(
+        { courseId, studentReferenceId },
+        policy?.isCapacityLimited ? policy.maximumSeats ?? null : null,
+        Boolean(policy?.waitlistEnabled),
+      );
+      enrollmentPayload.enrollmentId = enrollment.id;
+      enrollmentPayload.enrollmentStatus = enrollment.status;
+      enrollmentPayload.progressPercentage = enrollment.progressPercentage;
+      enrollmentPayload.enrolledAt = enrollment.enrolledAt.toISOString();
+    });
     const snapshot = await this.progressRepository.getStudentProgressSnapshot(courseId, studentReferenceId);
     if (!snapshot) throw new Error('Enrollment snapshot could not be created');
     return snapshot;
   }
 
-  public async markLessonProgress(data: UpsertLessonProgressDto): Promise<StudentCourseProgressSnapshotDto> {
+  public async markLessonProgress(
+    data: UpsertLessonProgressDto,
+    context?: AtomicMutationRequestContext,
+  ): Promise<StudentCourseProgressSnapshotDto> {
     await this.ensureTrackableCourse(data.courseId);
-    await this.requireActiveEnrollment(data.courseId, data.studentReferenceId);
+    const enrollment = await this.requireActiveEnrollment(data.courseId, data.studentReferenceId);
     const curriculum = await this.curriculumRepository.getCurriculumSnapshot(data.courseId);
     if (!curriculum.lessons.some(lesson => lesson.id === data.lessonId && lesson.status !== CourseContentStatus.ARCHIVED)) {
       throw new Error('COURSE_LESSON_SCOPE_MISMATCH');
     }
+    const trackableIds = new Set(curriculum.lessons
+      .filter(lesson => lesson.lessonType !== 'QUIZ' && lesson.status !== CourseContentStatus.ARCHIVED)
+      .map(lesson => lesson.id));
+    const transactional = this.progressRepository as Partial<ITransactionalCourseProgressRepository>;
+    if (!this.atomicMutations || typeof transactional.withTransaction !== 'function') {
+      throw new Error('COURSE_PROGRESS_ATOMIC_PERSISTENCE_REQUIRED');
+    }
 
     const normalizedPercentage = Math.max(0, Math.min(100, data.progressPercentage));
-    await this.progressRepository.upsertLessonProgress({
-      ...data,
-      status: normalizedPercentage >= 100 ? CourseProgressStatus.COMPLETED : data.status,
-      progressPercentage: normalizedPercentage,
+    const occurredAt = new Date();
+    const eventPayload: Record<string, unknown> = {
+      courseId: data.courseId, studentReferenceId: data.studentReferenceId, enrollmentId: enrollment.id,
+      lessonId: data.lessonId, lessonProgressPercentage: normalizedPercentage,
+      progressPercentage: enrollment.progressPercentage, enrollmentStatus: enrollment.status, occurredAt: occurredAt.toISOString(),
+    };
+    await this.atomicMutations.execute({
+      domain: 'COURSES', aggregateType: 'COURSE_ENROLLMENT', aggregateId: enrollment.id,
+      action: 'COURSE_PROGRESS_UPDATED', context: context ?? { actorId: data.studentReferenceId, actorType: 'STUDENT', source: 'learner-api' },
+      outbox: {
+        id: `course-progress:${enrollment.id}:${data.lessonId}:${normalizedPercentage}:${data.status}`,
+        eventType: COURSE_PROGRESS_UPDATED_EVENT_TYPE, payload: eventPayload,
+        metadata: { eventVersion: '1.0.0', category: 'LearningPlatform' },
+      },
+    }, async persistence => {
+      const tx = (this.progressRepository as ITransactionalCourseProgressRepository).withTransaction(persistence);
+      await tx.upsertLessonProgress({
+        ...data,
+        status: normalizedPercentage >= 100 ? CourseProgressStatus.COMPLETED : data.status,
+        progressPercentage: normalizedPercentage,
+      });
+      const progress = await tx.listLessonProgress(data.courseId, data.studentReferenceId);
+      const completed = new Set(progress
+        .filter(record => trackableIds.has(record.lessonId) && record.status === CourseProgressStatus.COMPLETED)
+        .map(record => record.lessonId));
+      const overallPercentage = trackableIds.size === 0 ? 0 : Math.floor((completed.size / trackableIds.size) * 100);
+      const updatedEnrollment = await tx.updateEnrollmentProgress(data.courseId, data.studentReferenceId, overallPercentage);
+      eventPayload.progressPercentage = overallPercentage;
+      eventPayload.enrollmentStatus = updatedEnrollment.status;
     });
-    await this.recalculateEnrollmentProgress(data.courseId, data.studentReferenceId);
     const snapshot = await this.progressRepository.getStudentProgressSnapshot(data.courseId, data.studentReferenceId);
     if (!snapshot) throw new Error('Progress snapshot could not be loaded');
     return snapshot;
@@ -272,8 +326,9 @@ export class CourseProgressUseCases {
         id: `course-completed:${courseId}:${studentReferenceId}:v${course.version}`,
         eventType: COURSE_COMPLETED_EVENT_TYPE,
         payload: {
-          courseId, studentReferenceId, completionId, courseVersion: course.version,
-          completedAt: completedAt.toISOString(), eligibleForCertificate: Boolean(course.certificateAvailable),
+          courseId, studentReferenceId, enrollmentId: enrollment.id, completionId, courseVersion: course.version,
+          progressPercentage: 100, enrollmentStatus: CourseEnrollmentStatus.COMPLETED,
+          enrolledAt: enrollment.enrolledAt.toISOString(), completedAt: completedAt.toISOString(), eligibleForCertificate: Boolean(course.certificateAvailable),
           certificateOwnerPhase: 'Phase 14 - Enterprise Certificates Platform', sourcePhase: 'Phase 13 - Learning Platform',
         },
         metadata: { eventVersion: '1.0.0', category: 'LearningPlatform' },

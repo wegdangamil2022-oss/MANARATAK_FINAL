@@ -7,6 +7,6 @@ export interface PublicCourseFilters {
   platformName?: string;
   category?: string;
   learningLanguage?: string;
-  page?: number;
-  pageSize?: number;
+  cursor?: string;
+  limit?: number;
 }

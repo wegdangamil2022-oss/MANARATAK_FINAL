@@ -133,6 +133,65 @@ export class PrismaAssetRecordRepository implements IAssetRecordRepository {
     return (rows as AssetRecordRow[]).map(row => this.mapToDomain(row));
   }
 
+  async queryAdmin(input: {
+    lifecycleState?: string;
+    ownerType?: string;
+    ownerId?: string;
+    securityClassification?: string;
+    mimeTypePrefix?: string;
+    createdFrom?: string;
+    createdTo?: string;
+    q?: string;
+    limit?: number;
+    cursor?: string;
+  }): Promise<{ items: any[]; nextCursor: string | null; hasMore: boolean }> {
+    const limit = Math.min(100, Math.max(1, Math.trunc(input.limit ?? 30)));
+    const decodedCursor = input.cursor ? Buffer.from(input.cursor, 'base64url').toString('utf8') : null;
+    const [cursorCreatedAt, cursorId] = decodedCursor?.split('|') ?? [];
+    const where: any = {
+      ...(input.lifecycleState ? { lifecycleState: input.lifecycleState } : {}),
+      ...(input.ownerType ? { ownerType: input.ownerType } : {}),
+      ...(input.ownerId ? { ownerId: input.ownerId } : {}),
+      ...(input.securityClassification ? { securityClassification: input.securityClassification } : {}),
+      ...(input.mimeTypePrefix ? { metadata: { path: ['mimeType'], string_starts_with: input.mimeTypePrefix } } : {}),
+      ...((input.createdFrom || input.createdTo) ? { createdAt: {
+        ...(input.createdFrom ? { gte: new Date(input.createdFrom) } : {}),
+        ...(input.createdTo ? { lte: new Date(input.createdTo) } : {}),
+      } } : {}),
+      ...(input.q ? { OR: [
+        { id: { contains: input.q, mode: 'insensitive' } },
+        { reference: { contains: input.q, mode: 'insensitive' } },
+        { ownerId: { contains: input.q, mode: 'insensitive' } },
+        { metadata: { path: ['originalFilename'], string_contains: input.q } },
+      ] } : {}),
+      ...(cursorCreatedAt && cursorId ? {
+        OR: [
+          { createdAt: { lt: new Date(cursorCreatedAt) } },
+          { createdAt: new Date(cursorCreatedAt), id: { lt: cursorId } },
+        ],
+      } : {}),
+    };
+    const rows = await (this.prisma as any).assetRecord.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+    });
+    const hasMore = rows.length > limit;
+    const items = rows.slice(0, limit).map((row: any) => ({
+      id: row.id, reference: row.reference, ownerId: row.ownerId, ownerType: row.ownerType,
+      lifecycleState: row.lifecycleState, securityClassification: row.securityClassification,
+      retentionCategory: row.retentionCategory, retentionExpiresAt: row.retentionExpiresAt,
+      metadata: row.metadata, checksumAlgorithm: row.checksumAlgorithm, checksumHash: row.checksumHash,
+      createdAt: row.createdAt, updatedAt: row.updatedAt, archivedAt: row.archivedAt, deletedAt: row.deletedAt,
+    }));
+    const last = items.at(-1);
+    return {
+      items,
+      hasMore,
+      nextCursor: hasMore && last ? Buffer.from(`${new Date(last.createdAt).toISOString()}|${last.id}`, 'utf8').toString('base64url') : null,
+    };
+  }
+
   private mapToDomain(row: AssetRecordRow): AssetRecord {
     let locator: AssetStorageLocator;
     if (row.cleanStorageLocator) {

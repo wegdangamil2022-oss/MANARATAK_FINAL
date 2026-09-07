@@ -22,6 +22,10 @@ export class InMemoryRoleAssignmentRepository implements IRoleAssignmentReposito
     return all.filter(assignment => assignment.identityId === identityId);
   }
 
+  async listAll(): Promise<RoleAssignment[]> {
+    return Array.from(this.assignments.values());
+  }
+
   async delete(id: string): Promise<void> {
     this.assignments.delete(id);
   }

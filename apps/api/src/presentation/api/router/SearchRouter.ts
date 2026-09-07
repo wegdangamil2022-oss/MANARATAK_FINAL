@@ -1,6 +1,16 @@
 import { Router } from 'express';
-import { ManageSearchUseCase } from '@manaratak/application';
+import { ManageSearchUseCase, type ISearchEngineGateway } from '@manaratak/application';
 import { z } from 'zod';
+
+type PublicSearchGateway = ISearchEngineGateway & {
+  searchPublic(input: {
+    query: string;
+    locale: 'ar' | 'en';
+    limit: number;
+    cursor?: string;
+    kinds?: Array<'scholarships' | 'universities' | 'majors' | 'countries' | 'courses' | 'exams' | 'articles' | 'services' | 'tools' | 'jobs'>;
+  }): Promise<{ items: readonly any[]; hasMore: boolean; nextCursor: string | null }>;
+};
 
 const searchScalar = z.union([z.string().max(500), z.number().finite(), z.boolean(), z.null()]);
 const searchRequestSchema = z.object({
@@ -24,49 +34,64 @@ const searchRequestSchema = z.object({
   }).strict().optional(),
 }).strict();
 
+const publicKinds = z.enum(['scholarships','universities','majors','countries','courses','exams','articles','services','tools','jobs']);
+const publicSearchSchema = z.object({
+  q: z.string().trim().min(1).max(160),
+  locale: z.enum(['ar', 'en']).default('ar'),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  cursor: z.string().trim().min(1).max(2048).optional(),
+  kinds: z.preprocess((value) => typeof value === 'string' ? value.split(',').filter(Boolean) : value, z.array(publicKinds).max(10).optional()),
+}).strict();
+
 export class SearchRouter {
-  public static create({ manageSearchUseCase  }: { manageSearchUseCase: ManageSearchUseCase }): Router {
+  public static create({ manageSearchUseCase, searchEngineGateway }: { manageSearchUseCase: ManageSearchUseCase; searchEngineGateway: PublicSearchGateway }): Router {
     const router = Router();
 
+    // Canonical public global search. Unlike the legacy request API, this contract is
+    // cursor/keyset-paginated and queries owner persistence rather than a preloaded UI subset.
+    router.get('/public', async (req, res, next) => {
+      try {
+        const input = publicSearchSchema.parse(req.query);
+        if (typeof searchEngineGateway.searchPublic !== 'function') throw new Error('PUBLIC_SEARCH_ENGINE_UNAVAILABLE');
+        const { q, ...options } = input;
+        const page = await searchEngineGateway.searchPublic({ ...options, query: q });
+        res.status(200).json({
+          items: page.items.map((match: any) => ({ target: match.target, score: match.score, ...match.payload })),
+          hasMore: page.hasMore,
+          nextCursor: page.nextCursor,
+        });
+      } catch (error: unknown) {
+        if (error instanceof z.ZodError) return res.status(400).json({ code: 'SEARCH_REQUEST_INVALID', issues: error.issues });
+        if (error instanceof Error && error.message === 'SEARCH_CURSOR_INVALID') return res.status(400).json({ code: 'SEARCH_CURSOR_INVALID' });
+        next(error);
+      }
+    });
+
+    // Foundation search execution remains available for internal callers/history. Public
+    // catalogs must use GET /public so offset/page pagination cannot silently truncate them.
     router.post('/', async (req, res, next) => {
       try {
         const dto = searchRequestSchema.parse(req.body);
-
-        const result = await manageSearchUseCase.executeSearch({
+        const { request, result } = await manageSearchUseCase.executeSearch({
           scope: dto.scope,
           criteria: {
             query: dto.criteria.query,
             filters: dto.criteria.filters,
             logicalOperator: dto.criteria.logicalOperator,
           },
-          pagination: {
-            page: Number(dto.pagination.page),
-            limit: Number(dto.pagination.limit),
-          },
-          sorting: dto.sorting ? {
-            field: dto.sorting.field,
-            direction: dto.sorting.direction,
-          } : undefined,
+          pagination: { page: Number(dto.pagination.page), limit: Number(dto.pagination.limit) },
+          sorting: dto.sorting ? { field: dto.sorting.field, direction: dto.sorting.direction } : undefined,
         });
 
-        const payload = {
-          requestId: result.getRequestId().getValue(),
-          reference: result.getReference().getValue(),
-          matches: result.getMatches().map((match: any) => ({
-            target: {
-              entityNamespace: match.getTarget().getEntityNamespace(),
-              resourceKey: match.getTarget().getResourceKey(),
-            },
-            score: match.getScore(),
-            payload: match.getPayload(),
-          })),
+        res.status(200).json({
+          requestId: request.getId().getValue(),
+          reference: request.getReference().getValue(),
+          matches: result.matches,
           totalCount: result.getTotalCount(),
           executionTimeMs: result.getExecutionTimeMs(),
-        };
-
-        res.status(200).json(payload);
+        });
       } catch (error: unknown) {
-        if (error instanceof z.ZodError) return res.status(400).json({ error: 'SEARCH_REQUEST_INVALID' });
+        if (error instanceof z.ZodError) return res.status(400).json({ code: 'SEARCH_REQUEST_INVALID', issues: error.issues });
         next(error);
       }
     });
@@ -75,37 +100,23 @@ export class SearchRouter {
       try {
         const reference = z.string().trim().min(1).max(120).regex(/^[a-zA-Z0-9_-]+$/).parse(req.params.reference);
         const results = await manageSearchUseCase.getSearchRequestHistory(reference);
-
-        const payload = results.map(request => ({
+        res.status(200).json(results.map(request => ({
           id: request.getId().getValue(),
           reference: request.getReference().getValue(),
           scope: request.getScope().getValue(),
           criteria: {
-            query: request.getCriteria().getQuery(),
-            filters: request.getCriteria().getFilters().map((f: any) => ({
-              field: f.getField(),
-              operator: f.getOperator(),
-              value: f.getValue(),
-            })),
-            logicalOperator: request.getCriteria().getLogicalOperator(),
+            query: request.getCriteria().query,
+            filters: request.getCriteria().filters,
+            logicalOperator: request.getCriteria().logicalOperator,
           },
-          pagination: {
-            page: request.getPagination().getPage(),
-            limit: request.getPagination().getLimit(),
-            offset: request.getPagination().getOffset(),
-          },
-          sorting: request.getSorting() ? {
-            field: request.getSorting()?.getField(),
-            direction: request.getSorting()?.getDirection(),
-          } : undefined,
+          pagination: { page: request.getPagination().page, limit: request.getPagination().limit },
+          sorting: request.getSorting() ? { field: request.getSorting()?.field, direction: request.getSorting()?.direction } : undefined,
           timestamp: request.getTimestamp().toISOString(),
           isCompleted: request.getIsCompleted(),
           isExpired: request.getIsExpired(),
-        }));
-
-        res.status(200).json(payload);
+        })));
       } catch (error: unknown) {
-        if (error instanceof z.ZodError) return res.status(400).json({ error: 'SEARCH_REFERENCE_INVALID' });
+        if (error instanceof z.ZodError) return res.status(400).json({ code: 'SEARCH_REFERENCE_INVALID' });
         next(error);
       }
     });

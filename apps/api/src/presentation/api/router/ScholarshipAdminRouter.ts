@@ -125,6 +125,11 @@ export class ScholarshipAdminRouter {
         .transform((val) => (val ? parseInt(val, 10) : 20)),
     }).strict();
 
+    const legacyScholarshipImportSchema = z.object({
+      dataText: z.string().min(1).max(90 * 1024),
+      sourceSystem: z.string().trim().min(1).max(120).optional(),
+    }).strict();
+
     const operationalClassSchema = z.enum(['REAL', 'TEST', 'DEMO', 'ARCHIVED', 'UNCLASSIFIED']);
     const importCenterQuerySchema = z.object({
       batchId: z.string().min(1).optional(),
@@ -434,7 +439,7 @@ export class ScholarshipAdminRouter {
       '/import',
       asyncHandler(async (req: Request, res: Response) => {
         if (!importAdminUseCases) throw new Error('Import use cases not configured');
-        const { dataText, sourceSystem } = req.body;
+        const { dataText, sourceSystem } = legacyScholarshipImportSchema.parse(req.body);
         const result = await importAdminUseCases.importData({
           dataText,
           sourceSystem,

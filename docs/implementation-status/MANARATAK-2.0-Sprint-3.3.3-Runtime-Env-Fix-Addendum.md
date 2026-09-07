@@ -1,3 +1,5 @@
+> **SUPERSEDED SECURITY CONFIGURATION (2026-09-06):** This file is retained as historical evidence of the former HS256/`JWT_SECRET` runtime. It is not operational authority. Current authentication uses RS256 access JWTs plus opaque refresh credentials; see `docs/operations/AUTH_TOKEN_KEY_ROTATION.md`.
+
 # MANARATAK 2.0 — Sprint 3.3.3 Runtime Environment Fix Addendum
 ## Security Config Boundary Validation & Google Studio Compatibility Report
 

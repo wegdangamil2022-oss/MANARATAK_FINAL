@@ -9,6 +9,7 @@ import {
   MergeProposalStatus,
   ExtractionCandidate
 } from '@manaratak/domain';
+import { generateOpaqueIdentifier } from '@manaratak/core';
 
 export class MergeProposalPreparationService {
   public async prepareProposal(input: {
@@ -151,7 +152,7 @@ export class MergeProposalPreparationService {
     const finalProposalId =
       proposalId && proposalId.trim() !== ''
         ? proposalId
-        : `prop-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+        : `prop-${generateOpaqueIdentifier()}`;
 
     return new MergeProposal({
       proposalId: finalProposalId,

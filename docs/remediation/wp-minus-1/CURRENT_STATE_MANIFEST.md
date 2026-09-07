@@ -1,5 +1,7 @@
 # MANARATAK Current-State Manifest
 
+> **Operational supersession notice (2026-09-06):** Recovery-era database instructions in this historical artifact are superseded by [`docs/operations/GREENFIELD_DATABASE_PROVISIONING.md`](../../operations/GREENFIELD_DATABASE_PROVISIONING.md). This file remains evidence/history and is not current database-operation authority.
+
 Snapshot date: 2026-08-12
 
 Status: `CURRENT MANARATAK SOURCE OF TRUTH LOCKED`

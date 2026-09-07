@@ -5,39 +5,17 @@ import { useTranslation } from "../i18n/I18nProvider";
 import { useSearchParams } from 'react-router-dom';
 import { CanonicalMultiPicker } from '../components/CanonicalPicker';
 import { canonicalPickerApi } from '../api/canonicalPickers';
+import {
+  ServiceAvailabilityStatus,
+  ServiceCategory,
+  ServiceCompletenessStatus,
+  ServiceDeliveryMode,
+  ServiceFulfillmentType,
+  ServiceStatus,
+  type ServiceCatalogItemDto,
+} from '@manaratak/domain';
 
-type ServiceCategory = 'STUDENT_SERVICES' | 'DOCUMENT_SERVICES' | 'VISA_SERVICES' | 'TRAVEL_SERVICES' | 'ACADEMIC_SERVICES' | 'AUXILIARY_PROFESSIONAL_SERVICES' | 'ENTERPRISE_OPERATIONAL_SERVICES';
-type ServiceStatus = 'IMPORTED' | 'READY_TO_REVIEW' | 'READY_TO_PUBLISH' | 'PUBLISHED' | 'REJECTED' | 'ARCHIVED';
-type ServiceCompletenessStatus = 'INCOMPLETE' | 'COMPLETE' | 'NEEDS_REVIEW';
-type ServiceFulfillmentType = 'CONSULTATION' | 'DOCUMENT_PROCESSING' | 'BOOKING_OR_APPOINTMENT' | 'DIGITAL_DELIVERABLE' | 'MANUAL_FULFILLMENT' | 'HYBRID_WORKFLOW';
-type ServiceDeliveryMode = 'ONLINE' | 'IN_PERSON' | 'HYBRID' | 'EXTERNAL_COORDINATION';
-type ServiceAvailabilityStatus = 'AVAILABLE' | 'COMING_SOON' | 'LIMITED' | 'UNAVAILABLE';
-
-interface ServiceCatalogItem {
-  id: string;
-  publicId: string;
-  slug: string;
-  displayName: string;
-  serviceCategory: ServiceCategory;
-  fulfillmentType: ServiceFulfillmentType;
-  serviceDescription: string;
-  serviceAvailabilityStatus: ServiceAvailabilityStatus;
-  requiredInputsOrDocuments: string[];
-  deliveryMode: ServiceDeliveryMode;
-  responsibleServiceOwnerType: string;
-  status: ServiceStatus;
-  completenessStatus: ServiceCompletenessStatus;
-  providerName?: string | null;
-  estimatedDeliveryTime?: string | null;
-  appointmentRequired?: boolean | null;
-  supportedCountries?: string[] | null;
-  supportedLanguages?: string[] | null;
-  supportedCountryReferenceIds?: string[] | null;
-  supportedLanguageReferenceIds?: string[] | null;
-  pricingReferenceId?: string | null;
-  thumbnailAssetId?: string | null;
-  updatedAt: string;
-}
+type ServiceCatalogItem = ServiceCatalogItemDto;
 
 interface ServiceListResponse {
   data: ServiceCatalogItem[];
@@ -56,21 +34,22 @@ interface LinkedServiceRequest {
   providerReferenceId?: string | null;
   financeInvoicePublicId?: string | null;
   updatedAt: string;
+  version: number;
 }
 
-const serviceCategories: ServiceCategory[] = ['STUDENT_SERVICES', 'DOCUMENT_SERVICES', 'VISA_SERVICES', 'TRAVEL_SERVICES', 'ACADEMIC_SERVICES', 'AUXILIARY_PROFESSIONAL_SERVICES', 'ENTERPRISE_OPERATIONAL_SERVICES'];
-const fulfillmentTypes: ServiceFulfillmentType[] = ['CONSULTATION', 'DOCUMENT_PROCESSING', 'BOOKING_OR_APPOINTMENT', 'DIGITAL_DELIVERABLE', 'MANUAL_FULFILLMENT', 'HYBRID_WORKFLOW'];
-const deliveryModes: ServiceDeliveryMode[] = ['ONLINE', 'IN_PERSON', 'HYBRID', 'EXTERNAL_COORDINATION'];
-const availabilityStatuses: ServiceAvailabilityStatus[] = ['AVAILABLE', 'COMING_SOON', 'LIMITED', 'UNAVAILABLE'];
+const serviceCategories = Object.values(ServiceCategory);
+const fulfillmentTypes = Object.values(ServiceFulfillmentType);
+const deliveryModes = Object.values(ServiceDeliveryMode);
+const availabilityStatuses = Object.values(ServiceAvailabilityStatus);
 
 const emptyForm = {
   displayName: '',
-  serviceCategory: 'STUDENT_SERVICES' as ServiceCategory,
-  fulfillmentType: 'CONSULTATION' as ServiceFulfillmentType,
+  serviceCategory: ServiceCategory.STUDENT_SERVICES,
+  fulfillmentType: ServiceFulfillmentType.CONSULTATION,
   serviceDescription: '',
-  serviceAvailabilityStatus: 'AVAILABLE' as ServiceAvailabilityStatus,
+  serviceAvailabilityStatus: ServiceAvailabilityStatus.AVAILABLE,
   requiredInputsOrDocuments: '',
-  deliveryMode: 'ONLINE' as ServiceDeliveryMode,
+  deliveryMode: ServiceDeliveryMode.ONLINE,
   responsibleServiceOwnerType: 'MANARATAK_TEAM',
   providerName: '',
   estimatedDeliveryTime: '',
@@ -144,7 +123,7 @@ export function ServicesAdminPage() {
     setMessage(null);
     setError(null);
     try {
-      const payload = buildPayload();
+      const payload = mode === 'update' && selectedService ? { ...buildPayload(), expectedVersion: selectedService.version } : buildPayload();
       const endpoint = mode === 'create' ? '/admin/services' : `/admin/services/${selectedService?.id}`;
       const method = mode === 'create' ? 'POST' : 'PATCH';
       const saved = await adminApiClient.request<ServiceCatalogItem>(endpoint, {
@@ -162,12 +141,12 @@ export function ServicesAdminPage() {
     }
   };
 
-  const transitionService = async (id: string, action: 'mark-ready' | 'mark-publishable' | 'publish' | 'unpublish' | 'reject' | 'archive') => {
+  const transitionService = async (service: ServiceCatalogItem, action: 'mark-ready' | 'mark-publishable' | 'publish' | 'unpublish' | 'reject' | 'archive') => {
     setSaving(true);
     setError(null);
     setMessage(null);
     try {
-      await adminApiClient.request(`/admin/services/${id}/${action}`, { method: 'POST' });
+      await adminApiClient.request(`/admin/services/${service.id}/${action}`, { method: 'POST', body: JSON.stringify({ expectedVersion: service.version }) });
       setMessage(`Service action completed: ${formatLabel(action)}`);
       await loadServices();
     } catch (err: any) {
@@ -228,7 +207,7 @@ export function ServicesAdminPage() {
           <div className="relative">
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="appearance-none bg-white border border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-black">
               <option value="">{t('all_statuses')}</option>
-              {['IMPORTED', 'READY_TO_REVIEW', 'READY_TO_PUBLISH', 'PUBLISHED', 'REJECTED', 'ARCHIVED'].map((status) => <option key={status} value={status}>{formatLabel(status)}</option>)}
+              {Object.values(ServiceStatus).map((status) => <option key={status} value={status}>{formatLabel(status)}</option>)}
             </select>
             <Filter className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
           </div>
@@ -297,13 +276,13 @@ export function ServicesAdminPage() {
                         <div className="flex flex-wrap justify-end gap-2">
                           <button onClick={() => selectService(service)} className="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
                             <Edit3 className="h-4 w-4" /> {t('edit')}</button>
-                          <button onClick={() => transitionService(service.id, 'mark-publishable')} disabled={saving || service.completenessStatus !== 'COMPLETE'} className="text-indigo-600 hover:text-indigo-800 disabled:opacity-40 inline-flex items-center gap-1">
+                          <button onClick={() => transitionService(service, 'mark-publishable')} disabled={saving || service.completenessStatus !== 'COMPLETE'} className="text-indigo-600 hover:text-indigo-800 disabled:opacity-40 inline-flex items-center gap-1">
                             <CheckCircle2 className="h-4 w-4" /> {t('ready')}</button>
-                          <button onClick={() => transitionService(service.id, 'publish')} disabled={saving || service.status !== 'READY_TO_PUBLISH'} className="text-green-600 hover:text-green-800 disabled:opacity-40 inline-flex items-center gap-1">
+                          <button onClick={() => transitionService(service, 'publish')} disabled={saving || service.status !== 'READY_TO_PUBLISH'} className="text-green-600 hover:text-green-800 disabled:opacity-40 inline-flex items-center gap-1">
                             <Send className="h-4 w-4" /> {t('publish')}</button>
-                          <button onClick={() => transitionService(service.id, 'reject')} disabled={saving || service.status === 'PUBLISHED'} className="text-red-600 hover:text-red-800 disabled:opacity-40 inline-flex items-center gap-1">
+                          <button onClick={() => transitionService(service, 'reject')} disabled={saving || service.status === 'PUBLISHED'} className="text-red-600 hover:text-red-800 disabled:opacity-40 inline-flex items-center gap-1">
                             <XCircle className="h-4 w-4" /> {t('reject')}</button>
-                          <button onClick={() => transitionService(service.id, 'archive')} disabled={saving} className="text-gray-600 hover:text-gray-800 disabled:opacity-40 inline-flex items-center gap-1">
+                          <button onClick={() => transitionService(service, 'archive')} disabled={saving} className="text-gray-600 hover:text-gray-800 disabled:opacity-40 inline-flex items-center gap-1">
                             <Archive className="h-4 w-4" /> {t('archive')}</button>
                         </div>
                       </td>
@@ -419,6 +398,6 @@ function formatLabel(value: string): string {
   return value.replace(/_/g, ' ').replace(/-/g, ' ').toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function formatDate(value: string): string {
+function formatDate(value: string | Date): string {
   return new Intl.DateTimeFormat('en', { year: 'numeric', month: 'short', day: '2-digit' }).format(new Date(value));
 }

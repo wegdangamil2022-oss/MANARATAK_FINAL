@@ -12,6 +12,11 @@ import { BackgroundJobCompletedEvent } from '../events/BackgroundJobCompletedEve
 import { BackgroundJobFailedEvent } from '../events/BackgroundJobFailedEvent';
 import { BackgroundJobCancelledEvent } from '../events/BackgroundJobCancelledEvent';
 
+export interface BackgroundJobRestoreState {
+  status: BackgroundJobStatus;
+  createdAt: Date;
+}
+
 export class BackgroundJob {
   private status: BackgroundJobStatus;
   private readonly events: any[] = [];
@@ -23,10 +28,11 @@ export class BackgroundJob {
     private readonly definition: JobDefinition,
     private readonly parameters: JobParameters,
     private readonly metadata: JobMetadata,
-    private readonly ownerReference?: JobOwnerReference
+    private readonly ownerReference?: JobOwnerReference,
+    restoreState?: BackgroundJobRestoreState,
   ) {
-    this.status = BackgroundJobStatus.CREATED;
-    this.createdAt = new Date();
+    this.status = restoreState?.status ?? BackgroundJobStatus.CREATED;
+    this.createdAt = restoreState?.createdAt ? new Date(restoreState.createdAt) : new Date();
   }
 
   public static create(
@@ -42,37 +48,30 @@ export class BackgroundJob {
     return job;
   }
 
-  public getId(): BackgroundJobId {
-    return this.id;
+  /**
+   * Persistence-only rehydration path. Rehydration never re-emits historical
+   * lifecycle events; those belong to the write that originally changed state.
+   */
+  public static restore(
+    id: BackgroundJobId,
+    reference: JobReference,
+    definition: JobDefinition,
+    parameters: JobParameters,
+    metadata: JobMetadata,
+    restoreState: BackgroundJobRestoreState,
+    ownerReference?: JobOwnerReference,
+  ): BackgroundJob {
+    return new BackgroundJob(id, reference, definition, parameters, metadata, ownerReference, restoreState);
   }
 
-  public getReference(): JobReference {
-    return this.reference;
-  }
-
-  public getDefinition(): JobDefinition {
-    return this.definition;
-  }
-
-  public getParameters(): JobParameters {
-    return this.parameters;
-  }
-
-  public getMetadata(): JobMetadata {
-    return this.metadata;
-  }
-
-  public getOwnerReference(): JobOwnerReference | undefined {
-    return this.ownerReference;
-  }
-
-  public getStatus(): BackgroundJobStatus {
-    return this.status;
-  }
-
-  public getCreatedAt(): Date {
-    return this.createdAt;
-  }
+  public getId(): BackgroundJobId { return this.id; }
+  public getReference(): JobReference { return this.reference; }
+  public getDefinition(): JobDefinition { return this.definition; }
+  public getParameters(): JobParameters { return this.parameters; }
+  public getMetadata(): JobMetadata { return this.metadata; }
+  public getOwnerReference(): JobOwnerReference | undefined { return this.ownerReference; }
+  public getStatus(): BackgroundJobStatus { return this.status; }
+  public getCreatedAt(): Date { return new Date(this.createdAt); }
 
   public schedule(): void {
     if (this.status === BackgroundJobStatus.CREATED) {
@@ -81,6 +80,7 @@ export class BackgroundJob {
     }
   }
 
+  /** Worker-owned transition. Control-plane HTTP routes must not call this. */
   public start(): void {
     if (this.status === BackgroundJobStatus.SCHEDULED || this.status === BackgroundJobStatus.CREATED) {
       this.status = BackgroundJobStatus.STARTED;
@@ -88,6 +88,7 @@ export class BackgroundJob {
     }
   }
 
+  /** Worker-owned transition. Control-plane HTTP routes must not call this. */
   public complete(): void {
     if (this.status === BackgroundJobStatus.STARTED) {
       this.status = BackgroundJobStatus.COMPLETED;
@@ -95,6 +96,7 @@ export class BackgroundJob {
     }
   }
 
+  /** Worker-owned terminal transition after retry exhaustion. */
   public fail(reason?: string): void {
     if (this.status !== BackgroundJobStatus.COMPLETED && this.status !== BackgroundJobStatus.CANCELLED) {
       this.status = BackgroundJobStatus.FAILED;
@@ -109,15 +111,7 @@ export class BackgroundJob {
     }
   }
 
-  public getEvents(): ReadonlyArray<any> {
-    return Object.freeze([...this.events]);
-  }
-
-  public clearEvents(): void {
-    this.events.length = 0;
-  }
-
-  private addEvent(event: any): void {
-    this.events.push(event);
-  }
+  public getEvents(): ReadonlyArray<any> { return Object.freeze([...this.events]); }
+  public clearEvents(): void { this.events.length = 0; }
+  private addEvent(event: any): void { this.events.push(event); }
 }

@@ -20,20 +20,19 @@ describe('CoursePublicRouter', () => {
     return app;
   };
 
-  it('GET /public/courses parses filters and bounds pageSize', async () => {
+  it('GET /public/courses parses filters and cursor limit', async () => {
     const useCases = createMockUseCases();
     useCases.listCourses.mockResolvedValue({ data: [], total: 0, page: 2, pageSize: 50, totalPages: 0 });
     const app = createApp(useCases);
 
-    const res = await request(app).get('/public/courses?accessType=FREE_CERTIFICATE&originType=EXTERNAL_LINKED_COURSE&platformName=Global%20Learning&page=2&pageSize=100');
+    const res = await request(app).get('/public/courses?accessType=FREE_CERTIFICATE&originType=EXTERNAL_LINKED_COURSE&platformName=Global%20Learning&limit=50');
 
     expect(res.status).toBe(200);
     expect(useCases.listCourses).toHaveBeenCalledWith({
       accessType: CourseAccessType.FREE_CERTIFICATE,
       originType: CourseOriginType.EXTERNAL_LINKED_COURSE,
       platformName: 'Global Learning',
-      page: 2,
-      pageSize: 50
+      limit: 50
     }, 'ar');
   });
 
@@ -51,7 +50,7 @@ describe('CoursePublicRouter', () => {
   it('rejects invalid relationship pagination before it reaches the repository', async () => {
     const useCases = createMockUseCases();
     const relationshipQueryService = createRelationshipQueryService();
-    const res = await request(createApp(useCases, relationshipQueryService)).get('/public/courses?majorId=major-1&page=abc');
+    const res = await request(createApp(useCases, relationshipQueryService)).get('/public/courses?majorId=major-1&limit=0');
     expect(res.status).toBe(400);
     expect(relationshipQueryService.listPublishedRelatedCourses).not.toHaveBeenCalled();
   });

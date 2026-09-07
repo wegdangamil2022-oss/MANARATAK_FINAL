@@ -4,6 +4,7 @@ import { adminApiClient } from '../api/client';
 import { ArrowLeft, CheckCircle2, FileQuestion, Layers, Loader2, Plus, Save, XCircle } from 'lucide-react';
 import { useTranslation } from "../i18n/I18nProvider";
 import { CanonicalPicker } from '../components/CanonicalPicker';
+import { AssetPicker } from '../components/AssetPicker';
 import { canonicalPickerApi } from '../api/canonicalPickers';
 
 interface CourseDetail {
@@ -110,6 +111,7 @@ export function CourseDetailPage() {
   const [moduleDraft, setModuleDraft] = useState({ title: '', description: '', position: 1 });
   const [lessonDraft, setLessonDraft] = useState({ moduleId: '', title: '', lessonType: 'VIDEO', position: 1, estimatedDurationMinutes: '' });
   const [assetDraft, setAssetDraft] = useState({ lessonId: '', assetId: '', assetType: 'VIDEO', title: '', position: 1 });
+  const courseAssetMimePrefix: Record<string, string | undefined> = { VIDEO: 'video/', IMAGE: 'image/', PDF: 'application/pdf', DOCUMENT: 'application/', AUDIO: 'audio/', SUBTITLE: 'text/', OTHER: undefined };
   const [quizDraft, setQuizDraft] = useState({ moduleId: '', lessonId: '', title: '', position: 1, passingScore: '70' });
   const [questionDraft, setQuestionDraft] = useState({ quizId: '', questionType: 'MULTIPLE_CHOICE', prompt: '', choices: '["Option A","Option B"]', correctAnswer: '"Option A"', position: 1, points: 1 });
 
@@ -457,7 +459,7 @@ export function CourseDetailPage() {
                     <option value="">{t('choose_lesson')}</option>
                     {snapshot?.lessons.map((lesson) => <option key={lesson.id} value={lesson.id}>{lesson.title}</option>)}
                   </select>
-                  <input placeholder={t('eap_assetid')} value={assetDraft.assetId} onChange={(event) => setAssetDraft({ ...assetDraft, assetId: event.target.value })} className="md:col-span-2 rounded border border-gray-300 px-3 py-2 text-sm" />
+                  <div className="md:col-span-2"><AssetPicker label={t('eap_assetid')} purpose={`COURSE_LESSON_MEDIA:${assetDraft.assetType}`} mimeTypePrefix={courseAssetMimePrefix[assetDraft.assetType]} value={assetDraft.assetId} onChange={(assetId) => setAssetDraft({ ...assetDraft, assetId })} /></div>
                   <select value={assetDraft.assetType} onChange={(event) => setAssetDraft({ ...assetDraft, assetType: event.target.value })} className="rounded border border-gray-300 px-3 py-2 text-sm">
                     <option value="VIDEO">{t('video')}</option>
                     <option value="IMAGE">{t('image')}</option>

@@ -21,8 +21,11 @@ const settingsUseCase = read('packages/application/src/settings/use-cases/Manage
 const settingsAdminRouter = read('apps/api/src/presentation/api/router/SettingsAdminRouter.ts');
 const settingsRuntimeRouter = read('apps/api/src/presentation/api/router/SettingsRuntimeRouter.ts');
 const settingsAdminPage = read('apps/admin/src/pages/SettingsAdminPage.tsx');
-const settingsLegacyPreview = read('apps/web/src/features/admin-preview/AdminSettingsPreviewPage.tsx');
-const taxonomyLegacyPreview = read('apps/web/src/features/admin-preview/AdminAcademicTaxonomyPages.tsx');
+const settingsLegacyPreviewPath = 'apps/web/src/features/admin-preview/AdminSettingsPreviewPage.tsx';
+const settingsLegacyPreview = exists(settingsLegacyPreviewPath) ? read(settingsLegacyPreviewPath) : '';
+const webRouter = read('apps/web/src/router/index.tsx');
+const taxonomyLegacyPreviewPath = 'apps/web/src/features/admin-preview/AdminAcademicTaxonomyPages.tsx';
+const taxonomyLegacyPreview = exists(taxonomyLegacyPreviewPath) ? read(taxonomyLegacyPreviewPath) : '';
 const adminRoutes = read('apps/admin/src/App.tsx');
 const phase23Arch = read('docs/phases/phase-23-enterprise-administration-portal/phase-23-01-enterprise-administration-portal-architecture-specification.md');
 const phase23Workflow = read('docs/phases/phase-23-enterprise-administration-portal/phase-23-03-enterprise-administration-portal-workflows-operational-experience.md');
@@ -59,7 +62,7 @@ const checks = {
   taxonomy_admin_pagination: /pageSize = 50/.test(taxonomyAdminPage) && /setPage\(1\)/.test(taxonomyAdminPage),
   taxonomy_admin_brand_primary: /#142B5F/.test(taxonomyAdminPage) && /#0E7C86/.test(taxonomyAdminPage),
   taxonomy_detail_brand_primary: /#142B5F/.test(taxonomyDetailPage) && /#0E7C86/.test(taxonomyDetailPage),
-  taxonomy_legacy_preview_redirect_only: /window\.location\.replace/.test(taxonomyLegacyPreview) && !/mock|demo|fake/i.test(taxonomyLegacyPreview),
+  taxonomy_legacy_preview_redirect_only: (!exists(taxonomyLegacyPreviewPath) && /path: 'admin\/\*'/.test(webRouter) && /CanonicalAdminRedirect/.test(webRouter)) || (/window\.location\.replace/.test(taxonomyLegacyPreview) && !/mock|demo|fake/i.test(taxonomyLegacyPreview)),
 
   settings_domain_present: exists('packages/domain/src/settings'),
   settings_definition_repo_lists_real_data: /findAll\(\): Promise<SettingDefinition\[\]>/.test(settingsDefinitionRepoContract) && /settingDefinitionRecord\.findMany/.test(settingsDefinitionRepo),
@@ -101,7 +104,7 @@ const checks = {
   settings_ui_reference_data_deep_link: /to="\/settings\/reference-data"/.test(settingsAdminPage) && /path="\/settings\/reference-data"/.test(adminRoutes),
   settings_ui_brand: /#142B5F/.test(settingsAdminPage) && /#0E7C86/.test(settingsAdminPage) && /#D6A43B/.test(settingsAdminPage),
   settings_ui_error_state: /role="alert"/.test(settingsAdminPage),
-  settings_legacy_preview_redirect_only: /window\.location\.replace/.test(settingsLegacyPreview) && !/Active admin users|Root Super Admin|Pending invitations|Security compliance/.test(settingsLegacyPreview),
+  settings_legacy_preview_redirect_only: (!exists(settingsLegacyPreviewPath) && /path: 'admin\/\*'/.test(webRouter) && /CanonicalAdminRedirect/.test(webRouter)) || (/window\.location\.replace/.test(settingsLegacyPreview) && !/Active admin users|Root Super Admin|Pending invitations|Security compliance/.test(settingsLegacyPreview)),
   settings_docs_superseded_old_preview: /HISTORICAL \/ SUPERSEDED/.test(settingsHistoryDoc),
   settings_docs_correct_owner_boundaries: /IAM\/RBAC Separation/.test(phase23Arch) && /Secrets Separation/.test(phase23Arch),
   settings_docs_remove_fake_workflow: /hardcoded admin-user counts/.test(phase23Workflow),

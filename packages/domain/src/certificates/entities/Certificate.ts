@@ -243,6 +243,7 @@ export interface AttachCertificateArtifactsDto {
   certificatePdfAssetId?: string | null;
   previewImageAssetId?: string | null;
   verificationQrAssetId?: string | null;
+  renderMetadata?: Record<string, unknown> | null;
   actorId: string;
   correlationId?: string | null;
 }

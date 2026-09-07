@@ -1,3 +1,4 @@
+import { AssetReferencePolicy, assertAssetReferenceUsable } from '../../asset-platform/AssetReferencePolicy';
 import {
   IStudentToolRegistryRepository,
   IStudentToolDependencyHealthGateway,
@@ -17,6 +18,7 @@ export class StudentToolRegistryUseCases {
     private readonly readinessService: StudentToolActivationReadinessService,
     private readonly healthService: StudentToolHealthService,
     private readonly dependencyHealth: IStudentToolDependencyHealthGateway,
+    private readonly assetReferences?: AssetReferencePolicy,
   ) {}
   async installOfficialRegistry(actorReferenceId: string) {
     if (!actorReferenceId) throw new Error('ACTOR_REQUIRED');
@@ -62,6 +64,9 @@ export class StudentToolRegistryUseCases {
     return { readiness, health, dependencies };
   }
   async update(toolKey: string, patch: Record<string, unknown>, actorReferenceId: string) {
+    if (typeof patch.iconAssetId === 'string' || patch.iconAssetId === null) {
+      await assertAssetReferenceUsable(this.assetReferences, patch.iconAssetId as string | null, { purpose: 'STUDENT_TOOL_ICON' });
+    }
     if (['toolKey', 'id', 'createdAt'].some((key) => key in patch))
       throw new Error('IMMUTABLE_TOOL_IDENTITY');
     const current = await this.repository.findByKey(toolKey);

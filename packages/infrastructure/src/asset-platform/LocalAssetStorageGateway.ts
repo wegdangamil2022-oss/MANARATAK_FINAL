@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, rm, stat } from 'fs/promises';
 import * as path from 'path';
 import {
@@ -19,7 +20,7 @@ export class LocalAssetStorageGateway implements IAssetStorageGateway {
 
   async generateUploadLocator(zone?: AssetStorageZone): Promise<AssetStorageLocator> {
     const targetZone = zone || AssetStorageZone.QUARANTINE;
-    const pathKey = `uploads/${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    const pathKey = `uploads/${randomUUID()}`;
     return new AssetStorageLocator(targetZone, this.localBucketName, pathKey);
   }
 

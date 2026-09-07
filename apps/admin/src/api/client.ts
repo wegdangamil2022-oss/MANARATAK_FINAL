@@ -1,29 +1,55 @@
 import { CsrfClientManager } from '@manaratak/shared';
+import { assertLocalReadOnlyRequestAllowed } from '../security/LocalAdminReadOnlyPolicy';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 const csrfManager = CsrfClientManager.getInstance(API_BASE_URL);
 
 type ApiErrorPayload = {
   error?: string | { message?: string };
+  detail?: string;
+  title?: string;
+  code?: string;
+  traceId?: string;
 };
+
+export interface AdminRequestOptions extends RequestInit {
+  /** Reuse this value when retrying the same semantic command. */
+  idempotencyKey?: string;
+}
+
+export function createAdminIdempotencyKey(): string {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `admin-${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function isMutation(method?: string): boolean {
+  return ['POST', 'PUT', 'PATCH'].includes((method || 'GET').toUpperCase());
+}
 
 export const adminApiClient = {
   clearSecuritySession(): void {
     csrfManager.clearToken();
   },
 
-  async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  async request<T>(endpoint: string, options: AdminRequestOptions = {}): Promise<T> {
+    assertLocalReadOnlyRequestAllowed(options.method, import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true');
     const url = `${API_BASE_URL}${endpoint}`;
     const headers = new Headers(options.headers);
     headers.set('Content-Type', 'application/json');
+    if (isMutation(options.method) && !headers.has('Idempotency-Key')) {
+      headers.set('Idempotency-Key', options.idempotencyKey || createAdminIdempotencyKey());
+    }
+    const { idempotencyKey: _idempotencyKey, ...fetchOptions } = options;
 
-    const response = await csrfManager.fetchWithCsrf(url, { ...options, headers, credentials: 'include' });
+    const response = await csrfManager.fetchWithCsrf(url, { ...fetchOptions, headers, credentials: 'include' });
     
     if (!response.ok) {
       let errorMessage = `API Error: ${response.statusText}`;
       try {
         const errorData = await response.json() as ApiErrorPayload;
-        if (errorData.error) {
+        if (errorData.detail) {
+          errorMessage = errorData.code ? `${errorData.detail} (${errorData.code})` : errorData.detail;
+        } else if (errorData.error) {
           if (typeof errorData.error === 'string') {
             errorMessage = errorData.error;
           } else if (errorData.error.message) {

@@ -59,7 +59,7 @@ export interface Scholarship {
   requirements: string[];
   description: string;
   applicationUrl: string;
-  withoutIelts: boolean;
+  withoutIelts: boolean | null;
   matchScore?: number;
   status?: ScholarshipStatus;
   participatingUniversities?: ScholarshipUniversityRef[];
@@ -95,8 +95,8 @@ export interface CountryDestination {
   livingCost: string; // e.g. 'منخفضة' | 'متوسطة' | 'مرتفعة'
   scholarshipAvailability: string; // e.g. 'متوفرة بكثرة' | 'متوفرة' | 'محدودة'
   studentSuitability: string; // e.g. 'عالية' | 'ممتازة' | 'جيدة جداً'
-  scholarshipsCount: number;
-  universitiesCount: number;
+  scholarshipsCount: number | null;
+  universitiesCount: number | null;
   description: string;
   imageUrl: string;
   popularCities: string[];
@@ -249,9 +249,9 @@ export interface University {
   city?: string;
   foundationYear?: number;
   countryFlag: string;
-  globalRank: number;
-  scholarshipCount: number;
-  acceptanceRate: string;
+  globalRank: number | null;
+  scholarshipCount: number | null;
+  acceptanceRate: string | null;
   imageUrl: string;
   description: string;
   topMajors: string[];
@@ -372,18 +372,24 @@ export interface Course {
   publicId?: string;
   slug?: string;
   ownerId?: string;
+  /** Authoritative P13 classification; never inferred from provider display text. */
+  originType?: string;
+  accessType?: string;
   title: string;
   titleEn: string;
   provider: string;
   instructor: string;
   duration: string;
-  lessonsCount: number;
+  lessonsCount: number | null;
   level: 'مبتدئ' | 'متوسط' | 'متقدم';
   isFree: boolean;
-  rating: number;
-  studentsCount: number;
+  rating: number | null;
+  studentsCount: number | null;
   imageUrl: string;
   category: string;
+  directCourseUrl?: string;
+  courseContent?: string;
+  acquiredSkills?: string[];
   progressPercent?: number;
 }
 
@@ -403,8 +409,8 @@ export interface Major {
   duration?: string;
   commonDegrees?: string;
   description: string;
-  averageScholarships: number;
-  futureDemand: 'مرتفع جداً' | 'مرتفع' | 'متوسط';
+  averageScholarships: number | null;
+  futureDemand: 'مرتفع جداً' | 'مرتفع' | 'متوسط' | null;
   topCountries: string[];
   popularCareers: string[];
 
@@ -507,7 +513,7 @@ export interface PublicArticle {
   slug: string;
   titleAr: string;
   titleEn: string;
-  contentType: 'STUDY_GUIDE' | 'ARTICLE' | 'NEWS' | 'CHECKLIST';
+  contentType: 'STUDY_GUIDE' | 'ARTICLE' | 'NEWS' | 'CHECKLIST' | 'FAQ' | 'STATIC_PAGE';
   contentTypeLabelAr: string;
   categoryAr: string;
   author: string;

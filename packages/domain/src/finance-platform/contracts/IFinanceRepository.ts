@@ -88,6 +88,11 @@ export interface IFinanceRepository {
     failureCode: string,
     context: FinanceMutationContext,
   ): Promise<FinancePaymentDto>;
+  recordReconciledCapturedPaymentAtomic(
+    paymentId: string,
+    evidence: { gatewayReference: string; safeMaskedMetadata?: Record<string, string> },
+    context: FinanceMutationContext,
+  ): Promise<FinancePaymentDto>;
   recordCapturedPaymentAtomic(
     data: CreateFinancePaymentDto,
     context: FinanceMutationContext,

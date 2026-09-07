@@ -1,3 +1,6 @@
+import { AssetReferencePolicy, assertAssetReferenceUsable } from '../../asset-platform/AssetReferencePolicy';
+import { unicodeSlugSegment } from '../../canonicalization/UnicodeCanonicalization';
+import { canonicalizeServiceIdentityName } from '../../canonicalization/OwnerDomainIdentityPolicies';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   CreateServiceCatalogItemDto,
@@ -23,10 +26,13 @@ export class AdminServiceCatalogUseCases {
   constructor(
     private readonly repository: IServiceCatalogRepository,
     private readonly references: IServiceReferenceGateway,
+    private readonly assetReferences?: AssetReferencePolicy,
   ) {}
 
   public async createService(data: ServiceCreateInput): Promise<ServiceCatalogItemDto> {
-    const canonicalName = normalizeServiceName(data.displayName);
+    await assertAssetReferenceUsable(this.assetReferences, data.thumbnailAssetId, { purpose: 'SERVICE_THUMBNAIL' });
+    const canonicalName = canonicalizeServiceIdentityName(data.displayName);
+    if (!canonicalName) throw new Error('Service displayName must contain at least one Unicode letter or number');
     const canonicalDedupKey = [canonicalName, data.serviceCategory, data.fulfillmentType, data.deliveryMode].join('|');
     const existing = await this.repository.findByDedupKey(canonicalDedupKey);
     if (existing) throw new Error('A matching service already exists');
@@ -44,7 +50,7 @@ export class AdminServiceCatalogUseCases {
     return this.repository.create({
       ...normalized,
       publicId: `svc_${randomUUID()}`,
-      slug: `${slugify(data.displayName)}-${shortHash(canonicalDedupKey)}`,
+      slug: `${unicodeSlugSegment(data.displayName)}-${shortHash(canonicalDedupKey)}`,
       canonicalName,
       canonicalDedupKey,
       status: ServiceStatus.READY_TO_REVIEW,
@@ -61,7 +67,9 @@ export class AdminServiceCatalogUseCases {
     return service;
   }
 
-  public async updateService(id: string, updates: UpdateServiceCatalogItemDto): Promise<ServiceCatalogItemDto> {
+  public async updateService(id: string, updates: UpdateServiceCatalogItemDto, expectedVersion: number): Promise<ServiceCatalogItemDto> {
+    this.assertExpectedVersion(expectedVersion);
+    await assertAssetReferenceUsable(this.assetReferences, updates.thumbnailAssetId, { purpose: 'SERVICE_THUMBNAIL' });
     const existing = await this.getService(id);
     const normalized: UpdateServiceCatalogItemDto = { ...updates };
     if (updates.supportedCountryReferenceIds !== undefined || updates.supportedCountries !== undefined) {
@@ -75,7 +83,8 @@ export class AdminServiceCatalogUseCases {
       );
     }
     const merged = { ...existing, ...normalized };
-    const canonicalName = updates.displayName ? normalizeServiceName(updates.displayName) : existing.canonicalName;
+    const canonicalName = updates.displayName ? canonicalizeServiceIdentityName(updates.displayName) : existing.canonicalName;
+    if (!canonicalName) throw new Error('Service displayName must contain at least one Unicode letter or number');
     const canonicalDedupKey = [canonicalName, merged.serviceCategory, merged.fulfillmentType, merged.deliveryMode].join('|');
     if (canonicalDedupKey !== existing.canonicalDedupKey) {
       const duplicate = await this.repository.findByDedupKey(canonicalDedupKey);
@@ -86,41 +95,51 @@ export class AdminServiceCatalogUseCases {
       canonicalName,
       canonicalDedupKey,
       completenessStatus: this.classifyCompleteness(merged),
-    });
+    }, expectedVersion);
   }
 
-  public async markReadyToReview(id: string): Promise<void> {
+  public async markReadyToReview(id: string, expectedVersion: number): Promise<ServiceCatalogItemDto> {
+    this.assertExpectedVersion(expectedVersion);
     const existing = await this.getService(id);
     if (existing.completenessStatus === ServiceCompletenessStatus.INCOMPLETE)
       throw new Error('Cannot mark INCOMPLETE service as READY_TO_REVIEW');
-    await this.repository.updateStatus(id, ServiceStatus.READY_TO_REVIEW);
+    return this.repository.updateStatus(id, ServiceStatus.READY_TO_REVIEW, expectedVersion);
   }
-  public async markReadyToPublish(id: string): Promise<void> {
+  public async markReadyToPublish(id: string, expectedVersion: number): Promise<ServiceCatalogItemDto> {
+    this.assertExpectedVersion(expectedVersion);
     const existing = await this.getService(id);
     if (existing.completenessStatus !== ServiceCompletenessStatus.COMPLETE)
       throw new Error('Only COMPLETE services can be marked as READY_TO_PUBLISH');
-    await this.repository.updateStatus(id, ServiceStatus.READY_TO_PUBLISH);
+    return this.repository.updateStatus(id, ServiceStatus.READY_TO_PUBLISH, expectedVersion);
   }
-  public async publish(id: string): Promise<void> {
+  public async publish(id: string, expectedVersion: number): Promise<ServiceCatalogItemDto> {
+    this.assertExpectedVersion(expectedVersion);
     const existing = await this.getService(id);
     if (existing.status !== ServiceStatus.READY_TO_PUBLISH)
       throw new Error('Only READY_TO_PUBLISH services can be PUBLISHED');
-    await this.repository.updateStatus(id, ServiceStatus.PUBLISHED);
+    return this.repository.updateStatus(id, ServiceStatus.PUBLISHED, expectedVersion);
   }
-  public async unpublish(id: string): Promise<void> {
+  public async unpublish(id: string, expectedVersion: number): Promise<ServiceCatalogItemDto> {
+    this.assertExpectedVersion(expectedVersion);
     const existing = await this.getService(id);
     if (existing.status !== ServiceStatus.PUBLISHED)
       throw new Error('Cannot unpublish a service that is not PUBLISHED');
-    await this.repository.updateStatus(id, ServiceStatus.READY_TO_REVIEW);
+    return this.repository.updateStatus(id, ServiceStatus.READY_TO_REVIEW, expectedVersion);
   }
-  public async reject(id: string): Promise<void> {
+  public async reject(id: string, expectedVersion: number): Promise<ServiceCatalogItemDto> {
+    this.assertExpectedVersion(expectedVersion);
     const existing = await this.getService(id);
     if (existing.status === ServiceStatus.PUBLISHED)
       throw new Error('Cannot reject a PUBLISHED service. Unpublish first.');
-    await this.repository.updateStatus(id, ServiceStatus.REJECTED);
+    return this.repository.updateStatus(id, ServiceStatus.REJECTED, expectedVersion);
   }
-  public async archive(id: string): Promise<void> {
-    await this.repository.updateStatus(id, ServiceStatus.ARCHIVED);
+  public async archive(id: string, expectedVersion: number): Promise<ServiceCatalogItemDto> {
+    this.assertExpectedVersion(expectedVersion);
+    return this.repository.updateStatus(id, ServiceStatus.ARCHIVED, expectedVersion);
+  }
+
+  private assertExpectedVersion(expectedVersion: number): void {
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) throw new Error('SERVICE_EXPECTED_VERSION_REQUIRED');
   }
 
   private async resolveCountries(values?: string[] | null): Promise<string[] | null> {
@@ -149,13 +168,6 @@ export class AdminServiceCatalogUseCases {
   }
 }
 
-function normalizeServiceName(value: string): string {
-  return value.toLowerCase().replace(/\b(best|offer|urgent|new|limited|deal)\b/g, '').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-}
-function slugify(value: string): string {
-  const slug = normalizeServiceName(value).replace(/\s+/g, '-');
-  return slug || 'service';
-}
 function shortHash(value: string): string {
   return createHash('sha256').update(value).digest('hex').slice(0, 8);
 }

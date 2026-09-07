@@ -33,6 +33,7 @@ const majorPublic = read('packages/application/src/majors/use-cases/LocalizedPub
 const universityPublic = read('packages/application/src/universities/use-cases/LocalizedPublicUniversityUseCases.ts');
 const scholarshipPublic = read('packages/application/src/scholarships/use-cases/PublicScholarshipUseCases.ts');
 const coursePublic = read('packages/application/src/courses/use-cases/PublicCourseUseCases.ts');
+const studyDestinationPublic = read('packages/application/src/study-destinations/StudyDestinationUseCases.ts');
 
 check('P10-001 API is safe default', has(scholarships, "return value === 'prototype' ? 'prototype' : 'api';"));
 check('P10-002 prototype must be explicit', has(scholarships, "value === 'prototype'"));
@@ -54,7 +55,7 @@ for (const [n, fn] of [
 ]) check(n, has(live, `function ${fn}`));
 check('P10-020 scholarships adapter is owner-backed', has(live, 'ApiClient.getScholarships') && has(live, 'mapPublicScholarshipDto'));
 
-check('P10-021 published study destinations only', has(live, 'ApiClient.getStudyDestinations({ page: 1, pageSize: 100 })') && !has(live, 'getReferenceCountries({ activeOnly: true })'));
+check('P10-021 published study destinations only', has(live, 'collectOffsetPages((page) => ApiClient.getStudyDestinations({ page, pageSize: 100 }))') && has(studyDestinationPublic, 'repository.listPublished(filters)') && !has(live, 'getReferenceCountries({ activeOnly: true })'));
 check('P10-022 university canonical geography retained', has(live, 'countryReferenceId: dto.countryReferenceId') && has(live, 'regionReferenceId: dto.regionReferenceId') && has(live, 'cityReferenceId: dto.cityReferenceId'));
 check('P10-023 university program major link canonical', has(live, "program.majorMappingState === 'CANONICALLY_MAPPED'") && has(live, 'majorId: String(program.majorId)'));
 check('P10-024 course stable identity retained', has(live, 'ownerId: dto.ownerId') && has(live, 'publicId: dto.publicId') && has(live, 'slug: dto.slug'));
@@ -109,7 +110,7 @@ check('P10-066 owner locale sent to tests', has(live, 'ApiClient.getInternationa
 check('P10-067 owner locale sent to CMS', has(live, 'ApiClient.getCmsContent({ locale,'));
 check('P10-068 tool identity is locale-independent', has(live, 'id: dto.toolKey') && has(live, "title: locale === 'en' ? dto.nameEn : dto.nameAr"));
 check('P10-069 App passes presentation locale to live source', has(app, 'usePublicLiveData(import.meta.env.VITE_PUBLIC_TEMPLATE_DATA_MODE, language)'));
-check('P10-070 English presentation is explicit, not silent', has(app, 'English remains explicitly unavailable'));
+check('P10-070 English presentation is explicit and locale-driven', has(app, "document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'") && has(app, 'document.documentElement.lang = language') && has(app, 'usePublicLiveData(import.meta.env.VITE_PUBLIC_TEMPLATE_DATA_MODE, language)'));
 
 const liveFiles = [
   'apps/web/src/features/public-template/PublicTemplateApp.tsx',
@@ -127,7 +128,7 @@ check('P10-076 Universities owner API published-only', has(universityPublic, 're
 check('P10-077 Scholarships owner API published-only', has(scholarshipPublic, 'repository.listPublished(filters)'));
 check('P10-078 Courses owner API published-only', has(coursePublic, 'repository.listPublished(filters)') && has(coursePublic, 'CourseStatus.PUBLISHED'));
 
-check('P10-078A active matrix is P10 v1.5.0 or later', /\*\*Status:\*\* ACTIVE — P(?:10|11|12|13)\b[^\n]*/.test(matrix) && /\*\*Version:\*\* (?:1\.(?:[5-9]|[1-9]\d+)\.0|[2-9]\d*\.\d+\.\d+)/.test(matrix));
+check('P10-078A active matrix is current source-rebaseline authority', /\*\*Status:\*\* ACTIVE — SOURCE_REBASELINED \/ RUNTIME_EVIDENCE_PENDING/.test(matrix) && /\*\*Version:\*\* 3\.0\.0-source-rebaselined/.test(matrix));
 
 check('P10-092 closure record exists', exists(closureDocPath));
 check('P10-093 closure record preserves source/runtime boundary', has(closureDoc, 'SOURCE CLOSED / RUNTIME PENDING') && has(closureDoc, 'Runtime Pending'));

@@ -10,6 +10,7 @@ describe('AuthRouter API endpoints', () => {
   let mockSecurityService: any;
   let mockTokenProvider: any;
   let mockSessionManager: any;
+  let mockPrincipalAccessValidator: any;
 
   beforeEach(() => {
     mockAuthService = {
@@ -40,11 +41,16 @@ describe('AuthRouter API endpoints', () => {
 
     mockTokenProvider = {
       verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'user-123', sessionId: 'session-123' }),
-      verifyRefreshToken: vi.fn().mockResolvedValue({ userId: 'user-123', sessionId: 'session-123' }),
+      validateRefreshToken: vi.fn().mockResolvedValue(undefined),
+      getJwks: vi.fn().mockReturnValue({ keys: [] }),
     };
     mockSessionManager = {
-      isValidSession: vi.fn().mockResolvedValue(true),
+      findRefreshSession: vi.fn().mockResolvedValue({ userId: 'user-123', sessionId: 'session-123', familyId: 'session-123' }),
       isSessionActive: vi.fn().mockResolvedValue(true),
+      revokeAllSessions: vi.fn().mockResolvedValue(undefined),
+    };
+    mockPrincipalAccessValidator = {
+      isAuthenticationAllowed: vi.fn().mockResolvedValue(true),
     };
 
     app = express();
@@ -55,6 +61,7 @@ describe('AuthRouter API endpoints', () => {
       securityService: mockSecurityService,
       tokenProvider: mockTokenProvider,
       sessionManager: mockSessionManager,
+      principalAccessValidator: mockPrincipalAccessValidator,
     }));
   });
 
@@ -70,17 +77,13 @@ describe('AuthRouter API endpoints', () => {
     });
 
     it('rejects a stale session when the current identity is suspended', async () => {
-      mockIdentityRepository.findById.mockResolvedValue({
-        status: 'SUSPENDED',
-        account: { accessState: 'Suspended' },
-        user: null,
-      });
+      mockPrincipalAccessValidator.isAuthenticationAllowed.mockResolvedValue(false);
       const response = await supertest(app)
         .get('/api/v1/auth/me')
         .set('Cookie', 'manaratak_access=access-token');
 
       expect(response.status).toBe(401);
-      expect(response.body.error.code).toBe('SESSION_NOT_ACTIVE');
+      expect(response.body.error.code).toBe('UNAUTHORIZED');
     });
   });
 

@@ -16,6 +16,8 @@ import {
   StudentWorkspaceDto,
   StudentWorkspaceIntegrationEventDto,
   StudentWorkspaceSnapshotDto,
+  StudentSupportWorkspacePageDto,
+  StudentSupportWorkspaceDetailDto,
   StudentWorkspaceStatus,
   UpsertStudentWorkspaceDto,
 } from '@manaratak/domain';
@@ -69,6 +71,74 @@ export class PrismaStudentWorkspaceRepository implements IStudentWorkspaceReposi
 
   private get db(): any {
     return this.prisma as any;
+  }
+
+  public async listSupportWorkspaces(input: { query?: string; status?: StudentWorkspaceStatus; limit?: number; cursor?: string }): Promise<StudentSupportWorkspacePageDto> {
+    const limit = Math.min(100, Math.max(1, Math.trunc(input.limit ?? 30)));
+    const decoded = input.cursor ? Buffer.from(input.cursor, 'base64url').toString('utf8') : '';
+    const split = decoded.lastIndexOf('|');
+    const cursorUpdatedAt = split > 0 ? decoded.slice(0, split) : '';
+    const cursorId = split > 0 ? decoded.slice(split + 1) : '';
+    const query = input.query?.trim().slice(0, 120);
+    const rows = await this.db.studentWorkspace.findMany({
+      where: {
+        ...(input.status ? { status: input.status } : {}),
+        ...(query ? { studentReferenceId: { startsWith: query, mode: 'insensitive' } } : {}),
+        ...(cursorUpdatedAt && cursorId ? { OR: [
+          { updatedAt: { lt: new Date(cursorUpdatedAt) } },
+          { updatedAt: new Date(cursorUpdatedAt), id: { lt: cursorId } },
+        ] } : {}),
+      },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      select: { id: true, studentReferenceId: true, status: true, version: true, displayName: true, preferredLanguage: true, timezone: true, lastActiveAt: true, updatedAt: true },
+    });
+    const hasMore = rows.length > limit;
+    const selected = rows.slice(0, limit);
+    const items = selected.map((row: any) => ({ studentReferenceId: row.studentReferenceId, status: row.status, version: row.version, displayName: row.displayName, preferredLanguage: row.preferredLanguage, timezone: row.timezone, lastActiveAt: row.lastActiveAt, updatedAt: row.updatedAt }));
+    const last = selected[selected.length - 1];
+    return { items, hasMore, nextCursor: hasMore && last ? Buffer.from(`${new Date(last.updatedAt).toISOString()}|${last.id}`, 'utf8').toString('base64url') : null };
+  }
+
+  public async getSupportWorkspaceDetail(studentReferenceId: string): Promise<StudentSupportWorkspaceDetailDto | null> {
+    const row = await this.db.studentWorkspace.findUnique({
+      where: { studentReferenceId },
+      select: {
+        studentReferenceId: true, status: true, version: true, displayName: true, preferredLanguage: true, timezone: true,
+        lastActiveAt: true, updatedAt: true,
+      },
+    });
+    if (!row) return null;
+    const [inbox, lastConsent, activeCourseCount, certificateCount, unreadNotificationCount] = await Promise.all([
+      this.db.studentWorkspaceEventInbox.findMany({
+        where: { studentReferenceId },
+        orderBy: { receivedAt: 'desc' },
+        take: 50,
+        select: { processedAt: true, failureCode: true, receivedAt: true },
+      }),
+      this.db.studentPrivacyConsentDecision.findFirst({
+        where: { studentReferenceId },
+        orderBy: { decidedAt: 'desc' },
+        select: { decidedAt: true },
+      }),
+      this.db.studentLearningProjection.count({ where: { studentReferenceId, status: { in: ['ENROLLED', 'IN_PROGRESS'] } } }),
+      this.db.studentCertificateReadProjection.count({ where: { studentReferenceId } }),
+      this.db.studentNotificationProjection.count({ where: { studentReferenceId, readAt: null } }),
+    ]);
+    const pendingEventCount = inbox.filter((event: any) => !event.processedAt && !event.failureCode).length;
+    const failed = inbox.filter((event: any) => Boolean(event.failureCode));
+    return {
+      ...row,
+      provisioningHealth: {
+        state: failed.length > 0 ? 'FAILED' : pendingEventCount > 0 || row.status === StudentWorkspaceStatus.INITIALIZING ? 'PENDING' : 'HEALTHY',
+        pendingEventCount,
+        failedEventCount: failed.length,
+        lastEventAt: inbox[0]?.receivedAt ?? null,
+        lastFailureCode: failed[0]?.failureCode ?? null,
+      },
+      consentAudit: { hasDecision: Boolean(lastConsent), lastDecidedAt: lastConsent?.decidedAt ?? null },
+      linkedSummaries: { activeCourseCount, certificateCount, unreadNotificationCount },
+    };
   }
 
   public async findWorkspace(studentReferenceId: string): Promise<StudentWorkspaceDto | null> {
@@ -752,7 +822,7 @@ export class PrismaStudentWorkspaceRepository implements IStudentWorkspaceReposi
         id: 'view-certificates',
         label: 'عرض شهاداتي',
         description: `لديك ${certificates.length} شهادة في خزنتك`,
-        href: '/certificates',
+        href: '/student?tab=vault#certificates',
         priority: 80,
         kind: 'CERTIFICATE',
       });

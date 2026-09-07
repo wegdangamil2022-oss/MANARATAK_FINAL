@@ -243,24 +243,11 @@ export const CoursesSearchPage: React.FC<CoursesSearchPageProps> = ({ onBack, on
           <div className="absolute top-0 right-10 w-64 h-64 bg-[var(--mn-accent)] rounded-full mix-blend-screen filter blur-[120px] opacity-10 mn-gold " />
           <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-[var(--mn-primary)] rounded-full mix-blend-screen filter blur-[100px] opacity-20 mn-inverse " />
 
-          <style>{`
-            @keyframes importedCourseFloat {
-              0% { transform: translateY(0px) rotate(0deg); opacity: 0; }
-              20% { opacity: 0.13; }
-              80% { opacity: 0.13; }
-              100% { transform: translateY(-100px) rotate(15deg); opacity: 0; }
-            }
-            .imported-course-float {
-              position: absolute;
-              animation: importedCourseFloat ease-in-out infinite;
-              color: var(--mn-accent);
-            }
-          `}</style>
 
-          <PlayCircle className="imported-course-float w-16 h-16 left-[15%] top-[60%]" style={{ animationDuration: '10s' }} />
-          <TrendingUp className="imported-course-float w-12 h-12 left-[80%] top-[40%]" style={{ animationDuration: '12s', animationDelay: '-4s' }} />
-          <Briefcase className="imported-course-float w-10 h-10 left-[40%] top-[70%]" style={{ animationDuration: '14s', animationDelay: '-2s' }} />
-          <Sparkles className="imported-course-float w-8 h-8 left-[60%] top-[30%]" style={{ animationDuration: '9s', animationDelay: '-7s' }} />
+          <PlayCircle className="imported-course-float mn-anim-10 w-16 h-16 left-[15%] top-[60%]" />
+          <TrendingUp className="imported-course-float mn-anim-12-delay-4 w-12 h-12 left-[80%] top-[40%]" />
+          <Briefcase className="imported-course-float mn-anim-14-delay-2 w-10 h-10 left-[40%] top-[70%]" />
+          <Sparkles className="imported-course-float mn-anim-9-delay-7 w-8 h-8 left-[60%] top-[30%]" />
         </div>
 
         {onBack && (

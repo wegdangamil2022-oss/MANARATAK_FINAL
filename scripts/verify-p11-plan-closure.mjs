@@ -70,7 +70,7 @@ check('P11-PKG-002 guard verify script chains architecture/tests/cycles', pkg.in
 check('P11-PKG-003 plan verifier script exists', pkg.includes('"phase11:plan:verify": "node scripts/verify-p11-plan-closure.mjs"'));
 
 const matrixText = read(matrix);
-check('P11-MATRIX-001 matrix advanced to P11 v1.6.0 or later', /\*\*Status:\*\* ACTIVE — P(?:11|12|13)\b[^\n]*/.test(matrixText) && /\*\*Version:\*\* (?:1\.(?:[6-9]|[1-9]\d+)\.0|[2-9]\d*\.\d+\.\d+)/.test(matrixText));
+check('P11-MATRIX-001 matrix is current source-rebaseline authority', /\*\*Status:\*\* ACTIVE — SOURCE_REBASELINED \/ RUNTIME_EVIDENCE_PENDING/.test(matrixText) && /\*\*Version:\*\* 3\.0\.0-source-rebaselined/.test(matrixText));
 check('P11-MATRIX-002 P11 closure mapping recorded', matrixText.includes('**P11:** **CLOSED (source)**'));
 check('P11-MATRIX-003 no relationship regressed to Missing', !matrixText.split('\n').some((line) => /^\| R-\d{3} \|/u.test(line) && line.includes('| Missing |')));
 for (let index = 1; index <= 68; index += 1) {
@@ -92,7 +92,8 @@ function run(name, args) {
 const guardOutput = run('P11-RUN-001 architecture guard passes current source', [guard]);
 check('P11-RUN-001A architecture guard emits PASS marker', guardOutput.includes('SOURCE_ARCHITECTURE_GUARD=PASS'));
 const testOutput = run('P11-RUN-002 negative guard contracts pass', ['--test', '--test-reporter=tap', guardTests]);
-check('P11-RUN-002A seven negative guard tests pass', /# pass 7\b/u.test(testOutput) && /# fail 0\b/u.test(testOutput));
+const guardPassCount = Number(testOutput.match(/# pass (\d+)\b/u)?.[1] ?? 0);
+check('P11-RUN-002A negative guard suite fully passes', guardPassCount >= 9 && /# fail 0\b/u.test(testOutput));
 const qualityOutput = run('P11-RUN-003 cycle/source-quality gate passes', ['scripts/quality/verify-source-quality.mjs']);
 check('P11-RUN-003A zero package cycles', qualityOutput.includes('SOURCE_QUALITY_PACKAGE_CYCLES=0'));
 check('P11-RUN-003B zero file cycles', qualityOutput.includes('SOURCE_QUALITY_FILE_CYCLES=0'));

@@ -4,6 +4,7 @@ import { AccessDecision, DecisionResult } from '../value-objects/AccessDecision'
 import { IRoleRepository } from '../repositories/IRoleRepository';
 import { IPolicyRepository } from '../repositories/IPolicyRepository';
 import { IRoleAssignmentRepository } from '../repositories/IRoleAssignmentRepository';
+import { IEmergencyAccessRepository } from '../repositories/IEmergencyAccessRepository';
 import { IPolicyEvaluator, EvaluationContext } from './IPolicyEvaluator';
 import { PermissionReference } from '../value-objects/PermissionReference';
 
@@ -12,7 +13,8 @@ export class AuthorizationEvaluatorService {
     private readonly roleRepository: IRoleRepository,
     private readonly policyRepository: IPolicyRepository,
     private readonly roleAssignmentRepository: IRoleAssignmentRepository,
-    private readonly policyEvaluator: IPolicyEvaluator
+    private readonly policyEvaluator: IPolicyEvaluator,
+    private readonly emergencyAccessRepository?: IEmergencyAccessRepository
   ) {}
 
   public async evaluatePermission(
@@ -47,8 +49,10 @@ export class AuthorizationEvaluatorService {
     const assignments = await this.roleAssignmentRepository.findBy({
       isSatisfiedBy: (assignment) => assignment.identityId === identityId
     });
+    const emergencyRoleIds = await this.emergencyAccessRepository?.listActiveRoleIds(identityId) ?? [];
+    const roleIds = Array.from(new Set([...assignments.map(assignment => assignment.roleId), ...emergencyRoleIds]));
 
-    if (assignments.length === 0) {
+    if (roleIds.length === 0) {
       return AccessDecision.denied('No roles assigned to identity');
     }
 
@@ -61,8 +65,8 @@ export class AuthorizationEvaluatorService {
 
     let failedPolicyReasons: string[] = [];
 
-    for (const assignment of assignments) {
-      const role = await this.roleRepository.findById(assignment.roleId);
+    for (const roleId of roleIds) {
+      const role = await this.roleRepository.findById(roleId);
       if (!role) continue;
 
       // Check if role has the requested permission

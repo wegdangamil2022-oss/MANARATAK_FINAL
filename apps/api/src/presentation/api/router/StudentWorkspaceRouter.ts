@@ -1,23 +1,30 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { ISessionManager, ITokenProvider } from '@manaratak/core';
-import { FinancePlatformUseCases, FinanceStudentUseCases, StudentWorkspaceUseCases, StudentSavedItemHydrationService, StudentDashboardHydrationService, StudentServiceRequestUseCases } from '@manaratak/application';
-import { ServiceRequestStatus, StudentSavedItemType } from '@manaratak/domain';
+import { IPrincipalAccessValidator, ISessionManager, ITokenProvider } from '@manaratak/core';
+import { FinancePlatformUseCases, FinanceStudentUseCases, StudentWorkspaceUseCases, StudentApplicationTrackerUseCases, StudentSavedItemHydrationService, StudentDashboardHydrationService, StudentServiceRequestUseCases, ProcessAssetLifecycleUseCase } from '@manaratak/application';
+import { AssetId, AssetLifecycleState, IAssetRecordRepository, ServiceRequestStatus, StudentSavedItemType } from '@manaratak/domain';
 import { AuthMiddleware } from '../../middleware/AuthMiddleware';
+import { createCanonicalIdempotencyMiddleware } from '../../middleware/CanonicalIdempotencyMiddleware';
+import type { PrismaApiIdempotencyStore } from '@manaratak/infrastructure';
 
 export class StudentWorkspaceRouter {
   public static create(cradle: {
     studentWorkspaceUseCases: StudentWorkspaceUseCases;
+    studentApplicationTrackerUseCases: StudentApplicationTrackerUseCases;
     financeStudentUseCases: FinanceStudentUseCases;
     financePlatformUseCases: FinancePlatformUseCases;
     studentSavedItemHydrationService: StudentSavedItemHydrationService;
     studentDashboardHydrationService: StudentDashboardHydrationService;
     studentServiceRequestUseCases: StudentServiceRequestUseCases;
     tokenProvider: ITokenProvider;
-    sessionManager?: ISessionManager;
+    sessionManager: ISessionManager;
+    principalAccessValidator: IPrincipalAccessValidator;
+    apiIdempotencyStore: PrismaApiIdempotencyStore;
+    assetRecordRepository: IAssetRecordRepository & { queryAdmin(input: any): Promise<{ items: any[]; nextCursor: string | null; hasMore: boolean }> };
+    processAssetLifecycleUseCase: ProcessAssetLifecycleUseCase;
   }): Router {
     const router = Router();
-    const { studentWorkspaceUseCases, financeStudentUseCases, financePlatformUseCases, studentSavedItemHydrationService, studentDashboardHydrationService, studentServiceRequestUseCases, tokenProvider, sessionManager } = cradle;
+    const { studentWorkspaceUseCases, studentApplicationTrackerUseCases, financeStudentUseCases, financePlatformUseCases, studentSavedItemHydrationService, studentDashboardHydrationService, studentServiceRequestUseCases, tokenProvider, sessionManager, principalAccessValidator, apiIdempotencyStore, assetRecordRepository, processAssetLifecycleUseCase } = cradle;
 
     const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
@@ -75,6 +82,18 @@ export class StudentWorkspaceRouter {
       metadata: z.record(z.string(), z.unknown()).nullable().optional(),
     });
 
+    const applicationTrackerCreateSchema = z.object({
+      scholarshipId: z.string().trim().min(1), scholarshipSlug: z.string().trim().min(1).nullable().optional(),
+      stage: z.string().trim().min(1).max(80).optional(), notes: z.string().trim().max(2000).nullable().optional(),
+      deadlineAt: z.coerce.date().nullable().optional(), checklistLabels: z.array(z.string().trim().min(1).max(240)).max(25).optional(),
+    }).strict();
+    const applicationTrackerUpdateSchema = z.object({
+      expectedVersion: z.number().int().positive(), stage: z.string().trim().min(1).max(80).optional(),
+      notes: z.string().trim().max(2000).nullable().optional(), deadlineAt: z.coerce.date().nullable().optional(),
+    }).strict();
+    const applicationChecklistUpdateSchema = z.object({ expectedVersion: z.number().int().positive(), completed: z.boolean() }).strict();
+    const applicationArchiveSchema = z.object({ expectedVersion: z.number().int().positive() }).strict();
+
     const collectionSchema = z.object({
       name: z.string().trim().min(1).max(80),
       description: z.string().trim().max(240).nullable().optional(),
@@ -86,7 +105,8 @@ export class StudentWorkspaceRouter {
       icon: z.string().trim().max(40).nullable().optional(),
     }).strict();
 
-    router.use(new AuthMiddleware(tokenProvider, sessionManager).generate());
+    router.use(new AuthMiddleware(tokenProvider, sessionManager, principalAccessValidator).generate());
+    router.use(createCanonicalIdempotencyMiddleware({ store: apiIdempotencyStore, requireKey: true }));
     const ownStudent = (req: Request): string => {
       if (!req.authUserId) throw new Error('STUDENT_AUTHENTICATION_REQUIRED');
       return req.authUserId;
@@ -100,6 +120,10 @@ export class StudentWorkspaceRouter {
       }
       return studentReferenceId;
     };
+    const assetDeliveryGrantSchema = z.object({
+      expiresInSeconds: z.number().int().min(30).max(600).optional(),
+    }).strict();
+
     const paymentAttemptSchema = z.object({
       amount: z.object({
         amountMinorUnits: z.string().regex(/^\d+$/),
@@ -109,6 +133,39 @@ export class StudentWorkspaceRouter {
       paymentMethodToken: z.string().trim().min(1).max(512),
       gatewayProvider: z.string().trim().min(1).max(80),
     }).strict();
+
+    router.get(
+      '/assets',
+      asyncHandler(async (req: Request, res: Response) => {
+        const ownerId = ownStudent(req);
+        const limit = Math.min(100, Math.max(1, Number(req.query.limit ?? 50) || 50));
+        const result = await assetRecordRepository.queryAdmin({
+          lifecycleState: AssetLifecycleState.ACTIVE,
+          ownerType: 'STUDENT',
+          ownerId,
+          mimeTypePrefix: typeof req.query.mimeTypePrefix === 'string' ? req.query.mimeTypePrefix : 'image/',
+          limit,
+          cursor: typeof req.query.cursor === 'string' ? req.query.cursor : undefined,
+        });
+        res.json(result);
+      }),
+    );
+    router.post(
+      '/assets/:assetId/delivery-grant',
+      asyncHandler(async (req: Request, res: Response) => {
+        const ownerId = ownStudent(req);
+        const asset = await assetRecordRepository.findById(new AssetId(req.params.assetId));
+        if (!asset) return void res.status(404).json({ error: 'ASSET_NOT_FOUND' });
+        if (asset.owner.ownerType !== 'STUDENT' || asset.owner.ownerId !== ownerId) {
+          return void res.status(404).json({ error: 'ASSET_NOT_FOUND' });
+        }
+        const { expiresInSeconds } = assetDeliveryGrantSchema.parse(req.body ?? {});
+        res.json(await processAssetLifecycleUseCase.requestDeliveryGrant({
+          assetId: req.params.assetId,
+          expiresInSeconds: expiresInSeconds ?? 300,
+        }));
+      }),
+    );
 
     router.get(
       '/workspace',
@@ -276,6 +333,44 @@ export class StudentWorkspaceRouter {
         res.json({ data: await studentSavedItemHydrationService.listHydrated(ownStudent(req)) });
       }),
     );
+    router.post(
+      '/saved-items',
+      asyncHandler(async (req: Request, res: Response) => {
+        const body = savedItemSchema.parse(req.body);
+        const saved = await studentWorkspaceUseCases.saveItem({ studentReferenceId: ownStudent(req), ...body });
+        res.status(201).json(saved);
+      }),
+    );
+    router.delete(
+      '/saved-items/:entityType/:entityId',
+      asyncHandler(async (req: Request, res: Response) => {
+        const entityType = z.nativeEnum(StudentSavedItemType).parse(req.params.entityType);
+        await studentWorkspaceUseCases.removeSavedItem(ownStudent(req), entityType, req.params.entityId);
+        res.status(204).send();
+      }),
+    );
+    router.get('/application-trackers', asyncHandler(async (req: Request, res: Response) => {
+      res.json({ data: await studentApplicationTrackerUseCases.list(ownStudent(req)) });
+    }));
+    router.post('/application-trackers', asyncHandler(async (req: Request, res: Response) => {
+      const body = applicationTrackerCreateSchema.parse(req.body);
+      res.status(201).json(await studentApplicationTrackerUseCases.create({ studentReferenceId: ownStudent(req), ...body }));
+    }));
+    router.patch('/application-trackers/:trackerId', asyncHandler(async (req: Request, res: Response) => {
+      res.json(await studentApplicationTrackerUseCases.update(ownStudent(req), req.params.trackerId, applicationTrackerUpdateSchema.parse(req.body)));
+    }));
+    router.patch('/application-trackers/:trackerId/checklist/:itemId', asyncHandler(async (req: Request, res: Response) => {
+      const body = applicationChecklistUpdateSchema.parse(req.body);
+      res.json(await studentApplicationTrackerUseCases.setChecklistItem(ownStudent(req), req.params.trackerId, req.params.itemId, body.completed, body.expectedVersion));
+    }));
+    router.post('/application-trackers/:trackerId/archive', asyncHandler(async (req: Request, res: Response) => {
+      const body = applicationArchiveSchema.parse(req.body);
+      res.json(await studentApplicationTrackerUseCases.archive(ownStudent(req), req.params.trackerId, body.expectedVersion));
+    }));
+    router.delete('/application-trackers/:trackerId', asyncHandler(async (req: Request, res: Response) => {
+      await studentApplicationTrackerUseCases.remove(ownStudent(req), req.params.trackerId); res.status(204).send();
+    }));
+
     router.get(
       '/services/requests',
       asyncHandler(async (req: Request, res: Response) => {

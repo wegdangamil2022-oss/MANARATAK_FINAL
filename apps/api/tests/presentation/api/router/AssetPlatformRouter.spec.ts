@@ -15,6 +15,7 @@ describe('AssetPlatformRouter', () => {
     markMalwareScanFailed: vi.fn(),
     sanitizeAsset: vi.fn(),
     activateAsset: vi.fn(),
+    requestDeliveryGrant: vi.fn(),
     archiveAsset: vi.fn(),
     softDeleteAsset: vi.fn(),
     restoreAsset: vi.fn(),
@@ -189,14 +190,10 @@ describe('AssetPlatformRouter', () => {
 
     const res = await request(app)
       .post('/assets/ast_01/sanitize')
-      .send({ exifStripped: true, sanitizerNotes: 'Stripped EXIF metadata' });
+      .send({});
 
     expect(res.status).toBe(200);
-    expect(processUseCase.sanitizeAsset).toHaveBeenCalledWith({
-      assetId: 'ast_01',
-      exifStripped: true,
-      sanitizerNotes: 'Stripped EXIF metadata'
-    });
+    expect(processUseCase.sanitizeAsset).toHaveBeenCalledWith({ assetId: 'ast_01' });
   });
 
   it('POST /assets/:assetId/activate activates asset', async () => {
@@ -206,21 +203,35 @@ describe('AssetPlatformRouter', () => {
 
     const res = await request(app)
       .post('/assets/ast_01/activate')
-      .send({
-        cleanBucketName: 'clean-bucket',
-        cleanPathKey: 'clean/ast_01.pdf',
-        checksumAlgorithm: 'SHA256',
-        checksumHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
-      });
+      .send({});
 
     expect(res.status).toBe(200);
-    expect(processUseCase.activateAsset).toHaveBeenCalledWith({
+    expect(processUseCase.activateAsset).toHaveBeenCalledWith({ assetId: 'ast_01' });
+  });
+
+  it('rejects client-controlled sanitizer metadata and clean storage locators', async () => {
+    const processUseCase = createMockProcessLifecycleUseCase();
+    const app = createApp(undefined, processUseCase);
+    const sanitize = await request(app).post('/assets/ast_01/sanitize').send({ exifStripped: true });
+    const activate = await request(app).post('/assets/ast_01/activate').send({ cleanBucketName: 'attacker-bucket' });
+    expect(sanitize.status).toBe(400);
+    expect(activate.status).toBe(400);
+    expect(processUseCase.sanitizeAsset).not.toHaveBeenCalled();
+    expect(processUseCase.activateAsset).not.toHaveBeenCalled();
+  });
+
+  it('POST /assets/:assetId/delivery-grant requests temporary secure delivery', async () => {
+    const processUseCase = createMockProcessLifecycleUseCase();
+    processUseCase.requestDeliveryGrant.mockResolvedValue({
       assetId: 'ast_01',
-      cleanBucketName: 'clean-bucket',
-      cleanPathKey: 'clean/ast_01.pdf',
-      checksumAlgorithm: 'SHA256',
-      checksumHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+      url: 'https://cdn.example.test/object?sig=x',
+      headers: {},
+      expiresAt: '2099-01-01T00:00:00.000Z',
     });
+    const app = createApp(undefined, processUseCase);
+    const res = await request(app).post('/assets/ast_01/delivery-grant').send({ expiresInSeconds: 300 });
+    expect(res.status).toBe(200);
+    expect(processUseCase.requestDeliveryGrant).toHaveBeenCalledWith({ assetId: 'ast_01', expiresInSeconds: 300 });
   });
 
   it('POST /assets/:assetId/archive archives asset', async () => {
@@ -280,6 +291,13 @@ describe('AssetPlatformRouter', () => {
   });
 
   describe('Route Security Guards', () => {
+    const activeSessionManager = {
+      isSessionActive: vi.fn().mockResolvedValue(true),
+      revokeAllSessions: vi.fn().mockResolvedValue(undefined),
+    } as any;
+    const activePrincipalAccessValidator = {
+      isAuthenticationAllowed: vi.fn().mockResolvedValue(true),
+    } as any;
     const mutations = [
       ['post', '/admin/assets/upload-locator'],
       ['post', '/admin/assets/register-quarantined'],
@@ -287,6 +305,7 @@ describe('AssetPlatformRouter', () => {
       ['post', '/admin/assets/ast_01/malware-failed'],
       ['post', '/admin/assets/ast_01/sanitize'],
       ['post', '/admin/assets/ast_01/activate'],
+      ['post', '/admin/assets/ast_01/delivery-grant'],
       ['post', '/admin/assets/ast_01/archive'],
       ['delete', '/admin/assets/ast_01'],
       ['post', '/admin/assets/ast_01/restore'],
@@ -313,7 +332,9 @@ describe('AssetPlatformRouter', () => {
       app.use(express.json());
       app.use('/admin/assets', SecurityMiddlewareFactory.createAdminGuard({
         mode: 'strict',
-        tokenProvider: { verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'owner-01' }) } as any,
+        tokenProvider: { verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'owner-01', sessionId: 'session-01' }) } as any,
+        sessionManager: activeSessionManager,
+        principalAccessValidator: activePrincipalAccessValidator,
       }));
       app.use('/admin/assets', SecurityMiddlewareFactory.createAdminPermissionGuard('admin:assets:manage', {
         evaluatePermission: vi.fn().mockResolvedValue({ isGranted: false }),
@@ -355,8 +376,10 @@ describe('AssetPlatformRouter', () => {
       app.use('/admin/assets', SecurityMiddlewareFactory.createAdminGuard({
         mode: 'strict',
         tokenProvider: {
-          verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'owner-01' }),
+          verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'owner-01', sessionId: 'session-01' }),
         } as any,
+        sessionManager: activeSessionManager,
+        principalAccessValidator: activePrincipalAccessValidator,
       }));
       app.use('/admin/assets', SecurityMiddlewareFactory.createAdminPermissionGuard('admin:assets:manage', mockEvaluator));
       app.use('/admin/assets', AssetPlatformRouter.create({

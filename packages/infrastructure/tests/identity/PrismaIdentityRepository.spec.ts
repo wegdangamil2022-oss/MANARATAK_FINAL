@@ -16,8 +16,10 @@ describe('PrismaIdentityRepository', () => {
         delete: vi.fn(),
         findMany: vi.fn(),
         count: vi.fn()
-      }
+      },
+      transactionalOutboxRecord: { upsert: vi.fn() },
     };
+    mockPrisma.$transaction = vi.fn(async (mutation: (tx: any) => Promise<unknown>) => mutation(mockPrisma));
     repository = new PrismaIdentityRepository(mockPrisma);
   });
 
@@ -45,6 +47,7 @@ describe('PrismaIdentityRepository', () => {
 
     await repository.save(identity);
     expect(mockPrisma.identityRecord.create).toHaveBeenCalled();
+    expect(mockPrisma.transactionalOutboxRecord.upsert).toHaveBeenCalled();
 
     // Mock for findById
     mockPrisma.identityRecord.findUnique.mockResolvedValueOnce({

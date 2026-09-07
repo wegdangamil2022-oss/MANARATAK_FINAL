@@ -1,8 +1,11 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import type { PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import {
   AtomicPersistenceContext,
   ITransactionalOutboxStore,
   OutboxClaimRequest,
+  OutboxLeaseOwnership,
   OutboxProcessingState,
   SanitizedOutboxFailure,
   TransactionalOutboxEntry,
@@ -16,10 +19,7 @@ type OutboxDelegate = {
 };
 
 type OutboxPrismaClient = Prisma.TransactionClient & { transactionalOutboxRecord: OutboxDelegate };
-
-export interface PrismaAtomicPersistenceContext extends AtomicPersistenceContext {
-  readonly transactionClient: Prisma.TransactionClient;
-}
+export interface PrismaAtomicPersistenceContext extends AtomicPersistenceContext { readonly transactionClient: Prisma.TransactionClient; }
 
 export class PrismaTransactionalOutboxStore implements ITransactionalOutboxStore {
   public constructor(private readonly prisma: PrismaClient) {}
@@ -32,53 +32,83 @@ export class PrismaTransactionalOutboxStore implements ITransactionalOutboxStore
   public async claimPendingBatch(request: OutboxClaimRequest): Promise<TransactionalOutboxEntry[]> {
     return this.prisma.$transaction(async transaction => {
       const client = transaction as OutboxPrismaClient;
-      const candidates = await client.transactionalOutboxRecord.findMany({
-        where: {
-          state: { in: [OutboxProcessingState.PENDING, OutboxProcessingState.FAILED] },
-          availableAt: { lte: request.now },
-          OR: [{ claimUntil: null }, { claimUntil: { lt: request.now } }],
-          ...(request.domain ? { domain: request.domain } : {}),
-          ...(request.eventTypes?.length ? { eventType: { in: [...request.eventTypes] } } : {}),
-        },
-        orderBy: [{ availableAt: 'asc' }, { createdAt: 'asc' }],
-        take: request.batchSize,
-        select: { id: true },
-      });
-      if (candidates.length === 0) return [];
-      const ids = candidates.map(record => record.id);
-      await client.transactionalOutboxRecord.updateMany({
-        where: { id: { in: ids }, OR: [{ claimUntil: null }, { claimUntil: { lt: request.now } }] },
-        data: { state: OutboxProcessingState.PROCESSING, claimedBy: request.workerId, claimUntil: request.claimUntil },
-      });
-      const claimed = await client.transactionalOutboxRecord.findMany({
-        where: { id: { in: ids }, state: OutboxProcessingState.PROCESSING, claimedBy: request.workerId },
-        orderBy: [{ availableAt: 'asc' }, { createdAt: 'asc' }],
-      });
-      return claimed.map(record => this.toDomain(record));
+      const domainFilter = request.domain ? Prisma.sql`AND "domain" = ${request.domain}` : Prisma.empty;
+      const eventFilter = request.eventTypes?.length ? Prisma.sql`AND "eventType" IN (${Prisma.join([...request.eventTypes])})` : Prisma.empty;
+      const candidates = await (transaction as any).$queryRaw(Prisma.sql`
+        SELECT "id"
+        FROM "TransactionalOutboxRecord"
+        WHERE "state" IN ('PENDING', 'FAILED', 'PROCESSING')
+          AND "availableAt" <= ${request.now}
+          AND ("claimUntil" IS NULL OR "claimUntil" < ${request.now})
+          ${domainFilter}
+          ${eventFilter}
+        ORDER BY "availableAt" ASC, "createdAt" ASC
+        LIMIT ${request.batchSize}
+        FOR UPDATE SKIP LOCKED
+      `) as Array<{ id: string }>;
+      const claimed: TransactionalOutboxEntry[] = [];
+      for (const candidate of candidates) {
+        const claimToken = randomUUID();
+        const updated = await client.transactionalOutboxRecord.updateMany({
+          where: {
+            id: candidate.id,
+            state: { in: [OutboxProcessingState.PENDING, OutboxProcessingState.FAILED, OutboxProcessingState.PROCESSING] },
+            OR: [{ claimUntil: null }, { claimUntil: { lt: request.now } }],
+          },
+          data: { state: OutboxProcessingState.PROCESSING, claimedBy: request.workerId, claimToken, claimUntil: request.claimUntil },
+        });
+        if (updated.count !== 1) continue;
+        const rows = await client.transactionalOutboxRecord.findMany({ where: { id: candidate.id }, take: 1 });
+        if (rows[0]) claimed.push(this.toDomain(rows[0]));
+      }
+      return claimed;
     });
   }
 
-  public async markProcessed(id: string, processedAt: Date): Promise<void> {
-    await this.delegate().update({
-      where: { id },
-      data: { state: OutboxProcessingState.PROCESSED, processedAt, claimedBy: null, claimUntil: null },
+  public async renewLease(id: string, ownership: OutboxLeaseOwnership, now: Date, newClaimUntil: Date): Promise<boolean> {
+    const result = await this.delegate().updateMany({
+      where: {
+        id, state: OutboxProcessingState.PROCESSING,
+        claimedBy: ownership.workerId, claimToken: ownership.leaseToken,
+        claimUntil: { gt: now },
+      },
+      data: { claimUntil: newClaimUntil },
     });
+    return result.count === 1;
   }
 
-  public async markFailed(id: string, failure: SanitizedOutboxFailure, nextAvailableAt: Date): Promise<void> {
-    await this.delegate().update({
-      where: { id },
+  public async markProcessed(id: string, ownership: OutboxLeaseOwnership, processedAt: Date): Promise<boolean> {
+    const result = await this.delegate().updateMany({
+      where: {
+        id, state: OutboxProcessingState.PROCESSING,
+        claimedBy: ownership.workerId, claimToken: ownership.leaseToken,
+        claimUntil: { gt: processedAt },
+      },
+      data: { state: OutboxProcessingState.PROCESSED, processedAt, claimedBy: null, claimToken: null, claimUntil: null },
+    });
+    return result.count === 1;
+  }
+
+  public async markFailed(id: string, ownership: OutboxLeaseOwnership, failure: SanitizedOutboxFailure, nextAvailableAt: Date): Promise<boolean> {
+    const result = await this.delegate().updateMany({
+      where: {
+        id, state: OutboxProcessingState.PROCESSING,
+        claimedBy: ownership.workerId, claimToken: ownership.leaseToken,
+        claimUntil: { gt: failure.failedAt },
+      },
       data: {
         state: OutboxProcessingState.FAILED,
         attempts: { increment: 1 },
         availableAt: nextAvailableAt,
         claimedBy: null,
+        claimToken: null,
         claimUntil: null,
         lastErrorCode: failure.code,
         lastErrorText: failure.message,
         lastFailedAt: failure.failedAt,
       },
     });
+    return result.count === 1;
   }
 
   private delegate(client: PrismaClient | Prisma.TransactionClient = this.prisma): OutboxDelegate {
@@ -96,38 +126,23 @@ export class PrismaTransactionalOutboxStore implements ITransactionalOutboxStore
 
   private toCreateData(entry: TransactionalOutboxEntry): Record<string, unknown> {
     return {
-      id: entry.id,
-      eventType: entry.eventType,
-      domain: entry.domain,
-      aggregateType: entry.aggregate?.aggregateType,
-      aggregateId: entry.aggregate?.aggregateId,
-      payload: entry.payload,
-      metadata: entry.metadata,
-      correlationId: entry.correlationId,
-      causationId: entry.causationId,
-      createdAt: entry.createdAt,
-      availableAt: entry.availableAt,
-      state: entry.state,
-      attempts: entry.attempts,
+      id: entry.id, eventType: entry.eventType, domain: entry.domain,
+      aggregateType: entry.aggregate?.aggregateType, aggregateId: entry.aggregate?.aggregateId,
+      payload: entry.payload, metadata: entry.metadata, correlationId: entry.correlationId, causationId: entry.causationId,
+      createdAt: entry.createdAt, availableAt: entry.availableAt, state: entry.state, attempts: entry.attempts,
     };
   }
 
   private toDomain(record: any): TransactionalOutboxEntry {
     return {
-      id: record.id,
-      eventType: record.eventType,
-      domain: record.domain,
+      id: record.id, eventType: record.eventType, domain: record.domain,
       aggregate: record.aggregateType && record.aggregateId ? { domain: record.domain, aggregateType: record.aggregateType, aggregateId: record.aggregateId } : undefined,
-      payload: record.payload as Record<string, unknown>,
-      metadata: record.metadata as Record<string, unknown>,
-      correlationId: record.correlationId ?? undefined,
-      causationId: record.causationId ?? undefined,
-      createdAt: record.createdAt,
-      availableAt: record.availableAt,
-      state: record.state as OutboxProcessingState,
-      attempts: record.attempts,
+      payload: record.payload as Record<string, unknown>, metadata: record.metadata as Record<string, unknown>,
+      correlationId: record.correlationId ?? undefined, causationId: record.causationId ?? undefined,
+      createdAt: record.createdAt, availableAt: record.availableAt, state: record.state as OutboxProcessingState, attempts: record.attempts,
       processedAt: record.processedAt ?? undefined,
       lastError: record.lastErrorCode && record.lastFailedAt ? { code: record.lastErrorCode, message: record.lastErrorText ?? '', failedAt: record.lastFailedAt } : undefined,
+      ...(record.claimedBy && record.claimToken && record.claimUntil ? { lease: { workerId: record.claimedBy, leaseToken: record.claimToken, claimUntil: record.claimUntil } } : {}),
     };
   }
 }

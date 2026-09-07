@@ -23,6 +23,7 @@ const EXPECTED_OPERATIONAL_PROBES = [
   'payment-gateway',
   'notifications',
   'background-jobs',
+  'student-tools-quota',
   'database-schema',
   'public-web',
 ] as const;

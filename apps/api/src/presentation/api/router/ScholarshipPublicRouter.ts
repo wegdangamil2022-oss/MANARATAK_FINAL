@@ -25,8 +25,8 @@ export class ScholarshipPublicRouter {
       sponsorName: z.string().min(1).optional(),
       applicationDeadlineFrom: date.optional(),
       applicationDeadlineTo: date.optional(),
-      page: z.coerce.number().int().min(1).default(1),
-      pageSize: z.coerce.number().int().min(1).transform((value) => Math.min(value, 50)).default(20),
+      cursor: z.string().trim().min(1).max(2048).optional(),
+      limit: z.coerce.number().int().min(1).max(100).default(20),
     }).strict().refine((value) => !value.applicationDeadlineFrom || !value.applicationDeadlineTo || value.applicationDeadlineFrom <= value.applicationDeadlineTo, {
       message: 'applicationDeadlineFrom must be <= applicationDeadlineTo',
     });

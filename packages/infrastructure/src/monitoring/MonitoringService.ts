@@ -4,7 +4,8 @@ import {
   IHealthIndicator,
   HealthStatus,
   HealthCheckResult,
-  IMetrics
+  IMetrics,
+  IMonitoringSpan
 } from '@manaratak/core';
 
 export class MonitoringService implements IMonitoringService {
@@ -30,6 +31,23 @@ export class MonitoringService implements IMonitoringService {
       capabilityStatus: 'NOT_CONFIGURED',
       scope: 'PROCESS_LOCAL'
     } as any;
+  }
+
+  startSpan(name: string, attributes: Record<string, string | number | boolean> = {}): IMonitoringSpan {
+    return this.provider?.startSpan?.(name, attributes) ?? {
+      traceId: 'monitoring-not-configured',
+      setAttribute: () => {},
+      recordException: () => {},
+      end: () => {},
+    };
+  }
+
+  async forceFlush(): Promise<void> {
+    await this.provider?.forceFlush?.();
+  }
+
+  async shutdown(): Promise<void> {
+    await this.provider?.shutdown?.();
   }
 
   async getLiveness(): Promise<HealthCheckResult> {
@@ -65,7 +83,7 @@ export class MonitoringService implements IMonitoringService {
     for (const [name, indicator] of this.indicators.entries()) {
       try {
         const result = await indicator.checkHealth();
-        const isOptional = indicator.isOptional || name === 'redis' || name === 'cache';
+        const isOptional = indicator.isOptional === true;
 
         if (result.status === HealthStatus.DOWN) {
           if (!isOptional) {
@@ -82,7 +100,7 @@ export class MonitoringService implements IMonitoringService {
           details[name] = isOptional ? { ...result, optional: true } : result;
         }
       } catch (err: any) {
-        const isOptional = indicator.isOptional || name === 'redis' || name === 'cache';
+        const isOptional = indicator.isOptional === true;
         const errResult = {
           status: isOptional ? HealthStatus.DEGRADED : HealthStatus.DOWN,
           timestamp: new Date().toISOString(),

@@ -6,7 +6,7 @@
 
 Country, Region, City, Language, and Currency are shared canonical reference identities. Internal IDs are the stable relationship keys. ISO and other standard codes are canonical external keys or aliases used through `IReferenceResolver`; names are display values and must not be used as semantic keys.
 
-Higher domains consume `IReferenceResolver` and must not query Phase 07 persistence tables directly. Country/Region/City hierarchy validation is enforced at the application boundary where the current source model permits it. Database foreign keys, existing-row validation, and backfills remain pending the Google Studio database recovery gate.
+Higher domains consume `IReferenceResolver` and must not query Phase 07 persistence tables directly. Country/Region/City hierarchy validation is enforced at the application boundary where the current source model permits it. Database foreign keys, existing-row validation, and backfills remain runtime-pending and may be executed only through the Greenfield Database Provisioning and Mutation Safety gate.
 
 Implementation truth: country, currency, language, city persistence and active/inactive status are `IMPLEMENTED`; administrative-region lookup and source-level city/country compatibility checks are `IMPLEMENTED`; alias and historic-name storage, superseded/merged lifecycle, and full database constraints are `DEFERRED`. Country Study Destination editorial and operational semantics are outside Reference Data ownership.
 
@@ -228,7 +228,7 @@ _(Architectural Commentary: Final summary confirming adherence to Phase 7 archit
 
 ### Status
 
-- **Current Status:** Baselined / Production Ready
+- **Current Status:** BASELINED / SOURCE_COMPLETE — RUNTIME_EVIDENCE_PENDING
 
 ---
 

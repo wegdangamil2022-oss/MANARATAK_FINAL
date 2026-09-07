@@ -139,7 +139,7 @@ interface TestReport {
 }
 
 async function main() {
-  requireDatabaseMutationGate('import-unified-tests-v2');
+  requireDatabaseMutationGate('import-unified-tests-v2', { allowedPurposes: ['import'] });
   const args = process.argv.slice(2);
   const isDryRun = args.includes('--dry-run') || !args.includes('--execute');
 

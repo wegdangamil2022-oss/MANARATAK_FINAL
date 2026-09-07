@@ -24,8 +24,8 @@ export class CoursePublicRouter {
       learningLanguageReferenceId: z.string().trim().min(1).optional(),
       providerHeadquartersCountryReferenceId: z.string().trim().min(1).optional(),
       internationalTestId: z.string().trim().min(1).optional(),
-      page: z.coerce.number().int().min(1).default(1),
-      pageSize: z.coerce.number().int().min(1).transform((value) => Math.min(value, 50)).default(20),
+      cursor: z.string().trim().min(1).max(2048).optional(),
+      limit: z.coerce.number().int().min(1).max(100).default(20),
     });
 
     router.get('/', asyncHandler(async (req: Request, res: Response) => {

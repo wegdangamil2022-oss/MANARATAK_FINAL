@@ -50,7 +50,7 @@ interface UniversityDetail {
 }
 
 const blankProgram = (): ProgramRow => ({
-  sourceReferenceId: `admin-program-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  sourceReferenceId: `admin-program-${crypto.randomUUID()}`,
   sourceProgramName: '',
   degreeLevelId: null,
   majorId: null,

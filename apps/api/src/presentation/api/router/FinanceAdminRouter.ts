@@ -30,7 +30,7 @@ export class FinanceAdminRouter {
     const router = Router();
     const { financeAdminUseCases } = cradle;
     const { financePlatformUseCases, authEvaluatorService } = cradle;
-    const identity = (req: Request): FinanceCommandIdentity => {
+    const identity = (req: Request, reason?: string): FinanceCommandIdentity => {
       if (!req.authUserId) throw new Error('Authenticated finance actor is required');
       const idempotencyKey = String(req.headers['idempotency-key'] || '').trim();
       if (!idempotencyKey) throw new Error('IDEMPOTENCY_KEY_REQUIRED');
@@ -39,7 +39,7 @@ export class FinanceAdminRouter {
         actorId: req.authUserId,
         correlationId: String(req.headers['x-correlation-id'] || '').trim() || undefined,
         idempotencyKey,
-        reason: typeof req.body?.reason === 'string' ? req.body.reason : undefined,
+        reason,
       };
     };
 
@@ -134,7 +134,7 @@ export class FinanceAdminRouter {
               req.params.id,
               body.amount,
               body.reason,
-              identity(req),
+              identity(req, body.reason),
             ),
           );
       }),
@@ -357,6 +357,21 @@ export class FinanceAdminRouter {
       ),
     );
     router.post(
+      '/exchange-rates/refresh',
+      asyncHandler(async (req: Request, res: Response) => {
+        await requireFinancePermission(req, 'admin:finance:fx:refresh');
+        const body = z.object({
+          sourceCurrencyCode: z.string().regex(/^[A-Z]{3}$/),
+          targetCurrencyCode: z.string().regex(/^[A-Z]{3}$/),
+        }).strict().parse(req.body);
+        res.status(201).json(await financePlatformUseCases.refreshAutomaticExchangeRate(
+          body.sourceCurrencyCode,
+          body.targetCurrencyCode,
+          identity(req),
+        ));
+      }),
+    );
+    router.post(
       '/exchange-rates',
       asyncHandler(async (req: Request, res: Response) => {
         const body = z
@@ -430,7 +445,7 @@ export class FinanceAdminRouter {
         const body = z
           .object({ decision: z.enum(['APPROVE', 'REJECT']), reason: z.string().optional() })
           .parse(req.body);
-        const commandIdentity = identity(req);
+        const commandIdentity = identity(req, body.reason);
         res.json(
           await financePlatformUseCases.decideApproval(
             req.params.id,
@@ -455,7 +470,7 @@ export class FinanceAdminRouter {
         const body = z
           .object({ paymentId: z.string().min(1), amount: moneySchema, reason: z.string().min(3) })
           .parse(req.body);
-        res.status(201).json(await financePlatformUseCases.createRefund(body, identity(req)));
+        res.status(201).json(await financePlatformUseCases.createRefund(body, identity(req, body.reason)));
       }),
     );
     router.post(

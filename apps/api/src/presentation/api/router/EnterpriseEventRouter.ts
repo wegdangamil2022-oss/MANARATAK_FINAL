@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { ManageEnterpriseEventsUseCase } from '@manaratak/application';
+import { enterpriseEventPublishSchema, enterpriseEventRegisterSchema, parseStrict, referenceParamSchema } from '../../validation/StrictControlPlaneSchemas';
 
 export class EnterpriseEventRouter {
   public readonly router: Router;
@@ -23,7 +24,7 @@ export class EnterpriseEventRouter {
 
   private async register(req: Request, res: Response): Promise<void> {
     try {
-      const result = await this.manageEnterpriseEventsUseCase.register(req.body);
+      const result = await this.manageEnterpriseEventsUseCase.register(parseStrict(enterpriseEventRegisterSchema, req.body));
       res.status(201).json(result);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -32,7 +33,7 @@ export class EnterpriseEventRouter {
 
   private async publish(req: Request, res: Response): Promise<void> {
     try {
-      await this.manageEnterpriseEventsUseCase.publish(req.body);
+      await this.manageEnterpriseEventsUseCase.publish(parseStrict(enterpriseEventPublishSchema, req.body));
       res.status(200).json({ message: 'Event successfully handed off for publication' });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -41,7 +42,7 @@ export class EnterpriseEventRouter {
 
   private async archive(req: Request, res: Response): Promise<void> {
     try {
-      const { reference } = req.params;
+      const { reference } = parseStrict(referenceParamSchema, req.params);
       await this.manageEnterpriseEventsUseCase.archive(reference);
       res.status(200).json({ message: 'Event archived successfully' });
     } catch (error: any) {
@@ -51,7 +52,7 @@ export class EnterpriseEventRouter {
 
   private async getByReference(req: Request, res: Response): Promise<void> {
     try {
-      const { reference } = req.params;
+      const { reference } = parseStrict(referenceParamSchema, req.params);
       const result = await this.manageEnterpriseEventsUseCase.getByReference(reference);
       if (!result) {
         res.status(404).json({ error: 'Event not found' });

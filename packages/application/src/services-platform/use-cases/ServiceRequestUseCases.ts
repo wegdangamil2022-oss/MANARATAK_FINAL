@@ -62,8 +62,10 @@ export class AdminServiceFulfillmentUseCases {
     return request;
   }
 
-  async transitionRequest(id: string, status: ServiceRequestStatus, fulfillmentMetadata?: Record<string, unknown> | null) {
+  async transitionRequest(id: string, status: ServiceRequestStatus, expectedVersion: number, fulfillmentMetadata?: Record<string, unknown> | null) {
+    this.assertExpectedVersion(expectedVersion);
     const request = await this.requireRequest(id);
+    if (request.version !== expectedVersion) throw new Error('SERVICE_REQUEST_VERSION_CONFLICT');
     this.assertTransition(request.status, status);
 
     const resumesFulfillment = [ServiceRequestStatus.IN_PROGRESS, ServiceRequestStatus.COMPLETED].includes(status);
@@ -75,16 +77,18 @@ export class AdminServiceFulfillmentUseCases {
         throw new Error(`SERVICE_FINANCIAL_CLEARANCE_REQUIRED:${clearance.invoiceStatus}`);
     }
 
-    return this.requests.updateRequestStatus(id, status, fulfillmentMetadata);
+    return this.requests.updateRequestStatus(id, status, expectedVersion, fulfillmentMetadata);
   }
 
-  async assignProvider(id: string, providerReferenceId: string) {
+  async assignProvider(id: string, providerReferenceId: string, expectedVersion: number) {
+    this.assertExpectedVersion(expectedVersion);
     const request = await this.requireRequest(id);
+    if (request.version !== expectedVersion) throw new Error('SERVICE_REQUEST_VERSION_CONFLICT');
     if ([ServiceRequestStatus.CANCELLED, ServiceRequestStatus.COMPLETED].includes(request.status))
       throw new Error('SERVICE_REQUEST_PROVIDER_ASSIGNMENT_CLOSED');
     const provider = providerReferenceId.trim();
     if (!provider) throw new Error('SERVICE_PROVIDER_REFERENCE_REQUIRED');
-    return this.requests.assignProvider(id, provider);
+    return this.requests.assignProvider(id, provider, expectedVersion);
   }
 
   async createFinanceInvoice(input: {
@@ -95,8 +99,11 @@ export class AdminServiceFulfillmentUseCases {
     currencyCode: string;
     scale: number;
     actorId: string;
+    expectedVersion: number;
   }) {
+    this.assertExpectedVersion(input.expectedVersion);
     const request = await this.requireRequest(input.requestId);
+    if (request.version !== input.expectedVersion) throw new Error('SERVICE_REQUEST_VERSION_CONFLICT');
     if (request.financeInvoiceId) throw new Error('SERVICE_REQUEST_INVOICE_ALREADY_LINKED');
     if ([ServiceRequestStatus.CANCELLED, ServiceRequestStatus.COMPLETED].includes(request.status))
       throw new Error('SERVICE_REQUEST_NOT_INVOICEABLE');
@@ -113,7 +120,11 @@ export class AdminServiceFulfillmentUseCases {
       scale: input.scale,
       actorId: input.actorId,
     });
-    return this.requests.linkFinanceInvoice(request.id, invoice.id, invoice.publicId);
+    return this.requests.linkFinanceInvoice(request.id, invoice.id, invoice.publicId, input.expectedVersion);
+  }
+
+  private assertExpectedVersion(expectedVersion: number): void {
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) throw new Error('SERVICE_REQUEST_EXPECTED_VERSION_REQUIRED');
   }
 
   private async requireRequest(id: string) {

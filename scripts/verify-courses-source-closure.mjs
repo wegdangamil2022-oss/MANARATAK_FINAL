@@ -48,7 +48,7 @@ check('Native readiness covers language and relationships', nativeUseCases.inclu
 check('Learner workspace is authenticated', learnerRouter.includes("router.get('/:courseId/workspace'") && learnerRouter.includes('AuthMiddleware'));
 check('Learner access requires enrollment', progressUseCases.includes('requireLearningAccessEnrollment') && progressUseCases.includes('COURSE_ENROLLMENT_REQUIRED'));
 check('Relationship semantics stay Course-owned', relationshipService.includes('proposeInternationalTestRelationship') && relationshipService.includes('approveLanguageReference'));
-check('Public template reads published courses from canonical API', publicDataSource.includes('ApiClient.getCourses') && publicDataSource.includes('result.data.map(mapCourse)'));
+check('Public template reads published courses from canonical API', publicDataSource.includes('collectCursorPages((cursor) => ApiClient.getCourses({ cursor, limit: 100 }))') && publicDataSource.includes('const mapped = rows.map(mapCourse)'));
 
 const failed = checks.filter((item) => !item.passed);
 for (const item of checks) console.log(`${item.passed ? 'PASS' : 'FAIL'} ${item.name}`);

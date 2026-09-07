@@ -742,9 +742,9 @@ function MetricCard({
 }) {
   return (
     <Link to={href} className="group relative min-h-[132px] overflow-hidden rounded-2xl border border-[#DDEFF2] bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: accent }} />
+      <div className={`absolute inset-x-0 top-0 h-1 ${accentClass(accent).bar}`} />
       <div className="flex items-center justify-between gap-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${accent}14`, color: accent }}>
+        <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${accentClass(accent).icon}`}>
           <Icon className="h-4 w-4" />
         </div>
         {unavailable && <span className="rounded-full bg-[#FAF7F0] px-2 py-1 text-[9px] font-black text-[#203442]/55">{unavailableLabel}</span>}
@@ -956,4 +956,12 @@ function DashboardSkeleton() {
       </div>
     </div>
   );
+}
+
+function accentClass(accent: string) {
+  if (accent === '#0E7C86') return { bar: 'bg-[#0E7C86]', icon: 'bg-[#0E7C86]/10 text-[#0E7C86]' };
+  if (accent === '#D6A43B') return { bar: 'bg-[#D6A43B]', icon: 'bg-[#D6A43B]/10 text-[#D6A43B]' };
+  if (accent === '#21A7B4') return { bar: 'bg-[#21A7B4]', icon: 'bg-[#21A7B4]/10 text-[#21A7B4]' };
+  if (accent === '#B94A48') return { bar: 'bg-[#B94A48]', icon: 'bg-[#B94A48]/10 text-[#B94A48]' };
+  return { bar: 'bg-[#142B5F]', icon: 'bg-[#142B5F]/10 text-[#142B5F]' };
 }

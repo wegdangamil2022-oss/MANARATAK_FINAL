@@ -4,6 +4,7 @@ import { CrossDomainGraphReadService, InternationalTestAdminUseCases } from '@ma
 import {
   InternationalTestCategory,
   InternationalTestCompletenessStatus,
+  InternationalTestDeliveryMode,
   InternationalTestStatus,
   InternationalTestSourceTrustLevel,
   UpsertInternationalTestDto,
@@ -33,7 +34,7 @@ export class InternationalTestAdminRouter {
       countryIso2Code: z.string().length(2).transform(value => value.toUpperCase()).optional(),
       page: z.string().optional().transform((value) => value ? parseInt(value, 10) : 1),
       pageSize: z.string().optional().transform((value) => value ? Math.min(Math.max(parseInt(value, 10), 1), 100) : 20)
-    });
+    }).strict();
 
     const referenceRelationshipSchema = z.object({
       canonicalReferenceId: z.string().min(1),
@@ -90,7 +91,7 @@ export class InternationalTestAdminRouter {
       scoreScale: scoreScaleSchema.optional(),
       officialLinks: z.array(officialLinkSchema).optional(),
       optionalFields: z.record(z.string(), z.unknown()).optional(),
-    }).passthrough();
+    }).strict();
     const rootUpdateSchema = z.object({
       testCategory: z.nativeEnum(InternationalTestCategory).optional(),
       providerName: z.string().min(1).optional(),
@@ -151,9 +152,54 @@ export class InternationalTestAdminRouter {
         locale: z.string().optional(),
         detectedFieldKeys: z.array(z.string()).optional(),
         metadata: z.record(z.string(), z.unknown()).optional()
-      })).optional(),
+      }).strict()).optional(),
       metadata: z.record(z.string(), z.unknown()).optional()
-    });
+    }).strict();
+
+    const childVariantSchema = z.object({
+      id: z.string().min(1).max(200).optional(),
+      variantName: z.string().trim().min(1).max(240),
+      deliveryMode: z.nativeEnum(InternationalTestDeliveryMode),
+      isActive: z.boolean(),
+      specificOfficialUrl: z.string().url().max(2048).optional(),
+      administrativeNotes: z.string().max(5000).optional(),
+    }).strict();
+    const childSectionSchema = z.object({
+      id: z.string().min(1).max(200).optional(),
+      sectionName: z.string().trim().min(1).max(240),
+      sectionType: z.string().trim().min(1).max(120),
+      durationMinutes: z.number().int().nonnegative().max(1440).optional(),
+      order: z.number().int().nonnegative().max(1000),
+      questionTypes: z.array(z.string().max(240)).max(100).optional(),
+      scoreMinimum: z.number().optional(),
+      scoreMaximum: z.number().optional(),
+    }).strict();
+    const childScoreScaleSchema = scoreScaleSchema.strict();
+    const childFeeSchema = z.object({
+      id: z.string().min(1).max(200).optional(),
+      feeType: z.enum(['REGISTRATION', 'LATE_REGISTRATION', 'RESCHEDULING', 'CANCELLATION', 'OTHER']),
+      amount: z.number().nonnegative().max(1_000_000_000),
+      currencyCode: z.string().trim().length(3).transform(value => value.toUpperCase()),
+      currencyReferenceId: z.string().min(1).max(200).optional(),
+      hasRegionalVariation: z.boolean(),
+      validityWindowNotes: z.string().max(5000).optional(),
+    }).strict();
+    const childOfficialLinkSchema = officialLinkSchema.extend({ id: z.string().min(1).max(200).optional() }).strict();
+    const childAvailabilitySchema = z.object({
+      availableCountryIds: z.array(z.string().min(1).max(200)).max(500),
+      availableCityIds: z.array(z.string().min(1).max(200)).max(2000).optional(),
+      onlineAvailabilityRegions: z.array(z.string().max(240)).max(500).optional(),
+      testingWindowsNotes: z.string().max(5000).optional(),
+    }).strict();
+    const childPreparationMaterialSchema = z.object({
+      id: z.string().min(1).max(200).optional(),
+      materialType: z.enum(['SAMPLE_QUESTIONS', 'PRACTICE_TEST', 'BROCHURE', 'AUDIO_SAMPLE', 'GUIDE']),
+      url: z.string().url().max(2048).optional(),
+      assetId: z.string().min(1).max(200).optional(),
+      title: z.string().trim().min(1).max(500),
+      description: z.string().max(5000).optional(),
+    }).strict();
+    const emptyMutationBody = z.object({}).strict();
 
     router.get('/', asyncHandler(async (req: Request, res: Response) => {
       const parsed = querySchema.parse(req.query);
@@ -204,6 +250,7 @@ export class InternationalTestAdminRouter {
     }));
 
     router.post('/:id/verify-source', asyncHandler(async (req: Request, res: Response) => {
+      emptyMutationBody.parse(req.body ?? {});
       await internationalTestAdminUseCases.verifySource(req.params.id, mutationContext(req));
       res.json({ success: true });
     }));
@@ -223,16 +270,19 @@ export class InternationalTestAdminRouter {
     }));
 
     router.post('/:id/mark-publishable', asyncHandler(async (req: Request, res: Response) => {
+      emptyMutationBody.parse(req.body ?? {});
       await internationalTestAdminUseCases.markReadyToPublish(req.params.id, mutationContext(req));
       res.json({ success: true });
     }));
 
     router.post('/:id/publish', asyncHandler(async (req: Request, res: Response) => {
+      emptyMutationBody.parse(req.body ?? {});
       await internationalTestAdminUseCases.publish(req.params.id, mutationContext(req));
       res.json({ success: true });
     }));
 
     router.post('/:id/archive', asyncHandler(async (req: Request, res: Response) => {
+      emptyMutationBody.parse(req.body ?? {});
       await internationalTestAdminUseCases.archive(req.params.id, mutationContext(req));
       res.json({ success: true });
     }));
@@ -243,11 +293,11 @@ export class InternationalTestAdminRouter {
     }));
 
     router.post('/:id/variants', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertVariant(req.params.id, req.body, mutationContext(req)));
+      res.json(await internationalTestAdminUseCases.upsertVariant(req.params.id, childVariantSchema.parse(req.body), mutationContext(req)));
     }));
 
     router.put('/:id/variants', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertVariant(req.params.id, req.body, mutationContext(req)));
+      res.json(await internationalTestAdminUseCases.upsertVariant(req.params.id, childVariantSchema.parse(req.body), mutationContext(req)));
     }));
 
     router.get('/:id/sections', asyncHandler(async (req: Request, res: Response) => {
@@ -255,35 +305,35 @@ export class InternationalTestAdminRouter {
     }));
 
     router.post('/:id/sections', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertSection(req.params.id, req.body, mutationContext(req)));
+      res.json(await internationalTestAdminUseCases.upsertSection(req.params.id, childSectionSchema.parse(req.body), mutationContext(req)));
     }));
 
     router.put('/:id/sections', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertSection(req.params.id, req.body, mutationContext(req)));
+      res.json(await internationalTestAdminUseCases.upsertSection(req.params.id, childSectionSchema.parse(req.body), mutationContext(req)));
     }));
 
     router.post('/:id/score-scale', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertScoreScale(req.params.id, req.body, mutationContext(req)));
+      res.json(await internationalTestAdminUseCases.upsertScoreScale(req.params.id, childScoreScaleSchema.parse(req.body), mutationContext(req)));
     }));
 
     router.put('/:id/score-scale', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertScoreScale(req.params.id, req.body, mutationContext(req)));
+      res.json(await internationalTestAdminUseCases.upsertScoreScale(req.params.id, childScoreScaleSchema.parse(req.body), mutationContext(req)));
     }));
 
     router.post('/:id/fees', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertFeeMetadata(req.params.id, req.body, mutationContext(req)));
+      res.json(await internationalTestAdminUseCases.upsertFeeMetadata(req.params.id, childFeeSchema.parse(req.body), mutationContext(req)));
     }));
 
     router.put('/:id/fees', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertFeeMetadata(req.params.id, req.body, mutationContext(req)));
+      res.json(await internationalTestAdminUseCases.upsertFeeMetadata(req.params.id, childFeeSchema.parse(req.body), mutationContext(req)));
     }));
 
     router.post('/:id/official-links', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertOfficialLink(req.params.id, req.body, mutationContext(req)));
+      res.json(await internationalTestAdminUseCases.upsertOfficialLink(req.params.id, childOfficialLinkSchema.parse(req.body), mutationContext(req)));
     }));
 
     router.put('/:id/official-links', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertOfficialLink(req.params.id, req.body, mutationContext(req)));
+      res.json(await internationalTestAdminUseCases.upsertOfficialLink(req.params.id, childOfficialLinkSchema.parse(req.body), mutationContext(req)));
     }));
 
     router.get('/:id/availability', asyncHandler(async (req: Request, res: Response) => {
@@ -291,11 +341,11 @@ export class InternationalTestAdminRouter {
     }));
 
     router.post('/:id/availability', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertAvailability(req.params.id, req.body, mutationContext(req)));
+      res.json(await internationalTestAdminUseCases.upsertAvailability(req.params.id, childAvailabilitySchema.parse(req.body), mutationContext(req)));
     }));
 
     router.put('/:id/availability', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertAvailability(req.params.id, req.body, mutationContext(req)));
+      res.json(await internationalTestAdminUseCases.upsertAvailability(req.params.id, childAvailabilitySchema.parse(req.body), mutationContext(req)));
     }));
 
     router.get('/:id/preparation-materials', asyncHandler(async (req: Request, res: Response) => {
@@ -303,11 +353,11 @@ export class InternationalTestAdminRouter {
     }));
 
     router.post('/:id/preparation-materials', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertPreparationMaterial(req.params.id, req.body, mutationContext(req)));
+      res.json(await internationalTestAdminUseCases.upsertPreparationMaterial(req.params.id, childPreparationMaterialSchema.parse(req.body), mutationContext(req)));
     }));
 
     router.put('/:id/preparation-materials', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await internationalTestAdminUseCases.upsertPreparationMaterial(req.params.id, req.body, mutationContext(req)));
+      res.json(await internationalTestAdminUseCases.upsertPreparationMaterial(req.params.id, childPreparationMaterialSchema.parse(req.body), mutationContext(req)));
     }));
 
     router.get('/:id/evidence', asyncHandler(async (req: Request, res: Response) => {

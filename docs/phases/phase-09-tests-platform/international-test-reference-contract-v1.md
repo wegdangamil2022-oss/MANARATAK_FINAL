@@ -27,7 +27,7 @@ versionKey   stable source version identity within the cycle
 displayLabel human-readable label only
 ```
 
-These values are contract metadata until the database recovery gate permits schema and data work. They do not replace the existing numeric `versionNumber`.
+These values are contract metadata until the Greenfield Database Provisioning and Mutation Safety gate authorizes the reviewed schema/data operation. They do not replace the existing numeric `versionNumber`.
 
 ## Publication And Acceptance
 

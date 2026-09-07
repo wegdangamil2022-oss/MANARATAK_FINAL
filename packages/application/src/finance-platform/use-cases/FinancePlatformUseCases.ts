@@ -9,10 +9,12 @@ import {
   convertMoneyExact,
   FinanceApprovalBinding,
   FinanceMutationContext,
+  FinancePaymentDto,
   FinancialEstimateDto,
   IBankTransferGatewayRegistry,
   IFinanceCurrencyReferenceGateway,
   IFinanceRepository,
+  IFxRateProvider,
   InvoiceStatus,
   IPaymentGatewayRegistry,
   MoneyAmount,
@@ -39,6 +41,7 @@ export interface FinancePlatformDependencies {
   currencyReference: IFinanceCurrencyReferenceGateway;
   paymentGateways: IPaymentGatewayRegistry;
   bankTransferGateways: IBankTransferGatewayRegistry;
+  fxRateProvider: IFxRateProvider;
   transferFeePolicy: FinanceTransferFeePolicy;
 }
 
@@ -80,6 +83,7 @@ export class FinancePlatformUseCases {
     if (!dependencies?.paymentGateways) throw new Error('Finance payment gateway registry is required');
     if (!dependencies?.bankTransferGateways)
       throw new Error('Finance bank transfer gateway registry is required');
+    if (!dependencies?.fxRateProvider) throw new Error('Finance FX rate provider is required');
     if (
       !dependencies.transferFeePolicy ||
       !Number.isInteger(dependencies.transferFeePolicy.basisPoints) ||
@@ -298,20 +302,24 @@ export class FinancePlatformUseCases {
       providerKey: provider.providerKey,
       status: provider.runtimeStatus(),
     }));
-    const states = [...paymentProviders, ...bankProviders].map((provider) => provider.status);
-    const overall = states.some((state) => state === 'RUNTIME_PENDING')
-      ? 'RUNTIME_PENDING' as const
+    const fxProvider = {
+      providerKey: this.dependencies.fxRateProvider.providerKey,
+      status: this.dependencies.fxRateProvider.isConfigured() ? 'READY' as const : 'NOT_CONFIGURED' as const,
+    };
+    const states = [...paymentProviders, ...bankProviders, fxProvider].map((provider) => provider.status);
+    const overall = states.every((state) => state === 'READY')
+      ? 'READY' as const
       : states.some((state) => state === 'READY')
-        ? 'READY' as const
+        ? 'PARTIAL' as const
         : 'NOT_CONFIGURED' as const;
     return {
       overall,
       paymentProviders,
       bankProviders,
-      inboundWebhookProcessing: 'NOT_CONFIGURED' as const,
+      inboundWebhookVerification: 'SOURCE_AVAILABLE' as const,
       manualOfflinePaymentReview: 'NOT_ENABLED' as const,
-      automaticFxProvider: 'NOT_CONFIGURED' as const,
-      note: 'No production provider transport or signed webhook endpoint is enabled in source.',
+      automaticFxProvider: fxProvider,
+      note: 'Signed provider transports are source-complete; deployed provider/webhook runtime evidence is required separately.',
     };
   }
 
@@ -670,6 +678,39 @@ export class FinancePlatformUseCases {
     );
   }
 
+  async refreshAutomaticExchangeRate(
+    sourceCurrencyCode: string,
+    targetCurrencyCode: string,
+    identity: FinanceCommandIdentity,
+  ) {
+    await this.requireCanonicalCurrency(sourceCurrencyCode);
+    await this.requireCanonicalCurrency(targetCurrencyCode);
+    if (sourceCurrencyCode === targetCurrencyCode) throw new Error('FX corridor must use different currencies');
+    if (!this.dependencies.fxRateProvider.isConfigured()) throw new Error(`FX_PROVIDER_NOT_CONFIGURED:${this.dependencies.fxRateProvider.providerKey}`);
+    const evidence = await this.dependencies.fxRateProvider.fetchRate(sourceCurrencyCode, targetCurrencyCode);
+    if (!/^\d+$/.test(evidence.numerator) || !/^\d+$/.test(evidence.denominator) || BigInt(evidence.numerator) <= 0n || BigInt(evidence.denominator) <= 0n) {
+      throw new Error('FX_PROVIDER_RATE_INVALID');
+    }
+    return this.repository.saveExchangeRate(
+      {
+        publicId: `fin_rate_${randomUUID()}`,
+        sourceCurrencyCode,
+        targetCurrencyCode,
+        rateNumerator: evidence.numerator,
+        rateDenominator: evidence.denominator,
+        source: 'AUTOMATIC_PROVIDER',
+        providerReference: `${this.dependencies.fxRateProvider.providerKey}:${evidence.providerReference}`,
+        approved: true,
+        makerId: null,
+        approvalId: null,
+        effectiveFrom: evidence.effectiveAt,
+        effectiveTo: null,
+        marginBasisPoints: 0,
+      },
+      context(identity),
+    );
+  }
+
   async activateManualExchangeRate(rateId: string, approvalId: string, identity: FinanceCommandIdentity) {
     const rate = (await this.repository.listExchangeRates()).find((item) => item.id === rateId || item.publicId === rateId);
     if (!rate) throw new Error('Exchange rate not found');
@@ -758,7 +799,8 @@ export class FinancePlatformUseCases {
     const evidence = await gateway.refund(
       payment.gatewayReference,
       processing.amount,
-      `${identity.idempotencyKey}:refund`,
+      processing.publicId,
+      `refund:${processing.publicId}`,
     );
     if (evidence.status === 'FAILED') {
       await this.repository.failRefund(processing.id, evidence.failureCode || 'PROVIDER_REFUND_FAILED', context(identity));
@@ -843,6 +885,87 @@ export class FinancePlatformUseCases {
   listCommissions() { return this.repository.listCommissions(); }
   overview() { return this.repository.getFinanceOverview(); }
   report() { return this.repository.getFinancialReport(); }
+  async reconcileProviderStates(input: { limit?: number; actorId: string; correlationId?: string; idempotencyKey: string }) {
+    const limit = Math.min(200, Math.max(1, Math.trunc(input.limit ?? 50)));
+    const summary = { scannedPayments: 0, updatedPayments: 0, scannedTransfers: 0, updatedTransfers: 0, scannedRefunds: 0, updatedRefunds: 0, providerFailures: 0 };
+    const paymentCandidates: FinancePaymentDto[] = [];
+    for (const status of [PaymentStatus.PENDING, PaymentStatus.AUTHORIZED]) {
+      if (paymentCandidates.length >= limit) break;
+      const page = await this.repository.listPayments({ status, page: 1, pageSize: limit - paymentCandidates.length });
+      paymentCandidates.push(...page.data);
+    }
+    for (const payment of paymentCandidates.slice(0, limit)) {
+      summary.scannedPayments += 1;
+      if (!payment.gatewayProvider) continue;
+      const gateway = this.dependencies.paymentGateways.get(payment.gatewayProvider);
+      if (!gateway?.isConfigured()) continue;
+      try {
+        const evidence = await gateway.getStatus(payment.publicId, payment.gatewayReference || undefined, `reconcile:${payment.publicId}`);
+        const identity = { actorId: input.actorId, correlationId: input.correlationId, idempotencyKey: `${input.idempotencyKey}:payment:${payment.publicId}:${evidence.status}` };
+        if (evidence.status === 'FAILED') {
+          await this.repository.recordPaymentFailure(payment.id, evidence.failureCode || 'PROVIDER_RECONCILIATION_FAILED', context(identity));
+          summary.updatedPayments += 1;
+        } else if (evidence.status === 'AUTHORIZED' && payment.status === PaymentStatus.PENDING) {
+          await this.repository.recordPaymentAuthorization(payment.id, { gatewayReference: evidence.gatewayReference, safeMaskedMetadata: evidence.safeMaskedMetadata }, context(identity));
+          summary.updatedPayments += 1;
+        } else if (evidence.status === 'CAPTURED' || evidence.status === 'COMPLETED') {
+          await this.repository.recordReconciledCapturedPaymentAtomic(payment.id, { gatewayReference: evidence.gatewayReference, safeMaskedMetadata: evidence.safeMaskedMetadata }, context(identity));
+          summary.updatedPayments += 1;
+        }
+      } catch {
+        summary.providerFailures += 1;
+      }
+    }
+
+    const refunds = (await this.repository.listRefunds()).filter((refund) => refund.status === 'PROCESSING').slice(0, limit);
+    for (const refund of refunds) {
+      summary.scannedRefunds += 1;
+      const payment = await this.repository.findPaymentById(refund.paymentId);
+      if (!payment?.gatewayProvider) continue;
+      const gateway = this.dependencies.paymentGateways.get(payment.gatewayProvider);
+      if (!gateway?.isConfigured()) continue;
+      try {
+        const evidence = await gateway.getRefundStatus(refund.publicId, refund.gatewayReference || undefined, `reconcile:refund:${refund.publicId}`);
+        const identity = { actorId: input.actorId, correlationId: input.correlationId, idempotencyKey: `${input.idempotencyKey}:refund:${refund.publicId}:${evidence.status}` };
+        if (evidence.status === 'FAILED') {
+          await this.repository.failRefund(refund.id, evidence.failureCode || 'PROVIDER_REFUND_RECONCILIATION_FAILED', context(identity));
+          summary.updatedRefunds += 1;
+        } else if (evidence.status === 'CAPTURED' || evidence.status === 'COMPLETED') {
+          await this.repository.completeRefundAtomic(refund.id, { gatewayProvider: gateway.providerKey, gatewayReference: evidence.gatewayReference }, context(identity));
+          summary.updatedRefunds += 1;
+        }
+      } catch {
+        summary.providerFailures += 1;
+      }
+    }
+
+    const transfers = (await this.repository.listTransfers()).filter((transfer) =>
+      (['PROCESSING', 'SETTLED', 'COMPLETED'] as TransferStatus[]).includes(transfer.status) && transfer.bankProvider && transfer.bankProviderReference,
+    ).slice(0, limit);
+    for (const transfer of transfers) {
+      summary.scannedTransfers += 1;
+      const gateway = this.dependencies.bankTransferGateways.get(transfer.bankProvider!);
+      if (!gateway?.isConfigured()) continue;
+      try {
+        const evidence = await gateway.getStatus(transfer.bankProviderReference!, `reconcile:${transfer.publicId}`);
+        const identity = { actorId: input.actorId, correlationId: input.correlationId, idempotencyKey: `${input.idempotencyKey}:transfer:${transfer.publicId}:${evidence.status}` };
+        if (transfer.status === 'PROCESSING' && evidence.status === 'SETTLED') {
+          await this.repository.transitionTransfer(transfer.id, 'SETTLED', context(identity), { bankProvider: gateway.providerKey, bankProviderReference: evidence.providerReference, providerStatus: evidence.status });
+          summary.updatedTransfers += 1;
+        } else if (transfer.status === 'PROCESSING' && evidence.status === 'FAILED') {
+          await this.repository.transitionTransfer(transfer.id, 'FAILED', context(identity), { bankProvider: gateway.providerKey, bankProviderReference: evidence.providerReference, providerStatus: evidence.status, providerFailureCode: evidence.failureCode });
+          summary.updatedTransfers += 1;
+        } else if ((['SETTLED', 'COMPLETED'] as TransferStatus[]).includes(transfer.status) && evidence.status === 'REVERSED') {
+          await this.repository.transitionTransfer(transfer.id, 'REVERSED', context(identity), { bankProvider: gateway.providerKey, bankProviderReference: evidence.providerReference, providerStatus: evidence.status });
+          summary.updatedTransfers += 1;
+        }
+      } catch {
+        summary.providerFailures += 1;
+      }
+    }
+    return summary;
+  }
+
   reconcile() { return this.repository.runReconciliation(); }
 
   private async requireInvoice(id: string) {

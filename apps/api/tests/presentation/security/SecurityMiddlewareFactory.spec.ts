@@ -47,6 +47,13 @@ describe('SecurityMiddlewareFactory production headers', () => {
 });
 
 describe('SecurityMiddlewareFactory admin guard', () => {
+  const activeSessionManager = {
+    isSessionActive: vi.fn().mockResolvedValue(true),
+    revokeAllSessions: vi.fn().mockResolvedValue(undefined),
+  } as any;
+  const activePrincipalAccessValidator = {
+    isAuthenticationAllowed: vi.fn().mockResolvedValue(true),
+  } as any;
   it('rejects unauthenticated requests in strict mode', async () => {
     const guard = SecurityMiddlewareFactory.createAdminGuard({ mode: 'strict' });
     const response = createResponse();
@@ -78,8 +85,10 @@ describe('SecurityMiddlewareFactory admin guard', () => {
     const guard = SecurityMiddlewareFactory.createAdminGuard({
       mode: 'strict',
       tokenProvider: {
-        verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'owner-01' }),
+        verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'owner-01', sessionId: 'session-01' }),
       } as any,
+      sessionManager: activeSessionManager,
+      principalAccessValidator: activePrincipalAccessValidator,
     });
     const response = createResponse();
     const req = { headers: { authorization: `Bearer ${token}` } } as any;
@@ -99,13 +108,9 @@ describe('SecurityMiddlewareFactory admin guard', () => {
   it('rejects a valid token when the current administrator account is suspended', async () => {
     const guard = SecurityMiddlewareFactory.createAdminGuard({
       mode: 'strict',
-      tokenProvider: { verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'owner-01' }) } as any,
-      identityRepository: {
-        findById: vi.fn().mockResolvedValue({
-          status: 'ACTIVE',
-          account: { accessState: 'Suspended' },
-        }),
-      } as any,
+      tokenProvider: { verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'owner-01', sessionId: 'session-01' }) } as any,
+      sessionManager: activeSessionManager,
+      principalAccessValidator: { isAuthenticationAllowed: vi.fn().mockResolvedValue(false) } as any,
     });
     const response = createResponse();
     const next = vi.fn();
@@ -114,7 +119,7 @@ describe('SecurityMiddlewareFactory admin guard', () => {
 
     expect(next).not.toHaveBeenCalled();
     expect(response.statusCode).toBe(401);
-    expect((response.payload as any).error.code).toBe('ADMIN_SESSION_NOT_ACTIVE');
+    expect((response.payload as any).error.code).toBe('ADMIN_AUTH_REQUIRED');
   });
 
   it('allows admin permission guard when permission is granted by evaluator', async () => {
@@ -318,7 +323,7 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
   }
 
   it('allows safe methods (GET, HEAD, OPTIONS) without a CSRF token', async () => {
-    const securityService = new SecurityService();
+    const securityService = new SecurityService(undefined, { signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters' });
     const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService);
 
     for (const method of ['GET', 'HEAD', 'OPTIONS']) {
@@ -334,7 +339,7 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
   });
 
   it('rejects cookie-authenticated mutations when the CSRF header is missing', async () => {
-    const securityService = new SecurityService();
+    const securityService = new SecurityService(undefined, { signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters' });
     const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService);
 
     for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
@@ -359,7 +364,7 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
   });
 
   it('rejects state-mutating requests with invalid, malformed, or tampered CSRF tokens with HTTP 403', async () => {
-    const securityService = new SecurityService();
+    const securityService = new SecurityService(undefined, { signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters' });
     const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService);
 
     const invalidTokens = [
@@ -386,7 +391,7 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
   });
 
   it('allows state-mutating requests when a valid CSRF token is provided in X-CSRF-Token header', async () => {
-    const securityService = new SecurityService();
+    const securityService = new SecurityService(undefined, { signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters' });
     const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService);
 
     const validToken = securityService.generateCsrfToken(sessionSecret);
@@ -407,7 +412,7 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
   });
 
   it('allows state-mutating requests when path is explicitly in exemptPaths', async () => {
-    const securityService = new SecurityService();
+    const securityService = new SecurityService(undefined, { signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters' });
     const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService, {
       exemptPaths: ['/api/v1/public/webhook'],
     });
@@ -430,7 +435,7 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
   });
 
   it('does not accept CSRF tokens from request bodies or query strings', async () => {
-    const securityService = new SecurityService();
+    const securityService = new SecurityService(undefined, { signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters' });
     const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService);
     const validToken = securityService.generateCsrfToken(sessionSecret);
     const req = createMockRequest('POST', { Cookie: `manaratak_refresh=${sessionSecret}` }, { _csrf: validToken });
@@ -445,7 +450,7 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
   });
 
   it('allows state-mutating requests with Authorization Bearer header when exemptBearerAuth is true', async () => {
-    const securityService = new SecurityService();
+    const securityService = new SecurityService(undefined, { signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters' });
     const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService, {
       exemptBearerAuth: true,
     });

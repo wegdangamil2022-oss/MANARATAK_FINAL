@@ -15,6 +15,9 @@
 
 ---
 
+
+> **ADR-028 persistence supersession (2026-09-06):** The conceptual Bounded Context ownership in this document remains authoritative. The earlier mandatory physical/logical PostgreSQL schema-per-context rule is superseded for the current Enterprise Modular Monolith. Physical persistence is one PostgreSQL database / Prisma `public` schema with machine-enforced model ownership, zero direct cross-context ORM mutations, and explicitly approved cross-context read models. See `docs/architecture/adr/ADR-028-Shared-Relational-Persistence-Boundary.md` and the persistence ownership manifest.
+
 ### 2. Purpose & Strategic Boundaries
 
 The purpose of this document is to define the official **Bounded Context Design** and **Enterprise Context Map** for the MANARATAK 2.0 platform. Under Domain-Driven Design (DDD), a Bounded Context represents a clear boundary within which a specific domain model applies.
@@ -189,7 +192,7 @@ This matrix traces each Bounded Context back to its level-2 operational capabili
 
 ### 10. Acceptance Criteria
 
-- **Acceptance Criterion 1 (Database Isolation)**: The design must mandate separate, isolated physical or logical database schemas for each core Bounded Context. Cross-database queries or foreign-key constraints are prohibited.
+- **Acceptance Criterion 1 (Persistence Ownership Isolation — ADR-028)**: Every persisted model must have exactly one Bounded Context owner. Direct ORM mutation across owners is prohibited; cross-context reads require an approved read-model/reference gateway. The current Modular Monolith uses one PostgreSQL database / Prisma `public` schema, while owner contracts/events preserve future extraction boundaries.
 - **Acceptance Criterion 2 (ACL Enforcement)**: An Anti-Corruption Layer (ACL) must be explicitly specified for any context importing external, untrusted schema formats.
 - **Acceptance Criterion 3 (Zero direct PII exposure)**: The Scholarship context must not hold any candidate PII records, retrieving verified states strictly via anonymized, flat business key mappings.
 - **Acceptance Criterion 4 (No programmatic assets)**: The specification must exclude physical code components, server connection configurations, or code-specific dependency modules.

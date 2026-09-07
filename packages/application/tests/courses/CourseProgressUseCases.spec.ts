@@ -60,8 +60,8 @@ describe('CourseProgressUseCases W9 integrity', () => {
     } as any;
     progressRepo = {
       enroll: vi.fn(),
-      enrollWithCapacity: vi.fn().mockResolvedValue({ id: 'enrollment-1', status: CourseEnrollmentStatus.ACTIVE }),
-      findEnrollment: vi.fn().mockResolvedValue({ id: 'enrollment-1', status: CourseEnrollmentStatus.ACTIVE, progressPercentage: 100 }),
+      enrollWithCapacity: vi.fn().mockResolvedValue({ id: 'enrollment-1', status: CourseEnrollmentStatus.ACTIVE, progressPercentage: 0, enrolledAt: new Date() }),
+      findEnrollment: vi.fn().mockResolvedValue({ id: 'enrollment-1', status: CourseEnrollmentStatus.ACTIVE, progressPercentage: 100, enrolledAt: new Date() }),
       countActiveEnrollments: vi.fn().mockResolvedValue(1), updateEnrollmentProgress: vi.fn(), markEnrollmentCompleted: vi.fn(),
       upsertLessonProgress: vi.fn(), listLessonProgress: vi.fn().mockResolvedValue([
         { lessonId: 'lesson-1', status: CourseProgressStatus.COMPLETED }, { lessonId: 'lesson-2', status: CourseProgressStatus.COMPLETED },
@@ -76,6 +76,7 @@ describe('CourseProgressUseCases W9 integrity', () => {
   });
 
   it('enrolls only through guarded capacity enrollment', async () => {
+    (progressRepo.findEnrollment as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
     await useCases.enroll('course-1', 'student-1');
     expect(progressRepo.enrollWithCapacity).toHaveBeenCalledWith({ courseId: 'course-1', studentReferenceId: 'student-1' }, null, false);
   });

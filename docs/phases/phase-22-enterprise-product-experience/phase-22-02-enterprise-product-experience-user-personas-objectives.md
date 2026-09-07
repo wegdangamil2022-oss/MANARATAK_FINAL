@@ -261,5 +261,5 @@ export interface IExperienceRequirementValidation {
 
 ---
 
-**Status:** APPROVED FOR BASELINE / PRODUCTION READY  
+**Status:** BASELINED / SOURCE_COMPLETE — RUNTIME_EVIDENCE_PENDING  
 **Approver:** Chief Enterprise Architect & Architecture Review Board (ARB)  

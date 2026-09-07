@@ -1,18 +1,47 @@
 import { Router } from 'express';
-import { ManageNotificationTemplatesUseCase } from '@manaratak/application';
-import { ManageNotificationIntentsUseCase } from '@manaratak/application';
+import { ManageNotificationTemplatesUseCase, ManageNotificationIntentsUseCase } from '@manaratak/application';
+import { notificationIntentSchema, notificationTemplateSchema, parseStrict } from '../../validation/StrictControlPlaneSchemas';
 
 export class NotificationRouter {
-  public static create({ templatesUseCase, intentsUseCase }: any
-
-
-  ): Router {
+  public static create({ templatesUseCase, intentsUseCase }: {
+    templatesUseCase: ManageNotificationTemplatesUseCase;
+    intentsUseCase: ManageNotificationIntentsUseCase;
+  }): Router {
     const router = Router();
+
+    router.get('/templates', async (req, res, next) => {
+      try {
+        const rawLimit = Number(req.query.limit ?? 100);
+        const limit = Number.isInteger(rawLimit) ? rawLimit : 100;
+        res.json({ items: await templatesUseCase.listTemplates(limit) });
+      } catch (error: any) {
+        next(error);
+      }
+    });
 
     router.post('/templates', async (req, res, next) => {
       try {
-        await templatesUseCase.createTemplate(req.body);
+        await templatesUseCase.createTemplate(parseStrict(notificationTemplateSchema, req.body));
         res.status(201).json({ message: 'Template created successfully' });
+      } catch (error: any) {
+        next(error);
+      }
+    });
+
+    router.get('/intents', async (req, res, next) => {
+      try {
+        const rawLimit = Number(req.query.limit ?? 100);
+        const limit = Number.isInteger(rawLimit) ? rawLimit : 100;
+        res.json({ items: await intentsUseCase.listIntents(limit) });
+      } catch (error: any) {
+        next(error);
+      }
+    });
+
+    router.post('/intents/:id/retry', async (req, res, next) => {
+      try {
+        await intentsUseCase.retryIntent(req.params.id);
+        res.status(202).json({ message: 'Notification retry accepted' });
       } catch (error: any) {
         next(error);
       }
@@ -20,13 +49,12 @@ export class NotificationRouter {
 
     router.post('/intents', async (req, res, next) => {
       try {
-        // Handle dates parsing
-        const dto = {
-          ...req.body,
-          scheduledAt: req.body.scheduledAt ? new Date(req.body.scheduledAt) : undefined,
-          expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : undefined,
-        };
-        await intentsUseCase.createIntent(dto);
+        const parsed = parseStrict(notificationIntentSchema, req.body);
+        await intentsUseCase.createIntent({
+          ...parsed,
+          scheduledAt: parsed.scheduledAt ? new Date(parsed.scheduledAt) : undefined,
+          expiresAt: parsed.expiresAt ? new Date(parsed.expiresAt) : undefined,
+        });
         res.status(201).json({ message: 'Intent created successfully' });
       } catch (error: any) {
         next(error);

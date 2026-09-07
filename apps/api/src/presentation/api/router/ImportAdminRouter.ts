@@ -88,20 +88,20 @@ export class ImportAdminRouter {
         .or(z.literal('INTERNATIONAL_TESTS'))
         .optional()
         .transform(val => val === 'INTERNATIONAL_TESTS' ? ImportTargetDomain.Tests : val),
-    });
+    }).strict();
 
     const courseArtifactBodySchema = z.object({
       assetId: z.string().trim().min(1),
       sourceSystem: z.string().trim().min(1).optional(),
       expectedSha256: z.string().trim().regex(/^[a-f0-9]{64}$/i).optional(),
-    });
+    }).strict();
 
     const majorCatalogBodySchema = z.object({
       dataText: z.string().min(1).optional(),
       catalogKind: majorCatalogKindSchema,
       sourceSystem: z.string().optional(),
       sourceFileName: z.string().optional(),
-    }).refine((value) => Boolean(value.dataText), {
+    }).strict().refine((value) => Boolean(value.dataText), {
       message: 'dataText is required for direct catalog import.',
       path: ['dataText'],
     });
@@ -111,7 +111,7 @@ export class ImportAdminRouter {
       catalogKind: majorCatalogKindSchema,
       sourceSystem: z.string().optional(),
       sourceFileName: z.string().optional(),
-    }).refine((value) => Boolean(value.dataText), {
+    }).strict().refine((value) => Boolean(value.dataText), {
       message: 'dataText is required for direct detail dossier import.',
       path: ['dataText'],
     });
@@ -120,13 +120,13 @@ export class ImportAdminRouter {
       dataText: z.string().min(1),
       sourceSystem: z.string().optional(),
       sourceFileName: z.string().optional(),
-    });
+    }).strict();
 
     const majorMultiFileBodySchema = z.object({
       catalogKind: majorCatalogKindSchema,
       sourceSystem: z.string().optional(),
       files: z.array(majorTextImportFileSchema).min(1).max(50),
-    });
+    }).strict();
 
     // GET /admin/imports/overview - exact server-derived counters for the control plane.
     router.get('/overview', asyncHandler(async (req: Request, res: Response) => {
@@ -203,10 +203,16 @@ export class ImportAdminRouter {
     }));
 
     const sourceStatusSchema = z.nativeEnum(SourceStatus);
+    const sourceStatusUpdateSchema = z.object({
+      status: sourceStatusSchema,
+      reason: z.string().trim().min(1).max(500).optional(),
+    }).strict();
+    const queueReasonSchema = z.object({ reason: z.string().trim().min(1).max(1000).optional() }).strict();
+    const queueReplaySchema = z.object({ fromCheckpoint: z.boolean().optional() }).strict();
+    const emptyQueueCommandSchema = z.object({}).strict();
     router.patch('/sources/:sourceId/status', asyncHandler(async (req: Request, res: Response) => {
       if (!sourceRegistryGateway) return res.status(503).json({ error: 'IMPORT_SOURCE_REGISTRY_UNAVAILABLE' });
-      const status = sourceStatusSchema.parse(req.body?.status);
-      const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 500) : undefined;
+      const { status, reason } = sourceStatusUpdateSchema.parse(req.body);
       const updated = await sourceRegistryGateway.updateSourceStatus(req.params.sourceId, status, reason);
       if (!updated) return res.status(404).json({ error: 'IMPORT_SOURCE_NOT_FOUND' });
       const source = await sourceRegistryGateway.getSource(req.params.sourceId);
@@ -387,7 +393,7 @@ export class ImportAdminRouter {
     // POST /admin/imports/queue/jobs/:batchId/pause
     router.post('/queue/jobs/:batchId/pause', asyncHandler(async (req: Request, res: Response) => {
       const batchId = req.params.batchId;
-      const { reason } = req.body || {};
+      const { reason } = queueReasonSchema.parse(req.body ?? {});
       const success = await importAdminUseCases.pauseQueueJob(batchId, reason);
       if (!success) {
         return res.status(409).json({ error: 'Queue job action is not valid for current state or job does not exist.' });
@@ -398,6 +404,7 @@ export class ImportAdminRouter {
     // POST /admin/imports/queue/jobs/:batchId/resume
     router.post('/queue/jobs/:batchId/resume', asyncHandler(async (req: Request, res: Response) => {
       const batchId = req.params.batchId;
+      emptyQueueCommandSchema.parse(req.body ?? {});
       const success = await importAdminUseCases.resumeQueueJob(batchId);
       if (!success) {
         return res.status(409).json({ error: 'Queue job action is not valid for current state or job does not exist.' });
@@ -408,7 +415,7 @@ export class ImportAdminRouter {
     // POST /admin/imports/queue/jobs/:batchId/cancel
     router.post('/queue/jobs/:batchId/cancel', asyncHandler(async (req: Request, res: Response) => {
       const batchId = req.params.batchId;
-      const { reason } = req.body || {};
+      const { reason } = queueReasonSchema.parse(req.body ?? {});
       const success = await importAdminUseCases.cancelQueueJob(batchId, reason);
       if (!success) {
         return res.status(409).json({ error: 'Queue job action is not valid for current state or job does not exist.' });
@@ -419,8 +426,8 @@ export class ImportAdminRouter {
     // POST /admin/imports/queue/jobs/:batchId/replay
     router.post('/queue/jobs/:batchId/replay', asyncHandler(async (req: Request, res: Response) => {
       const batchId = req.params.batchId;
-      const { fromCheckpoint } = req.body || {};
-      const success = await importAdminUseCases.replayQueueJob(batchId, typeof fromCheckpoint === 'boolean' ? fromCheckpoint : undefined);
+      const { fromCheckpoint } = queueReplaySchema.parse(req.body ?? {});
+      const success = await importAdminUseCases.replayQueueJob(batchId, fromCheckpoint);
       if (!success) {
         return res.status(409).json({ error: 'Queue job action is not valid for current state or job does not exist.' });
       }

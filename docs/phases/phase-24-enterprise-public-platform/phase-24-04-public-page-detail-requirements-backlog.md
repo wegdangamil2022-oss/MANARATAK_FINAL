@@ -1,7 +1,7 @@
 # MANARATAK 2.0: Phase 24.4 Public Page Detail Requirements Baseline
 
 **Document ID:** PHASE-24-04-PUBLIC-PAGE-DESIGN-BASELINE  
-**Status:** Baselined / Approved for UI Implementation  
+**Status:** SOURCE_REBASELINED — RUNTIME_EVIDENCE_PENDING  
 **Phase:** 24  
 **Domain:** Enterprise Public Platform  
 **Artifact:** Public Page Design Requirements Baseline  
@@ -11,6 +11,8 @@
 
 
 ---
+
+> **W7 source-rebaseline notice (2026-09-07):** This specification is source-rebaselined under `MNT-AUD-0045` against the remediated owner APIs, Admin/Public composition, source tests and cross-phase traceability. This status is not runtime or production certification; external DB/provider/deployment/browser evidence remains `RUNTIME_EVIDENCE_PENDING`. See `docs/remediation/P23_P24_REBASELINE_TRACEABILITY.md`.
 
 ### Navigation
 [<- Phase 24: Public Pages & User Experience (Part C)](./phase-24-03-enterprise-public-platform-public-pages-user-experience.md) | [Roadmap Completion]

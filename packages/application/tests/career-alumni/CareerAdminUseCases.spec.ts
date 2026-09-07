@@ -24,7 +24,8 @@ describe('CareerAdminUseCases', () => {
     country: 'Yemen',
     verificationStatus: CareerEmployerStatus.UNVERIFIED,
     createdAt: new Date(),
-    updatedAt: new Date()
+    updatedAt: new Date(),
+    version: 1
   };
 
   const job = {
@@ -46,18 +47,19 @@ describe('CareerAdminUseCases', () => {
     employerId: 'emp-1',
     remoteOption: false,
     createdAt: new Date(),
-    updatedAt: new Date()
+    updatedAt: new Date(),
+    version: 1
   };
 
   beforeEach(() => {
     repository = {
-      createEmployer: vi.fn().mockImplementation((data) => Promise.resolve({ id: 'emp-1', createdAt: new Date(), updatedAt: new Date(), ...data })),
+      createEmployer: vi.fn().mockImplementation((data) => Promise.resolve({ id: 'emp-1', createdAt: new Date(), updatedAt: new Date(), version: 1, ...data })),
       updateEmployer: vi.fn().mockImplementation((id, data) => Promise.resolve({ ...employer, id, ...data })),
       findEmployerById: vi.fn().mockResolvedValue(employer),
       findEmployerBySlug: vi.fn(),
       findEmployerByDedupKey: vi.fn().mockResolvedValue(null),
       listEmployers: vi.fn(),
-      createJob: vi.fn().mockImplementation((data) => Promise.resolve({ id: 'job-1', createdAt: new Date(), updatedAt: new Date(), ...data })),
+      createJob: vi.fn().mockImplementation((data) => Promise.resolve({ id: 'job-1', createdAt: new Date(), updatedAt: new Date(), version: 1, ...data })),
       updateJob: vi.fn(),
       findJobById: vi.fn().mockResolvedValue(job),
       findJobBySlug: vi.fn(),
@@ -110,25 +112,68 @@ describe('CareerAdminUseCases', () => {
     }));
   });
 
+
+  it('creates an Arabic employer with non-empty canonical identity and Unicode slug', async () => {
+    const result = await useCases.createEmployer({
+      displayName: 'شركةُ البُراق للتقنية',
+      employerType: 'PRIVATE_COMPANY',
+      country: 'Yemen'
+    });
+    expect(result.canonicalName).toBe('شركة البراق للتقنية');
+    expect(result.slug).toMatch(/^شركة-البراق-للتقنية-[0-9a-f]{8}$/u);
+  });
+
+  it('keeps distinct Arabic job titles distinct under identical non-title dimensions', async () => {
+    const first = await useCases.createJob({
+      title: 'مُهندس برمجيات',
+      opportunityType: CareerOpportunityType.JOB,
+      employmentType: EmploymentType.FULL_TIME,
+      jobCategory: 'Engineering',
+      description: 'Build software.',
+      country: 'Yemen',
+      employerId: 'emp-1'
+    });
+    const second = await useCases.createJob({
+      title: 'محلل نظم',
+      opportunityType: CareerOpportunityType.JOB,
+      employmentType: EmploymentType.FULL_TIME,
+      jobCategory: 'Engineering',
+      description: 'Analyze systems.',
+      country: 'Yemen',
+      employerId: 'emp-1'
+    });
+    expect(first.canonicalTitle).toBe('مهندس برمجيات');
+    expect(second.canonicalTitle).toBe('محلل نظم');
+    expect(first.canonicalDedupKey).not.toBe(second.canonicalDedupKey);
+    expect(first.slug).toContain('مهندس-برمجيات');
+  });
+
+  it('recomputes Arabic canonical title during update without erasing Unicode letters', async () => {
+    vi.mocked(repository.updateJob).mockImplementation(async (_id, data) => ({ ...job, ...data }));
+    const result = await useCases.updateJob('job-1', { title: 'إدارةُ المشاريع' }, 1);
+    expect(result.canonicalTitle).toBe('ادارة المشاريع');
+    expect(result.canonicalDedupKey).toContain('ادارة المشاريع|emp-1|');
+  });
+
   it('prevents publishing before READY_TO_PUBLISH', async () => {
-    await expect(useCases.publish('job-1')).rejects.toThrow('READY_TO_PUBLISH');
+    await expect(useCases.publish('job-1', 1)).rejects.toThrow('READY_TO_PUBLISH');
   });
 
 
   it('requires a verified employer before publishing', async () => {
     (repository.findJobById as any).mockResolvedValueOnce({ ...job, status: CareerJobStatus.READY_TO_PUBLISH });
-    await expect(useCases.publish('job-1')).rejects.toThrow('VERIFIED employers');
+    await expect(useCases.publish('job-1', 1)).rejects.toThrow('VERIFIED employers');
   });
 
   it('publishes a reviewed job for a verified employer', async () => {
     (repository.findJobById as any).mockResolvedValueOnce({ ...job, status: CareerJobStatus.READY_TO_PUBLISH });
     (repository.findEmployerById as any).mockResolvedValueOnce({ ...employer, verificationStatus: CareerEmployerStatus.VERIFIED });
-    await useCases.publish('job-1');
-    expect(repository.updateJobStatus).toHaveBeenCalledWith('job-1', CareerJobStatus.PUBLISHED);
+    await useCases.publish('job-1', 1);
+    expect(repository.updateJobStatus).toHaveBeenCalledWith('job-1', CareerJobStatus.PUBLISHED, 1);
   });
 
   it('supports explicit employer verification and suspension', async () => {
-    await useCases.setEmployerStatus('emp-1', CareerEmployerStatus.VERIFIED);
-    expect(repository.updateEmployer).toHaveBeenCalledWith('emp-1', { verificationStatus: CareerEmployerStatus.VERIFIED });
+    await useCases.setEmployerStatus('emp-1', CareerEmployerStatus.VERIFIED, 1);
+    expect(repository.updateEmployer).toHaveBeenCalledWith('emp-1', { verificationStatus: CareerEmployerStatus.VERIFIED }, 1);
   });
 });

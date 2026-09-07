@@ -41,7 +41,7 @@ export const CoursesList: React.FC<CoursesListProps> = ({ courses }) => {
                   </span>
                   <div className="flex items-center gap-1 text-[var(--mn-accent-text)] text-[10px] font-bold">
                     <Star className="w-3 h-3 fill-[var(--mn-accent-soft)]" />
-                    <span>{course.rating}</span>
+                    <span>{course.rating ?? 'غير متوفر'}</span>
                   </div>
                 </div>
 
@@ -62,7 +62,7 @@ export const CoursesList: React.FC<CoursesListProps> = ({ courses }) => {
                 </span>
                 <span className="flex items-center gap-1">
                   <Users className="w-3 h-3 text-[var(--mn-accent-text)]" />
-                  {course.studentsCount.toLocaleString()} طالب
+                  {course.studentsCount == null ? 'عدد الطلاب غير متوفر' : `${course.studentsCount.toLocaleString()} طالب`}
                 </span>
               </div>
 

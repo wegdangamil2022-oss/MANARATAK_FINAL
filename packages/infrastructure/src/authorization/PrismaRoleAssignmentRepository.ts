@@ -85,6 +85,11 @@ export class PrismaRoleAssignmentRepository implements ITransactionalRoleAssignm
     return records.map(record => this.mapToDomain(record));
   }
 
+  async listAll(): Promise<RoleAssignment[]> {
+    const records = await this.client.roleAssignmentRecord.findMany();
+    return records.map(record => this.mapToDomain(record));
+  }
+
   async delete(id: string): Promise<void> {
     try {
       await this.client.roleAssignmentRecord.delete({

@@ -1,12 +1,14 @@
 # MANARATAK 2.0: Phase 24 (Enterprise Public Platform) Public Pages & User Experience
 
 **Document ID:** PHASE-24-03-PAGES-UX-SPEC  
-**Status:** Baselined & Approved  
+**Status:** SOURCE_REBASELINED — RUNTIME_EVIDENCE_PENDING  
 **Phase:** 24  
 **Domain:** Enterprise Public Platform  
 **Artifact:** Part C - Public Pages & User Experience  
 
 ---
+
+> **W7 source-rebaseline notice (2026-09-07):** This specification is source-rebaselined under `MNT-AUD-0045` against the remediated owner APIs, Admin/Public composition, source tests and cross-phase traceability. This status is not runtime or production certification; external DB/provider/deployment/browser evidence remains `RUNTIME_EVIDENCE_PENDING`. See `docs/remediation/P23_P24_REBASELINE_TRACEABILITY.md`.
 
 ### Navigation
 [← Phase 23: Enterprise Administration Portal](../phase-23-enterprise-administration-portal/phase-23-01-enterprise-administration-portal-architecture-specification.md) | [Phase 24: Architecture Spec (Part A)](./phase-24-01-enterprise-public-platform-architecture-specification.md) | [Phase 24: Structure Contracts (Part B)](./phase-24-02-enterprise-public-platform-structure-contracts.md) | [Roadmap Completion ]
@@ -123,12 +125,16 @@ The public platform guarantees equivalent presentation quality across mobile, ta
 ### 24.C.8 Public Visual Identity Application
 
 **Architectural Commentary**  
-Public visual styling adheres to official MANARATAK brand principles:
+Public visual styling follows the active MANARATAK semantic-token system implemented by `apps/web/src/features/public-template/template.css`; raw palette names are not architecture authority.
 
-- **Emerald Green:** Primary brand anchor for headers, primary buttons, and active indicators.
-- **Royal Gold:** Accent color for high-value highlights, verified badges, and key callouts.
-- **White / Warm Neutral Canvas:** Clean background for maximum typographic contrast and reading comfort.
-- **Visual Pacing:** Consistent padding, card corner radii, and mathematical spacing ratios across all page components.
+- **Primary / Navy:** `--mn-primary: #142B5F` for the principal brand surface and high-emphasis controls.
+- **Secondary / Teal:** `--mn-secondary: #0E7C86`; interactive hover/secondary emphasis follows the same semantic family.
+- **Digital Accent:** teal/digital accents are expressed through shared semantic variables rather than a retired emerald brand anchor.
+- **Gold Accent:** `--mn-accent: #D6A43B` and `--mn-accent-soft: #F2CD78` for high-value highlights, verified emphasis, and selected callouts.
+- **Canvas / Foreground:** white and neutral surfaces must preserve WCAG AA contrast using semantic foreground tokens.
+- **Visual Pacing:** spacing, radius, elevation and typography must consume shared public-template tokens/components rather than page-local visual contracts.
+
+The former **Emerald Green primary-brand** instruction is superseded and historical. Component-level state colors (for example an emerald success badge) are allowed only as semantic status colors and do not redefine the MANARATAK brand identity.
 
 ---
 

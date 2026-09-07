@@ -1,5 +1,7 @@
 # Post-96 Expansion Closure Register
 
+> **Operational supersession notice (2026-09-06):** Recovery-era database instructions in this historical artifact are superseded by [`docs/operations/GREENFIELD_DATABASE_PROVISIONING.md`](../operations/GREENFIELD_DATABASE_PROVISIONING.md). This file remains evidence/history and is not current database-operation authority.
+
 Status date: 2026-08-13
 
 This register is intentionally outside the historical 96 groups.

@@ -48,6 +48,53 @@ export interface CountryImportPreview {
   sample: Array<UpsertReferenceCountryDto & { sourcePublicId?: string; reviewStatus?: string }>;
 }
 
+export function mapCountrySourceRecord(source: CountrySourceRecord): UpsertReferenceCountryDto {
+  const reviewStatus = countryText(source.reference_review_status)?.toUpperCase() ?? 'UNREVIEWED';
+  return {
+    iso2Code: countryText(source.iso_alpha2)?.toUpperCase() ?? '',
+    iso3Code: countryText(source.iso_alpha3)?.toUpperCase() ?? '',
+    name: countryText(source.name_en) ?? '',
+    officialName: countryText(source.official_name_en) ?? null,
+    region: countryText(source.continent) ?? countryText(source.region) ?? null,
+    subregion: countryText(source.subregion) ?? null,
+    defaultCurrencyCode: countryText(source.default_currency)?.toUpperCase() ?? null,
+    defaultLanguageCode: countryText(source.default_language)?.toLowerCase() ?? null,
+    callingCode: countryText(source.calling_code) ?? null,
+    isActive: reviewStatus !== 'INACTIVE',
+    metadata: {
+      nameAr: countryText(source.name_ar),
+      officialNameAr: countryText(source.official_name_ar),
+      localName: countryText(source.local_name),
+      isoNumeric: countryText(source.iso_numeric),
+      sourceRegion: countryText(source.region),
+      capital: countryText(source.capital),
+      officialCurrencies: countryList(source.official_currencies),
+      officialLanguages: countryList(source.official_languages),
+      localLanguages: countryList(source.local_languages),
+      primaryTimezone: countryText(source.primary_timezone),
+      timezones: countryList(source.timezones),
+      flag: countryText(source.flag),
+      slug: countryText(source.slug),
+      publicId: countryText(source.public_id),
+      referenceReviewStatus: reviewStatus,
+      sourceCreatedAt: countryText(source.created_at),
+      sourceUpdatedAt: countryText(source.updated_at),
+      sourceAuditDate: countryText(source.source_audit_date),
+      referenceSources: countryList(source.reference_sources, '|'),
+      notes: countryText(source.notes),
+    },
+  };
+}
+
+function countryText(value: unknown): string | undefined {
+  const normalized = String(value ?? '').trim();
+  return normalized || undefined;
+}
+
+function countryList(value: unknown, separator = ','): string[] {
+  return String(value ?? '').split(separator).map(item => item.trim()).filter(Boolean);
+}
+
 export class CountryImportPreviewService {
   constructor(private readonly handoff = new ReferenceDataImportHandoffService()) {}
 
@@ -57,7 +104,7 @@ export class CountryImportPreviewService {
     sha256?: string;
     records: CountrySourceRecord[];
   }): CountryImportPreview {
-    const mapped = input.records.map(record => this.mapRecord(record));
+    const mapped = input.records.map(mapCountrySourceRecord);
     const batch = this.handoff.prepareSeedBatch({
       seedBatchId: `country-preview:${input.sha256 ?? input.sourceVersion}`,
       sourceName: input.sourceName,
@@ -102,53 +149,6 @@ export class CountryImportPreviewService {
         reviewStatus: String(record.metadata?.referenceReviewStatus ?? '') || undefined,
       })),
     };
-  }
-
-  private mapRecord(source: CountrySourceRecord): UpsertReferenceCountryDto {
-    const reviewStatus = this.text(source.reference_review_status)?.toUpperCase() ?? 'UNREVIEWED';
-    return {
-      iso2Code: this.text(source.iso_alpha2)?.toUpperCase() ?? '',
-      iso3Code: this.text(source.iso_alpha3)?.toUpperCase() ?? '',
-      name: this.text(source.name_en) ?? '',
-      officialName: this.text(source.official_name_en) ?? null,
-      region: this.text(source.continent) ?? this.text(source.region) ?? null,
-      subregion: this.text(source.subregion) ?? null,
-      defaultCurrencyCode: this.text(source.default_currency)?.toUpperCase() ?? null,
-      defaultLanguageCode: this.text(source.default_language)?.toLowerCase() ?? null,
-      callingCode: this.text(source.calling_code) ?? null,
-      isActive: reviewStatus !== 'INACTIVE',
-      metadata: {
-        nameAr: this.text(source.name_ar),
-        officialNameAr: this.text(source.official_name_ar),
-        localName: this.text(source.local_name),
-        isoNumeric: this.text(source.iso_numeric),
-        sourceRegion: this.text(source.region),
-        capital: this.text(source.capital),
-        officialCurrencies: this.list(source.official_currencies),
-        officialLanguages: this.list(source.official_languages),
-        localLanguages: this.list(source.local_languages),
-        primaryTimezone: this.text(source.primary_timezone),
-        timezones: this.list(source.timezones),
-        flag: this.text(source.flag),
-        slug: this.text(source.slug),
-        publicId: this.text(source.public_id),
-        referenceReviewStatus: reviewStatus,
-        sourceCreatedAt: this.text(source.created_at),
-        sourceUpdatedAt: this.text(source.updated_at),
-        sourceAuditDate: this.text(source.source_audit_date),
-        referenceSources: this.list(source.reference_sources, '|'),
-        notes: this.text(source.notes),
-      },
-    };
-  }
-
-  private text(value: unknown): string | undefined {
-    const normalized = String(value ?? '').trim();
-    return normalized || undefined;
-  }
-
-  private list(value: unknown, separator = ','): string[] {
-    return String(value ?? '').split(separator).map(item => item.trim()).filter(Boolean);
   }
 
   private duplicates(values: string[]): string[] {

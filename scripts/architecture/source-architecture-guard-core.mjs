@@ -52,10 +52,10 @@ export function collectPrismaBoundaryViolations(root) {
     const prismaImports = importsOf(source).filter((item) => item.specifier === '@prisma/client');
     const constructor = /\bnew\s+PrismaClient\s*\(/u.exec(source);
     if (!prismaImports.length && !constructor) continue;
-    const allowed = relative.startsWith('packages/infrastructure/src/') || relative === 'apps/api/src/infrastructure/di/container.ts';
+    const allowed = relative.startsWith('packages/infrastructure/src/') || relative.startsWith('packages/infrastructure/tests/database/') || relative === 'apps/api/src/infrastructure/di/container.ts' || relative === 'apps/api/src/infrastructure/runtime/RuntimeResourceRegistry.ts';
     if (!allowed) {
       const offset = prismaImports[0]?.index ?? constructor?.index ?? 0;
-      violations.push(violation('cross-domain-prisma', root, file, source, offset, 'Prisma is allowed only inside Infrastructure ownership adapters or the API composition root.'));
+      violations.push(violation('cross-domain-prisma', root, file, source, offset, 'Prisma is allowed only inside Infrastructure ownership adapters, Infrastructure database tests, or the explicit API composition/runtime resource authority.'));
     }
   }
   return violations;
@@ -250,6 +250,37 @@ export function collectMatrixContractViolations(root) {
   return violations;
 }
 
+export function collectOperationalToolingViolations(root) {
+  const violations = [];
+  const policyPath = path.join(root, 'scripts/architecture/operational-tooling-boundary.json');
+  if (!fs.existsSync(policyPath)) {
+    return [{ kind: 'operational-tooling-policy-missing', file: 'scripts/architecture/operational-tooling-boundary.json', line: 1, detail: 'scripts/** must have an explicit dependency/source ownership policy.' }];
+  }
+  const policy = JSON.parse(fs.readFileSync(policyPath, 'utf8'));
+  const classifiedPrisma = new Set(policy.classifiedDirectPrismaScripts ?? []);
+  const classifiedPresentation = new Set(policy.classifiedPresentationImportScripts ?? []);
+  for (const file of walk(root, 'scripts')) {
+    const relativeFile = path.relative(root, file).replaceAll('\\', '/');
+    if (relativeFile.startsWith('scripts/archive/') || relativeFile.startsWith('scripts/legacy/')) continue;
+    const source = fs.readFileSync(file, 'utf8');
+    for (const imported of importsOf(source)) {
+      if ((imported.specifier.includes('apps/web/src/') || imported.specifier.includes('apps/admin/src/')) && !classifiedPresentation.has(relativeFile)) {
+        violations.push(violation('operational-presentation-bypass', root, file, source, imported.index, 'Operational tooling may not import Web/Admin presentation implementation.'));
+      }
+    }
+    if (source.includes('@prisma/client') && !classifiedPrisma.has(relativeFile)) {
+      violations.push(violation('operational-prisma-unclassified', root, file, source, source.indexOf('@prisma/client'), 'Direct Prisma use in scripts/** must be explicitly classified in the operational tooling policy.'));
+    }
+  }
+  for (const relativeFile of classifiedPrisma) {
+    const absolute = path.join(root, relativeFile);
+    if (!fs.existsSync(absolute)) {
+      violations.push({ kind: 'operational-prisma-classification-stale', file: relativeFile, line: 1, detail: 'Operational Prisma classification points at a missing script.' });
+    }
+  }
+  return violations;
+}
+
 export function collectSourceArchitectureViolations(root) {
   return [
     ...collectPrismaBoundaryViolations(root),
@@ -261,5 +292,6 @@ export function collectSourceArchitectureViolations(root) {
     ...collectCertificateBoundaryViolations(root),
     ...collectAuthorityDocumentViolations(root),
     ...collectMatrixContractViolations(root),
+    ...collectOperationalToolingViolations(root),
   ].sort((a, b) => `${a.file}:${a.line}:${a.kind}`.localeCompare(`${b.file}:${b.line}:${b.kind}`));
 }

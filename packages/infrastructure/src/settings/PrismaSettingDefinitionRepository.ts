@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import {
   ISettingDefinitionRepository,
@@ -77,16 +78,34 @@ export class PrismaSettingDefinitionRepository implements ISettingDefinitionRepo
       isDeprecated: definition.isDeprecated,
       isSecret: definition.isSecret
     };
-
-    await this.client.settingDefinitionRecord.upsert({
-      where: { key: keyStr },
-      update: data,
-      create: {
-        id: definition.id,
-        key: keyStr,
-        ...data
+    const events = [...definition.domainEvents];
+    const persist = async (client: any) => {
+      await client.settingDefinitionRecord.upsert({
+        where: { key: keyStr },
+        update: data,
+        create: { id: definition.id, key: keyStr, ...data }
+      });
+      if (events.length) {
+        if (!client.transactionalOutboxRecord?.create) throw new Error('SETTINGS_DURABLE_OUTBOX_REQUIRED');
+        for (const event of events) {
+          const name = (event as any)?.constructor?.name;
+          const eventType = name === 'SettingDefinitionCreatedEvent' ? 'SettingDefinitionCreated.v1' : name === 'SettingDefinitionUpdatedEvent' ? 'SettingDefinitionUpdated.v1' : null;
+          if (!eventType) throw new Error(`SETTINGS_DOMAIN_EVENT_NOT_MAPPED:${String(name || 'UNKNOWN')}`);
+          await client.transactionalOutboxRecord.create({ data: {
+            id: randomUUID(), eventType, domain: 'SETTINGS', aggregateType: 'SettingDefinition', aggregateId: definition.id,
+            payload: { definitionId: definition.id, key: keyStr }, metadata: { schemaVersion: 1, ownerDomain: 'SETTINGS' }, correlationId: randomUUID(),
+            state: 'PENDING', attempts: 0, availableAt: new Date(), createdAt: (event as any).dateTimeOccurred ?? new Date(),
+          }});
+        }
       }
-    });
+    };
+    if (events.length) {
+      await this.prisma.$transaction(async tx => persist(tx));
+      definition.clearEvents();
+    } else {
+      await persist(this.prisma as any);
+    }
   }
+
 }
 

@@ -33,18 +33,6 @@ import {
 import { adminApiClient } from '../api/client';
 import { useTranslation } from '../i18n/I18nProvider';
 
-const BRAND = {
-  primary: '#142B5F',
-  secondary: '#0E7C86',
-  digital: '#21A7B4',
-  gold: '#D6A43B',
-  highlight: '#F2CD78',
-  fog: '#DDEFF2',
-  ivory: '#FAF7F0',
-  text: '#203442',
-  white: '#FFFFFF',
-} as const;
-
 const REVIEW_SLA_HOURS: Record<Priority, number> = { critical: 4, high: 24, medium: 72, low: 168 };
 
 type DomainKey = 'scholarships' | 'universities' | 'majors' | 'courses' | 'tests' | 'services' | 'cms';
@@ -406,12 +394,12 @@ export function AdminReviewQueuePage() {
     <main
       dir={dir}
       className="min-h-screen rounded-[28px] p-0 text-slate-900"
-      style={{ fontFamily: "'Cairo', sans-serif", backgroundColor: BRAND.ivory, color: BRAND.text }}
+      
     >
       <div className="mx-auto max-w-7xl space-y-6">
         <header
           className="relative overflow-hidden rounded-[28px] px-5 py-6 text-white shadow-lg sm:px-7 sm:py-7"
-          style={{ background: `linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.secondary} 70%, ${BRAND.digital} 120%)` }}
+          
         >
           <div className="pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-20 -right-10 h-60 w-60 rounded-full bg-[#F2CD78]/15 blur-3xl" />
@@ -446,7 +434,7 @@ export function AdminReviewQueuePage() {
                 onClick={() => void loadQueue(true)}
                 disabled={loading || refreshing}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-4 text-sm font-black shadow-sm transition hover:bg-[#FAF7F0] disabled:opacity-60"
-                style={{ color: BRAND.primary }}
+               
               >
                 <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                 {tr('تحديث', 'Refresh')}
@@ -486,7 +474,7 @@ export function AdminReviewQueuePage() {
         <section className="rounded-3xl border border-[#DDEFF2] bg-white p-5 shadow-sm">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="text-lg font-black" style={{ color: BRAND.primary }}>{tr('إشارات دورة المراجعة', 'Review lifecycle signals')}</h2>
+              <h2 className="text-lg font-black text-[#142B5F]">{tr('إشارات دورة المراجعة', 'Review lifecycle signals')}</h2>
               <p className="mt-1 text-xs font-medium text-slate-500">
                 {tr('الأعداد مأخوذة من فلاتر المجال على الخادم، وليست محسوبة من أول صفحة سجلات.', 'Counts come from server-side domain filters, not from the first page of records.')}
               </p>
@@ -508,7 +496,7 @@ export function AdminReviewQueuePage() {
         <section className="grid gap-4 lg:grid-cols-[1.25fr_1fr]">
           <div className="rounded-3xl border border-[#DDEFF2] bg-white p-5 shadow-sm">
             <div className="mb-4">
-              <h2 className="text-lg font-black" style={{ color: BRAND.primary }}>{tr('إشارات الجودة المتخصصة', 'Specialized quality signals')}</h2>
+              <h2 className="text-lg font-black text-[#142B5F]">{tr('إشارات الجودة المتخصصة', 'Specialized quality signals')}</h2>
               <p className="mt-1 text-xs leading-6 text-slate-500">
                 {tr('تعرض فقط القياسات التي يملك لها المجال مصدرًا حقيقيًا؛ لا يتم اختراع تجميع غير متاح.', 'Only domain-backed measurements are shown; unsupported aggregates are never fabricated.')}
               </p>
@@ -552,7 +540,7 @@ export function AdminReviewQueuePage() {
           </div>
 
           <div className="rounded-3xl border border-[#DDEFF2] bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-black" style={{ color: BRAND.primary }}>{tr('قاعدة الأولوية', 'Priority policy')}</h2>
+            <h2 className="text-lg font-black text-[#142B5F]">{tr('قاعدة الأولوية', 'Priority policy')}</h2>
             <div className="mt-4 space-y-3 text-xs leading-6 text-slate-600">
               <PriorityRule tone="critical" title={tr('حرجة', 'Critical')} text={tr('رابط معطل أو تحقق مصدر فاشل/حرج.', 'Broken link or critical source-verification signal.')} />
               <PriorityRule tone="high" title={tr('عالية', 'High')} text={tr('بيانات ناقصة، تحقق مطلوب، أو عنصر عالق أكثر من أسبوع.', 'Incomplete data, verification required, or work older than one week.')} />
@@ -568,7 +556,7 @@ export function AdminReviewQueuePage() {
         <section className="rounded-3xl border border-[#DDEFF2] bg-white p-5 shadow-sm">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="text-lg font-black" style={{ color: BRAND.primary }}>{tr('عبء المراجعة حسب المجال', 'Review workload by domain')}</h2>
+              <h2 className="text-lg font-black text-[#142B5F]">{tr('عبء المراجعة حسب المجال', 'Review workload by domain')}</h2>
               <p className="mt-1 text-xs text-slate-500">{tr('اختر المجال لتصفية القائمة، أو افتح مساحة المجال لإتمام العمل.', 'Select a domain to filter the queue, or open its workspace to complete the work.')}</p>
             </div>
             {selectedDomain !== 'all' && (
@@ -596,7 +584,7 @@ export function AdminReviewQueuePage() {
                 <article
                   key={domain.key}
                   className={`rounded-2xl border p-4 transition ${selected ? 'border-[#0E7C86] ring-2 ring-[#21A7B4]/20' : 'border-[#DDEFF2] hover:border-[#21A7B4]/60'}`}
-                  style={{ backgroundColor: selected ? '#DDEFF233' : BRAND.white }}
+                  
                 >
                   <button type="button" onClick={() => setSelectedDomain(domain.key)} className="w-full text-start">
                     <div className="flex items-start justify-between gap-2">
@@ -709,7 +697,7 @@ export function AdminReviewQueuePage() {
             <div className="text-xs font-bold text-slate-500">
               {tr('المعروض الآن:', 'Showing:')} <span className="font-black text-[#142B5F]">{formatNumber(visibleItems.length)}</span>
               <span className="mx-2 text-slate-300">•</span>
-              {tr('القائمة أدناه نافذة تشغيلية حديثة؛ الأعداد العليا هي المرجع الكامل للعبء.', 'The list below is a recent operational window; the metrics above are the full workload reference.')}
+              {tr('القائمة أدناه قائمة تشغيلية كاملة عبر جميع صفحات المصادر المتاحة؛ الأعداد العليا تلخص العبء نفسه.', 'The list below exhausts all available source pages; the metrics above summarize the same workload.')}
             </div>
             <button type="button" onClick={clearFilters} className="rounded-xl border border-[#DDEFF2] px-3 py-2 text-xs font-black text-[#0E7C86] hover:bg-[#DDEFF2]/40">
               {tr('مسح التصفية', 'Clear filters')}
@@ -720,7 +708,7 @@ export function AdminReviewQueuePage() {
         <section className="overflow-hidden rounded-3xl border border-[#DDEFF2] bg-white shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5">
             <div>
-              <h2 className="text-lg font-black text-[#142B5F]">{tr('أحدث الأعمال المعلقة', 'Recent pending work')}</h2>
+              <h2 className="text-lg font-black text-[#142B5F]">{tr('الأعمال المعلقة', 'Pending work')}</h2>
               <p className="mt-1 text-xs text-slate-500">
                 {tr('مرتبة افتراضيًا حسب شدة الإشارة ثم عمر السجل حتى لا تتراكم الأعمال القديمة.', 'Default ordering prioritizes severity and then age so older work does not stagnate.')}
               </p>
@@ -736,7 +724,7 @@ export function AdminReviewQueuePage() {
           ) : visibleItems.length === 0 ? (
             <div className="p-12 text-center">
               <CheckCircle2 className="mx-auto h-9 w-9 text-[#0E7C86]" />
-              <h3 className="mt-3 font-black text-[#142B5F]">{tr('لا توجد عناصر مطابقة في النافذة المحملة', 'No matching items in the loaded window')}</h3>
+              <h3 className="mt-3 font-black text-[#142B5F]">{tr('لا توجد عناصر مطابقة في القائمة الكاملة', 'No matching items in the exhaustive queue')}</h3>
               <p className="mx-auto mt-2 max-w-xl text-xs leading-6 text-slate-500">
                 {tr('تحقق من بطاقات المجالات والأعداد الكاملة أعلاه. إذا كان المجال غير متاح فلن نعرض صفرًا وهميًا.', 'Check domain cards and full counts above. If a domain is unavailable, the page will not show a false zero.')}
               </p>
@@ -933,7 +921,7 @@ function ReviewPreviewDrawer({ item, tr, isArabic, ArrowIcon, loading, error, au
   const changedFields = diffFields.filter((field) => field.state !== 'NO_CHANGE');
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-[#142B5F]/35 backdrop-blur-[2px]" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
-      <aside className="h-full w-full max-w-2xl overflow-y-auto bg-[#FAF7F0] shadow-2xl" dir={isArabic ? 'rtl' : 'ltr'} style={{ fontFamily: "'Cairo', sans-serif" }}>
+      <aside className="h-full w-full max-w-2xl overflow-y-auto bg-[#FAF7F0] shadow-2xl" dir={isArabic ? 'rtl' : 'ltr'} >
         <div className="sticky top-0 z-10 border-b border-[#DDEFF2] bg-white/95 p-5 backdrop-blur">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -1184,11 +1172,19 @@ async function loadScholarshipImportOverview(): Promise<ScholarshipImportCenterO
 }
 
 async function loadScholarshipImportQueueItems(): Promise<ReviewItem[]> {
+  const rows: ScholarshipImportCenterRecord[] = [];
+  const pageSize = 100;
   try {
-    const response = await adminApiClient.request<ScholarshipImportCenterScan>('/admin/scholarships/import-center/review-queue?operationalClass=REAL&page=1&pageSize=40');
-    return (response.data ?? []).map(scholarshipImportRecordToReviewItem);
+    for (let page = 1; page <= 10000; page += 1) {
+      const response = await adminApiClient.request<ScholarshipImportCenterScan>(`/admin/scholarships/import-center/review-queue?operationalClass=REAL&page=${page}&pageSize=${pageSize}`);
+      const batch = response.data ?? [];
+      rows.push(...batch);
+      const knownTotal = response.sourceTotal ?? response.scannedRecords;
+      if (batch.length < pageSize || (typeof knownTotal === 'number' && rows.length >= knownTotal) || response.scanTruncated === false) break;
+    }
+    return rows.map(scholarshipImportRecordToReviewItem);
   } catch {
-    return [];
+    return rows.map(scholarshipImportRecordToReviewItem);
   }
 }
 
@@ -1269,7 +1265,7 @@ async function loadCourseItems(): Promise<ReviewItem[]> {
     loadFromQueries('courses', '/admin/courses/imported', [
       [{ linkHealth: 'BROKEN' }, 'broken_link'],
     ]),
-    safeList('/admin/courses/imported', { page: '1', pageSize: '50' }),
+    safeListAll('/admin/courses/imported', {}),
   ]);
   const verificationItems = (importedWindow.data ?? [])
     .filter((record) => record && typeof record === 'object' && (record as any).sourceVerified === false)
@@ -1310,10 +1306,25 @@ async function loadFromQueries(
   queries: Array<[Record<string, string>, ReasonKey]>,
 ): Promise<ReviewItem[]> {
   const results = await Promise.all(queries.map(async ([query, reason]) => {
-    const response = await safeList(endpoint, { ...query, page: '1', pageSize: '20' });
-    return (response.data ?? []).map((record) => toReviewItem(domainKey, record as Record<string, any>, reason));
+    const records = await safeListAll(endpoint, query);
+    return (records.data ?? []).map((record) => toReviewItem(domainKey, record as Record<string, any>, reason));
   }));
   return results.flat();
+}
+
+
+async function safeListAll(endpoint: string, params: Record<string, string>, pageSize = 100): Promise<PaginatedResponse<Record<string, unknown>>> {
+  const data: Record<string, unknown>[] = [];
+  let total: number | undefined;
+  for (let page = 1; page <= 10000; page += 1) {
+    const response = await safeList(endpoint, { ...params, page: String(page), pageSize: String(pageSize) });
+    const batch = response.data ?? [];
+    data.push(...batch);
+    if (typeof response.total === 'number') total = response.total;
+    const totalPages = response.totalPages ?? (typeof total === 'number' ? Math.ceil(total / pageSize) : undefined);
+    if (batch.length < pageSize || (totalPages !== undefined && page >= totalPages) || (total !== undefined && data.length >= total)) break;
+  }
+  return { data, total: total ?? data.length, page: 1, pageSize: data.length, totalPages: 1 };
 }
 
 async function safeList(endpoint: string, params: Record<string, string>): Promise<PaginatedResponse<Record<string, unknown>>> {

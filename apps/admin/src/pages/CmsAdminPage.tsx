@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { adminApiClient } from '../api/client';
 import { CmsOperationsPanels } from '../features/cms/CmsOperationsPanels';
+import { AssetPicker } from '../components/AssetPicker';
 
 type Locale = 'ar' | 'en';
 interface Content {
@@ -554,12 +555,7 @@ export function CmsAdminPage() {
                   ...categories.map((x) => ({ value: x.id, label: x.nameAr })),
                 ]}
               />
-              <Field
-                label="معرّف الصورة البارزة من منصة الأصول"
-                dir="ltr"
-                value={create.featuredAssetId}
-                onChange={(v) => setCreate({ ...create, featuredAssetId: v })}
-              />
+              <AssetPicker label="الصورة البارزة" purpose="CMS_FEATURED_ASSET" mimeTypePrefix="image/" value={create.featuredAssetId} onChange={(featuredAssetId) => setCreate({ ...create, featuredAssetId })} />
               <PrimaryButton disabled={busy || !create.title || !create.slug}>
                 <Plus className="h-4 w-4" />
                 إنشاء المسودة
@@ -645,19 +641,8 @@ export function CmsAdminPage() {
                 <div className="space-y-6">
                   <Panel title="الوسائط والتصنيف" icon={<Eye className="h-5 w-5" />}>
                     <div className="space-y-4">
-                      <Field
-                        label="الصورة البارزة — Asset ID"
-                        dir="ltr"
-                        value={currentEditor.featuredAssetId}
-                        onChange={(v) => updateEditor({ featuredAssetId: v })}
-                      />
-                      <TextArea
-                        label="المرفقات — Asset IDs مفصولة بفاصلة"
-                        dir="ltr"
-                        value={currentEditor.attachmentAssetIds}
-                        onChange={(v) => updateEditor({ attachmentAssetIds: v })}
-                        rows={2}
-                      />
+                      <AssetPicker label="الصورة البارزة" purpose="CMS_LOCALIZED_FEATURED_ASSET" mimeTypePrefix="image/" value={currentEditor.featuredAssetId} onChange={(featuredAssetId) => updateEditor({ featuredAssetId })} />
+                      <div className="space-y-2"><AssetPicker label="إضافة مرفق من مكتبة الأصول" purpose="CMS_ATTACHMENT_ASSET" value="" onChange={(assetId) => { if (!assetId) return; const ids = splitValues(currentEditor.attachmentAssetIds); if (!ids.includes(assetId)) updateEditor({ attachmentAssetIds: [...ids, assetId].join(', ') }); }} /><TextArea label="المرفقات المختارة" dir="ltr" value={currentEditor.attachmentAssetIds} onChange={(v) => updateEditor({ attachmentAssetIds: v })} rows={2} /></div>
                       <fieldset>
                         <legend className="mb-2 text-sm font-bold">الوسوم</legend>
                         <div className="flex flex-wrap gap-2">
@@ -708,12 +693,7 @@ export function CmsAdminPage() {
                         value={currentEditor.keywords}
                         onChange={(v) => updateEditor({ keywords: v })}
                       />
-                      <Field
-                        label="صورة Open Graph — Asset ID"
-                        dir="ltr"
-                        value={currentEditor.openGraphAssetId}
-                        onChange={(v) => updateEditor({ openGraphAssetId: v })}
-                      />
+                      <AssetPicker label="صورة Open Graph" purpose="CMS_OPEN_GRAPH_ASSET" mimeTypePrefix="image/" value={currentEditor.openGraphAssetId} onChange={(openGraphAssetId) => updateEditor({ openGraphAssetId })} />
                       <div className="flex gap-5 text-sm">
                         <Check
                           label="منع الفهرسة"

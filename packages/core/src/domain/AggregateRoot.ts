@@ -1,7 +1,5 @@
 import { Entity } from './Entity';
 import { IDomainEvent } from './events/IDomainEvent';
-import { DomainEvents } from './events/DomainEvents';
-
 import { IAggregateRoot } from './events/IAggregateRoot';
 
 export abstract class AggregateRoot<T> extends Entity<T> implements IAggregateRoot {
@@ -12,8 +10,10 @@ export abstract class AggregateRoot<T> extends Entity<T> implements IAggregateRo
   }
 
   protected addDomainEvent(domainEvent: IDomainEvent): void {
+    // Production event publication is repository/application owned through the durable transactional outbox.
+    // Do not register aggregates in the legacy process-local DomainEvents registry: it has no durability,
+    // multi-instance semantics, or production consumers and can retain aggregate references indefinitely.
     this._domainEvents.push(domainEvent);
-    DomainEvents.markAggregateForDispatch(this);
   }
 
   public clearEvents(): void {

@@ -1,5 +1,6 @@
 import {
   ICmsRepository,
+  ICourseRepository,
   IMajorRepository,
   IScholarshipRepository,
   IServiceCatalogRepository,
@@ -8,6 +9,7 @@ import {
   MajorStatus,
   ScholarshipPublicationStatus,
   ServiceStatus,
+  CourseStatus,
   StudentSavedItemDto,
   StudentSavedItemType,
   UniversityStatus,
@@ -94,5 +96,16 @@ export class ServiceStudentSavedItemHydrationGateway implements IStudentSavedIte
       lifecycleStatus: service.status,
       available: service.status === ServiceStatus.PUBLISHED,
     };
+  }
+}
+
+
+export class CourseStudentSavedItemHydrationGateway implements IStudentSavedItemHydrationGateway {
+  constructor(private readonly courses: ICourseRepository) {}
+  supports(entityType: StudentSavedItemType): boolean { return entityType === StudentSavedItemType.COURSE; }
+  async hydrate(item: StudentSavedItemDto) {
+    const course = await this.courses.findById(item.entityId);
+    if (!course) return { ownerType: item.entityType, ownerId: item.entityId, available: false };
+    return { ownerType: item.entityType, ownerId: course.id, publicId: course.publicId, slug: course.slug, displayName: course.displayName, lifecycleStatus: course.status, available: course.status === CourseStatus.PUBLISHED };
   }
 }

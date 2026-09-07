@@ -18,8 +18,13 @@ const dependencies = {
       ['USD', 'SAR'].includes(code) ? { referenceId: `currency-${code}`, currencyCode: code, scale: 2, active: true } : null,
     ),
   },
-  paymentGateways: { get: vi.fn(() => null) },
-  bankTransferGateways: { get: vi.fn(() => null) },
+  paymentGateways: { get: vi.fn(() => null), list: vi.fn(() => []) },
+  bankTransferGateways: { get: vi.fn(() => null), list: vi.fn(() => []) },
+  fxRateProvider: {
+    providerKey: 'test-fx',
+    isConfigured: () => false,
+    fetchRate: vi.fn(),
+  },
   transferFeePolicy: { policyReference: 'NO_TRANSFER_FEE_V1', basisPoints: 0 },
 } as any;
 const useCases = (repository: any) => new FinancePlatformUseCases(repository, dependencies);

@@ -13,7 +13,7 @@ describe('PrismaCourseImportTransferGateway source invariants', () => {
     expect(source).toContain('transactionClient');
     expect(source).toContain('COURSE_IMPORT_ATOMIC_TRANSACTION_CONTEXT_REQUIRED');
     expect(source).toContain('courseFieldProvenance.upsert');
-    expect(source).toContain('importRecord.update');
+    expect(source).toContain('importPromotionWriter.recordPromotion');
     expect(source).toContain('courseImportAnalysis.update');
     expect(source).toContain('courseSourceIdentity.update');
     expect(source).toContain('courseSourceUrlHistory.upsert');

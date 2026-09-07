@@ -5,8 +5,19 @@ import { SecurityMiddlewareFactory } from '../../../src/presentation/security/Se
 import { DefaultRateLimiter, SecurityService } from '@manaratak/infrastructure';
 import { ISecurityService, IRateLimiter, IRateLimitResult } from '@manaratak/core';
 import { createRateLimiterForRuntime } from '../../../src/infrastructure/di/RuntimeDependencyPolicy';
+import { generateKeyPairSync } from 'node:crypto';
+import { loadAppConfig } from '@manaratak/config';
+
+const testJwtKeyPair = generateKeyPairSync('rsa', { modulusLength: 2048 });
+const testJwtEnv = {
+  JWT_ACTIVE_KEY_ID: 'test-prod-key',
+  JWT_PRIVATE_KEY_PEM: testJwtKeyPair.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+  JWT_PUBLIC_KEY_PEM: testJwtKeyPair.publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+  ACCESS_TOKEN_TTL_SECONDS: '900',
+};
 
 describe('Production Security Guardrails & Boot Validation', () => {
+  const csrfSigningSecret = 'test-csrf-signing-secret-with-at-least-32-characters';
   class StubRateLimiter implements IRateLimiter {
     public readonly isProductionReady = false;
     public readonly kind = 'demo' as const;
@@ -45,7 +56,7 @@ describe('Production Security Guardrails & Boot Validation', () => {
     });
 
     it('identifies real infrastructure security service as production ready', () => {
-      const realSecurityService = new SecurityService();
+      const realSecurityService = new SecurityService(undefined, { signingSecret: csrfSigningSecret });
       expect(SecurityValidator.isRealSecurityService(realSecurityService)).toBe(true);
       expect(realSecurityService.isProductionReady).toBe(true);
       expect(realSecurityService.kind).toBe('real');
@@ -99,7 +110,7 @@ describe('Production Security Guardrails & Boot Validation', () => {
     it('passes production startup check when real rate limiter and CSRF service are provided', () => {
       const prodEnv = { NODE_ENV: 'production' };
       const realRateLimiter = { consume: async () => ({ allowed: true, remaining: 1, resetTime: Date.now() }), isProductionReady: true, kind: 'real' as const };
-      const realSecurityService = new SecurityService(realRateLimiter);
+      const realSecurityService = new SecurityService(realRateLimiter, { signingSecret: csrfSigningSecret });
 
       expect(() => {
         SecurityValidator.assertProductionSecurity(prodEnv, realSecurityService, realRateLimiter);
@@ -110,7 +121,7 @@ describe('Production Security Guardrails & Boot Validation', () => {
   describe('createApiApp Bootstrap Integration', () => {
     const validProdEnv = {
       NODE_ENV: 'production',
-      JWT_SECRET: 'production-jwt-secret-must-be-very-long-32-chars-at-least',
+      ...testJwtEnv,
       JWT_ISSUER: 'manaratak-production-api',
       JWT_AUDIENCE: 'manaratak-production-browser',
       SESSION_SECRET: 'production-session-secret-must-be-very-long-32-chars',
@@ -123,6 +134,43 @@ describe('Production Security Guardrails & Boot Validation', () => {
       SECURE_COOKIE: 'true',
       SECURITY_CSP_ENABLED: 'true',
       TRUST_PROXY_HOPS: '1',
+      PUBLIC_WEB_URL: 'https://app.manaratak.org',
+      ADMIN_WEB_URL: 'https://admin.manaratak.org',
+      SECURITY_RATE_LIMIT_MAX: '100',
+      SECURITY_RATE_LIMIT_WINDOW_MS: '60000',
+      CERTIFICATE_COMPLETION_WORKER_ENABLED: 'true',
+      CERTIFICATE_COMPLETION_WORKER_INTERVAL_MS: '5000',
+      STUDENT_WORKSPACE_OUTBOX_WORKER_ENABLED: 'true',
+      STUDENT_WORKSPACE_OUTBOX_WORKER_INTERVAL_MS: '2000',
+      OWNER_DOMAIN_OUTBOX_WORKER_ENABLED: 'true',
+      OWNER_DOMAIN_OUTBOX_WORKER_INTERVAL_MS: '2000',
+      BACKGROUND_WORKER_ENABLED: 'true',
+      BACKGROUND_WORKER_INTERVAL_MS: '2000',
+      BACKGROUND_WORKER_BATCH_SIZE: '10',
+      BACKGROUND_WORKER_LEASE_MS: '60000',
+      BACKGROUND_WORKER_HEARTBEAT_MS: '15000',
+      BACKGROUND_RETENTION_CRON: '15 2 * * *',
+      BACKGROUND_FINANCE_RECONCILIATION_CRON: '*/5 * * * *',
+      BACKGROUND_AI_CRON: '* * * * *',
+      BACKGROUND_IMPORT_CRON: '* * * * *',
+      BACKGROUND_CMS_CRON: '* * * * *',
+      BACKGROUND_NOTIFICATION_CRON: '* * * * *',
+      NOTIFICATION_RECIPIENT_MAX_DELIVERIES_PER_HOUR: '30',
+      MANARATAK_ASSET_PROVIDER_BASE_URL: 'https://asset-provider.manaratak.internal/api/',
+      MANARATAK_ASSET_PROVIDER_API_KEY: 'asset-provider-key',
+      MANARATAK_ASSET_PROVIDER_SIGNING_SECRET: '0123456789abcdef0123456789abcdef',
+      MANARATAK_IMPORT_RAW_RETENTION_DAYS: '365',
+      FINANCE_PROVIDER_BASE_URL: 'https://finance-provider.manaratak.internal/api/',
+      FINANCE_PROVIDER_API_KEY: 'finance-provider-key',
+      FINANCE_PROVIDER_SIGNING_SECRET: '0123456789abcdef0123456789abcdef',
+      FINANCE_PAYMENT_PROVIDER_KEY: 'payment-test',
+      FINANCE_FX_PROVIDER_KEY: 'fx-test',
+      FINANCE_BANK_PROVIDER_KEY: 'bank-test',
+      NOTIFICATION_PROVIDER_BASE_URL: 'https://notification-provider.manaratak.internal/api/',
+      NOTIFICATION_PROVIDER_API_KEY: 'notification-provider-key',
+      NOTIFICATION_PROVIDER_SIGNING_SECRET: 'abcdef0123456789abcdef0123456789',
+      OTEL_SERVICE_NAME: 'manaratak-api',
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'https://otel.manaratak.internal/v1/traces',
     };
 
     it('normal production composition selects a production-capable distributed limiter', () => {
@@ -139,25 +187,20 @@ describe('Production Security Guardrails & Boot Validation', () => {
       expect(limiter.kind).toBe('real');
     });
 
-    it('fails production app creation when demo CSRF service is supplied', async () => {
-      await expect(
-        createApiApp({
-          resetCache: true,
-          env: validProdEnv,
-          securityService: new StubSecurityService(),
-          rateLimiter: { consume: async () => ({ allowed: true, remaining: 1, resetTime: Date.now() }), isProductionReady: true, kind: 'real' as const },
-        })
-      ).rejects.toThrow(/CSRF protection is missing or using a demo\/stub implementation/);
+    it('fails production security validation when demo CSRF service is supplied', () => {
+      expect(() => SecurityValidator.assertProductionSecurity(
+        validProdEnv,
+        new StubSecurityService(),
+        { consume: async () => ({ allowed: true, remaining: 1, resetTime: Date.now() }), isProductionReady: true, kind: 'real' as const },
+      )).toThrow(/CSRF protection is missing or using a demo\/stub implementation/);
     });
 
-    it('fails production app creation when demo rate limiter is supplied', async () => {
-      await expect(
-        createApiApp({
-          resetCache: true,
-          env: validProdEnv,
-          rateLimiter: new StubRateLimiter(),
-        })
-      ).rejects.toThrow(/Rate limiting is missing or using a demo\/stub implementation/);
+    it('fails production security validation when demo rate limiter is supplied', () => {
+      expect(() => SecurityValidator.assertProductionSecurity(
+        validProdEnv,
+        new SecurityService(undefined, { signingSecret: csrfSigningSecret }),
+        new StubRateLimiter(),
+      )).toThrow(/Rate limiting is missing or using a demo\/stub implementation/);
     });
 
     it('fails production app creation when ProductionReadinessValidator reports blockers', async () => {
@@ -169,7 +212,7 @@ describe('Production Security Guardrails & Boot Validation', () => {
             API_BASE_URL: 'http://localhost:3000',
           },
         })
-      ).rejects.toThrow(/Production readiness validation failed for environment 'production'/);
+      ).rejects.toThrow(/Configuration validation failed:[\s\S]*API_BASE_URL must be HTTPS/);
     });
 
     it('fails staging app creation when ProductionReadinessValidator reports blockers', async () => {
@@ -182,7 +225,7 @@ describe('Production Security Guardrails & Boot Validation', () => {
             API_BASE_URL: 'http://localhost:3000',
           },
         })
-      ).rejects.toThrow(/Production readiness validation failed for environment 'staging'/);
+      ).rejects.toThrow(/Configuration validation failed:[\s\S]*API_BASE_URL must be HTTPS/);
     });
 
     it('includes blocker codes and area in startup error without leaking secrets', async () => {
@@ -192,26 +235,21 @@ describe('Production Security Guardrails & Boot Validation', () => {
           resetCache: true,
           env: {
             ...validProdEnv,
-            JWT_SECRET: secretToHide,
+            SESSION_SECRET: secretToHide,
             API_BASE_URL: 'http://localhost:3000',
           },
         });
         expect.fail('Should have thrown startup error');
       } catch (err: any) {
-        expect(err.message).toContain('Production readiness validation failed');
-        expect(err.message).toContain('[api.https_base_url_required]');
+        expect(err.message).toContain('Configuration validation failed');
+        expect(err.message).toContain('API_BASE_URL must be HTTPS');
         expect(err.message).not.toContain(secretToHide);
       }
     });
 
-    it('fails production app creation when SESSION_SECRET is missing', async () => {
+    it('does not retain the removed SESSION_SECRET readiness requirement', () => {
       const { SESSION_SECRET, ...envWithoutSessionSecret } = validProdEnv;
-      await expect(
-        createApiApp({
-          resetCache: true,
-          env: envWithoutSessionSecret as any,
-        })
-      ).rejects.toThrow(/SESSION_SECRET is required in production\/staging/);
+      expect(() => loadAppConfig(envWithoutSessionSecret)).not.toThrow();
     });
 
     it('fails production app creation when CSRF_SECRET is missing', async () => {
@@ -236,15 +274,12 @@ describe('Production Security Guardrails & Boot Validation', () => {
       ).rejects.toThrow(/CORS_ORIGIN/);
     });
 
-    it('remains usable in development environment even with stub services', async () => {
-      const app = await createApiApp({
-        resetCache: true,
-        env: { NODE_ENV: 'development' },
-        securityService: new StubSecurityService(),
-        rateLimiter: new StubRateLimiter(),
-      });
-
-      expect(app).toBeDefined();
+    it('keeps production-only implementation checks disabled in development', () => {
+      expect(() => SecurityValidator.assertProductionSecurity(
+        { NODE_ENV: 'development' },
+        new StubSecurityService(),
+        new StubRateLimiter(),
+      )).not.toThrow();
     });
   });
 

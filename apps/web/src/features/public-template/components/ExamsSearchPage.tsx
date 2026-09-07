@@ -117,65 +117,39 @@ export const ExamsSearchPage: React.FC<ExamsSearchPageProps> = ({
           </div>
 
           {/* Subtle Floating Elements: Falling Exam Names */}
-          <style>{`
-            @keyframes fallText {
-              0% { top: -20%; transform: rotate(-5deg) scale(0.8); opacity: 0; }
-              10% { opacity: 0.12; }
-              90% { opacity: 0.12; }
-              100% { top: 110%; transform: rotate(5deg) scale(1.1); opacity: 0; }
-            }
-            .falling-text {
-              position: absolute;
-              top: -20%;
-              opacity: 0;
-              color: var(--mn-accent);
-              font-weight: 900;
-              font-family: 'Arial', sans-serif;
-              animation: fallText linear infinite;
-              pointer-events: none;
-              z-index: 0;
-            }
-          `}</style>
 
           <div
-            className="falling-text text-3xl left-[10%]"
-            style={{ animationDuration: '10s', animationDelay: '-2s' }}
+            className="falling-text mn-anim-10-delay-2 text-3xl left-[10%]"
           >
             IELTS
           </div>
           <div
-            className="falling-text text-5xl left-[25%]"
-            style={{ animationDuration: '15s', animationDelay: '-7s' }}
+            className="falling-text mn-anim-15-delay-7 text-5xl left-[25%]"
           >
             TOEFL
           </div>
           <div
-            className="falling-text text-2xl left-[45%]"
-            style={{ animationDuration: '12s', animationDelay: '-4s' }}
+            className="falling-text mn-anim-12-delay-4 text-2xl left-[45%]"
           >
             SAT
           </div>
           <div
-            className="falling-text text-4xl left-[65%]"
-            style={{ animationDuration: '14s', animationDelay: '-9s' }}
+            className="falling-text mn-anim-14-delay-9 text-4xl left-[65%]"
           >
             GRE
           </div>
           <div
-            className="falling-text text-3xl left-[85%]"
-            style={{ animationDuration: '11s', animationDelay: '-1s' }}
+            className="falling-text mn-anim-11-delay-1 text-3xl left-[85%]"
           >
             GMAT
           </div>
           <div
-            className="falling-text text-2xl left-[15%]"
-            style={{ animationDuration: '13s', animationDelay: '-11s' }}
+            className="falling-text mn-anim-13-delay-11 text-2xl left-[15%]"
           >
             PTE
           </div>
           <div
-            className="falling-text text-4xl left-[75%]"
-            style={{ animationDuration: '16s', animationDelay: '-5s' }}
+            className="falling-text mn-anim-16-delay-5 text-4xl left-[75%]"
           >
             STEP
           </div>

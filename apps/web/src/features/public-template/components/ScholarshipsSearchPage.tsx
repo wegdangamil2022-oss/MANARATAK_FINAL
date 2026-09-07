@@ -184,19 +184,18 @@ export const ScholarshipsSearchPage: React.FC<ScholarshipsSearchPageProps> = ({
 
     const loadCountryScholarships = async () => {
       try {
-        const first = await ApiClient.getScholarships({
-          countryReferenceId: initialCountryReferenceId,
-          page: 1,
-          pageSize: 50,
-        });
-        const all = [...first.data];
-        for (let currentPage = 2; currentPage <= first.totalPages; currentPage += 1) {
+        const all = [];
+        let cursor: string | undefined;
+        for (let guard = 0; guard < 10000; guard += 1) {
           const next = await ApiClient.getScholarships({
             countryReferenceId: initialCountryReferenceId,
-            page: currentPage,
-            pageSize: 50,
+            cursor,
+            limit: 100,
           });
           all.push(...next.data);
+          if (!next.hasMore || !next.nextCursor) break;
+          if (next.nextCursor === cursor) throw new Error('SCHOLARSHIP_CURSOR_DID_NOT_ADVANCE');
+          cursor = next.nextCursor;
         }
         if (active) setCountryScopedScholarships(all.map((item) => mapPublicScholarshipDto(item)));
       } catch {

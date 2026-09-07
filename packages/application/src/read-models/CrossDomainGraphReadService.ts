@@ -188,14 +188,13 @@ export class CrossDomainGraphReadService {
     const major = await this.majorRepository.findBySlug(this.required(slug, 'MAJOR_SLUG_REQUIRED'));
     if (!major || major.status !== MajorStatus.PUBLISHED) throw new Error('Major not found');
 
-    const { page, pageSize } = this.pagination(options);
+    const { pageSize } = this.pagination(options);
     const [universities, scholarships, courses, editorialContent] = await Promise.all([
-      this.universityRepository.listPublished({ majorId: major.id, page, pageSize }),
-      this.scholarshipRepository.listPublished({ majorId: major.id, page, pageSize }),
+      this.universityRepository.listPublished({ majorId: major.id, limit: pageSize }),
+      this.scholarshipRepository.listPublished({ majorId: major.id, limit: pageSize }),
       this.courseRelationshipRepository.listPublishedCoursesForMajor(major.id, {
         ...options.courseFilters,
-        page,
-        pageSize,
+        limit: pageSize,
       }),
       this.relatedEditorial(CmsDomainTargetType.MAJOR, major.id, options.locale ?? 'ar'),
     ]);
@@ -240,10 +239,10 @@ export class CrossDomainGraphReadService {
         program.majorMappingState === 'CANONICALLY_MAPPED',
     );
     const majorIds = [...new Set(canonicalPrograms.map((program) => program.majorId))];
-    const { page, pageSize } = this.pagination(options);
+    const { pageSize } = this.pagination(options);
     const [majors, scholarships, editorialContent] = await Promise.all([
       this.majorRepository.findPublishedByIds(majorIds),
-      this.scholarshipRepository.listPublished({ universityId: university.id, page, pageSize }),
+      this.scholarshipRepository.listPublished({ universityId: university.id, limit: pageSize }),
       this.relatedEditorial(CmsDomainTargetType.UNIVERSITY, university.id, options.locale ?? 'ar'),
     ]);
     const publishedMajorIds = new Set(majors.map((major) => major.id));
@@ -340,8 +339,7 @@ export class CrossDomainGraphReadService {
       this.scholarshipRepository.list({ internationalTestId: test.id, page, pageSize }),
       this.courseRelationshipRepository.listPublishedCoursesForInternationalTest(test.id, {
         ...options.courseFilters,
-        page,
-        pageSize,
+        limit: pageSize,
       }),
       this.relatedEditorial(CmsDomainTargetType.INTERNATIONAL_TEST, test.id, options.locale ?? 'ar'),
     ]);
@@ -396,11 +394,11 @@ export class CrossDomainGraphReadService {
 
     const { page, pageSize } = this.pagination(options);
     const [universities, scholarships, internationalTests, services, careerJobs, courses, editorialContent] = await Promise.all([
-      this.universityRepository.listPublished({ countryReferenceId: country.id, page, pageSize }),
-      this.scholarshipRepository.listPublished({ countryReferenceId: country.id, page, pageSize }),
+      this.universityRepository.listPublished({ countryReferenceId: country.id, limit: pageSize }),
+      this.scholarshipRepository.listPublished({ countryReferenceId: country.id, limit: pageSize }),
       this.internationalTestRepository.listPublished({ countryIso2Code: normalizedCode, page, pageSize }),
       this.serviceCatalogRepository
-        ? this.serviceCatalogRepository.listPublished({ supportedCountryReferenceId: country.id, page, pageSize })
+        ? this.serviceCatalogRepository.listPublished({ supportedCountryReferenceId: country.id, limit: pageSize })
         : Promise.resolve({ data: [], total: 0, page, pageSize, totalPages: 0 }),
       this.careerRepository
         ? this.careerRepository.listPublishedJobs({ countryReferenceId: country.id, page, pageSize })
@@ -408,8 +406,7 @@ export class CrossDomainGraphReadService {
       this.courseRelationshipRepository.listPublishedRelatedCourses({
         ...options.courseFilters,
         providerHeadquartersCountryReferenceId: country.id,
-        page,
-        pageSize,
+        limit: pageSize,
       }),
       this.relatedEditorial(CmsDomainTargetType.REFERENCE_COUNTRY, country.id, options.locale ?? 'ar'),
     ]);

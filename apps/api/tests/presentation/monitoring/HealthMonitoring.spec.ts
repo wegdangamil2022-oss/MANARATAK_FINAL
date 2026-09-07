@@ -9,11 +9,9 @@ import {
 import {
   MonitoringService,
   DatabaseHealthChecker,
-  RedisHealthChecker,
-  PrismaConnection
+  RedisHealthChecker
 } from '@manaratak/infrastructure';
 import { MonitoringRouter } from '../../../src/presentation/api/router/MonitoringRouter';
-import { createApiApp } from '../../../src/app';
 
 describe('Problem P02 - Health and Readiness Checks', () => {
   let monitoringService: MonitoringService;
@@ -68,6 +66,22 @@ describe('Problem P02 - Health and Readiness Checks', () => {
       const readiness = await monitoringService.getReadiness();
       expect(readiness.status).toBe(HealthStatus.DOWN);
       expect(readiness.details?.database).toBeDefined();
+    });
+
+    it('returns DOWN when Redis is explicitly required even though its indicator name is redis', async () => {
+      monitoringService.registerIndicator({
+        name: 'redis',
+        isOptional: false,
+        checkHealth: async () => ({
+          status: HealthStatus.DOWN,
+          timestamp: new Date().toISOString(),
+          error: 'Redis connection timeout'
+        })
+      });
+
+      const readiness = await monitoringService.getReadiness();
+      expect(readiness.status).toBe(HealthStatus.DOWN);
+      expect((readiness.details?.redis as any).status).toBe(HealthStatus.DOWN);
     });
 
     it('returns UP for readiness when an optional indicator (e.g. redis) fails', async () => {
@@ -249,7 +263,7 @@ describe('Problem P02 - Health and Readiness Checks', () => {
     it('computes the admin release gate from configuration, runtime and monitoring coverage together', async () => {
       const expected = [
         'database', 'redis', 'asset-platform', 'import-foundation', 'admin-auth', 'ai-providers',
-        'payment-gateway', 'notifications', 'background-jobs', 'database-schema', 'public-web'
+        'payment-gateway', 'notifications', 'background-jobs', 'student-tools-quota', 'database-schema', 'public-web'
       ];
       const service = new MonitoringService();
       for (const name of expected) {
@@ -282,38 +296,25 @@ describe('Problem P02 - Health and Readiness Checks', () => {
       });
     });
 
-    it('Integration test with createApiApp returning HTTP 503 DOWN when DB fails to connect', async () => {
-      PrismaConnection.setInstance(null);
-      const app = await createApiApp({
-        resetCache: true,
-        env: {
-          NODE_ENV: 'test',
-          SECURITY_MODE: 'demo',
-          RATE_LIMIT_MODE: 'demo'
-        }
-      });
-
+    it('returns HTTP 503 DOWN through the monitoring router when DB fails', async () => {
+      const service = new MonitoringService();
+      service.registerIndicator(new DatabaseHealthChecker({ $queryRaw: vi.fn().mockRejectedValue(new Error('database unavailable')) }));
+      const app = express();
+      app.use('/api/v1/monitoring', MonitoringRouter.create({ monitoringService: service }));
       const res = await request(app).get('/api/v1/monitoring/health/readiness');
       expect(res.status).toBe(503);
       expect(res.body.status).toBe(HealthStatus.DOWN);
       expect(res.body.status).not.toBe('healthy');
     });
 
-    it('Integration test with createApiApp returning HTTP 200 UP when DB connection is healthy', async () => {
+    it('returns HTTP 200 UP through the monitoring router when DB is healthy', async () => {
       const mockPrisma = {
         $queryRaw: vi.fn().mockResolvedValue([{ 1: 1 }])
       };
-      PrismaConnection.setInstance(mockPrisma);
-
-      const app = await createApiApp({
-        resetCache: true,
-        env: {
-          NODE_ENV: 'test',
-          SECURITY_MODE: 'demo',
-          RATE_LIMIT_MODE: 'demo'
-        }
-      });
-
+      const service = new MonitoringService();
+      service.registerIndicator(new DatabaseHealthChecker(mockPrisma));
+      const app = express();
+      app.use('/api/v1/monitoring', MonitoringRouter.create({ monitoringService: service }));
       const res = await request(app).get('/api/v1/monitoring/health/readiness');
       expect(res.status).toBe(200);
       expect(res.body.status).toBe(HealthStatus.UP);

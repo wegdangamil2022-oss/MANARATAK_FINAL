@@ -1,12 +1,14 @@
 # MANARATAK 2.0: Phase 24 (Enterprise Public Platform) Structure Contracts
 
 **Document ID:** PHASE-24-02-STRUCT-CONTRACTS  
-**Status:** Baselined & Approved  
+**Status:** SOURCE_REBASELINED — RUNTIME_EVIDENCE_PENDING  
 **Phase:** 24  
 **Domain:** Enterprise Public Platform  
 **Artifact:** Part B - Public Platform Structure Contracts  
 
 ---
+
+> **W7 source-rebaseline notice (2026-09-07):** This specification is source-rebaselined under `MNT-AUD-0045` against the remediated owner APIs, Admin/Public composition, source tests and cross-phase traceability. This status is not runtime or production certification; external DB/provider/deployment/browser evidence remains `RUNTIME_EVIDENCE_PENDING`. See `docs/remediation/P23_P24_REBASELINE_TRACEABILITY.md`.
 
 ### Navigation
 [← Phase 23: Enterprise Administration Portal](../phase-23-enterprise-administration-portal/phase-23-01-enterprise-administration-portal-architecture-specification.md) | [Phase 24: Architecture Spec (Part A)](./phase-24-01-enterprise-public-platform-architecture-specification.md) | [Phase 24: Public Pages & User Experience (Part C)](./phase-24-03-enterprise-public-platform-public-pages-user-experience.md) | [Roadmap Completion ]
@@ -41,8 +43,8 @@ export interface IPublicPlatformStructure {
   /** Navigation and relationship graph presentation */
   readonly navigation: INavigationPhilosophy;
 
-  /** Administrative control interface over public page visibility */
-  readonly visibility: IPublicVisibilityControl;
+  /** Published-owner + CMS composition governance consumed by the public platform */
+  readonly sourceGovernance: IPublicCompositionSourceGovernance;
 
   /** Foundational design and composition principles */
   readonly principles: IPublicPlatformPrinciples;
@@ -220,26 +222,19 @@ export interface IPublicSearchPresentation {
 
 ---
 
-### 24.B.7 Public Visibility Control Contract
+### 24.B.7 Public Composition Source Governance Contract
 
 **Architectural Commentary**  
-Phase 24 respects visibility commands issued by Phase 23 — Enterprise Administration Portal. Phase 24 renders pages and sections based on published state flags.
+There is no separate Phase 23-owned public-visibility truth store. Phase 23 is a control-plane client of owner APIs: publish/unpublish/availability commands mutate the owning domain's lifecycle state, while homepage/navigation/section ordering is authored through Phase 16 CMS navigation/block contracts. Phase 24 consumes only those approved owner read models and CMS composition records; it does not invent an additional visibility flag.
 
 ```typescript
-/**
- * Contract defining public page response to administrative visibility state.
- */
-export interface IPublicVisibilityControl {
-  readonly commandSource: 'Phase 23 — Enterprise Administration Portal';
-  readonly respectedToggles: {
-    visiblePages: boolean;
-    hiddenPages: boolean;
-    homepageSections: boolean;
-    sectionOrdering: boolean;
-    publishedContent: boolean;
-    serviceAvailability: boolean;
-  };
-  readonly constraint: 'Only items marked as published/visible by domain engines and Phase 23 commands are rendered publicly';
+/** Public composition is derived from authoritative owner lifecycle + P16 CMS composition. */
+export interface IPublicCompositionSourceGovernance {
+  readonly domainVisibilityAuthority: 'Owning P7-P21 domain publication/availability lifecycle';
+  readonly editorialCompositionAuthority: 'Phase 16 CMS navigation and published block/content lifecycle';
+  readonly adminRole: 'Phase 23 invokes owner/CMS commands through approved APIs; no duplicate visibility persistence';
+  readonly publicRole: 'Phase 24 composes approved owner read models; no business-truth mutation';
+  readonly constraint: 'An item is renderable only when its owner public contract exposes it; homepage/navigation ordering comes from published CMS composition where configured';
 }
 ```
 

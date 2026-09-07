@@ -1,3 +1,5 @@
+> **Historical / superseded runtime note (MNT-AUD-0109, W2):** `createInMemoryPrismaClient()` was removed from the canonical production composition on 2026-09-06. This document is retained only as historical evidence and must not be used as current runtime authority.
+
 # Phase 05 Enterprise Asset Platform (EAP) - Slice 2D: API Routes & DI Container Wiring
 
 ## Overview

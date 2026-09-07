@@ -1,13 +1,19 @@
 import { Router } from 'express';
 import { ManageWorkflowsUseCase } from '@manaratak/application';
+import {
+  parseStrict,
+  referenceParamSchema,
+  workflowCreateSchema,
+  workflowTransitionSchema,
+} from '../../validation/StrictControlPlaneSchemas';
 
 export class WorkflowRouter {
-  public static create({ manageWorkflowsUseCase  }: { manageWorkflowsUseCase: ManageWorkflowsUseCase }): Router {
+  public static create({ manageWorkflowsUseCase }: { manageWorkflowsUseCase: ManageWorkflowsUseCase }): Router {
     const router = Router();
 
     router.post('/', async (req, res, next) => {
       try {
-        const result = await manageWorkflowsUseCase.createWorkflow(req.body);
+        const result = await manageWorkflowsUseCase.createWorkflow(parseStrict(workflowCreateSchema, req.body));
         res.status(201).json(result);
       } catch (error: any) {
         next(error);
@@ -16,7 +22,8 @@ export class WorkflowRouter {
 
     router.post('/:reference/activate', async (req, res, next) => {
       try {
-        const result = await manageWorkflowsUseCase.activateWorkflow(req.params.reference);
+        const { reference } = parseStrict(referenceParamSchema, req.params);
+        const result = await manageWorkflowsUseCase.activateWorkflow(reference);
         res.status(200).json(result);
       } catch (error: any) {
         next(error);
@@ -25,8 +32,9 @@ export class WorkflowRouter {
 
     router.post('/:reference/transition', async (req, res, next) => {
       try {
-        const dto = { reference: req.params.reference, toState: req.body.toState };
-        const result = await manageWorkflowsUseCase.transitionWorkflow(dto);
+        const { reference } = parseStrict(referenceParamSchema, req.params);
+        const { toState } = parseStrict(workflowTransitionSchema, req.body);
+        const result = await manageWorkflowsUseCase.transitionWorkflow({ reference, toState });
         res.status(200).json(result);
       } catch (error: any) {
         next(error);
@@ -35,7 +43,8 @@ export class WorkflowRouter {
 
     router.post('/:reference/archive', async (req, res, next) => {
       try {
-        const result = await manageWorkflowsUseCase.archiveWorkflow(req.params.reference);
+        const { reference } = parseStrict(referenceParamSchema, req.params);
+        const result = await manageWorkflowsUseCase.archiveWorkflow(reference);
         res.status(200).json(result);
       } catch (error: any) {
         next(error);

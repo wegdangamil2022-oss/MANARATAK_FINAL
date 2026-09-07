@@ -1,3 +1,5 @@
+import { ReferenceAliasInput, ReferenceLifecycleState, ReferenceProviderMappingInput } from '../governance/ReferenceGovernance';
+
 export interface ReferenceDataFilters {
   activeOnly?: boolean;
   region?: string;
@@ -20,7 +22,14 @@ export interface ReferenceCountryDto {
   defaultLanguageCode?: string | null;
   callingCode?: string | null;
   flagAssetId?: string | null;
+  /** Compatibility projection; lifecycleState is authoritative. */
   isActive: boolean;
+  lifecycleState: ReferenceLifecycleState;
+  versionNumber: number;
+  effectiveFrom: Date;
+  effectiveTo?: Date | null;
+  aliases?: ReferenceAliasInput[];
+  providerMappings?: ReferenceProviderMappingInput[];
   metadata?: Record<string, unknown>;
 }
 
@@ -36,7 +45,10 @@ export interface UpsertReferenceCountryDto {
   defaultLanguageCode?: string | null;
   callingCode?: string | null;
   flagAssetId?: string | null;
+  /** @deprecated lifecycle transitions must use the lifecycle command. */
   isActive?: boolean;
+  aliases?: ReferenceAliasInput[];
+  providerMappings?: ReferenceProviderMappingInput[];
   metadata?: Record<string, unknown>;
 }
 
@@ -48,7 +60,14 @@ export interface ReferenceCurrencyDto {
   nameAr?: string | null;
   symbol?: string | null;
   minorUnit?: number | null;
+  /** Compatibility projection; lifecycleState is authoritative. */
   isActive: boolean;
+  lifecycleState: ReferenceLifecycleState;
+  versionNumber: number;
+  effectiveFrom: Date;
+  effectiveTo?: Date | null;
+  aliases?: ReferenceAliasInput[];
+  providerMappings?: ReferenceProviderMappingInput[];
   metadata?: Record<string, unknown>;
 }
 
@@ -59,7 +78,10 @@ export interface UpsertReferenceCurrencyDto {
   nameAr?: string | null;
   symbol?: string | null;
   minorUnit?: number | null;
+  /** @deprecated lifecycle transitions must use the lifecycle command. */
   isActive?: boolean;
+  aliases?: ReferenceAliasInput[];
+  providerMappings?: ReferenceProviderMappingInput[];
   metadata?: Record<string, unknown>;
 }
 
@@ -70,7 +92,14 @@ export interface ReferenceLanguageDto {
   nameAr?: string | null;
   nativeName?: string | null;
   direction: 'LTR' | 'RTL';
+  /** Compatibility projection; lifecycleState is authoritative. */
   isActive: boolean;
+  lifecycleState: ReferenceLifecycleState;
+  versionNumber: number;
+  effectiveFrom: Date;
+  effectiveTo?: Date | null;
+  aliases?: ReferenceAliasInput[];
+  providerMappings?: ReferenceProviderMappingInput[];
   metadata?: Record<string, unknown>;
 }
 
@@ -80,7 +109,10 @@ export interface UpsertReferenceLanguageDto {
   nameAr?: string | null;
   nativeName?: string | null;
   direction: 'LTR' | 'RTL';
+  /** @deprecated lifecycle transitions must use the lifecycle command. */
   isActive?: boolean;
+  aliases?: ReferenceAliasInput[];
+  providerMappings?: ReferenceProviderMappingInput[];
   metadata?: Record<string, unknown>;
 }
 
@@ -105,7 +137,14 @@ export interface ReferenceCityDto {
   timezone?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  /** Compatibility projection; lifecycleState is authoritative. */
   isActive: boolean;
+  lifecycleState: ReferenceLifecycleState;
+  versionNumber: number;
+  effectiveFrom: Date;
+  effectiveTo?: Date | null;
+  aliases?: ReferenceAliasInput[];
+  providerMappings?: ReferenceProviderMappingInput[];
   metadata?: Record<string, unknown>;
   administrativeRegionId?: string | null;
   administrativeRegion?: AdministrativeRegionDto | null;
@@ -121,7 +160,10 @@ export interface UpsertReferenceCityDto {
   timezone?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  /** @deprecated lifecycle transitions must use the lifecycle command. */
   isActive?: boolean;
+  aliases?: ReferenceAliasInput[];
+  providerMappings?: ReferenceProviderMappingInput[];
   metadata?: Record<string, unknown>;
   administrativeRegionId?: string | null;
 }

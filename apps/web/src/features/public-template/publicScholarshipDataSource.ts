@@ -88,7 +88,7 @@ export function mapPublicScholarshipDto(dto: PublicScholarshipDto, now = new Dat
     requirements: requirements.length ? [...requirements, ...eligibility] : (eligibility.length ? eligibility : toTextList(dto.eligibilityCriteria)),
     description: dto.coverageDetails || dto.eligibilityCriteria || '',
     applicationUrl: dto.applicationLink ?? dto.applicationUrl ?? dto.officialSourceUrl ?? '',
-    withoutIelts: false,
+    withoutIelts: null,
     status: isClosed ? 'مغلقة' : 'مفتوحة الآن',
     participatingUniversities,
     requiredExams: requiredTests.map((item) => ({
@@ -101,6 +101,14 @@ export function mapPublicScholarshipDto(dto: PublicScholarshipDto, now = new Dat
 
 /** Reads the published Phase 12 projection without any prototype-data fallback. */
 export async function loadPublishedScholarships(): Promise<Scholarship[]> {
-  const result = await ApiClient.getScholarships({ page: 1, pageSize: 50 });
-  return result.data.map((item) => mapPublicScholarshipDto(item));
+  const items: PublicScholarshipDto[] = [];
+  let cursor: string | undefined;
+  for (let guard = 0; guard < 10000; guard += 1) {
+    const page = await ApiClient.getScholarships({ cursor, limit: 100 });
+    items.push(...page.data);
+    if (!page.hasMore || !page.nextCursor) break;
+    if (page.nextCursor === cursor) throw new Error('PUBLIC_SCHOLARSHIP_CURSOR_DID_NOT_ADVANCE');
+    cursor = page.nextCursor;
+  }
+  return items.map((item) => mapPublicScholarshipDto(item));
 }

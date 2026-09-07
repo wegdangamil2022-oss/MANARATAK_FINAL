@@ -88,6 +88,11 @@ export class PrismaRoleRepository implements ITransactionalRoleRepository {
     return domainRoles.filter(role => specification.isSatisfiedBy(role));
   }
 
+  async listAll(): Promise<Role[]> {
+    const records = await this.client.roleRecord.findMany();
+    return records.map(record => this.mapToDomain(record));
+  }
+
   async delete(id: string): Promise<void> {
     try {
       await this.client.roleRecord.delete({

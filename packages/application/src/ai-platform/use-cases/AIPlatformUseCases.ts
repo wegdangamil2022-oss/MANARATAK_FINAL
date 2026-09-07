@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import {
   AICapabilityDefinition,
+  AIAsyncJobRecord,
   AIConsumerPolicy,
   AIDataClassification,
   AIEvaluationDefinition,
@@ -421,6 +422,34 @@ export class AIExecutionOrchestrator {
       const retry = job.attempts < job.maxAttempts;
       return this.repository.updateAsyncJob(publicId, { status: retry ? 'RETRYING' : 'DEAD_LETTER', nextAttemptAt: retry ? new Date(Date.now() + jitteredBackoffMs(job.attempts, 1_000, 60_000)) : null, lockedAt: null, lockedBy: null, leaseExpiresAt: null, errorCode: safeError(error as Error), completedAt: retry ? null : new Date() });
     }
+  }
+
+  async processDueAsyncJobs(workerId: string, limit = 10, signal?: AbortSignal) {
+    if (!workerId.trim()) throw new Error('AI_ASYNC_WORKER_ID_REQUIRED');
+    const bounded = Math.min(50, Math.max(1, Math.trunc(limit)));
+    const now = Date.now();
+    const candidates = [] as AIAsyncJobRecord[];
+    for (const status of ['QUEUED', 'RETRYING', 'RUNNING']) {
+      const page = await this.repository.listAsyncJobs({ status, page: 1, pageSize: bounded });
+      for (const job of page.data) {
+        if (candidates.length >= bounded) break;
+        if (status === 'RETRYING' && job.nextAttemptAt && new Date(job.nextAttemptAt).getTime() > now) continue;
+        if (status === 'RUNNING' && (!job.leaseExpiresAt || new Date(job.leaseExpiresAt).getTime() > now)) continue;
+        candidates.push(job);
+      }
+      if (candidates.length >= bounded) break;
+    }
+    let processed = 0;
+    for (const job of candidates) {
+      if (signal?.aborted) throw signal.reason ?? new Error('BACKGROUND_JOB_ABORTED');
+      try {
+        await this.processAsync(job.publicId, workerId);
+        processed += 1;
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== 'AI_ASYNC_JOB_NOT_CLAIMABLE') throw error;
+      }
+    }
+    return { scanned: candidates.length, processed };
   }
 
   queueStatus() { return this.repository.asyncQueueStatus(); }

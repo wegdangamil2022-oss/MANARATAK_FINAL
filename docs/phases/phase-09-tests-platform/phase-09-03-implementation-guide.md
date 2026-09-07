@@ -13,11 +13,13 @@ The platform is built on Clean Architecture and CQRS principles. The Write Model
 
 ---
 
+> **ADR-028 persistence note (2026-09-06):** Historical `@@schema(...)` examples in earlier revisions are superseded. The canonical runtime uses Prisma `public` with ownership enforced by `persistence-ownership.manifest.json`; this guide does not authorize a separate physical/logical PostgreSQL schema.
+
 ### 9.C.2 Technology Stack
 
 **Architectural Commentary**
 
-- **Runtime Environment**: Node.js v20+ / TypeScript 5.x / Express.js
+- **Runtime Environment**: Node.js 22.16.0 (`>=22.16.0 <23`) / TypeScript 5.x / Express.js
 - **Primary Persistence**: Relational SQL Database (PostgreSQL via Prisma ORM) under the `tests` database schema
 - **In-Memory Cache**: Distributed Redis Cache (Read-through caching for test nodes and score conversions)
 - **Message Broker & Events**: Enterprise Transactional Outbox / Inbox Event Bus
@@ -86,7 +88,7 @@ model Test {
   academicLinks    TestAcademicTaxonomyRelationship[]
 
   @@map("tests")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model TestVersion {
@@ -104,7 +106,7 @@ model TestVersion {
   sections               TestSection[]
 
   @@map("test_versions")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model TestSection {
@@ -120,7 +122,7 @@ model TestSection {
   testVersion            TestVersion    @relation(fields: [testVersionReferenceId], references: [publicId])
 
   @@map("test_sections")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model TestProvider {
@@ -133,7 +135,7 @@ model TestProvider {
   isDeleted              Boolean        @default(false) @map("is_deleted")
 
   @@map("test_providers")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model DeliveryMode {
@@ -145,7 +147,7 @@ model DeliveryMode {
   isDeleted              Boolean        @default(false) @map("is_deleted")
 
   @@map("delivery_modes")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model TestRequirement {
@@ -158,7 +160,7 @@ model TestRequirement {
   isDeleted              Boolean        @default(false) @map("is_deleted")
 
   @@map("test_requirements")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model TestSession {
@@ -171,7 +173,7 @@ model TestSession {
   isDeleted              Boolean        @default(false) @map("is_deleted")
 
   @@map("test_sessions")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model TestCenter {
@@ -184,7 +186,7 @@ model TestCenter {
   isDeleted              Boolean        @default(false) @map("is_deleted")
 
   @@map("test_centers")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model TestPolicy {
@@ -197,7 +199,7 @@ model TestPolicy {
   isDeleted              Boolean        @default(false) @map("is_deleted")
 
   @@map("test_policies")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model ValidityPeriod {
@@ -210,7 +212,7 @@ model ValidityPeriod {
   isDeleted              Boolean        @default(false) @map("is_deleted")
 
   @@map("validity_periods")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model ScoreScale {
@@ -227,7 +229,7 @@ model ScoreScale {
   bands          ScoreBand[]
 
   @@map("score_scales")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model ScoreBand {
@@ -244,7 +246,7 @@ model ScoreBand {
   scoreScale             ScoreScale @relation(fields: [scoreScaleReferenceId], references: [publicId])
 
   @@map("score_bands")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model TestEquivalencyMapping {
@@ -259,7 +261,7 @@ model TestEquivalencyMapping {
   isDeleted             Boolean  @default(false) @map("is_deleted")
 
   @@map("test_equivalency_mappings")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model TestCountryRelationship {
@@ -271,7 +273,7 @@ model TestCountryRelationship {
   test                Test     @relation(fields: [testReferenceId], references: [publicId])
 
   @@map("test_country_relationships")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model TestLanguageRelationship {
@@ -283,7 +285,7 @@ model TestLanguageRelationship {
   test                 Test     @relation(fields: [testReferenceId], references: [publicId])
 
   @@map("test_language_relationships")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model TestAcademicTaxonomyRelationship {
@@ -295,7 +297,7 @@ model TestAcademicTaxonomyRelationship {
   test                         Test     @relation(fields: [testReferenceId], references: [publicId])
 
   @@map("test_academic_relationships")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model TestDegreeRelationship {
@@ -307,7 +309,7 @@ model TestDegreeRelationship {
   test                Test     @relation(fields: [testReferenceId], references: [publicId])
 
   @@map("test_degree_relationships")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model TestStandard {
@@ -320,7 +322,7 @@ model TestStandard {
   isDeleted                Boolean        @default(false) @map("is_deleted")
 
   @@map("test_standards")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model TestTaxonomyEntity {
@@ -332,7 +334,7 @@ model TestTaxonomyEntity {
   isDeleted                Boolean        @default(false) @map("is_deleted")
 
   @@map("test_taxonomy_entities")
-  @@schema("tests")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 ```
 

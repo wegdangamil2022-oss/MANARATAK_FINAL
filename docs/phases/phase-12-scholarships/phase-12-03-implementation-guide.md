@@ -13,11 +13,13 @@ Phase 12 is the authoritative domain for global scholarship offerings, sponsors,
 
 ---
 
+> **ADR-028 persistence note (2026-09-06):** Historical `@@schema(...)` examples in earlier revisions are superseded. The canonical runtime uses Prisma `public` with ownership enforced by `persistence-ownership.manifest.json`; this guide does not authorize a separate physical/logical PostgreSQL schema.
+
 ### 12.C.2 Technology Stack
 
 **Architectural Commentary**
 
-- **Runtime Environment**: Node.js v20+ / TypeScript 5.x / Express.js
+- **Runtime Environment**: Node.js 22.16.0 (`>=22.16.0 <23`) / TypeScript 5.x / Express.js
 - **Primary Persistence**: Relational SQL Database (PostgreSQL via Prisma ORM) under the `scholarships` database schema
 - **In-Memory Cache**: Distributed Redis Cache (Read-through caching for active scholarship catalogs and eligibility projections)
 - **Message Broker & Events**: Enterprise Transactional Outbox / Inbox Event Bus
@@ -93,7 +95,7 @@ model Scholarship {
   testMappings        ScholarshipTestRequirementMapping[]
 
   @@map("scholarships")
-  @@schema("scholarships")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model ScholarshipSponsor {
@@ -108,7 +110,7 @@ model ScholarshipSponsor {
   scholarships   Scholarship[]
 
   @@map("scholarship_sponsors")
-  @@schema("scholarships")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model ScholarshipVersion {
@@ -130,7 +132,7 @@ model ScholarshipVersion {
   eligibilityRules      EligibilityRule[]
 
   @@map("scholarship_versions")
-  @@schema("scholarships")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model EligibilityRule {
@@ -148,7 +150,7 @@ model EligibilityRule {
   scholarshipVersion         ScholarshipVersion @relation(fields: [scholarshipVersionReferenceId], references: [publicId])
 
   @@map("eligibility_rules")
-  @@schema("scholarships")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model ApplicationCycle {
@@ -166,7 +168,7 @@ model ApplicationCycle {
   scholarship           Scholarship @relation(fields: [scholarshipReferenceId], references: [publicId])
 
   @@map("application_cycles")
-  @@schema("scholarships")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model ScholarshipCountryMapping {
@@ -178,7 +180,7 @@ model ScholarshipCountryMapping {
   scholarship            Scholarship @relation(fields: [scholarshipReferenceId], references: [publicId])
 
   @@map("scholarship_country_mappings")
-  @@schema("scholarships")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model ScholarshipUniversityMapping {
@@ -190,7 +192,7 @@ model ScholarshipUniversityMapping {
   scholarship            Scholarship @relation(fields: [scholarshipReferenceId], references: [publicId])
 
   @@map("scholarship_university_mappings")
-  @@schema("scholarships")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model ScholarshipMajorMapping {
@@ -202,7 +204,7 @@ model ScholarshipMajorMapping {
   scholarship            Scholarship @relation(fields: [scholarshipReferenceId], references: [publicId])
 
   @@map("scholarship_major_mappings")
-  @@schema("scholarships")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model ScholarshipTestRequirementMapping {
@@ -215,7 +217,7 @@ model ScholarshipTestRequirementMapping {
   scholarship            Scholarship @relation(fields: [scholarshipReferenceId], references: [publicId])
 
   @@map("scholarship_test_mappings")
-  @@schema("scholarships")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 ```
 

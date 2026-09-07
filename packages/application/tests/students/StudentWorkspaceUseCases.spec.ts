@@ -60,7 +60,7 @@ describe('StudentWorkspaceUseCases', () => {
         studentReferenceId: 'student-1',
         avatarAssetId: 'https://example.com/avatar.png',
       }),
-    ).rejects.toThrow('Phase 05 EAP handle');
+    ).rejects.toThrow('STUDENT_AVATAR_ASSET_REFERENCE_POLICY_REQUIRED');
   });
 
   it('saves personal workspace references only', async () => {

@@ -1,3 +1,4 @@
+import { AssetReferencePolicy, assertAssetReferenceUsable } from '../../asset-platform/AssetReferencePolicy';
 import {
   IUniversityRepository,
   ITransactionalUniversityRepository,
@@ -29,6 +30,7 @@ export class AdminUniversityUseCases {
     private readonly atomicMutations?: AtomicDomainMutationCoordinator,
     private readonly publicationReadiness = new PublicationReadinessEngine(),
     private readonly publicationPolicy = new UniversityPublicationReadinessPolicy(),
+    private readonly assetReferences?: AssetReferencePolicy,
   ) {}
 
   public async listUniversities(
@@ -90,6 +92,7 @@ export class AdminUniversityUseCases {
     context?: AtomicMutationRequestContext,
   ): Promise<UniversityDto> {
     assertNoTranslationPayloadFields('UNIVERSITY', updates.optionalFields, ['localizedNames']);
+    await assertAssetReferenceUsable(this.assetReferences, updates.logoAssetId, { purpose: 'UNIVERSITY_LOGO' });
     const existing = await this.getUniversity(id);
     const canonicalRelationshipMutation =
       updates.countryReferenceId !== undefined ||

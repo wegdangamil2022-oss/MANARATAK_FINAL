@@ -1,3 +1,5 @@
+> **Authentication authority (2026-09-06):** `docs/operations/AUTH_TOKEN_KEY_ROTATION.md` is the active token/key-rotation runbook.
+
 # Google Studio Handoff — Imported Courses
 
 ## Deployment model for this handoff
@@ -10,7 +12,7 @@ Google Studio is the runtime integrator after code closure. Its job is to config
 Google Studio is the runtime/deployment consumer after WP-IC-10. It should not invent or replace the imported-course architecture.
 
 ## Google Studio responsibilities
-1. Configure environment variables using the repository `.env.example` and deployment secret manager.
+1. Configure environment variables using the canonical repository `.env.example` and deployment secret manager; run `node scripts/config/verify-environment-contract.mjs` before deployment.
 2. Connect PostgreSQL using `DATABASE_URL`.
 3. Connect Redis when required by the target environment.
 4. Run reviewed Prisma migrations with `prisma migrate deploy`.
@@ -20,17 +22,14 @@ Google Studio is the runtime/deployment consumer after WP-IC-10. It should not i
 
 ## Required production/staging configuration
 At minimum validate real, non-placeholder values for:
-- `JWT_SECRET`
-- `SESSION_SECRET`
-- `CSRF_SECRET`
-- `ADMIN_AUTH_MODE=strict`
-- `DATABASE_URL`
-- `API_BASE_URL`
-- `CORS_ORIGIN`
-- `LOG_LEVEL`
-- `SECURITY_CSP_ENABLED`
-- `SECURITY_RATE_LIMIT_MAX`
-- `SECURITY_RATE_LIMIT_WINDOW_MS`
+- `JWT_ACTIVE_KEY_ID`, `JWT_PRIVATE_KEY_PEM`, `JWT_PUBLIC_KEY_PEM`, `JWT_ISSUER`, `JWT_AUDIENCE`
+- `CSRF_SECRET`, `SECURE_COOKIE=true`
+- `ADMIN_AUTH_MODE=strict`, `TRUST_PROXY_HOPS`
+- `DATABASE_URL`, managed `REDIS_URL`
+- `API_BASE_URL`, `PUBLIC_WEB_URL`, `ADMIN_WEB_URL`, `CORS_ORIGIN`
+- `LOG_LEVEL`, `SECURITY_CSP_ENABLED=true`
+- `SECURITY_RATE_LIMIT_MAX`, `SECURITY_RATE_LIMIT_WINDOW_MS`
+- `CERTIFICATE_COMPLETION_WORKER_ENABLED=true`, `CERTIFICATE_COMPLETION_WORKER_INTERVAL_MS`
 
 Frontend deployment must also provide the reviewed `VITE_*` settings appropriate to the deployment topology.
 

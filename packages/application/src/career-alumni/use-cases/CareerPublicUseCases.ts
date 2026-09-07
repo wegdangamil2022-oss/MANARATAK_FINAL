@@ -27,7 +27,7 @@ export class CareerPublicUseCases {
       canonical.countryReferenceId = (await this.references.resolveCountryReference(filters.country)).id;
     if (!canonical.cityReferenceId && filters.city)
       canonical.cityReferenceId = (await this.references.resolveCityReference(filters.city, canonical.countryReferenceId)).id;
-    return this.repository.listPublishedJobs({ ...canonical, pageSize: Math.min(filters.pageSize || 20, 50) });
+    return this.repository.listPublishedJobs({ ...canonical, limit: Math.min(filters.limit || 20, 50), cursor: filters.cursor });
   }
 
   public async getPublishedJobBySlug(slug: string): Promise<CareerJobPostingDto> {

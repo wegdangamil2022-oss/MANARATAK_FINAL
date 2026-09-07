@@ -21,7 +21,7 @@ describe('MutationAuditPolicy', () => {
     expect(MutationAuditPolicy.classify(request('POST', '/api/v1/admin/imports/major-catalogs/preview'), 'ADMIN'))
       .toBe('NO_AUDIT_REQUIRED');
     expect(MutationAuditPolicy.classify(request('POST', '/api/v1/admin/academic-taxonomy/import-handoff'), 'ADMIN'))
-      .toBe('STANDARD_AUDIT_REQUIRED');
+      .toBe('CRITICAL_AUDIT_REQUIRED');
   });
 
   it('fails closed when required audit persistence fails', async () => {

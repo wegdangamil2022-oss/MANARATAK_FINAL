@@ -245,7 +245,7 @@ export interface UniversityFilters {
   pageSize?: number;
 }
 
-export type PublicUniversityFilters = Omit<UniversityFilters, 'status' | 'completenessStatus' | 'country' | 'city'>;
+export type PublicUniversityFilters = Omit<UniversityFilters, 'status' | 'completenessStatus' | 'country' | 'city' | 'page' | 'pageSize'> & { cursor?: string; limit?: number };
 export type PublicUniversityDto = Omit<
   UniversityDto,
   | 'id'
@@ -267,6 +267,8 @@ export interface PaginatedUniversityResult<T = UniversityDto> {
   page: number;
   pageSize: number;
   totalPages: number;
+  hasMore?: boolean;
+  nextCursor?: string | null;
 }
 
 

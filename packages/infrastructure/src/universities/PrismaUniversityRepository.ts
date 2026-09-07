@@ -22,6 +22,8 @@ import {
 } from '@manaratak/domain';
 import { UniversityCanonicalRelationshipValidator } from './UniversityCanonicalRelationshipValidator';
 
+import { queryStableCursorPage } from '../api-foundation/StableCursor';
+
 const universityDetails = {
   campuses: true,
   organizationUnits: true,
@@ -357,7 +359,26 @@ export class PrismaUniversityRepository implements ITransactionalUniversityRepos
   async listPublished(
     filters: PublicUniversityFilters,
   ): Promise<PaginatedUniversityResult<UniversityDto>> {
-    return this.list({ ...filters, status: UniversityStatus.PUBLISHED });
+    const where: Prisma.UniversityWhereInput = { status: UniversityStatus.PUBLISHED };
+    if (filters.countryReferenceId) where.countryReferenceId = filters.countryReferenceId;
+    if (filters.regionReferenceId) where.regionReferenceId = filters.regionReferenceId;
+    if (filters.cityReferenceId) where.cityReferenceId = filters.cityReferenceId;
+    if (filters.institutionType) where.institutionType = filters.institutionType;
+    if (filters.majorId || filters.internationalTestId) {
+      where.academicPrograms = { some: {
+        ...(filters.majorId ? { status: 'ACTIVE', majorId: filters.majorId, degreeLevelId: { not: null }, majorMappingState: 'CANONICALLY_MAPPED', major: { is: { status: MajorStatus.PUBLISHED } } } : {}),
+        ...(filters.internationalTestId ? { admissionRequirements: { some: { internationalTestId: filters.internationalTestId } } } : {}),
+      } };
+    }
+    if (filters.search) where.OR = [
+      { displayName: { contains: filters.search, mode: 'insensitive' } },
+      { canonicalName: { contains: filters.search, mode: 'insensitive' } },
+      { slug: { contains: filters.search, mode: 'insensitive' } },
+    ];
+    return queryStableCursorPage({
+      delegate: this.prisma.university as any, where, include: universityDetails,
+      cursor: filters.cursor, limit: filters.limit, map: (record: any) => this.mapToDto(record),
+    });
   }
 
   async findPublishedByPublicIds(publicIds: string[]): Promise<UniversityDto[]> {

@@ -8,6 +8,7 @@ import {
   CertificateListResult,
   CertificateMutationContext,
   CertificateTemplateDto,
+  CertificateTemplateVersionDto,
   CreateCertificateIssuerDto,
   CreateCertificateTemplateDto,
   IssueCertificateDto,
@@ -29,6 +30,7 @@ export interface ICertificateRepository {
   updateTemplate(id: string, data: UpdateCertificateTemplateDto, context: CertificateMutationContext): Promise<CertificateTemplateDto>;
   transitionTemplate(id: string, status: CertificateTemplateStatus, context: CertificateMutationContext): Promise<CertificateTemplateDto>;
   findTemplateById(id: string): Promise<CertificateTemplateDto | null>;
+  findTemplateVersionById(id: string): Promise<CertificateTemplateVersionDto | null>;
   findActiveTemplateByName(name: string): Promise<CertificateTemplateDto | null>;
   listTemplates(): Promise<CertificateTemplateDto[]>;
 

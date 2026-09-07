@@ -9,16 +9,18 @@
 **Architectural Commentary**
 This document provides the definitive implementation guide for **Phase 13 (Learning Platform)**. It translates the enterprise architecture of Part A and the domain contracts of Part B into concrete enterprise integration patterns, architectural workflows, and deployment topologies adhering strictly to ADR-025 (TypeScript / Node.js / Express / Prisma ORM / PostgreSQL canonical stack).
 
-Phase 13 is the authoritative domain for the Learning Management System (LMS) capabilities of MANARATAK 2.0, encompassing course catalogs, modules, lessons, learner progress, assessments, and learning paths. Built on Clean Architecture and CQRS principles, the Write Model manages course structures and enrollments using Domain-Driven Design (DDD) aggregates and Prisma ORM under the `learning_platform` database schema. The Read Model provides high-performance course discovery and progress tracking via Redis caching.
+Phase 13 is the authoritative domain for the Learning Management System (LMS) capabilities of MANARATAK 2.0, encompassing course catalogs, modules, lessons, learner progress, assessments, and learning paths. Built on Clean Architecture and CQRS principles, the Write Model manages course structures and enrollments using Domain-Driven Design (DDD) aggregates and Prisma ORM under the ADR-028 `learning` persistence owner in the shared Prisma `public` schema. The Read Model provides high-performance course discovery and progress tracking via Redis caching.
 
 ---
+
+> **ADR-028 persistence note (2026-09-06):** Historical `@@schema(...)` examples in earlier revisions are superseded. The canonical runtime uses Prisma `public` with ownership enforced by `persistence-ownership.manifest.json`; this guide does not authorize a separate physical/logical PostgreSQL schema.
 
 ### 13.C.2 Technology Stack
 
 **Architectural Commentary**
 
-- **Runtime Environment**: Node.js v20+ / TypeScript 5.x / Express.js
-- **Primary Persistence**: Relational SQL Database (PostgreSQL via Prisma ORM) under the `learning_platform` database schema
+- **Runtime Environment**: Node.js 22.16.0 (`>=22.16.0 <23`) / TypeScript 5.x / Express.js
+- **Primary Persistence**: Relational SQL Database (PostgreSQL via Prisma ORM), owner=`learning`, physical Prisma schema=`public` per ADR-028
 - **In-Memory Cache**: Distributed Redis Cache (Read-through caching for active course catalogs and progress projections)
 - **Message Broker & Events**: Enterprise Transactional Outbox / Inbox Event Bus
 - **Validation Pipeline**: Zod Schema Validation
@@ -59,7 +61,7 @@ packages/learning-platform/
 ### 13.C.4 Persistence Strategy & Prisma Schema Mapping
 
 **Architectural Commentary**
-The relational data model is managed by Prisma ORM. The database schema is logically isolated using `@@schema("learning_platform")`.
+The relational data model is managed by Prisma ORM. Logical isolation is enforced by ADR-028 ownership controls and the persistence manifest; the physical Prisma schema is `public`.
 
 ```prisma
 // packages/learning-platform/prisma/schema.prisma
@@ -72,7 +74,6 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["learning_platform"]
 }
 
 model Course {
@@ -97,7 +98,7 @@ model Course {
   enrollments      Enrollment[]
 
   @@map("courses")
-  @@schema("learning_platform")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model Module {
@@ -111,7 +112,7 @@ model Module {
   lessons          Lesson[]
 
   @@map("modules")
-  @@schema("learning_platform")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model Lesson {
@@ -124,7 +125,7 @@ model Lesson {
   module           Module   @relation(fields: [moduleId], references: [publicId])
 
   @@map("lessons")
-  @@schema("learning_platform")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model Enrollment {
@@ -138,7 +139,7 @@ model Enrollment {
   course           Course   @relation(fields: [courseId], references: [publicId])
 
   @@map("enrollments")
-  @@schema("learning_platform")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 ```
 
@@ -366,7 +367,7 @@ The runtime behaviors of `NativeManaratakCourse`, `ExternalLinkedCourse`, `PaidC
               | Canonical Course Record
               v
   +-----------------------+
-  |   Database Schema     |  <-- Populates learning_platform.courses
+  |   Persistence Owner   |  <-- Populates learning-owned Course models in Prisma public
   |    (PostgreSQL)       |      in Draft / PendingReview state
   +-----------------------+
 ```

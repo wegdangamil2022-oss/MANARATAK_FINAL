@@ -8,10 +8,10 @@ MANARATAK is an npm-workspaces monorepo containing the public web application, A
 - Phase 10 source freeze is prepared; final freeze is pending Google Studio.
 - Phase 11 University contracts are prepared; University bulk import is blocked.
 - University Stage 1 source Dry Run covers 10,723 rows; imported records remain 0.
-- Original Development DB recovery, migrations, build, tests, and runtime validation remain pending Google Studio.
+- Clean PostgreSQL provisioning/migration, build, tests, and runtime validation remain pending runtime execution; no database mutation is implied by source readiness.
 - This repository is not declared Production Ready.
 
-See `docs/remediation/wp8/WP8_GOOGLE_STUDIO_CLOSURE_MASTER_REGISTER.md` for the authoritative external closure register.
+Database operations are governed by `docs/operations/GREENFIELD_DATABASE_PROVISIONING.md`; remediation state is tracked separately from runtime/database evidence.
 
 ## Repository Layout
 
@@ -21,7 +21,7 @@ See `docs/remediation/wp8/WP8_GOOGLE_STUDIO_CLOSURE_MASTER_REGISTER.md` for the 
 - `packages/domain`: Domain contracts, policies, and invariants.
 - `packages/application`: Application use cases and domain adapters.
 - `packages/infrastructure`: Prisma and external infrastructure adapters.
-- `packages/core`, `packages/shared`, `packages/config`, `packages/types`, `packages/ui`, `packages/utils`: shared foundations.
+- `packages/core`, `packages/shared`, `packages/config`, `packages/types`, `packages/ui`: shared foundations.
 - `scripts`: operational, import, database, and source-verification scripts. Historical one-off scripts are under `scripts/archive` and are not operational entry points.
 - `workspace`: source datasets, import artifacts, catalog indexes, reconciliation evidence, and generated reports. It is not application source.
 - `docs`: architecture, phase specifications, operations, implementation history, and remediation evidence.
@@ -33,7 +33,7 @@ The canonical package manager is **npm**.
 
 - Lockfile: `package-lock.json`
 - Workspaces: `apps/*`, `packages/*`
-- Runtime requirement: Node.js 20+ and npm 10+
+- Runtime requirement: Node.js 22.16.0 (supported range `>=22.16.0 <23`) and npm `>=10.9.0 <11`
 
 The historical `bun.lock` is archived under `workspace/reports/remediation-history/lockfiles` and is not an active lockfile.
 
@@ -57,13 +57,13 @@ npm run dev:admin
 npm run start
 ```
 
-Dependencies are not included in the handoff. Build and test results must be established in the approved Google Studio environment.
+Dependencies are not included in the handoff. Build and test results must be established in a controlled runtime environment; source-only verification is not runtime certification.
 
 ## Database Safety
 
-The Prisma schema is `packages/infrastructure/prisma/schema.prisma`. Commands that mutate schema or data must not be run until the original Development DB recovery gate, backup, restore verification, migration review, and owner-specific closure conditions are complete.
+The Prisma schema is `packages/infrastructure/prisma/schema.prisma`. Database writes are governed by the Greenfield Database Mutation Gate in `docs/operations/GREENFIELD_DATABASE_PROVISIONING.md`. The gate requires explicit provisioning approval, mutation authorization, environment/purpose declaration, and exact non-secret target confirmation. Production mutations require a separate production authorization and change identifier.
 
-Do not use Production for remediation. Do not run database reset, unapproved migrations, backfills, canonical ID regeneration, or bulk University import.
+Do not bypass the mutation gate with direct Prisma/SQL commands. Do not run database reset, unapproved migrations, backfills, canonical ID regeneration, or bulk imports outside the reviewed operation-specific flow.
 
 ## Import Platform
 

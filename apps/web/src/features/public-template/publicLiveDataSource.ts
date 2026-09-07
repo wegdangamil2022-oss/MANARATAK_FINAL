@@ -53,6 +53,7 @@ export interface PublicLiveDataSnapshot {
   countries: CountryDestination[];
   exams: Exam[];
   courses: Course[];
+  paidCourses: Course[];
   importedCourses: ImportedCourse[];
   articles: PublicArticle[];
   services: Service[];
@@ -67,7 +68,7 @@ export interface PublicLiveLoadResult {
 }
 
 const emptyData = (): PublicLiveDataSnapshot => ({
-  scholarships: [], universities: [], majors: [], countries: [], exams: [], courses: [], importedCourses: [],
+  scholarships: [], universities: [], majors: [], countries: [], exams: [], courses: [], paidCourses: [], importedCourses: [],
   articles: [], services: [], careers: [], tools: [],
 });
 
@@ -102,14 +103,14 @@ function countryFlagEmoji(iso2Code: string): string {
   return String.fromCodePoint(...[...code].map((char) => 127397 + char.charCodeAt(0)));
 }
 
-function rankFromUniversity(dto: PublicUniversityDto): number {
+function rankFromUniversity(dto: PublicUniversityDto): number | null {
   const rankings = Array.isArray(dto.rankings) ? dto.rankings : [];
   for (const raw of rankings) {
     const rank = asRecord(raw).rank;
     const numeric = Number(String(rank ?? '').replace(/[^0-9]/g, ''));
     if (Number.isFinite(numeric) && numeric > 0) return numeric;
   }
-  return Number.MAX_SAFE_INTEGER;
+  return null;
 }
 
 export function mapPublicUniversityDto(dto: PublicUniversityDto): University {
@@ -139,8 +140,8 @@ export function mapPublicUniversityDto(dto: PublicUniversityDto): University {
     foundationYear: dto.foundedYear ?? undefined,
     countryFlag: '',
     globalRank: rankFromUniversity(dto),
-    scholarshipCount: 0,
-    acceptanceRate: '',
+    scholarshipCount: null,
+    acceptanceRate: null,
     imageUrl: '',
     description: dto.description ?? '',
     topMajors: majorLinks.map((item) => item.label).slice(0, 8),
@@ -183,8 +184,8 @@ export function mapPublicMajorDto(dto: PublicMajorDto): Major {
     iconName: 'GraduationCap',
     code: dto.classificationCode ?? undefined,
     description: description ?? '',
-    averageScholarships: 0,
-    futureDemand: 'متوسط',
+    averageScholarships: null,
+    futureDemand: null,
     topCountries: [],
     popularCareers: dto.careerOutcomes ?? [],
     academicField: dto.academicFieldOrDiscipline ?? undefined,
@@ -194,29 +195,45 @@ export function mapPublicMajorDto(dto: PublicMajorDto): Major {
   };
 }
 
-export function mapCourse(dto: PublicCourseDto): { course: Course; imported: ImportedCourse } {
+export type PublicCourseTrack = 'native' | 'imported' | 'paid';
+
+/** P13 owner fields are the only authority for public catalog classification. */
+export function classifyCourseTrack(dto: Pick<PublicCourseDto, 'originType' | 'accessType'>): PublicCourseTrack {
+  if (dto.accessType === 'PAID') return 'paid';
+  if (dto.originType === 'NATIVE_MANARATAK_COURSE') return 'native';
+  return 'imported';
+}
+
+export function mapCourse(dto: PublicCourseDto): { course: Course; imported: ImportedCourse | null; track: PublicCourseTrack } {
   const levelRaw = (dto.difficultyLevel ?? '').toLowerCase();
   const level: Course['level'] = /advanced|متقدم/.test(levelRaw) ? 'متقدم' : /intermediate|متوسط/.test(levelRaw) ? 'متوسط' : 'مبتدئ';
   const provider = dto.providerName ?? dto.platformName ?? 'منارتك';
+  const track = classifyCourseTrack(dto);
   const course: Course = {
     id: dto.slug,
     ownerId: dto.ownerId,
     publicId: dto.publicId,
     slug: dto.slug,
+    originType: dto.originType,
+    accessType: dto.accessType,
     title: dto.displayName,
     titleEn: dto.canonicalName,
     provider,
     instructor: provider,
     duration: dto.studyDuration ?? '',
-    lessonsCount: 0,
+    lessonsCount: null,
     level,
     isFree: dto.accessType !== 'PAID',
-    rating: 0,
-    studentsCount: 0,
+    rating: null,
+    studentsCount: null,
     imageUrl: '',
     category: dto.category ?? 'تعلم',
+    directCourseUrl: dto.directCourseUrl,
+    courseContent: dto.courseContent,
+    acquiredSkills: dto.acquiredSkills ?? [],
   };
-  const imported: ImportedCourse = {
+  // Native/paid owner courses are never re-shaped into the imported-course provenance model.
+  const imported: ImportedCourse | null = track === 'imported' ? {
     id: dto.slug,
     ownerId: dto.ownerId,
     publicId: dto.publicId,
@@ -229,11 +246,11 @@ export function mapCourse(dto: PublicCourseDto): { course: Course; imported: Imp
     duration: dto.studyDuration ?? '',
     studyFree: dto.accessType !== 'PAID',
     freeCertificate: Boolean(dto.certificateAvailable),
-    certificateType: dto.certificateAvailable ? 'Completion Certificate' : '',
+    certificateType: dto.certificateAvailable ? (dto.certificateType ?? 'Completion Certificate') : '',
     topics: splitText(dto.courseContent),
     directCourseUrl: dto.directCourseUrl,
-  };
-  return { course, imported };
+  } : null;
+  return { course, imported, track };
 }
 
 export function mapCountry(dto: PublicStudyDestinationDto, locale: PublicLiveLocale = 'ar'): CountryDestination {
@@ -266,8 +283,8 @@ export function mapCountry(dto: PublicStudyDestinationDto, locale: PublicLiveLoc
     livingCost: dto.livingCostTier ? (livingCostLabel[dto.livingCostTier] ?? dto.livingCostTier) : (isAr ? 'غير محدد' : 'Not specified'),
     scholarshipAvailability: isAr ? 'حسب المنح المنشورة' : 'See published scholarships',
     studentSuitability: isAr ? 'راجع ملف الوجهة' : 'See destination profile',
-    scholarshipsCount: 0,
-    universitiesCount: 0,
+    scholarshipsCount: null,
+    universitiesCount: null,
     description: (isAr ? dto.overviewAr : dto.overviewEn) ?? dto.overviewAr ?? dto.overviewEn ?? '',
     imageUrl: '',
     popularCities: [],
@@ -338,7 +355,9 @@ function stripHtml(value: string): string {
 export function mapArticle(dto: PublicCmsContentDto): PublicArticle {
   const plain = stripHtml(dto.body);
   const kind = dto.contentType.toUpperCase();
-  const contentType: PublicArticle['contentType'] = kind.includes('NEWS') ? 'NEWS' : kind.includes('GUIDE') ? 'STUDY_GUIDE' : kind.includes('CHECKLIST') ? 'CHECKLIST' : 'ARTICLE';
+  const supportedTypes: PublicArticle['contentType'][] = ['ARTICLE', 'NEWS', 'STUDY_GUIDE', 'CHECKLIST', 'FAQ', 'STATIC_PAGE'];
+  if (!supportedTypes.includes(kind as PublicArticle['contentType'])) throw new Error(`CMS_CONTENT_TYPE_UNSUPPORTED:${dto.contentType}`);
+  const contentType = kind as PublicArticle['contentType'];
   return {
     id: dto.slug,
     publicId: dto.publicId,
@@ -347,7 +366,7 @@ export function mapArticle(dto: PublicCmsContentDto): PublicArticle {
     titleAr: dto.title,
     titleEn: dto.title,
     contentType,
-    contentTypeLabelAr: contentType === 'NEWS' ? 'خبر' : contentType === 'STUDY_GUIDE' ? 'دليل دراسي' : contentType === 'CHECKLIST' ? 'قائمة تحقق' : 'مقال',
+    contentTypeLabelAr: contentType === 'NEWS' ? 'خبر' : contentType === 'STUDY_GUIDE' ? 'دليل دراسي' : contentType === 'CHECKLIST' ? 'قائمة تحقق' : contentType === 'FAQ' ? 'أسئلة شائعة' : contentType === 'STATIC_PAGE' ? 'صفحة ثابتة' : 'مقال',
     categoryAr: dto.categorySlug ?? 'محتوى',
     author: 'منارتك',
     updatedAt: dto.publishedAt,
@@ -474,38 +493,70 @@ export function mapCareer(dto: PublicCareerJobDto): CareerOpportunityPreview {
   };
 }
 
+
+async function collectCursorPages<T>(fetchPage: (cursor?: string) => Promise<{ data: T[]; hasMore?: boolean; nextCursor?: string | null }>): Promise<T[]> {
+  const items: T[] = [];
+  let cursor: string | undefined;
+  for (let guard = 0; guard < 10000; guard += 1) {
+    const page = await fetchPage(cursor);
+    items.push(...page.data);
+    if (!page.hasMore || !page.nextCursor) break;
+    if (page.nextCursor === cursor) throw new Error('PUBLIC_CURSOR_DID_NOT_ADVANCE');
+    cursor = page.nextCursor;
+  }
+  return items;
+}
+
+async function collectOffsetPages<T>(fetchPage: (page: number) => Promise<{ data: T[]; totalPages?: number; page?: number }>): Promise<T[]> {
+  const items: T[] = [];
+  for (let pageNumber = 1; pageNumber <= 10000; pageNumber += 1) {
+    const page = await fetchPage(pageNumber);
+    items.push(...page.data);
+    const totalPages = Math.max(1, page.totalPages ?? pageNumber);
+    if (pageNumber >= totalPages) break;
+  }
+  return items;
+}
+
 export async function loadPublishedUniversities(locale: PublicLiveLocale = 'ar'): Promise<University[]> {
-  const result = await ApiClient.getUniversities({ locale, page: 1, pageSize: 50 });
-  return result.data.map(mapPublicUniversityDto);
+  const rows = await collectCursorPages((cursor) => ApiClient.getUniversities({ locale, cursor, limit: 100 }));
+  return rows.map(mapPublicUniversityDto);
 }
 export async function loadPublishedMajors(locale: PublicLiveLocale = 'ar'): Promise<Major[]> {
-  const result = await ApiClient.getMajors({ locale, page: 1, pageSize: 50 });
-  return result.data.map(mapPublicMajorDto);
+  const rows = await collectCursorPages((cursor) => ApiClient.getMajors({ locale, cursor, limit: 100 }));
+  return rows.map(mapPublicMajorDto);
 }
 export async function loadPublishedCountries(locale: PublicLiveLocale = 'ar'): Promise<CountryDestination[]> {
-  const result = await ApiClient.getStudyDestinations({ page: 1, pageSize: 100 });
-  return result.data.map((item) => mapCountry(item, locale));
+  const rows = await collectOffsetPages((page) => ApiClient.getStudyDestinations({ page, pageSize: 100 }));
+  return rows.map((item) => mapCountry(item, locale));
 }
 export async function loadPublishedExams(locale: PublicLiveLocale = 'ar'): Promise<Exam[]> {
-  const result = await ApiClient.getInternationalTests({ locale, page: 1, pageSize: 50 });
-  return result.data.map(mapExam);
+  const rows = await collectOffsetPages((page) => ApiClient.getInternationalTests({ locale, page, pageSize: 50 }));
+  return rows.map(mapExam);
 }
-export async function loadPublishedCourses(): Promise<{ courses: Course[]; importedCourses: ImportedCourse[] }> {
-  const result = await ApiClient.getCourses({ page: 1, pageSize: 50 });
-  const mapped = result.data.map(mapCourse);
-  return { courses: mapped.map((item) => item.course), importedCourses: mapped.map((item) => item.imported) };
+export async function loadPublishedCourses(): Promise<{ courses: Course[]; paidCourses: Course[]; importedCourses: ImportedCourse[] }> {
+  const rows = await collectCursorPages((cursor) => ApiClient.getCourses({ cursor, limit: 100 }));
+  const mapped = rows.map(mapCourse);
+  return {
+    courses: mapped.filter((item) => item.track === 'native').map((item) => item.course),
+    paidCourses: mapped.filter((item) => item.track === 'paid').map((item) => item.course),
+    importedCourses: mapped.flatMap((item) => item.imported ? [item.imported] : []),
+  };
 }
 export async function loadPublishedArticles(locale: PublicLiveLocale = 'ar'): Promise<PublicArticle[]> {
-  const result = await ApiClient.getCmsContent({ locale, page: 1, pageSize: 50 });
-  return result.data.map(mapArticle);
+  // The editorial discovery surface intentionally excludes FAQ/STATIC_PAGE. Those remain
+  // first-class P16 content and are delivered through the canonical /content/:slug route.
+  const editorialTypes: PublicArticle['contentType'][] = ['ARTICLE', 'NEWS', 'STUDY_GUIDE', 'CHECKLIST'];
+  const pages = await Promise.all(editorialTypes.map((contentType) => collectOffsetPages((page) => ApiClient.getCmsContent({ locale, contentType, page, pageSize: 50 }))));
+  return pages.flat().map(mapArticle);
 }
 export async function loadPublishedServices(): Promise<Service[]> {
-  const result = await ApiClient.getServices({ page: 1, pageSize: 50 });
-  return result.data.map(mapService);
+  const rows = await collectCursorPages((cursor) => ApiClient.getServices({ cursor, limit: 100 }));
+  return rows.map(mapService);
 }
 export async function loadPublishedCareers(): Promise<CareerOpportunityPreview[]> {
-  const result = await ApiClient.getCareerJobs({ page: 1, pageSize: 50 });
-  return result.data.map(mapCareer);
+  const rows = await collectCursorPages((cursor) => ApiClient.getCareerJobs({ cursor, limit: 100 }));
+  return rows.map(mapCareer);
 }
 export async function loadPublishedTools(locale: PublicLiveLocale = 'ar'): Promise<StudentToolPreview[]> {
   const result = await ApiClient.getStudentTools();
@@ -517,7 +568,7 @@ export async function loadPublicLiveSnapshot(locale: PublicLiveLocale = 'ar'): P
   const statuses = emptyStatuses();
   const errors: Partial<Record<PublicLiveDomain, string>> = {};
   const loaders: Array<[PublicLiveDomain, () => Promise<unknown>]> = [
-    ['scholarships', () => ApiClient.getScholarships({ page: 1, pageSize: 50 }).then((result) => result.data.map((dto) => mapPublicScholarshipDto(dto)))],
+    ['scholarships', () => collectCursorPages((cursor) => ApiClient.getScholarships({ cursor, limit: 100 })).then((rows) => rows.map((dto) => mapPublicScholarshipDto(dto)))],
     ['universities', () => loadPublishedUniversities(locale)], ['majors', () => loadPublishedMajors(locale)], ['countries', () => loadPublishedCountries(locale)],
     ['exams', () => loadPublishedExams(locale)], ['courses', loadPublishedCourses], ['articles', () => loadPublishedArticles(locale)],
     ['services', loadPublishedServices], ['careers', loadPublishedCareers], ['tools', () => loadPublishedTools(locale)],
@@ -527,8 +578,8 @@ export async function loadPublicLiveSnapshot(locale: PublicLiveLocale = 'ar'): P
       const result = await loader();
       if (domain === 'courses') {
         const value = result as Awaited<ReturnType<typeof loadPublishedCourses>>;
-        data.courses = value.courses; data.importedCourses = value.importedCourses;
-        statuses.courses = value.courses.length ? 'ready' : 'empty';
+        data.courses = value.courses; data.paidCourses = value.paidCourses; data.importedCourses = value.importedCourses;
+        statuses.courses = (value.courses.length || value.paidCourses.length || value.importedCourses.length) ? 'ready' : 'empty';
         return;
       }
       (data as unknown as Record<string, unknown>)[domain] = result;

@@ -13,11 +13,13 @@ The Major Platform functions as the single source of truth for academic majors, 
 
 ---
 
+> **ADR-028 persistence note (2026-09-06):** Historical `@@schema(...)` examples in earlier revisions are superseded. The canonical runtime uses Prisma `public` with ownership enforced by `persistence-ownership.manifest.json`; this guide does not authorize a separate physical/logical PostgreSQL schema.
+
 ### 10.C.2 Technology Stack
 
 **Architectural Commentary**
 
-- **Runtime Environment**: Node.js v20+ / TypeScript 5.x / Express.js
+- **Runtime Environment**: Node.js 22.16.0 (`>=22.16.0 <23`) / TypeScript 5.x / Express.js
 - **Primary Persistence**: Relational SQL Database (PostgreSQL via Prisma ORM) under the `majors` database schema
 - **In-Memory Cache**: Distributed Redis Cache (Read-through caching for majors and classification projections)
 - **Message Broker & Events**: Enterprise Transactional Outbox / Inbox Event Bus
@@ -87,7 +89,7 @@ model Major {
   academicLinks    MajorAcademicTaxonomyRelationship[]
 
   @@map("majors")
-  @@schema("majors")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model MajorVersion {
@@ -106,7 +108,7 @@ model MajorVersion {
   requirements     MajorRequirement[]
 
   @@map("major_versions")
-  @@schema("majors")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model MajorRequirement {
@@ -122,7 +124,7 @@ model MajorRequirement {
   majorVersion            MajorVersion @relation(fields: [majorVersionReferenceId], references: [publicId])
 
   @@map("major_requirements")
-  @@schema("majors")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model DeliveryFormat {
@@ -135,7 +137,7 @@ model DeliveryFormat {
   isDeleted      Boolean  @default(false) @map("is_deleted")
 
   @@map("delivery_formats")
-  @@schema("majors")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model MajorAlias {
@@ -150,7 +152,7 @@ model MajorAlias {
   major            Major    @relation(fields: [majorReferenceId], references: [publicId])
 
   @@map("major_aliases")
-  @@schema("majors")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model MajorSynonym {
@@ -165,7 +167,7 @@ model MajorSynonym {
   major            Major    @relation(fields: [majorReferenceId], references: [publicId])
 
   @@map("major_synonyms")
-  @@schema("majors")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model MajorEquivalencyMapping {
@@ -180,7 +182,7 @@ model MajorEquivalencyMapping {
   isDeleted            Boolean  @default(false) @map("is_deleted")
 
   @@map("major_equivalency_mappings")
-  @@schema("majors")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model MajorCountryRelationship {
@@ -192,7 +194,7 @@ model MajorCountryRelationship {
   major               Major    @relation(fields: [majorReferenceId], references: [publicId])
 
   @@map("major_country_relationships")
-  @@schema("majors")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model MajorLanguageRelationship {
@@ -204,7 +206,7 @@ model MajorLanguageRelationship {
   major                Major    @relation(fields: [majorReferenceId], references: [publicId])
 
   @@map("major_language_relationships")
-  @@schema("majors")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model MajorAcademicTaxonomyRelationship {
@@ -216,7 +218,7 @@ model MajorAcademicTaxonomyRelationship {
   major                        Major    @relation(fields: [majorReferenceId], references: [publicId])
 
   @@map("major_academic_relationships")
-  @@schema("majors")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model MajorDegreeLevelRelationship {
@@ -228,7 +230,7 @@ model MajorDegreeLevelRelationship {
   major                  Major    @relation(fields: [majorReferenceId], references: [publicId])
 
   @@map("major_degree_relationships")
-  @@schema("majors")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model MajorStandard {
@@ -241,7 +243,7 @@ model MajorStandard {
   isDeleted                Boolean        @default(false) @map("is_deleted")
 
   @@map("major_standards")
-  @@schema("majors")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model MajorProvider {
@@ -254,7 +256,7 @@ model MajorProvider {
   isDeleted           Boolean        @default(false) @map("is_deleted")
 
   @@map("major_providers")
-  @@schema("majors")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model MajorTaxonomyEntity {
@@ -266,7 +268,7 @@ model MajorTaxonomyEntity {
   isDeleted        Boolean        @default(false) @map("is_deleted")
 
   @@map("major_taxonomy_entities")
-  @@schema("majors")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model MajorClassificationEntity {
@@ -278,7 +280,7 @@ model MajorClassificationEntity {
   isDeleted        Boolean        @default(false) @map("is_deleted")
 
   @@map("major_classification_entities")
-  @@schema("majors")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 ```
 

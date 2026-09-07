@@ -123,12 +123,7 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
         </div>
 
         {/* Progress bar using var(--mn-accent-soft) and slate-100 */}
-        <div className="w-full bg-[var(--mn-surface-muted)] h-2.5 rounded-full overflow-hidden mn-panel ">
-          <div
-            className="bg-[var(--mn-accent)] h-full rounded-full transition-all duration-500 mn-gold "
-            style={{ width: `${overallPercentage}%` }}
-          />
-        </div>
+        <progress className="mn-native-progress mn-native-progress-accent h-2.5 w-full" value={Math.min(100, Math.max(0, overallPercentage))} max={100} aria-label="التقدم التعليمي العام" />
 
         <p className="text-xs text-[var(--mn-text-muted)] font-medium">
           {completedChecklistItems} من {totalChecklistItems} مهام أكاديمية مكتملة بنجاح
@@ -351,12 +346,7 @@ export const LearnerProgressTracker: React.FC<LearnerProgressTrackerProps> = ({
                 <div className="text-[11px] font-bold text-[var(--mn-heading)] mb-1">
                   {course.progressPercent || 0}%
                 </div>
-                <div className="w-14 h-1.5 bg-[var(--mn-surface-muted)] rounded-full overflow-hidden mn-panel ">
-                  <div
-                    className="h-full bg-[var(--mn-primary)] rounded-full mn-inverse "
-                    style={{ width: `${course.progressPercent || 0}%` }}
-                  />
-                </div>
+                <progress className="mn-native-progress mn-native-progress-primary h-1.5 w-14" value={Math.min(100, Math.max(0, course.progressPercent || 0))} max={100} aria-label={`تقدم ${course.title || 'الدورة'}`} />
               </div>
             </div>
           ))}

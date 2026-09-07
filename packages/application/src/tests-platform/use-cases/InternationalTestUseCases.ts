@@ -1,3 +1,4 @@
+import { AssetReferencePolicy, assertAssetReferenceUsable } from '../../asset-platform/AssetReferencePolicy';
 import {
   IInternationalTestRepository,
   ITransactionalInternationalTestRepository,
@@ -52,6 +53,7 @@ export class InternationalTestAdminUseCases {
     degreeLevelRepository?: IDegreeLevelRepository,
     private readonly atomicMutations?: AtomicDomainMutationCoordinator,
     academicTaxonomyRepository?: IAcademicTaxonomyRepository,
+    private readonly assetReferences?: AssetReferencePolicy,
   ) {
     this.canonicalRelationshipService = new InternationalTestCanonicalRelationshipService(
       referenceResolver,
@@ -289,9 +291,7 @@ export class InternationalTestAdminUseCases {
     if (data.url && (data.url.startsWith('file://') || data.url.startsWith('/local/') || data.url.startsWith('C:\\'))) {
       throw new Error('Raw local file paths are not allowed as persisted material URLs');
     }
-    if (data.assetId && (data.assetId.startsWith('file://') || data.assetId.startsWith('/local/'))) {
-      throw new Error('Raw local file paths are not allowed as asset IDs');
-    }
+    await assertAssetReferenceUsable(this.assetReferences, data.assetId, { purpose: 'INTERNATIONAL_TEST_MATERIAL' });
     if (!this.repository.upsertPreparationMaterial) throw new Error('Repository method upsertPreparationMaterial not implemented');
     return this.mutate('INTERNATIONAL_TEST_PREPARATION_MATERIAL_UPSERTED', testId, context, repository => repository.upsertPreparationMaterial!(testId, data));
   }

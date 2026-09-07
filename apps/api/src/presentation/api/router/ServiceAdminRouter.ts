@@ -58,7 +58,8 @@ export class ServiceAdminRouter {
       optionalFields: z.record(z.string(), z.unknown()).nullable().optional()
     });
 
-    const updateBodySchema = serviceBodySchema.partial();
+    const expectedVersionSchema = z.object({ expectedVersion: z.number().int().positive() }).strict();
+    const updateBodySchema = serviceBodySchema.partial().extend({ expectedVersion: z.number().int().positive() }).strict();
 
     const requestListQuerySchema = z.object({
       studentReferenceId: z.string().min(1).optional(),
@@ -70,6 +71,7 @@ export class ServiceAdminRouter {
     const requestTransitionSchema = z.object({
       status: z.nativeEnum(ServiceRequestStatus),
       fulfillmentMetadata: z.record(z.string(), z.unknown()).nullable().optional(),
+      expectedVersion: z.number().int().positive(),
     }).strict();
     const requestInvoiceSchema = z.object({
       description: z.string().trim().min(1).max(240).optional(),
@@ -77,6 +79,7 @@ export class ServiceAdminRouter {
       amountMinorUnits: z.string().regex(/^\d+$/),
       currencyCode: z.string().trim().min(3).max(3),
       scale: z.number().int().min(0).max(6),
+      expectedVersion: z.number().int().positive(),
     }).strict();
 
     router.get('/', asyncHandler(async (req: Request, res: Response) => {
@@ -99,12 +102,12 @@ export class ServiceAdminRouter {
 
     router.post('/requests/:requestId/transition', asyncHandler(async (req: Request, res: Response) => {
       const body = requestTransitionSchema.parse(req.body);
-      res.json(await adminServiceFulfillmentUseCases.transitionRequest(req.params.requestId, body.status, body.fulfillmentMetadata));
+      res.json(await adminServiceFulfillmentUseCases.transitionRequest(req.params.requestId, body.status, body.expectedVersion, body.fulfillmentMetadata));
     }));
 
     router.post('/requests/:requestId/provider', asyncHandler(async (req: Request, res: Response) => {
-      const body = z.object({ providerReferenceId: z.string().trim().min(1).max(200) }).strict().parse(req.body);
-      res.json(await adminServiceFulfillmentUseCases.assignProvider(req.params.requestId, body.providerReferenceId));
+      const body = z.object({ providerReferenceId: z.string().trim().min(1).max(200), expectedVersion: z.number().int().positive() }).strict().parse(req.body);
+      res.json(await adminServiceFulfillmentUseCases.assignProvider(req.params.requestId, body.providerReferenceId, body.expectedVersion));
     }));
 
     router.post('/requests/:requestId/finance-invoice', asyncHandler(async (req: Request, res: Response) => {
@@ -122,38 +125,38 @@ export class ServiceAdminRouter {
     }));
 
     router.patch('/:id', asyncHandler(async (req: Request, res: Response) => {
-      const updates = updateBodySchema.parse(req.body) as UpdateServiceCatalogItemDto;
-      res.json(await adminServiceCatalogUseCases.updateService(req.params.id, updates));
+      const { expectedVersion, ...updates } = updateBodySchema.parse(req.body);
+      res.json(await adminServiceCatalogUseCases.updateService(req.params.id, updates as UpdateServiceCatalogItemDto, expectedVersion));
     }));
 
     router.post('/:id/mark-ready', asyncHandler(async (req: Request, res: Response) => {
-      await adminServiceCatalogUseCases.markReadyToReview(req.params.id);
-      res.json({ success: true });
+      const { expectedVersion } = expectedVersionSchema.parse(req.body);
+      res.json(await adminServiceCatalogUseCases.markReadyToReview(req.params.id, expectedVersion));
     }));
 
     router.post('/:id/mark-publishable', asyncHandler(async (req: Request, res: Response) => {
-      await adminServiceCatalogUseCases.markReadyToPublish(req.params.id);
-      res.json({ success: true });
+      const { expectedVersion } = expectedVersionSchema.parse(req.body);
+      res.json(await adminServiceCatalogUseCases.markReadyToPublish(req.params.id, expectedVersion));
     }));
 
     router.post('/:id/publish', asyncHandler(async (req: Request, res: Response) => {
-      await adminServiceCatalogUseCases.publish(req.params.id);
-      res.json({ success: true });
+      const { expectedVersion } = expectedVersionSchema.parse(req.body);
+      res.json(await adminServiceCatalogUseCases.publish(req.params.id, expectedVersion));
     }));
 
     router.post('/:id/unpublish', asyncHandler(async (req: Request, res: Response) => {
-      await adminServiceCatalogUseCases.unpublish(req.params.id);
-      res.json({ success: true });
+      const { expectedVersion } = expectedVersionSchema.parse(req.body);
+      res.json(await adminServiceCatalogUseCases.unpublish(req.params.id, expectedVersion));
     }));
 
     router.post('/:id/reject', asyncHandler(async (req: Request, res: Response) => {
-      await adminServiceCatalogUseCases.reject(req.params.id);
-      res.json({ success: true });
+      const { expectedVersion } = expectedVersionSchema.parse(req.body);
+      res.json(await adminServiceCatalogUseCases.reject(req.params.id, expectedVersion));
     }));
 
     router.post('/:id/archive', asyncHandler(async (req: Request, res: Response) => {
-      await adminServiceCatalogUseCases.archive(req.params.id);
-      res.json({ success: true });
+      const { expectedVersion } = expectedVersionSchema.parse(req.body);
+      res.json(await adminServiceCatalogUseCases.archive(req.params.id, expectedVersion));
     }));
 
     router.use((err: any, req: Request, res: Response, next: NextFunction) => {

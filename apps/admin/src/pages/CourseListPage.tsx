@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { adminApiClient } from '../api/client';
-import { ArrowRight, Filter, Loader2 } from 'lucide-react';
+import { ArrowRight, Filter, Loader2, Plus, X } from 'lucide-react';
 import { useTranslation } from "../i18n/I18nProvider";
 
 interface Course {
@@ -34,6 +34,30 @@ export function CourseListPage() {
   const [originFilter, setOriginFilter] = useState('');
   const [accessFilter, setAccessFilter] = useState('');
   const [page, setPage] = useState(1);
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({ titleAr: '', titleEn: '', accessType: 'FREE_STUDY', learningLanguage: 'ar', category: '', difficultyLevel: '' });
+
+  const createNativeCourse = async (event: FormEvent) => {
+    event.preventDefault();
+    setCreating(true);
+    setError(null);
+    try {
+      const payload = {
+        titleAr: createForm.titleAr.trim(),
+        accessType: createForm.accessType,
+        ...(createForm.titleEn.trim() ? { titleEn: createForm.titleEn.trim() } : {}),
+        ...(createForm.learningLanguage.trim() ? { learningLanguage: createForm.learningLanguage.trim() } : {}),
+        ...(createForm.category.trim() ? { category: createForm.category.trim() } : {}),
+        ...(createForm.difficultyLevel.trim() ? { difficultyLevel: createForm.difficultyLevel.trim() } : {}),
+      };
+      const created = await adminApiClient.request<{ id: string }>('/admin/courses', { method: 'POST', body: JSON.stringify(payload) });
+      setShowCreate(false);
+      navigate(`/courses/${created.id}`);
+    } catch (err: any) {
+      setError(err.message);
+    } finally { setCreating(false); }
+  };
 
   const fetchCourses = async () => {
     setLoading(true);
@@ -70,6 +94,7 @@ export function CourseListPage() {
         </div>
 
         <div className="flex flex-wrap gap-3">
+          <button type="button" onClick={() => setShowCreate(true)} className="inline-flex items-center gap-2 rounded-md bg-[#142B5F] px-4 py-2 text-sm font-bold text-white"><Plus className="h-4 w-4" />Create native course</button>
           <div className="relative">
             <select value={statusFilter} onChange={resetAndSet(setStatusFilter)} className="appearance-none bg-white border border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-black">
               <option value="">{t('all_statuses')}</option>
@@ -106,6 +131,21 @@ export function CourseListPage() {
       </div>
 
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>}
+      {showCreate && (
+        <form onSubmit={createNativeCourse} className="rounded-2xl border border-[#DDEFF2] bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between"><div><h3 className="font-black text-[#142B5F]">Create native MANARATAK course</h3><p className="text-xs text-gray-500">Creates a DRAFT native course and opens its canonical editor.</p></div><button type="button" onClick={() => setShowCreate(false)}><X className="h-5 w-5" /></button></div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            <input required minLength={2} value={createForm.titleAr} onChange={e=>setCreateForm(v=>({...v,titleAr:e.target.value}))} placeholder="Arabic title *" className="rounded-xl border p-2" />
+            <input value={createForm.titleEn} onChange={e=>setCreateForm(v=>({...v,titleEn:e.target.value}))} placeholder="English title" className="rounded-xl border p-2" />
+            <select value={createForm.accessType} onChange={e=>setCreateForm(v=>({...v,accessType:e.target.value}))} className="rounded-xl border p-2"><option value="FREE_STUDY">Free study</option><option value="FREE_CERTIFICATE">Free certificate</option><option value="FREE_STUDY_AND_CERTIFICATE">Free study + certificate</option><option value="PAID">Paid</option></select>
+            <input value={createForm.learningLanguage} onChange={e=>setCreateForm(v=>({...v,learningLanguage:e.target.value}))} placeholder="Learning language (BCP47)" className="rounded-xl border p-2" />
+            <input value={createForm.category} onChange={e=>setCreateForm(v=>({...v,category:e.target.value}))} placeholder="Category" className="rounded-xl border p-2" />
+            <input value={createForm.difficultyLevel} onChange={e=>setCreateForm(v=>({...v,difficultyLevel:e.target.value}))} placeholder="Difficulty level" className="rounded-xl border p-2" />
+          </div>
+          <button disabled={creating} className="mt-4 rounded-xl bg-[#0E7C86] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">{creating ? 'Creating…' : 'Create and open editor'}</button>
+        </form>
+      )}
+
 
       {loading && !data ? (
         <div className="flex justify-center items-center h-64">

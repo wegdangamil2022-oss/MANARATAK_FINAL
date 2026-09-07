@@ -8,7 +8,7 @@ import {
 } from '../packages/domain/src/academic-taxonomy/isced-f-baseline';
 import { requireDatabaseMutationGate } from './lib/require-database-mutation-gate';
 
-requireDatabaseMutationGate('seed-taxonomy');
+requireDatabaseMutationGate('seed-taxonomy', { allowedPurposes: ['seed'] });
 
 let url = process.env.DATABASE_URL;
 if (!url || url.includes('postgres-host') || url.includes('placeholder')) {

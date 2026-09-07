@@ -1,103 +1,107 @@
-# Containerization and CI/CD Operations Manual
+> **Authentication authority (2026-09-06):** `docs/operations/AUTH_TOKEN_KEY_ROTATION.md` is the active token/key-rotation runbook.
 
-## 1. Executive Summary
+# Containerization, CI and Release Operations Manual
 
-This manual defines the containerization architecture, local compose setups, and Continuous Integration (CI) workflows for the **Manaratak 2.0 Monorepo**. All environments are optimized for local development agility and automated code quality verification.
+**Status:** SOURCE_COMPLETE — RUNTIME_EVIDENCE_PENDING  
+**Updated:** 2026-09-07
 
-### Status Registry
-- **Local Containerization Status**: `local containerization ready`
-- **CI/CD Verification Status**: `CI verification wired`
-- **Cloud Deployment Status**: `production deployment pending`
+This manual describes the executable repository today. It does not claim application Docker images, deployed environments, browser E2E, provider runtime, or production readiness unless those artifacts actually exist and are verified.
 
----
+## 1. Local dependency topology
 
-## 2. Local Verification Workflow
+`docker-compose.yml` is a **development dependency topology only**. It contains exactly:
 
-The monorepo incorporates a unified, zero-dependency validation script. Developers must execute this validation script locally before pushing changes or opening any Pull Requests.
+- `development-safety-gate`
+- `postgres`
+- `redis`
 
-### Verification Command
-Run the following standard NPM script from the root of the workspace:
+There are no `api`, `web`, or `admin` Compose services and no application Dockerfiles are claimed by this manual. Application processes run through their normal npm workspace commands outside Compose.
+
+Generate guarded local credentials:
+
 ```bash
-npm run verify:local
+npm run compose:init
 ```
 
-### Verification Stages (Deterministic Order)
-1. **Database Client Generation**: Automatically runs `prisma generate` to update types under `@prisma/client`.
-2. **Typecheck Stage (`npm run typecheck`)**: Compiles all packages and applications with strict incremental TypeScript constraints.
-3. **Lint Stage (`npm run lint`)**: Runs ESLint checks across both apps and packages.
-4. **Build Stage (`npm run build`)**: Builds production-ready assets for apps (`apps/api`, `apps/web`, `apps/admin`) and workspace dependencies.
-5. **Unit & Integration Tests (`npm run test`)**: Runs all automated tests in the repository using Vitest.
-6. **E2E Browser Tests (`npm run e2e`)**: Spawns Playwright to test live interface journeys against a dev server.
+Start/stop dependency services only through:
 
----
-
-## 3. Local Containerization (Docker Compose)
-
-The monorepo includes a multi-service `docker-compose.yml` to orchestrate a complete replication of the Manaratak environment on developer machines.
-
-### Services Architecture
-- **`postgres`**: Relational database storage.
-- **`redis`**: Key-value data cache (configured as optional/fallback for local dev to avoid hard failures, but actively integrated for job queues).
-- **`api`**: Core Express server built on Node.js (with internal Prisma client generator, workspace building, and a `/api/v1/monitoring/health` healthcheck).
-- **`web`**: Public client-facing React single-page application served via Nginx.
-- **`admin`**: Workspace management and administration panel served via Nginx.
-
-### Required Local Development Environment Variables
-When initiating the container landscape, copy `.env.example` into your container-specific shell and ensure these are defined:
-- `DATABASE_URL`: `postgresql://root:password@postgres:5432/manaratak?schema=public`
-- `JWT_SECRET`: Safe local-development secret (minimum 32 characters)
-- `SESSION_SECRET`: Safe session salt (minimum 32 characters)
-- `CSRF_SECRET`: Safe CSRF signing token (minimum 32 characters)
-- `CORS_ORIGIN`: `http://localhost:8080` (or local web service entrypoint)
-- `ADMIN_AUTH_MODE`: `demo` (for testing, bypasses external identity assertions)
-- `ADMIN_BEARER_TOKEN`: Safe bearer token (minimum 32 characters)
-- `REDIS_URL`: `redis://redis:6379`
-
-### Startup Commands
-
-To build images and spin up the complete container network in background mode:
 ```bash
-./scripts/deploy/local-compose-up.sh
+npm run compose:up
+npm run compose:down
 ```
-*Note: This runs `docker compose config` followed by `docker compose up -d --build` internally.*
 
-To stop the container network and clean up ephemeral volumes:
+These commands execute `scripts/dev/init-compose-env.mjs` and `scripts/dev/compose-safe.mjs`. The wrapper refuses staging/production-like use, requires a development environment, validates non-weak credentials, and Compose binds published PostgreSQL/Redis ports to `127.0.0.1`.
+
+## 2. Local repository verification
+
+`npm run verify:local` is the developer convenience aggregate and currently expands to source quality, typecheck, lint, build, repository tests and browser E2E. It therefore requires the full dependency/browser runtime and is **not** a zero-dependency verifier.
+
+For source-only closure without DB/provider/browser runtime, use the registered source gates relevant to the change, including:
+
 ```bash
-./scripts/deploy/local-compose-down.sh
+npm run quality:source
+npm run ci:closure:manifest
+npm run recovery:source:verify
 ```
-*Note: This runs `docker compose down -v` internally.*
 
-### Local Container Endpoints
-Once the containers are running successfully, access the interfaces at:
-- **Public Web Application**: `http://localhost:8080`
-- **Admin Workspace Management**: `http://localhost:8081`
-- **Core API Server**: `http://localhost:3000`
-- **API Liveness & Readiness Check**: `http://localhost:3000/api/v1/monitoring/health`
+A source-only PASS is not runtime certification.
 
----
+## 3. Canonical CI workflow
 
-## 4. Continuous Integration (CI) Workflow
+`.github/workflows/ci.yml` contains three jobs:
 
-Continuous Integration runs on every commit pushed to the `main` or `develop` branches, as well as on any incoming Pull Requests.
+1. **Full source closure gates**
+   - checkout and Node 22.16.0 setup;
+   - `npm ci`;
+   - branch/commit governance checks;
+   - source quality;
+   - registered source-closure manifest;
+   - Prisma source validation/client generation;
+   - typecheck, lint, build and unit/source-integration tests;
+   - deterministic immutable release artifact + checksum/SBOM/provenance generation and verification;
+   - artifact/evidence upload.
+2. **Translation quality gates**
+   - dependency install;
+   - source translation and semantic Arabic-copy verification.
+3. **Deployment configuration**
+   - `docker compose config` only; it validates the dependency Compose file and does not build application containers.
 
-### Workflow Stages (`.github/workflows/ci.yml`)
-1. **Checkout Code**: Checks out the complete monorepo.
-2. **Setup Node.js Environment**: Boots a Node container caching standard `npm` registries.
-3. **Install Dependencies**: Executes `npm ci` to fetch lockfile dependencies deterministically.
-4. **Generate Prisma Client**: Automatically compiles database client schemas.
-5. **Typecheck Stage**: Executes strict compilation checks (`tsc -b`).
-6. **Lint Stage**: Audits files against stylistic and error conventions.
-7. **Build Stage**: Confirms correct compiling of all web assets and the bundled API server.
-8. **Unit & Integration Test Stage**: Executes the full test suite with Vitest.
-9. **E2E Playwright Browser Stage**: Installs the custom chromium engine and runs headless browser validation journeys.
-10. **Docker Compose Configuration Validation**: Asserts syntactical and structure correctness of the `docker-compose.yml` file using `docker compose config`.
+The canonical CI does **not** claim a Playwright browser-E2E job. Browser E2E remains runtime evidence unless a dedicated executable workflow is added and verified.
 
----
+## 4. Immutable release and environment promotion
 
-## 5. Known Operational Limitations & Risks
+W6 added `.github/workflows/release-promotion.yml` and the source commands:
 
-1. **Docker Daemon in Sandboxed Environments**:
-   - The AI Studio container runtime lacks a background Docker daemon. As a result, live image compilation, container execution (`docker compose up`), and dynamic healthchecks must be verified on a local developer machine with native Docker Desktop or engine installed.
-   - Syntax validation is handled statically using configuration parsers.
-2. **Production Readiness Caveat**:
-   - While the local dockerization is stable and fully functional, cloud deployment remains pending. Production setups will require robust secret managers, a secure container registry, managed database endpoints (e.g., GCP Cloud SQL, Memorystore Redis), and rolling cloud runtimes.
+```bash
+npm run release:artifacts
+npm run release:verify
+npm run release:promote -- validation
+npm run release:smoke -- validation
+```
+
+The workflow promotes the same source-bound artifact through `validation` → `staging` → `production` with environment approvals, checksum/SBOM/provenance verification, recovery preflight and post-deploy smoke hooks.
+
+**Important:** workflow/source presence is `SOURCE_COMPLETE`; provider/control-plane execution, environment approvals, deployed smoke results and rollback rehearsal remain `PENDING_NON_BLOCKING` until actually executed.
+
+## 5. Recovery and observability
+
+- Recovery authority: `docs/operations/PLATFORM_DISASTER_RECOVERY_RUNBOOK.md` and `.github/workflows/recovery-restore-audit.yml`.
+- Observability authority: `docs/operations/OBSERVABILITY_RUNBOOK.md` plus W6 OTLP/HTTP source configuration.
+
+Production backup readiness, whole-platform restore rehearsal, telemetry export, alert delivery and measured RPO/RTO require real runtime/provider evidence.
+
+## 6. Runtime evidence currently pending
+
+The following are not converted into source PASS results:
+
+- disposable PostgreSQL migration/integration/recovery execution;
+- application/container deployment on a selected platform;
+- validation/staging/production control-plane promotion evidence;
+- browser E2E against deployed Web/Admin/API;
+- real OTLP collector export and alert delivery;
+- provider-specific notification/asset/finance/AI integrations where configured;
+- whole-platform backup/restore drill and measured RPO/RTO.
+
+## 7. Source-checked operational paths
+
+W7 verifies that every script/workflow/file path named as executable in this manual exists and that Compose service claims equal the actual `docker-compose.yml` service keys. A documentation change that reintroduces nonexistent deployment wrappers, application Compose services, or browser-E2E claims inside the canonical CI workflow must fail source verification.

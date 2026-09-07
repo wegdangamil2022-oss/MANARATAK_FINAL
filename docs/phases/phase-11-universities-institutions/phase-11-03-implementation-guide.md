@@ -13,11 +13,13 @@ Phase 11 serves as the authoritative domain for higher education institutional p
 
 ---
 
+> **ADR-028 persistence note (2026-09-06):** Historical `@@schema(...)` examples in earlier revisions are superseded. The canonical runtime uses Prisma `public` with ownership enforced by `persistence-ownership.manifest.json`; this guide does not authorize a separate physical/logical PostgreSQL schema.
+
 ### 11.C.2 Technology Stack
 
 **Architectural Commentary**
 
-- **Runtime Environment**: Node.js v20+ / TypeScript 5.x / Express.js
+- **Runtime Environment**: Node.js 22.16.0 (`>=22.16.0 <23`) / TypeScript 5.x / Express.js
 - **Primary Persistence**: Relational SQL Database (PostgreSQL via Prisma ORM) under the `universities` database schema
 - **In-Memory Cache**: Distributed Redis Cache (Read-through caching for institutional cards and program offerings)
 - **Message Broker & Events**: Enterprise Transactional Outbox / Inbox Event Bus
@@ -86,7 +88,7 @@ model University {
   rankings            Ranking[]
 
   @@map("universities")
-  @@schema("universities")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model Campus {
@@ -103,7 +105,7 @@ model Campus {
   university            University @relation(fields: [universityReferenceId], references: [publicId])
 
   @@map("campuses")
-  @@schema("universities")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model Faculty {
@@ -122,7 +124,7 @@ model Faculty {
   programs                   AcademicProgram[]
 
   @@map("faculties")
-  @@schema("universities")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model Department {
@@ -138,7 +140,7 @@ model Department {
   programs                       AcademicProgram[]
 
   @@map("departments")
-  @@schema("universities")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model AcademicProgram {
@@ -164,7 +166,7 @@ model AcademicProgram {
   department                    Department? @relation(fields: [departmentReferenceId], references: [publicId])
 
   @@map("academic_programs")
-  @@schema("universities")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model Accreditation {
@@ -182,7 +184,7 @@ model Accreditation {
   university                 University? @relation(fields: [universityReferenceId], references: [publicId])
 
   @@map("accreditations")
-  @@schema("universities")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 
 model Ranking {
@@ -200,7 +202,7 @@ model Ranking {
   university            University @relation(fields: [universityReferenceId], references: [publicId])
 
   @@map("rankings")
-  @@schema("universities")
+  // Persistence owner is governed by ADR-028; physical Prisma schema = public.
 }
 ```
 

@@ -1,130 +1,83 @@
-# MANARATAK 2.0: Official Documentation Repository
+# MANARATAK 2.0 Documentation Index
 
-Welcome to the official documentation repository for **MANARATAK 2.0**, the definitive, comprehensive digital compass for Arab students, intelligently connecting them with global educational opportunities.
+**Status:** ACTIVE / SOURCE-ALIGNED  
+**Updated:** 2026-09-07  
+**Repository phase coverage:** Phase 02 through Phase 24, including the two current Phase 10 documentation roots.
 
-The `/docs` directory is the central documentation repository for MANARATAK 2.0, structured into distinct logical documentation domains to promote long-term discoverability, maintainability, and clean separation of architectural concerns.
+This file is the navigation entrypoint for the current `docs/` tree. It does not certify runtime or production readiness. Completion terminology is governed by [`governance/COMPLETION_STATUS_LIFECYCLE.md`](./governance/COMPLETION_STATUS_LIFECYCLE.md).
 
-## Repository Governance Philosophy
+## Authority order
 
-This repository operates under strict Documentation Governance. It is designed to be the single source of truth for the enterprise architecture, maintaining chronological traceability, structural clarity, and zero ambiguity. All technical specifications, business domains, and architectural baselines are version-controlled, uniquely identified, and carefully organized.
+1. [`governance/blueprint/MANARATAK-2.0-Master-Blueprint.md`](./governance/blueprint/MANARATAK-2.0-Master-Blueprint.md) — project constitution.
+2. [`governance/roadmap/MANARATAK-2.0-Roadmap-v6.0.md`](./governance/roadmap/MANARATAK-2.0-Roadmap-v6.0.md) — current phase ownership and sequence.
+3. [`architecture/Enterprise-Architecture-Governance-Index.md`](./architecture/Enterprise-Architecture-Governance-Index.md) and active ADRs/standards — cross-cutting architecture authority.
+4. `phases/` — phase architecture/domain/implementation requirements.
+5. `operations/` — executable operational runbooks and runtime handoff contracts.
+6. `remediation/` — remediation register, source-closure evidence, runtime-pending evidence and final rebaseline records.
+7. `implementation-status/`, `imports/`, `standards/` — specialized active evidence and standards.
+8. `legacy/` — historical/superseded material only; never current authority.
 
-## Project Constitution
+## Current top-level documentation domains
 
-The highest-level and most critical document in this repository is the **Master Blueprint**. It serves as the official Project Constitution and must always be read first before consulting any other documentation.
+| Path | Purpose |
+| --- | --- |
+| `architecture/` | Enterprise architecture, ADRs, lifecycle/security/data standards and shared models. |
+| `governance/` | Blueprint, roadmap, audits and completion-status governance. |
+| `phases/` | Phase 02–24 specifications and implementation baselines. |
+| `operations/` | Database, CI/CD, recovery, keys/tokens, observability and runtime procedures. |
+| `remediation/` | Ordered remediation evidence, cross-phase traceability and wave closure records. |
+| `implementation-status/` | Current implementation-status evidence. |
+| `imports/` | Import-domain documentation and source/data evidence. |
+| `standards/` | Shared repository/documentation standards. |
+| `legacy/` | Superseded historical artifacts only. |
+| root `*_FINAL_CLOSURE_*.md` files | Domain-specific closure artifacts retained at `docs/` root for compatibility; consult remediation/governance authority before treating them as current runtime evidence. |
 
-- [MANARATAK-2.0-Master-Blueprint.md](./governance/blueprint/MANARATAK-2.0-Master-Blueprint.md)
+## Active phase roots
 
-## Documentation Repository Structure
+The repository currently contains these phase roots:
 
-The documentation repository is organized into four main pillars to separate enterprise governance, global architecture designs, phase progression, and obsolete references:
+- `phase-02-solution-architecture`
+- `phase-03-enterprise-design`
+- `phase-04-architecture-governance`
+- `phase-05-core-implementation`
+- `phase-06-import-foundation`
+- `phase-07-enterprise-reference-data`
+- `phase-08-academic-taxonomy`
+- `phase-09-tests-platform`
+- `phase-10-major-platform`
+- `phase-10-majors`
+- `phase-11-universities-institutions`
+- `phase-12-scholarships`
+- `phase-13-learning-platform`
+- `phase-14-enterprise-certificates-platform`
+- `phase-15-enterprise-student-platform`
+- `phase-16-enterprise-cms`
+- `phase-17-enterprise-ai-platform`
+- `phase-18-enterprise-student-tools-platform`
+- `phase-19-enterprise-finance-payments-platform`
+- `phase-20-enterprise-services-platform`
+- `phase-21-enterprise-career-alumni-platform`
+- `phase-22-enterprise-product-experience`
+- `phase-23-enterprise-administration-portal`
+- `phase-24-enterprise-public-platform`
 
-```text
-docs/
-├── governance/
-│   ├── blueprint/
-│   ├── roadmap/
-│   └── audits/
-├── architecture/
-│   ├── adr/
-│   ├── standards/
-│   └── Enterprise-Architecture-Governance-Index.md
-├── phases/
-└── legacy/
-```
+`phase-10-major-platform` and `phase-10-majors` both exist and must not be silently merged by navigation tooling; their authority must be interpreted through Roadmap v6.0 and the phase documents themselves.
 
-- **`governance/`**: Centralized repository for all enterprise governance, roadmaps, master blueprints, and program-level consistency audits.
-- **`architecture/`**: Shared enterprise-wide guidelines, standards, Architecture Decision Records (ADRs), models, and compliance reviews.
-- **`phases/`**: Detailed chronological progression of individual phase specifications, domain models, contracts, and implementation guides.
-- **`legacy/`**: Preserved historical artifacts and superseded documents.
+## Remediation and closure navigation
 
-## Documentation Navigation
+For the current remediation chain, read in this order:
 
-| Directory                          | Purpose                                                                   | Primary Focus Areas                                                              |
-| :--------------------------------- | :------------------------------------------------------------------------ | :------------------------------------------------------------------------------- |
-| **[governance](./governance)**     | Enterprise governance, program-level roadmaps, and program consistency.   | Master Blueprints, Roadmaps, Impact Analyses, and Continuity Audits.             |
-| **[architecture](./architecture)** | Shared architectural rules, global standards, decision logs, and metrics. | Architecture Decision Records (ADRs), Global Data Standards, and indexes.        |
-| **[phases](./phases)**             | Phase implementation specifications and domain specifications.            | Bounded Contexts, Domain Contracts (Part B), and Implementation Guides (Part C). |
-| **[legacy](./legacy)**             | Historical and archived reference materials.                              | Obsolete, superseded, or deprecated guidelines kept solely for audit history.    |
+- `remediation/MANARATAK_REMEDIATION_EXECUTION_REGISTER_v0.68_ORDERED_W2_EXECUTED.md` — preserved ordered register copy/evidence baseline.
+- `remediation/CROSS_PHASE_RELATIONSHIP_CLOSURE_MATRIX.md` — active source-rebaselined cross-phase relationship authority.
+- `remediation/P23_P24_REBASELINE_TRACEABILITY.md` — P23/P24 source rebaseline and runtime-pending boundary.
+- `remediation/W2_SOURCE_CLOSURE_2026-09-06.md` through the latest `W*_CLOSED_*.md` wave closure records.
 
-## Recommended Reading Order
+A `CLOSED_SOURCE`, `SOURCE_COMPLETE`, or `SOURCE_REBASELINED` result does not imply DB/provider/deployment/browser verification. The applicable closure record must list pending runtime evidence explicitly.
 
-For new developers, architects, reviewers, and contributors, the documentation should be read in the following sequence to establish a comprehensive top-down understanding of the platform:
+## Contributor rules
 
-1. **Project Constitution** (`MANARATAK-2.0-Master-Blueprint.md` inside `governance/blueprint/`)
-   - _Why:_ Establishes the ultimate architectural standards, core domains, and non-negotiable software philosophy of MANARATAK 2.0.
-2. **Enterprise Roadmap** (`MANARATAK-2.0-Roadmap-v6.0.md` inside `governance/roadmap/`)
-   - _Why:_ Outlines active phase definitions, sequence parameters, cross-phase dependencies, and release targets.
-3. **Architecture Constitution / Guidelines** (inside `architecture/`)
-   - _Why:_ Explains cross-cutting standards, security layers, logging guidelines, caching setups, and infrastructure requirements.
-4. **Enterprise Architecture Governance Index** (`Enterprise-Architecture-Governance-Index.md` inside `architecture/`)
-   - _Why:_ Explains documentation authority levels and routes queries to correct authoritative files.
-5. **Architecture Decision Records (ADRs)** (inside `architecture/adr/`)
-   - _Why:_ Explains the rationale, alternatives, benefits, and consequences for key architectural decisions.
-6. **Chronological Phase Specifications** (inside `phases/`)
-   - _Why:_ Step-by-step implementation baselines, domain contracts (Part B), and active execution details (Part C) for each phase of the project:
-     - **Phase 02** (Solution Architecture)
-     - **Phase 03** (Enterprise Design)
-     - **Phase 04** (Architecture Governance)
-     - **Phase 05** (Core Implementation)
-     - **Phase 06** (Import Foundation)
-     - **Phase 07** (Domain Contracts & Specifications)
-     - **Phase 08** (Enterprise Architecture Specification)
-     - **Phase 09** (Implementation Guide)
-     - _(and succeeding active phases)_
-
-## Repository Governance
-
-To ensure the repository remains clean, accurate, and structured:
-
-- **Explicit Ownership:** Every document belongs to a specific domain context or phase lifecycle.
-- **Single Source of Truth (SSOT):** Every architectural policy, database schema pattern, or integration contract has exactly one authoritative location.
-- **Cross-Referencing:** To avoid drifting rules and outdated duplication, documents must link or cross-reference other sources rather than copying them.
-- **Precedence Rule:** All changes must respect the **Enterprise Architecture Governance Index** priority rules, ensuring that highest-level constitution agreements are always prioritized.
-
-## Contribution Guidelines
-
-When introducing new architecture or updating existing documentation, contributors must strictly follow these directives:
-
-- **Place Documents in Correct Folders:** Ensure governance-level files reside under `/docs/governance/` and enterprise technical files are saved in `/docs/architecture/`.
-- **Follow Documentation Naming Standards:** Use lowercase hyphenated naming prefixes corresponding to your specific document category (e.g., standards start with `std-` or `doc-gov-`, ADRs use `ADR-XXX`).
-- **Avoid Duplication:** If an existing document covers a topic, reference it instead of drafting new rules or replicating paragraphs.
-- **Update Cross-References and Indexes:** When files are moved, renamed, or added, perform a repository search to update all parent READMEs, the Enterprise Architecture Governance Index, and any relevant cross-phase reference links.
-
-## Documentation Lifecycle
-
-MANARATAK 2.0 documentation is living code that moves through a formalized evolution model:
-
-```text
-   Blueprint (Project Constitution)
-               ↓
-    Roadmap (Release Milestones)
-               ↓
-Architecture (Standards & Decision Records)
-               ↓
- Implementation Phases (Domain Contracts & Code)
-               ↓
-      Architecture Reviews (Compliance)
-               ↓
-         Audit (Consistency Verification)
-               ↓
-      Remediation (Resolution Updates)
-```
-
-Documentation evolves seamlessly alongside code execution, ensuring that our technical specifications remain a perfect and undeniable reflection of the enterprise's functional state.
-
-## Related Documentation
-
-- **[Enterprise Governance](./governance)**
-- **[Enterprise Architecture Guidelines](./architecture)**
-- **[Phase Implementations](./phases)**
-- **[Legacy Archive](./legacy)**
-
----
-
-## Directory Structure
-
-- **`docs/`**: The root directory containing all system and project documentation.
-- **`architecture/`**: Contains ONLY shared enterprise documentation (e.g., Architecture Decision Records (ADRs), global standards, audits, reports, and the Enterprise Architecture Governance Index). Phase-specific documents are not permitted here.
-- **`governance/`**: Centralized repository for all enterprise governance, roadmaps, master blueprints, and program-level consistency audits.
-- **`phases/`**: The chronological progression of the project. Contains the detailed architectural baselines, domain models, and implementation guidelines for each phase (Phase 02 through Phase 09).
-- **`legacy/`**: Contains historical, superseded, or obsolete documents. These artifacts are preserved for historical reference only and **should not** be used as active implementation references.
+- Link to existing authority instead of duplicating policy.
+- Keep paths executable and source-checked; do not document nonexistent scripts/services.
+- Update this index when a top-level documentation domain or phase root changes.
+- Do not restore `Production Ready` to an active status field without the runtime/production evidence required by the completion lifecycle.
+- Keep historical claims quarantined under `legacy/` or clearly labeled historical appendices.

@@ -401,7 +401,7 @@ export function AdminTranslationWorkspacePage() {
     <main
       className="mx-auto max-w-[1500px] space-y-5 text-[#203442]"
       dir={dir}
-      style={{ fontFamily: "'Cairo', 'Noto Sans Arabic', system-ui, sans-serif" }}
+     
     >
       <header className="overflow-hidden rounded-3xl border border-[#DDEFF2] bg-white shadow-sm">
         <div className="h-1.5 bg-gradient-to-r from-[#142B5F] via-[#21A7B4] to-[#D6A43B]" />

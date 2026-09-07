@@ -1,41 +1,38 @@
-# Phase4.11 Refined Report (Refined)
+# Phase 4.11 — Presentation Validation Baseline (Rebaselined 2026-09-06)
 
-## Implementation Summary
+## Authority status
 
-The Validation Foundation has been strictly verified against enterprise criteria. `IValidationProvider`, `ISanitizer`, and `IValidationService` operate entirely within the pure application layer, free from business rules, domain invariants, and authorization constraints. The infrastructure layer's `ZodValidationProvider` remains completely hidden from the Application layer, ensuring full interchangeability. The `DefaultSanitizer` executes only technical normalizations, avoiding any business-specific transformations. The `DtoValidationMiddleware` strictly isolates transport DTO validation within the Presentation layer, preventing DTO mechanisms from leaking into Domain logic. The `ValidationResult` model remains pure, capturing only structural validation errors without embedding HTTP status codes or business workflow exceptions.
+`REBASELINED — SOURCE_VERIFIED / FULL WORKSPACE TYPECHECK PENDING DEPENDENCY RESTORE`
 
-## Refinements Validated
+This baseline supersedes the earlier claim that `DtoValidationMiddleware` was the active HTTP validation boundary. The middleware had been constructed historically but was not composed into the canonical application and therefore could not prove transport validation.
 
-1. **Validation Layer Separation:** Verified the foundation is purely structural and avoids business or workflow constraints.
-2. **Validation Provider Neutrality:** Confirmed Zod and specific library semantics do not leak into the Application layer.
-3. **Sanitization Governance:** Verified `ISanitizer` implementations perform only input normalization and avoid business-specific data mapping or inference.
-4. **Validation Pipeline Governance:** Confirmed the pipeline handles only sanitization and validation without side effects or state modifications.
-5. **DTO Validation Purity:** Validated DTO validation stays restricted to the Presentation boundary.
-6. **Validation Result Governance:** Verified `ValidationResultModel` uses generic properties and abstains from defining HTTP outcomes.
+## Canonical runtime contract
 
-## Compilation Status
+1. Privileged HTTP routes validate **body, query and path authority at the Presentation boundary** before invoking application use cases.
+2. The canonical mechanism is explicit route-local Zod schemas, with shared schemas factored into `apps/api/src/presentation/validation/StrictControlPlaneSchemas.ts`.
+3. Object request contracts are closed with `.strict()`; unknown properties are rejected unless a separately documented endpoint intentionally accepts a bounded metadata record.
+4. Raw `req.body` must not be forwarded into privileged application use cases.
+5. Server-owned fields such as authenticated actor, canonical path resource identifiers, source/provenance and lifecycle authority are derived from trusted request/server context rather than accepted from mutable JSON payloads.
+6. Shared metadata maps are size-bounded at the transport edge and remain subject to domain validation after structural validation.
+7. Domain invariants remain in Application/Domain services. Zod schemas enforce transport structure and security boundaries only.
 
-- `npm run build` completed successfully with zero TypeScript errors across the workspace.
+## Retired presentation mechanism
 
-## Architecture Validation
+`apps/api/src/presentation/validation/DtoValidationMiddleware.ts` has been removed from active source. The generic validation abstractions/providers in Core/Infrastructure are not declared to be the canonical HTTP middleware and may continue to serve non-HTTP validation uses. The historical report under `archive/` is retained as historical evidence and is not runtime authority.
 
-- **Clean Architecture:** Enforced.
-- **DDD Boundaries:** Enforced.
-- **SOLID Principles:** Enforced.
-- **Validation Layer Separation:** Confirmed.
-- **Provider Neutrality:** Confirmed.
-- **Sanitization Governance:** Confirmed.
-- **Pipeline Governance:** Confirmed.
-- **DTO Validation Purity:** Confirmed.
-- **Dependency Rule:** Compliant.
-- **Zero Business Leakage:** Verified successfully.
+## Source evidence
 
-## Approval Status
+The remediation sweep covers legacy privileged surfaces including Workflow, API Foundation, Shared Components, Notifications, Cache, Background Jobs, File Management, Authorization, Enterprise Events, Identity, Student Tools, International Tests, Assets, Imports, Reference Data and Scholarship import ingress.
 
-Phase 4.11
-IMPLEMENTED
-Revision: 4.11.1
-READY FOR IMPLEMENTATION BASELINE
+The W1 verifier and `tests/security/strict-edge-validation-remediation-source.test.mjs` are the executable source evidence for this contract. A future route that forwards raw request bodies or reintroduces `.passthrough()` into privileged transport schemas must fail the source gate.
+
+## Verification boundary
+
+Source-level checks can be executed without a database. Full TypeScript/workspace CI remains required before `VERIFIED_CLOSED`. The current environment does not contain the complete installed `@types/*` dependency tree, so a full workspace typecheck cannot yet be used as closure evidence.
+
+## Approval status
+
+Phase 4.11 validation authority is rebaselined to the executable route-local strict-schema model. This does **not** assert production/runtime closure until dependency-backed CI and integration tests pass.
 
 ---
 

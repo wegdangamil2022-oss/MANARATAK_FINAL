@@ -45,7 +45,7 @@ const closureDoc = 'docs/remediation/p8/P8_LATE_DOMAIN_INTEGRATION_CLOSURE_2026-
 // P20 becomes a real owner contract, not generated/dummy authority.
 check('P8-SVC-001 typed Phase 20 service domain exists', exists(serviceDomain) && has(serviceDomain, 'export interface IServiceCatalogRepository') && has(serviceDomain, 'export interface IServiceRequestRepository'));
 check('P8-SVC-001 service domain exported from canonical domain boundary', has('packages/domain/src/index.ts', "export * from './services-platform';"));
-check('P8-SVC-001 dummy service authority removed', notHas('packages/domain/src/generated/dummy.ts', 'IServiceCatalogRepository') && notHas('packages/domain/src/generated/dummy.ts', 'export enum ServiceCategory'));
+check('P8-SVC-001 dummy service authority removed', !exists('packages/domain/src/generated/dummy.ts') || (notHas('packages/domain/src/generated/dummy.ts', 'IServiceCatalogRepository') && notHas('packages/domain/src/generated/dummy.ts', 'export enum ServiceCategory')));
 check('P8-SVC-002 service persistence is source-wired', exists(serviceRepo) && has(di, 'new PrismaServicePlatformRepository(prisma)'));
 check('P8-SVC-002 unavailable service persistence removed from src DI', notHas(di, "createUnavailableCapability('serviceCatalogPersistence')"));
 check('P8-SVC-002 service publicId remains immutable on repository update', has(serviceRepo, 'publicId is immutable after creation') && !/async update\(id: string, data: ServiceCatalogRepositoryUpdateDto\)[\s\S]{0,500}publicId: data\.publicId/.test(read(serviceRepo)));

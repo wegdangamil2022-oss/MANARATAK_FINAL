@@ -25,6 +25,8 @@ type Tool = {
   lifecycle: string;
   implementationPriority: string;
   estimatedMinutes: number;
+  tags: string[];
+  iconAssetId?: string | null;
   availability: {
     publicEnabled: boolean;
     anonymousEnabled: boolean;
@@ -242,6 +244,9 @@ function ToolDetail({ toolKey }: { toolKey: string }) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [changeNote, setChangeNote] = useState('');
+  const [testInput, setTestInput] = useState('{}');
+  const [testResult, setTestResult] = useState('');
   const load = useCallback(async () => {
     try {
       const response = await adminApiClient.request<{ data: Detail }>(
@@ -273,20 +278,102 @@ function ToolDetail({ toolKey }: { toolKey: string }) {
       setSaving(false);
     }
   };
-  const activate = async () => {
-    if (!detail?.readiness.ready || !window.confirm('تأكيد تفعيل الأداة بعد اجتياز فحص الجاهزية؟'))
+  const saveMetadata = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!detail) return;
+    setSaving(true);
+    setError('');
+    try {
+      const { tool } = detail;
+      await adminApiClient.request(`/admin/student-tools/${encodeURIComponent(toolKey)}/metadata`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          nameAr: tool.nameAr,
+          nameEn: tool.nameEn,
+          descriptionAr: tool.descriptionAr,
+          descriptionEn: tool.descriptionEn,
+          category: tool.category,
+          implementationPriority: tool.implementationPriority,
+          visibility: tool.visibility,
+          implementationStatus: tool.implementationStatus,
+          estimatedMinutes: tool.estimatedMinutes,
+          tags: tool.tags ?? [],
+          iconAssetId: tool.iconAssetId ?? null,
+        }),
+      });
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'تعذر حفظ البيانات الوصفية');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveAvailability = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!detail || changeNote.trim().length < 3) {
+      setError('اكتب سبب تغيير الإتاحة (3 أحرف على الأقل).');
       return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      await adminApiClient.request(`/admin/student-tools/${encodeURIComponent(toolKey)}/availability`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          ...detail.tool.availability,
+          semanticVersion: incrementPatchVersion(detail.tool.currentVersion.semanticVersion),
+          changeNote: changeNote.trim(),
+        }),
+      });
+      setChangeNote('');
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'تعذر حفظ الإتاحة المرقمة');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const transitionLifecycle = async (action: 'activate' | 'testing' | 'deprecate' | 'retire') => {
+    if (!detail) return;
+    if (action === 'activate' && !detail.readiness.ready) {
+      setError('لا يمكن التفعيل قبل اجتياز فحص الجاهزية.');
+      return;
+    }
+    if (!window.confirm(`تأكيد تغيير دورة حياة الأداة: ${action}؟`)) return;
     setSaving(true);
     setError('');
     try {
       await adminApiClient.request(
-        `/admin/student-tools/${encodeURIComponent(toolKey)}/lifecycle/activate`,
+        `/admin/student-tools/${encodeURIComponent(toolKey)}/lifecycle/${action}`,
         { method: 'POST' },
       );
       await load();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'تعذر التفعيل');
+      setError(reason instanceof Error ? reason.message : 'تعذر تغيير دورة الحياة');
       await load();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const runAdminTest = async (event: FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    setTestResult('');
+    try {
+      const input = JSON.parse(testInput);
+      if (!input || Array.isArray(input) || typeof input !== 'object') throw new Error('TEST_INPUT_MUST_BE_OBJECT');
+      const response = await adminApiClient.request<{ data: unknown }>(
+        `/admin/student-tools/${encodeURIComponent(toolKey)}/test`,
+        { method: 'POST', body: JSON.stringify({ input, locale: 'ar' }) },
+      );
+      setTestResult(JSON.stringify(response.data, null, 2));
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'تعذر تنفيذ اختبار الإدارة');
     } finally {
       setSaving(false);
     }
@@ -341,7 +428,7 @@ function ToolDetail({ toolKey }: { toolKey: string }) {
           <button
             type="button"
             disabled={!detail.readiness.ready || saving || tool.lifecycle === 'ACTIVE'}
-            onClick={() => void activate()}
+            onClick={() => void transitionLifecycle('activate')}
             className="min-h-11 rounded-xl bg-[#142B5F] px-5 font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             {tool.lifecycle === 'ACTIVE' ? 'نشطة حاليًا' : 'تفعيل الأداة'}
@@ -351,7 +438,14 @@ function ToolDetail({ toolKey }: { toolKey: string }) {
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="space-y-5 rounded-3xl border bg-white p-6 lg:col-span-2">
           <h2 className="text-xl font-black">الهوية والعقود</h2>
-          <p className="leading-7 text-slate-600">{tool.descriptionAr}</p>
+          <form onSubmit={saveMetadata} className="grid gap-3 rounded-2xl bg-slate-50 p-4 sm:grid-cols-2">
+            <input className="rounded-xl border p-3" value={tool.nameAr} onChange={(e) => setDetail((current) => current ? { ...current, tool: { ...current.tool, nameAr: e.target.value } } : current)} aria-label="الاسم العربي" />
+            <input className="rounded-xl border p-3" dir="ltr" value={tool.nameEn} onChange={(e) => setDetail((current) => current ? { ...current, tool: { ...current.tool, nameEn: e.target.value } } : current)} aria-label="English name" />
+            <textarea className="rounded-xl border p-3 sm:col-span-2" value={tool.descriptionAr} onChange={(e) => setDetail((current) => current ? { ...current, tool: { ...current.tool, descriptionAr: e.target.value } } : current)} aria-label="الوصف العربي" rows={3} />
+            <input className="rounded-xl border p-3" value={tool.category} onChange={(e) => setDetail((current) => current ? { ...current, tool: { ...current.tool, category: e.target.value } } : current)} aria-label="الفئة" />
+            <input className="rounded-xl border p-3" type="number" min={0} value={tool.estimatedMinutes} onChange={(e) => setDetail((current) => current ? { ...current, tool: { ...current.tool, estimatedMinutes: Number(e.target.value) } } : current)} aria-label="المدة المقدرة" />
+            <button disabled={saving} className="rounded-xl bg-[#142B5F] px-4 py-3 font-black text-white sm:col-span-2">حفظ البيانات الوصفية</button>
+          </form>
           <dl className="grid gap-4 sm:grid-cols-2">
             <Info label="نوع التنفيذ" value={format(tool.executionType)} />
             <Info label="دورة الحياة" value={labels[tool.lifecycle] ?? tool.lifecycle} />
@@ -416,6 +510,35 @@ function ToolDetail({ toolKey }: { toolKey: string }) {
           </p>
         </form>
       </div>
+      <section className="grid gap-6 lg:grid-cols-2">
+        <form onSubmit={saveAvailability} className="space-y-4 rounded-3xl border bg-white p-6">
+          <h2 className="text-xl font-black">الإتاحة المرقمة</h2>
+          {(['publicEnabled', 'anonymousEnabled', 'authenticatedEnabled', 'adminOnly', 'maintenanceMode'] as const).map((key) => (
+            <label key={key} className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+              <span>{key}</span>
+              <input type="checkbox" checked={tool.availability[key]} onChange={(e) => setDetail((current) => current ? { ...current, tool: { ...current.tool, availability: { ...current.tool.availability, [key]: e.target.checked } } } : current)} />
+            </label>
+          ))}
+          <input className="w-full rounded-xl border p-3" value={changeNote} onChange={(e) => setChangeNote(e.target.value)} placeholder={`سبب التغيير — الإصدار التالي ${incrementPatchVersion(tool.currentVersion.semanticVersion)}`} />
+          <button disabled={saving} className="w-full rounded-xl bg-[#142B5F] px-4 py-3 font-black text-white">حفظ الإتاحة وإصدار نسخة جديدة</button>
+        </form>
+        <section className="space-y-4 rounded-3xl border bg-white p-6">
+          <h2 className="text-xl font-black">دورة الحياة</h2>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" disabled={saving} onClick={() => void transitionLifecycle('testing')} className="rounded-xl border px-3 py-3 font-bold">إرسال للاختبار</button>
+            <button type="button" disabled={saving || !detail.readiness.ready} onClick={() => void transitionLifecycle('activate')} className="rounded-xl bg-[#142B5F] px-3 py-3 font-bold text-white disabled:opacity-50">تفعيل</button>
+            <button type="button" disabled={saving} onClick={() => void transitionLifecycle('deprecate')} className="rounded-xl border px-3 py-3 font-bold">إهمال تدريجي</button>
+            <button type="button" disabled={saving} onClick={() => void transitionLifecycle('retire')} className="rounded-xl border border-red-300 px-3 py-3 font-bold text-red-700">تقاعد</button>
+          </div>
+          <p className="text-xs text-slate-500">التفعيل وحده يتطلب readiness؛ كل انتقال يتطلب تأكيدًا صريحًا.</p>
+        </section>
+      </section>
+      <form onSubmit={runAdminTest} className="space-y-4 rounded-3xl border bg-white p-6">
+        <h2 className="text-xl font-black">اختبار إداري فعلي</h2>
+        <textarea dir="ltr" className="min-h-32 w-full rounded-xl border p-3 font-mono text-sm" value={testInput} onChange={(e) => setTestInput(e.target.value)} />
+        <button disabled={saving} className="rounded-xl bg-[#142B5F] px-4 py-3 font-black text-white">تنفيذ اختبار</button>
+        {testResult ? <pre dir="ltr" className="max-h-80 overflow-auto rounded-xl bg-slate-950 p-4 text-xs text-white">{testResult}</pre> : null}
+      </form>
       <section className="grid gap-6 lg:grid-cols-2">
         <SchemaPanel title="عقد المدخلات" schema={tool.inputSchema} />
         <SchemaPanel title="عقد المخرجات" schema={tool.outputSchema} />
@@ -538,6 +661,11 @@ function Alert({ children }: { children: React.ReactNode }) {
       {children}
     </div>
   );
+}
+function incrementPatchVersion(value: string) {
+  const [major, minor, patch] = value.split('.').map((part) => Number(part));
+  if (![major, minor, patch].every(Number.isInteger)) return '1.0.0';
+  return `${major}.${minor}.${patch + 1}`;
 }
 function format(value: string) {
   return value.replaceAll('_', ' ').toLowerCase();

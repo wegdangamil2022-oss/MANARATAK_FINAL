@@ -26,6 +26,7 @@ interface CareerEmployer {
   verificationStatus: CareerEmployerStatus;
   description?: string | null;
   updatedAt: string;
+  version: number;
 }
 
 interface CareerJobPosting {
@@ -52,6 +53,7 @@ interface CareerJobPosting {
   languageRequirements?: string[] | null;
   remoteOption: boolean;
   updatedAt: string;
+  version: number;
 }
 
 interface PaginatedResult<T> {
@@ -140,7 +142,7 @@ export function CareerAdminPage() {
     setMessage(null);
     setError(null);
     try {
-      const updated = await adminApiClient.request<CareerEmployer>(`/admin/careers/employers/${employer.id}/${action}`, { method: 'POST' });
+      const updated = await adminApiClient.request<CareerEmployer>(`/admin/careers/employers/${employer.id}/${action}`, { method: 'POST', body: JSON.stringify({ expectedVersion: employer.version }) });
       setMessage(`${updated.displayName}: ${formatLabel(updated.verificationStatus)}`);
       await loadEmployers();
       await loadJobs();
@@ -187,23 +189,60 @@ export function CareerAdminPage() {
     }
   };
 
-  const createJob = async (event: FormEvent) => {
+  const beginJobEdit = (job: CareerJobPosting) => {
+    setSelectedJob(job);
+    setJobForm({
+      title: job.title,
+      opportunityType: job.opportunityType,
+      employmentType: job.employmentType,
+      jobCategory: job.jobCategory,
+      description: job.description,
+      countryReferenceId: job.countryReferenceId ?? '',
+      cityReferenceId: job.cityReferenceId ?? '',
+      employerId: job.employerId,
+      recruiterContactId: job.recruiterContactId ?? '',
+      applicationDeadline: job.applicationDeadline ? job.applicationDeadline.slice(0, 10) : '',
+      externalPostingUrl: job.externalPostingUrl ?? '',
+      requiredSkills: (job.requiredSkills ?? []).join(', '),
+      educationRequirement: job.educationRequirement ?? '',
+      languageRequirements: (job.languageRequirements ?? []).join(', '),
+      remoteOption: job.remoteOption,
+    });
+    setMessage(null);
+    setError(null);
+  };
+
+  const cancelJobEdit = () => {
+    setSelectedJob(null);
+    setJobForm({ ...emptyJobForm, employerId: employers[0]?.id ?? '' });
+    setJobCountryIso2('');
+  };
+
+  const saveJob = async (event: FormEvent) => {
     event.preventDefault();
     setSaving(true);
     setMessage(null);
     setError(null);
     try {
-      const job = await adminApiClient.request<CareerJobPosting>('/admin/careers/jobs', {
-        method: 'POST',
-        body: JSON.stringify(buildJobPayload())
-      });
-      setMessage(`Job created: ${job.title}`);
-      setSelectedJob(job);
+      const editing = selectedJob;
+      const job = await adminApiClient.request<CareerJobPosting>(
+        editing ? `/admin/careers/jobs/${editing.id}` : '/admin/careers/jobs',
+        {
+          method: editing ? 'PATCH' : 'POST',
+          body: JSON.stringify(
+            editing
+              ? { ...buildJobPayload(), expectedVersion: editing.version }
+              : buildJobPayload(),
+          ),
+        },
+      );
+      setMessage(`${editing ? 'Job updated' : 'Job created'}: ${job.title}`);
+      setSelectedJob(null);
       setJobForm({ ...emptyJobForm, employerId: job.employerId });
       setJobCountryIso2('');
       await loadJobs();
     } catch (err: any) {
-      setError(err.message || 'Unable to create job.');
+      setError(err.message || `Unable to ${selectedJob ? 'update' : 'create'} job.`);
     } finally {
       setSaving(false);
     }
@@ -214,7 +253,7 @@ export function CareerAdminPage() {
     setMessage(null);
     setError(null);
     try {
-      await adminApiClient.request(`/admin/careers/jobs/${job.id}/${action}`, { method: 'POST' });
+      await adminApiClient.request(`/admin/careers/jobs/${job.id}/${action}`, { method: 'POST', body: JSON.stringify({ expectedVersion: job.version }) });
       setMessage(`Job action completed: ${formatLabel(action)}`);
       await loadJobs();
     } catch (err: any) {
@@ -298,7 +337,7 @@ export function CareerAdminPage() {
                       <td className="px-6 py-4"><StatusBadge status={job.status} /></td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex flex-wrap justify-end gap-2">
-                          <button onClick={() => setSelectedJob(job)} className="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
+                          <button onClick={() => beginJobEdit(job)} className="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
                             <BriefcaseBusiness className="h-4 w-4" /> {t('review')}</button>
                           <button onClick={() => transitionJob(job, 'mark-publishable')} disabled={saving || job.status !== 'READY_TO_REVIEW'} className="text-indigo-600 hover:text-indigo-800 disabled:opacity-40 inline-flex items-center gap-1">
                             <CheckCircle2 className="h-4 w-4" /> {t('ready')}</button>
@@ -364,10 +403,10 @@ export function CareerAdminPage() {
               {t('create_employer')}</button>
           </form>
 
-          <form onSubmit={createJob} className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 space-y-4">
+          <form onSubmit={saveJob} className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 space-y-4">
             <div className="flex items-center gap-2">
               <BriefcaseBusiness className="h-5 w-5 text-green-600" />
-              <h3 className="font-bold">{t('create_job_posting')}</h3>
+              <h3 className="font-bold">{selectedJob ? `Edit: ${selectedJob.title}` : t('create_job_posting')}</h3>
             </div>
             <Field label={t('title')} value={jobForm.title} onChange={(value) => setJobForm({ ...jobForm, title: value })} />
             <SelectField label={t('employer')} value={jobForm.employerId} values={employers.map((employer) => ({ label: employer.displayName, value: employer.id }))} onChange={(value) => setJobForm({ ...jobForm, employerId: value })} />
@@ -390,8 +429,14 @@ export function CareerAdminPage() {
               <span>{t('remote_option')}</span>
               <input type="checkbox" checked={jobForm.remoteOption} onChange={(event) => setJobForm({ ...jobForm, remoteOption: event.target.checked })} />
             </label>
-            <button type="submit" disabled={saving || !jobForm.title || !jobForm.employerId || !jobForm.jobCategory || !jobForm.description || !jobForm.countryReferenceId} className="w-full inline-flex items-center justify-center gap-2 bg-[#142B5F] hover:bg-[#0E7C86] text-white rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50">
-              {t('create_job')}</button>
+            <div className="flex gap-2">
+              <button type="submit" disabled={saving || !jobForm.title || !jobForm.employerId || !jobForm.jobCategory || !jobForm.description || !jobForm.countryReferenceId} className="flex-1 inline-flex items-center justify-center gap-2 bg-[#142B5F] hover:bg-[#0E7C86] text-white rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50">
+                {selectedJob ? 'Save job changes' : t('create_job')}
+              </button>
+              {selectedJob ? (
+                <button type="button" onClick={cancelJobEdit} disabled={saving} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-50">Cancel edit</button>
+              ) : null}
+            </div>
           </form>
 
           {selectedJob && (

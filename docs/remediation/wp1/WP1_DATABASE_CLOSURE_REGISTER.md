@@ -1,5 +1,7 @@
 # WP1 Database Closure Register
 
+> **Operational supersession notice (2026-09-06):** Any instruction in this historical remediation artifact that requires an “Original Development Database”, a Google Studio recovery gate, or `WP1_RECOVERY_GATE` is superseded by [`docs/operations/GREENFIELD_DATABASE_PROVISIONING.md`](../../operations/GREENFIELD_DATABASE_PROVISIONING.md). This file remains historical/evidence context and is not current database-operation authority.
+
 All entries are blocked by the external Google Studio database recovery gate. No credentials or secret connection material belong in this register.
 
 | DB-dependent item | Status | Current evidence | DB mutation | Rollback requirement | Conceptual closure step | Owner |

@@ -1,3 +1,4 @@
+import { AssetReferencePolicy, assertAssetReferenceUsable } from '../asset-platform/AssetReferencePolicy';
 import {
   IReferenceDataRepository,
   IReferenceResolutionRepository,
@@ -54,6 +55,7 @@ export class StudyDestinationUseCases {
     private readonly referenceData: IReferenceDataRepository,
     private readonly referenceResolution: IReferenceResolutionRepository,
     private readonly publishingPolicy = new StudyDestinationPublishingPolicy(),
+    private readonly assetReferences?: AssetReferencePolicy,
   ) {}
 
   public async listAdmin(filters: AdminStudyDestinationListFilters = {}): Promise<PaginatedStudyDestinationResult<AdminStudyDestinationListItem>> {
@@ -87,6 +89,7 @@ export class StudyDestinationUseCases {
   }
 
   public async upsertProfile(iso2Code: string, input: StudyDestinationProfileInput): Promise<StudyDestinationAggregateDto> {
+    await assertAssetReferenceUsable(this.assetReferences, input.imageAssetId, { purpose: 'STUDY_DESTINATION_IMAGE' });
     const country = await this.requireCountry(iso2Code);
     const normalized = await this.normalizeAndValidateInput(input);
     const existing = await this.repository.findByCountryReferenceId(country.id);

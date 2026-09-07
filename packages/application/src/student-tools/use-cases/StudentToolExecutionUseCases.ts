@@ -244,6 +244,46 @@ export class StudentToolExecutionUseCases {
     });
   }
 
+  /**
+   * Explicit anonymous -> authenticated adoption flow.
+   * The original execution remains classified as ANONYMOUS for truthful
+   * analytics/retention. Ownership is proven by the server-verified anonymous
+   * session and the result is copied into the authenticated student's private
+   * Phase 15 workspace rather than mutating historical provenance.
+   */
+  async claimAnonymousExecutionForStudent(
+    executionId: string,
+    anonymousSessionReference: string,
+    authenticatedStudentReference: string,
+  ) {
+    if (!authenticatedStudentReference) throw new Error('TOOL_AUTH_REQUIRED');
+    if (!anonymousSessionReference) throw new Error('TOOL_ANONYMOUS_SESSION_REQUIRED');
+    if (!this.saveGateway) throw new Error('TOOL_SAVE_NOT_CONFIGURED');
+    const record = await this.findExecutionForRequester(executionId, {
+      consumerType: 'ANONYMOUS',
+      anonymousSessionReference,
+    });
+    if (!record) throw new Error('TOOL_EXECUTION_NOT_FOUND');
+    if (record.status !== StudentToolExecutionStatus.COMPLETED)
+      throw new Error('TOOL_EXECUTION_NOT_SAVABLE');
+    const result = await this.recoverResult(record);
+    const saved = await this.saveGateway.savePrivateResult({
+      studentReference: authenticatedStudentReference,
+      toolKey: record.toolKey,
+      executionId: record.executionId,
+      resultReference: `${record.executionId}:${record.resultDigest}`,
+      result,
+    });
+    return {
+      ...saved,
+      adoption: {
+        fromConsumerType: 'ANONYMOUS' as const,
+        toConsumerType: 'AUTHENTICATED_STUDENT' as const,
+        executionId: record.executionId,
+      },
+    };
+  }
+
   private async replay(record: StudentToolExecutionRecord) {
     if (record.status === StudentToolExecutionStatus.COMPLETED) {
       const result = await this.recoverResult(record);

@@ -18,7 +18,7 @@ type LegacyRow = {
 type Resolution = LegacyRow & { canonicalReferenceId?: string; issue?: string };
 
 async function main(): Promise<void> {
-  if (apply) requireDatabaseMutationGate('W5 international-test canonical reference reconciliation');
+  if (apply) requireDatabaseMutationGate('W5 international-test canonical reference reconciliation', { allowedPurposes: ['backfill'] });
 
   const db = prisma as any;
   const countryRows = (await db.internationalTestCountryRelationship.findMany({

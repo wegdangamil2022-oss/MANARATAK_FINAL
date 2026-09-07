@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { requireDatabaseMutationGate } from './lib/require-database-mutation-gate';
 
 async function run() {
-  requireDatabaseMutationGate('publish-majors');
+  requireDatabaseMutationGate('publish-majors', { allowedPurposes: ['maintenance'] });
   await registerDependencies();
   const prisma = container.resolve<PrismaClient>('prisma');
   

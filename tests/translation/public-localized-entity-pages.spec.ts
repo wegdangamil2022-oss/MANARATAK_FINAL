@@ -14,11 +14,12 @@ describe('TR-WP11 public localized entity pages source contract', () => {
     expect(liveData).toContain('ApiClient.getCmsContent({ locale');
   });
 
-  it('keeps Arabic presentation explicit until complete English copy is available', () => {
+  it('uses the selected presentation language for live data and document semantics', () => {
     const app = source('apps/web/src/features/public-template/PublicTemplateApp.tsx');
-    expect(app).toContain("const language: Language = 'ar'");
-    expect(app).toContain('English remains explicitly unavailable');
+    expect(app).toContain('const { language } = useTranslation()');
     expect(app).toContain('usePublicLiveData(import.meta.env.VITE_PUBLIC_TEMPLATE_DATA_MODE, language)');
+    expect(app).toContain("document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'");
+    expect(app).toContain('document.documentElement.lang = language');
   });
 
   it('keeps canonical slugs while mapping localized public records', () => {

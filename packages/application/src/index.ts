@@ -21,6 +21,7 @@ export * from './authorization/dtos/AuthorizationDtos';
 export * from './authorization/use-cases/ManageRolesUseCase';
 export * from './authorization/use-cases/AssignRoleUseCase';
 export * from './authorization/use-cases/EvaluateAccessUseCase';
+export * from './authorization/use-cases/ManageEmergencyAccessUseCase';
 
 // Settings Exports
 export * from './settings/dtos/SettingsDtos';
@@ -38,6 +39,7 @@ export * from './asset-platform';
 export * from './notification/dtos/NotificationDtos';
 export * from './notification/use-cases/ManageNotificationIntentsUseCase';
 export * from './notification/use-cases/ManageNotificationTemplatesUseCase';
+export * from './notification/use-cases/NotificationOutboxDeliveryGateway';
 
 // Audit Use Cases
 export * from './audit/dtos/AuditDtos';
@@ -60,6 +62,15 @@ export * from './cache/use-cases/ManageCacheUseCase';
 export * from './background-jobs/dtos/BackgroundJobsDtos';
 export * from './background-jobs/gateways/IBackgroundJobExecutionGateway';
 export * from './background-jobs/use-cases/ManageBackgroundJobsUseCase';
+export * from './background-jobs/services/CronScheduleCalculator';
+export * from './background-jobs/workers/DurableBackgroundJobContracts';
+export * from './background-jobs/workers/BackgroundJobHandlerRegistry';
+export * from './background-jobs/workers/DurableBackgroundWorker';
+export * from './background-jobs/handlers/RetentionBackgroundJobHandler';
+export * from './background-jobs/handlers/CmsScheduledPublishingBackgroundJobHandler';
+export * from './background-jobs/handlers/ImportQueueBackgroundJobHandler';
+export * from './background-jobs/handlers/AIAsyncBackgroundJobHandler';
+export * from './background-jobs/handlers/FinanceReconciliationBackgroundJobHandler';
 
 // Event Foundation Use Cases
 export * from './event-foundation/dtos/EventFoundationDtos';
@@ -67,8 +78,12 @@ export * from './event-foundation/gateways/IEventPublishingGateway';
 export * from './event-foundation/gateways/IAtomicPersistenceUnitOfWork';
 export * from './event-foundation/use-cases/ManageEnterpriseEventsUseCase';
 export * from './event-foundation/use-cases/TransactionalOutboxDispatcher';
+export * from './event-foundation/use-cases/FanoutOutboxDeliveryGateway';
 export * from './event-foundation/use-cases/AtomicAuditedOutboxMutationExecutor';
 export * from './event-foundation/use-cases/AtomicDomainMutationCoordinator';
+export * from './event-foundation/use-cases/EnterpriseEventOutboxProjectionGateway';
+export * from './event-foundation/use-cases/OwnerDomainOutboxWorker';
+export * from './event-foundation/use-cases/PollingWorkerRuntimeRegistry';
 
 
 // Workflow
@@ -86,35 +101,33 @@ export * from './shared-components/dtos/SharedComponentDtos';
 export * from './shared-components/gateways/IComponentRenderingGateway';
 export * from './shared-components/use-cases/ManageSharedComponentsUseCase';
 
+// MNT-AUD-0109: legacy registry-style foundation orchestrators are formally deferred.
+// Their typed DTO/gateway contracts remain available internally, but no deferred use case is
+// exported from the canonical application barrel or registered in production DI.
+
 // Logging Context
 export * from './logging/dtos/LogDtos';
 export * from './logging/gateways/ILogExecutionGateway';
-export * from './logging/use-cases/ManageLogsUseCase';
 
 // Security Foundation Context
 export * from './security/dtos/SecurityDtos';
 export * from './security/gateways/ISecurityEnforcementGateway';
-export * from './security/use-cases/ManageSecurityPoliciesUseCase';
 
 // Configuration Context
 export * from './configuration/dtos/ConfigurationDtos';
 export * from './configuration/gateways/IConfigurationResolutionGateway';
-export * from './configuration/use-cases/ManageConfigurationsUseCase';
 
 // Integration Context
 export * from './integration/dtos/IntegrationDtos';
 export * from './integration/gateways/IIntegrationExecutionGateway';
-export * from './integration/use-cases/ManageIntegrationsUseCase';
 
 // Localization Context
 export * from './localization/dtos/LocalizationDtos';
 export * from './localization/gateways/ILocalizationExecutionGateway';
-export * from './localization/use-cases/ManageLocalizationsUseCase';
 
 // Monitoring Context
 export * from './monitoring/dtos/MonitorDtos';
 export * from './monitoring/gateways/IMonitoringExecutionGateway';
-export * from './monitoring/use-cases/ManageMonitorsUseCase';
 
 export * from './scholarships';
 export * from './import-foundation/use-cases/ImportAdminUseCases';
@@ -172,3 +185,11 @@ export * from './degree-level';
 export * from './translation-import';
 
 export * from './study-destinations';
+export { IdentityPrincipalAccessValidator } from './auth/IdentityPrincipalAccessValidator';
+
+export * from './canonicalization/UnicodeCanonicalization';
+export * from './canonicalization/OwnerDomainIdentityPolicies';
+export * from './retention/RetentionSweepUseCase';
+export * from './students/use-cases/StudentWorkspaceOutboxDeliveryGateway';
+export * from './students/use-cases/StudentWorkspaceOutboxWorker';
+export * from './background-jobs/handlers/NotificationDeliveryBackgroundJobHandler';

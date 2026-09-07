@@ -14,7 +14,7 @@ export const FeaturedUniversities: React.FC<FeaturedUniversitiesProps> = ({
   onViewAllClick,
 }) => {
   // Top 3 universities by the ranking value supplied by the template data.
-  const topRanked = [...universities].sort((a, b) => a.globalRank - b.globalRank).slice(0, 3);
+  const topRanked = [...universities].sort((a, b) => (a.globalRank ?? Number.POSITIVE_INFINITY) - (b.globalRank ?? Number.POSITIVE_INFINITY)).slice(0, 3);
 
   // Badge styling based on rank
   const getRankBadge = (rankIndex: number) => {
@@ -109,7 +109,7 @@ export const FeaturedUniversities: React.FC<FeaturedUniversitiesProps> = ({
                         <span className="text-[var(--mn-text-muted)]">•</span>
                         <span className="inline-flex items-center gap-1 text-[var(--mn-heading)] font-bold">
                           <GraduationCap className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[var(--mn-accent-text)]" />
-                          <span>{uni.scholarshipCount} منحة</span>
+                          <span>{uni.scholarshipCount == null ? 'المنح غير متوفرة' : `${uni.scholarshipCount} منحة`}</span>
                         </span>
                       </div>
                     </div>
@@ -118,7 +118,7 @@ export const FeaturedUniversities: React.FC<FeaturedUniversitiesProps> = ({
                   {/* Left Side: QS Global Badge & Navigation Arrow */}
                   <div className="flex flex-col items-end justify-center shrink-0 pl-1">
                     <span className="px-1.5 py-0.5 rounded-md bg-[var(--mn-accent)]/15 text-[var(--mn-accent-text)] font-bold text-[9.5px] sm:text-[10px] border border-[var(--mn-accent)]/30 mb-0.5">
-                      ترتيب #{uni.globalRank}
+                      {uni.globalRank == null ? 'الترتيب غير متوفر' : `ترتيب #${uni.globalRank}`}
                     </span>
                     <span className="text-[9px] sm:text-[9.5px] font-bold text-[var(--mn-heading)] group-hover:text-[var(--mn-accent-text)] flex items-center gap-0.5 transition-colors">
                       <span>تفاصيل</span>

@@ -60,7 +60,7 @@ export const UniversitiesList: React.FC<UniversitiesListProps> = ({ universities
               {/* Global Rank Badge */}
               <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[var(--mn-gold-surface)] text-[var(--mn-accent-text)] text-[10px] font-bold shrink-0 mn-panel ">
                 <Trophy className="w-3 h-3 text-[var(--mn-accent-text)]" />
-                <span>المرتبة #{uni.globalRank}</span>
+                <span>{uni.globalRank == null ? 'الترتيب: غير متوفر' : `المرتبة #${uni.globalRank}`}</span>
               </div>
             </div>
 
@@ -79,8 +79,8 @@ export const UniversitiesList: React.FC<UniversitiesListProps> = ({ universities
 
             <div className="flex items-center justify-between pt-2 border-t border-[var(--mn-border)] text-xs">
               <div className="flex items-center gap-3 text-[11px] text-[var(--mn-heading)] font-bold">
-                <span className="inline-flex items-center gap-1"><GraduationCap className="h-3.5 w-3.5 text-[var(--mn-accent-text)]" />{uni.scholarshipCount} منحة معتمدة</span>
-                <span>نسبة القبول: {uni.acceptanceRate}</span>
+                <span className="inline-flex items-center gap-1"><GraduationCap className="h-3.5 w-3.5 text-[var(--mn-accent-text)]" />{uni.scholarshipCount == null ? 'المنح: غير متوفرة' : `${uni.scholarshipCount} منحة معتمدة`}</span>
+                <span>نسبة القبول: {uni.acceptanceRate ?? 'غير متوفرة'}</span>
               </div>
 
               <a

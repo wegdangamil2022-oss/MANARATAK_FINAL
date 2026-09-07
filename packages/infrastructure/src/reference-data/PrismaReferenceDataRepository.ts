@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
 import {
   AtomicPersistenceContext,
@@ -15,7 +15,16 @@ import {
   UpsertReferenceLanguageDto,
   UpsertReferenceCityDto,
   ReferenceDataFilters,
-  AdministrativeRegionDto
+  AdministrativeRegionDto,
+  GovernedReferenceEntityType,
+  ReferenceAliasInput,
+  ReferenceLifecycleState,
+  ReferenceLifecycleTransitionCommand,
+  ReferenceProviderMappingInput,
+  ReferenceRelationshipDto,
+  ReferenceVersionDto,
+  assertReferenceLifecycleTransition,
+  lifecycleIsActive
 } from '@manaratak/domain';
 
 interface DbCountry {
@@ -32,6 +41,10 @@ interface DbCountry {
   callingCode: string | null;
   flagAssetId: string | null;
   isActive: boolean;
+  lifecycleState: string;
+  versionNumber: number;
+  effectiveFrom: Date;
+  effectiveTo: Date | null;
   metadata: unknown;
 }
 
@@ -44,6 +57,10 @@ interface DbCurrency {
   symbol: string | null;
   minorUnit: number | null;
   isActive: boolean;
+  lifecycleState: string;
+  versionNumber: number;
+  effectiveFrom: Date;
+  effectiveTo: Date | null;
   metadata: unknown;
 }
 
@@ -55,6 +72,10 @@ interface DbLanguage {
   nativeName: string | null;
   direction: string;
   isActive: boolean;
+  lifecycleState: string;
+  versionNumber: number;
+  effectiveFrom: Date;
+  effectiveTo: Date | null;
   metadata: unknown;
 }
 
@@ -69,6 +90,10 @@ interface DbCity {
   latitude: number | null;
   longitude: number | null;
   isActive: boolean;
+  lifecycleState: string;
+  versionNumber: number;
+  effectiveFrom: Date;
+  effectiveTo: Date | null;
   metadata: unknown;
   administrativeRegionId?: string | null;
   administrativeRegion?: {
@@ -107,8 +132,8 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       if (record) return { record: this.mapToCountryDto(record as unknown as DbCountry), method: 'EXACT_STANDARD_CODE' };
     }
 
-    const metadataMatch = await this.resolveMetadataBackedCandidate(
-      'ReferenceCountry',
+    const metadataMatch = await this.resolveGovernedCandidate(
+      'COUNTRY',
       lookup,
       async (id) => {
         const record = await this.prisma.referenceCountry.findUnique({ where: { id } });
@@ -147,8 +172,8 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       if (record) return { record: this.mapToCityDto(record as unknown as DbCity), method: 'EXACT_ID' };
     }
 
-    return this.resolveMetadataBackedCandidate(
-      'ReferenceCity',
+    return this.resolveGovernedCandidate(
+      'CITY',
       lookup,
       async (id) => {
         const record = await this.prisma.referenceCity.findUnique({
@@ -172,8 +197,8 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       const record = await this.prisma.referenceLanguage.findUnique({ where: { isoCode: code } });
       if (record) return { record: this.mapToLanguageDto(record as unknown as DbLanguage), method: 'EXACT_STANDARD_CODE' };
     }
-    return this.resolveMetadataBackedCandidate(
-      'ReferenceLanguage',
+    return this.resolveGovernedCandidate(
+      'LANGUAGE',
       lookup,
       async (id) => {
         const record = await this.prisma.referenceLanguage.findUnique({ where: { id } });
@@ -194,8 +219,8 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       const record = await this.prisma.referenceCurrency.findUnique({ where: { isoCode: code } });
       if (record) return { record: this.mapToCurrencyDto(record as unknown as DbCurrency), method: 'EXACT_STANDARD_CODE' };
     }
-    return this.resolveMetadataBackedCandidate(
-      'ReferenceCurrency',
+    return this.resolveGovernedCandidate(
+      'CURRENCY',
       lookup,
       async (id) => {
         const record = await this.prisma.referenceCurrency.findUnique({ where: { id } });
@@ -204,90 +229,48 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
     );
   }
 
-  private async resolveMetadataBackedCandidate<T>(
-    tableName: 'ReferenceCountry' | 'ReferenceCity' | 'ReferenceLanguage' | 'ReferenceCurrency',
+  private async resolveGovernedCandidate<T>(
+    entityType: GovernedReferenceEntityType,
     lookup: ReferenceLookup,
     load: (id: string) => Promise<T | null>,
   ): Promise<ReferenceResolutionMatch<T> | null> {
     if (lookup.providerSystem && lookup.providerId) {
-      const ids = await this.findMetadataCandidateIds(tableName, {
-        providerSystem: lookup.providerSystem,
-        providerId: lookup.providerId,
-      });
-      if (ids.length > 1) return null;
-      if (ids.length === 1) {
-        const record = await load(ids[0]);
+      const providerSystem = lookup.providerSystem.trim().toLowerCase();
+      const providerId = lookup.providerId.trim().toLowerCase();
+      const rows = await this.prisma.$queryRaw<Array<{ referenceId: string }>>(Prisma.sql`
+        SELECT "referenceId"
+        FROM "ReferenceProviderMappingRecord"
+        WHERE "entityType" = ${entityType}
+          AND "isActive" = true
+          AND "normalizedProviderSystem" = ${providerSystem}
+          AND "normalizedProviderId" = ${providerId}
+        LIMIT 2
+      `);
+      if (rows.length > 1) return null;
+      if (rows.length === 1) {
+        const record = await load(rows[0].referenceId);
         if (record) return { record, method: 'PROVIDER_MAPPING' };
       }
     }
 
     const alias = lookup.normalizedAlias || lookup.alias;
     if (alias) {
-      const ids = await this.findMetadataCandidateIds(tableName, { alias });
-      if (ids.length > 1) return null;
-      if (ids.length === 1) {
-        const record = await load(ids[0]);
+      const normalizedAlias = this.normalizeResolutionAlias(alias);
+      const rows = await this.prisma.$queryRaw<Array<{ referenceId: string }>>(Prisma.sql`
+        SELECT "referenceId"
+        FROM "ReferenceAliasRecord"
+        WHERE "entityType" = ${entityType}
+          AND "isActive" = true
+          AND "normalizedAlias" = ${normalizedAlias}
+        LIMIT 2
+      `);
+      if (rows.length > 1) return null;
+      if (rows.length === 1) {
+        const record = await load(rows[0].referenceId);
         if (record) return { record, method: 'NORMALIZED_ALIAS' };
       }
     }
     return null;
-  }
-
-  private async findMetadataCandidateIds(
-    tableName: 'ReferenceCountry' | 'ReferenceCity' | 'ReferenceLanguage' | 'ReferenceCurrency',
-    lookup: { providerSystem?: string; providerId?: string; alias?: string },
-  ): Promise<string[]> {
-    const table = Prisma.raw(`"${tableName}"`);
-    if (lookup.providerSystem && lookup.providerId) {
-      const providerSystem = lookup.providerSystem.trim().toLowerCase();
-      const providerId = lookup.providerId.trim().toLowerCase();
-      const rows = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-        SELECT "id"
-        FROM ${table}
-        WHERE EXISTS (
-          SELECT 1
-          FROM jsonb_array_elements(
-            CASE
-              WHEN jsonb_typeof("metadata"->'providerMappings') = 'array'
-                THEN "metadata"->'providerMappings'
-              ELSE '[]'::jsonb
-            END
-          ) AS mapping
-          WHERE lower(btrim(mapping->>'providerSystem')) = ${providerSystem}
-            AND lower(btrim(mapping->>'providerId')) = ${providerId}
-        )
-        LIMIT 2
-      `);
-      return rows.map((row) => row.id);
-    }
-
-    if (lookup.alias) {
-      const normalizedAlias = this.normalizeResolutionAlias(lookup.alias);
-      const rows = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-        SELECT "id"
-        FROM ${table}
-        WHERE EXISTS (
-          SELECT 1
-          FROM jsonb_array_elements_text(
-            CASE
-              WHEN jsonb_typeof("metadata"->'aliases') = 'array'
-                THEN "metadata"->'aliases'
-              ELSE '[]'::jsonb
-            END
-          ) AS alias(value)
-          WHERE btrim(
-            regexp_replace(
-              regexp_replace(lower(alias.value), '[^a-z0-9ء-ي]+', ' ', 'g'),
-              '\\s+', ' ', 'g'
-            )
-          ) = ${normalizedAlias}
-        )
-        LIMIT 2
-      `);
-      return rows.map((row) => row.id);
-    }
-
-    return [];
   }
 
   private normalizeResolutionAlias(value: string): string {
@@ -343,6 +326,9 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
   }
 
   public async upsertCountry(data: UpsertReferenceCountryDto): Promise<ReferenceCountryDto> {
+    this.rejectLegacyLifecycleMutation(data.isActive);
+    const existing = await this.prisma.referenceCountry.findUnique({ where: { iso2Code: data.iso2Code } });
+    if (existing) await this.assertGovernedRecordEditable('COUNTRY', existing.id);
     const record = await this.prisma.referenceCountry.upsert({
       where: { iso2Code: data.iso2Code },
       update: {
@@ -356,7 +342,6 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
         defaultLanguageCode: data.defaultLanguageCode,
         callingCode: data.callingCode,
         flagAssetId: data.flagAssetId,
-        isActive: data.isActive !== undefined ? data.isActive : undefined,
         metadata: data.metadata as any
       },
       create: {
@@ -371,12 +356,12 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
         defaultLanguageCode: data.defaultLanguageCode,
         callingCode: data.callingCode,
         flagAssetId: data.flagAssetId,
-        isActive: data.isActive !== undefined ? data.isActive : true,
+        isActive: true,
         metadata: data.metadata as any
       }
     });
-
-    return this.mapToCountryDto(record as unknown as DbCountry);
+    const governance = await this.finalizeGovernedUpsert('COUNTRY', record.id, data, data.aliases, data.providerMappings, Boolean(existing));
+    return this.mapToCountryDto({ ...(record as unknown as DbCountry), ...governance });
   }
 
   public upsertCountryInTransaction(data: UpsertReferenceCountryDto, context: AtomicPersistenceContext): Promise<ReferenceCountryDto> {
@@ -423,6 +408,9 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
   }
 
   public async upsertCurrency(data: UpsertReferenceCurrencyDto): Promise<ReferenceCurrencyDto> {
+    this.rejectLegacyLifecycleMutation(data.isActive);
+    const existing = await this.prisma.referenceCurrency.findUnique({ where: { isoCode: data.isoCode } });
+    if (existing) await this.assertGovernedRecordEditable('CURRENCY', existing.id);
     const record = await this.prisma.referenceCurrency.upsert({
       where: { isoCode: data.isoCode },
       update: {
@@ -431,7 +419,6 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
         nameAr: data.nameAr,
         symbol: data.symbol,
         minorUnit: data.minorUnit,
-        isActive: data.isActive !== undefined ? data.isActive : undefined,
         metadata: data.metadata as any
       },
       create: {
@@ -441,12 +428,12 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
         nameAr: data.nameAr,
         symbol: data.symbol,
         minorUnit: data.minorUnit,
-        isActive: data.isActive !== undefined ? data.isActive : true,
+        isActive: true,
         metadata: data.metadata as any
       }
     });
-
-    return this.mapToCurrencyDto(record as unknown as DbCurrency);
+    const governance = await this.finalizeGovernedUpsert('CURRENCY', record.id, data, data.aliases, data.providerMappings, Boolean(existing));
+    return this.mapToCurrencyDto({ ...(record as unknown as DbCurrency), ...governance });
   }
 
   public upsertCurrencyInTransaction(data: UpsertReferenceCurrencyDto, context: AtomicPersistenceContext): Promise<ReferenceCurrencyDto> {
@@ -491,6 +478,9 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
   }
 
   public async upsertLanguage(data: UpsertReferenceLanguageDto): Promise<ReferenceLanguageDto> {
+    this.rejectLegacyLifecycleMutation(data.isActive);
+    const existing = await this.prisma.referenceLanguage.findUnique({ where: { isoCode: data.isoCode } });
+    if (existing) await this.assertGovernedRecordEditable('LANGUAGE', existing.id);
     const record = await this.prisma.referenceLanguage.upsert({
       where: { isoCode: data.isoCode },
       update: {
@@ -498,7 +488,6 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
         nameAr: data.nameAr,
         nativeName: data.nativeName,
         direction: data.direction,
-        isActive: data.isActive !== undefined ? data.isActive : undefined,
         metadata: data.metadata as any
       },
       create: {
@@ -507,12 +496,12 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
         nameAr: data.nameAr,
         nativeName: data.nativeName,
         direction: data.direction,
-        isActive: data.isActive !== undefined ? data.isActive : true,
+        isActive: true,
         metadata: data.metadata as any
       }
     });
-
-    return this.mapToLanguageDto(record as unknown as DbLanguage);
+    const governance = await this.finalizeGovernedUpsert('LANGUAGE', record.id, data, data.aliases, data.providerMappings, Boolean(existing));
+    return this.mapToLanguageDto({ ...(record as unknown as DbLanguage), ...governance });
   }
 
   public upsertLanguageInTransaction(data: UpsertReferenceLanguageDto, context: AtomicPersistenceContext): Promise<ReferenceLanguageDto> {
@@ -580,6 +569,7 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
   }
 
   public async upsertCity(data: UpsertReferenceCityDto): Promise<ReferenceCityDto> {
+    this.rejectLegacyLifecycleMutation(data.isActive);
     const canonicalCountry = data.countryReferenceId
       ? await this.prisma.referenceCountry.findUnique({ where: { id: data.countryReferenceId } })
       : await this.prisma.referenceCountry.findUnique({ where: { iso2Code: data.countryIso2Code } });
@@ -596,7 +586,6 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       latitude: data.latitude,
       longitude: data.longitude,
       administrativeRegionId: data.administrativeRegionId,
-      isActive: data.isActive !== undefined ? data.isActive : undefined,
       metadata: data.metadata as any,
     };
 
@@ -605,12 +594,14 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       include: { administrativeRegion: true },
     });
     if (keyed) {
+      await this.assertGovernedRecordEditable('CITY', keyed.id);
       const record = await this.prisma.referenceCity.update({
         where: { id: keyed.id },
         data: updateData,
         include: { administrativeRegion: true },
       });
-      return this.mapToCityDto(record as unknown as DbCity);
+      const governance = await this.finalizeGovernedUpsert('CITY', record.id, data, data.aliases, data.providerMappings, true);
+      return this.mapToCityDto({ ...(record as unknown as DbCity), ...governance });
     }
 
     // Compatibility bridge for pre-W3 rows. Existing rows intentionally remain
@@ -639,13 +630,15 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
     }
 
     if (legacyMatches.length === 1) {
+      await this.assertGovernedRecordEditable('CITY', legacyMatches[0].id);
       try {
         const record = await this.prisma.referenceCity.update({
           where: { id: legacyMatches[0].id },
           data: { canonicalIdentityKey, ...updateData },
           include: { administrativeRegion: true },
         });
-        return this.mapToCityDto(record as unknown as DbCity);
+        const governance = await this.finalizeGovernedUpsert('CITY', record.id, data, data.aliases, data.providerMappings, true);
+      return this.mapToCityDto({ ...(record as unknown as DbCity), ...governance });
       } catch (error) {
         // Another writer may have claimed the same canonical identity between
         // lookup and update. Resolve to the unique keyed row rather than
@@ -656,12 +649,14 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
           include: { administrativeRegion: true },
         });
         if (!winner) throw error;
+        await this.assertGovernedRecordEditable('CITY', winner.id);
         const record = await this.prisma.referenceCity.update({
           where: { id: winner.id },
           data: updateData,
           include: { administrativeRegion: true },
         });
-        return this.mapToCityDto(record as unknown as DbCity);
+        const governance = await this.finalizeGovernedUpsert('CITY', record.id, data, data.aliases, data.providerMappings, true);
+      return this.mapToCityDto({ ...(record as unknown as DbCity), ...governance });
       }
     }
 
@@ -674,11 +669,225 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
         canonicalIdentityKey,
         countryIso2Code: data.countryIso2Code,
         ...updateData,
-        isActive: data.isActive !== undefined ? data.isActive : true,
+        isActive: true,
       },
       include: { administrativeRegion: true },
     });
-    return this.mapToCityDto(record as unknown as DbCity);
+    const governance = await this.finalizeGovernedUpsert('CITY', record.id, data, data.aliases, data.providerMappings, false);
+    return this.mapToCityDto({ ...(record as unknown as DbCity), ...governance });
+  }
+
+  public async getReferenceHistory(entityType: GovernedReferenceEntityType, referenceId: string): Promise<ReferenceVersionDto[]> {
+    const rows = await this.prisma.$queryRaw<Array<{
+      id: string; entityType: GovernedReferenceEntityType; referenceId: string; versionNumber: number;
+      lifecycleState: string; effectiveFrom: Date; effectiveTo: Date | null; snapshot: unknown;
+      changeReason: string | null; actorId: string | null; createdAt: Date;
+    }>>(Prisma.sql`
+      SELECT "id", "entityType", "referenceId", "versionNumber", "lifecycleState",
+             "effectiveFrom", "effectiveTo", "snapshot", "changeReason", "actorId", "createdAt"
+      FROM "ReferenceVersionRecord"
+      WHERE "entityType" = ${entityType} AND "referenceId" = ${referenceId}
+      ORDER BY "versionNumber" ASC
+    `);
+    return rows.map((row) => ({
+      ...row,
+      lifecycleState: row.lifecycleState as ReferenceLifecycleState,
+      snapshot: row.snapshot as Record<string, unknown>,
+    }));
+  }
+
+  public async getReferenceRelationships(entityType: GovernedReferenceEntityType, referenceId: string): Promise<ReferenceRelationshipDto[]> {
+    const rows = await this.prisma.$queryRaw<Array<ReferenceRelationshipDto & { relationshipType: string }>>(Prisma.sql`
+      SELECT "id", "sourceEntityType", "sourceReferenceId", "relationshipType", "targetEntityType",
+             "targetReferenceId", "reason", "actorId", "createdAt"
+      FROM "ReferenceRelationshipRecord"
+      WHERE ("sourceEntityType" = ${entityType} AND "sourceReferenceId" = ${referenceId})
+         OR ("targetEntityType" = ${entityType} AND "targetReferenceId" = ${referenceId})
+      ORDER BY "createdAt" ASC
+    `);
+    return rows as ReferenceRelationshipDto[];
+  }
+
+  public async transitionReferenceLifecycle(command: ReferenceLifecycleTransitionCommand): Promise<void> {
+    if (command.targetReferenceId && command.targetReferenceId === command.referenceId) {
+      throw new Error('REFERENCE_LIFECYCLE_SELF_TARGET_FORBIDDEN');
+    }
+    const table = this.referenceTable(command.entityType);
+    const currentRows = await this.prisma.$queryRaw<Array<{
+      id: string; lifecycleState: string; versionNumber: number; effectiveFrom: Date; effectiveTo: Date | null; snapshot: unknown;
+    }>>(Prisma.sql`
+      SELECT "id", "lifecycleState", "versionNumber", "effectiveFrom", "effectiveTo", to_jsonb(t) AS "snapshot"
+      FROM ${table} t WHERE "id" = ${command.referenceId} LIMIT 1
+    `);
+    if (currentRows.length !== 1) throw new Error('REFERENCE_LIFECYCLE_REFERENCE_NOT_FOUND');
+    const from = currentRows[0].lifecycleState as ReferenceLifecycleState;
+    assertReferenceLifecycleTransition(from, command.toState, command.targetReferenceId);
+
+    if (command.targetReferenceId) {
+      const targetRows = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT "id" FROM ${table} WHERE "id" = ${command.targetReferenceId} LIMIT 1
+      `);
+      if (targetRows.length !== 1) throw new Error('REFERENCE_LIFECYCLE_TARGET_NOT_FOUND');
+    }
+
+    const now = new Date();
+    const nextVersion = currentRows[0].versionNumber + 1;
+    const updated = await this.prisma.$queryRaw<Array<{ snapshot: unknown }>>(Prisma.sql`
+      UPDATE ${table} t
+      SET "lifecycleState" = ${command.toState},
+          "isActive" = ${lifecycleIsActive(command.toState)},
+          "versionNumber" = ${nextVersion},
+          "effectiveFrom" = ${now},
+          "effectiveTo" = ${lifecycleIsActive(command.toState) ? null : now},
+          "updatedAt" = ${now}
+      WHERE "id" = ${command.referenceId}
+      RETURNING to_jsonb(t) AS "snapshot"
+    `);
+
+    if (command.targetReferenceId) {
+      const relationshipType = command.toState === ReferenceLifecycleState.MERGED ? 'MERGED_INTO' : 'SUPERSEDED_BY';
+      await this.prisma.$executeRaw(Prisma.sql`
+        INSERT INTO "ReferenceRelationshipRecord"
+          ("id", "sourceEntityType", "sourceReferenceId", "relationshipType", "targetEntityType", "targetReferenceId", "reason", "actorId", "createdAt")
+        VALUES
+          (${randomUUID()}, ${command.entityType}, ${command.referenceId}, ${relationshipType}, ${command.entityType}, ${command.targetReferenceId}, ${command.reason}, ${command.actorId}, ${now})
+      `);
+    }
+
+    await this.appendVersionRecord(
+      command.entityType,
+      command.referenceId,
+      nextVersion,
+      command.toState,
+      now,
+      lifecycleIsActive(command.toState) ? null : now,
+      (updated[0]?.snapshot ?? {}) as Record<string, unknown>,
+      command.reason,
+      command.actorId,
+    );
+  }
+
+  private async assertGovernedRecordEditable(entityType: GovernedReferenceEntityType, referenceId: string): Promise<void> {
+    const table = this.referenceTable(entityType);
+    const rows = await this.prisma.$queryRaw<Array<{ lifecycleState: string }>>(Prisma.sql`
+      SELECT "lifecycleState" FROM ${table} WHERE "id" = ${referenceId} LIMIT 1
+    `);
+    if (rows.length !== 1) throw new Error('REFERENCE_GOVERNANCE_STATE_UNAVAILABLE');
+    if (rows[0].lifecycleState !== ReferenceLifecycleState.ACTIVE) {
+      throw new Error('REFERENCE_TERMINAL_OR_DEPRECATED_RECORD_REQUIRES_GOVERNED_COMMAND');
+    }
+  }
+
+  private rejectLegacyLifecycleMutation(isActive: boolean | undefined): void {
+    if (isActive === false) throw new Error('REFERENCE_LIFECYCLE_COMMAND_REQUIRED');
+  }
+
+  private referenceTable(entityType: GovernedReferenceEntityType): Prisma.Sql {
+    const tables: Record<GovernedReferenceEntityType, string> = {
+      COUNTRY: 'ReferenceCountry',
+      CURRENCY: 'ReferenceCurrency',
+      LANGUAGE: 'ReferenceLanguage',
+      CITY: 'ReferenceCity',
+    };
+    return Prisma.raw(`"${tables[entityType]}"`);
+  }
+
+  private async finalizeGovernedUpsert(
+    entityType: GovernedReferenceEntityType,
+    referenceId: string,
+    snapshotInput: object,
+    aliases: ReferenceAliasInput[] | undefined,
+    providerMappings: ReferenceProviderMappingInput[] | undefined,
+    existed: boolean,
+  ): Promise<{ lifecycleState: string; versionNumber: number; effectiveFrom: Date; effectiveTo: Date | null; isActive: boolean }> {
+    const table = this.referenceTable(entityType);
+    const now = new Date();
+    const rows = existed
+      ? await this.prisma.$queryRaw<Array<{ lifecycleState: string; versionNumber: number; effectiveFrom: Date; effectiveTo: Date | null; isActive: boolean }>>(Prisma.sql`
+          UPDATE ${table}
+          SET "versionNumber" = "versionNumber" + 1, "effectiveFrom" = ${now}, "effectiveTo" = NULL, "updatedAt" = ${now}
+          WHERE "id" = ${referenceId}
+          RETURNING "lifecycleState", "versionNumber", "effectiveFrom", "effectiveTo", "isActive"
+        `)
+      : await this.prisma.$queryRaw<Array<{ lifecycleState: string; versionNumber: number; effectiveFrom: Date; effectiveTo: Date | null; isActive: boolean }>>(Prisma.sql`
+          SELECT "lifecycleState", "versionNumber", "effectiveFrom", "effectiveTo", "isActive"
+          FROM ${table} WHERE "id" = ${referenceId}
+        `);
+    if (rows.length !== 1) throw new Error('REFERENCE_GOVERNANCE_STATE_UNAVAILABLE');
+    if (rows[0].lifecycleState !== ReferenceLifecycleState.ACTIVE) {
+      throw new Error('REFERENCE_TERMINAL_OR_DEPRECATED_RECORD_REQUIRES_GOVERNED_COMMAND');
+    }
+    await this.replaceAliases(entityType, referenceId, aliases);
+    await this.replaceProviderMappings(entityType, referenceId, providerMappings);
+    const { aliases: _aliases, providerMappings: _providerMappings, isActive: _legacyIsActive, ...snapshot } = snapshotInput as Record<string, unknown> & {
+      aliases?: unknown; providerMappings?: unknown; isActive?: unknown;
+    };
+    await this.appendVersionRecord(
+      entityType, referenceId, rows[0].versionNumber, ReferenceLifecycleState.ACTIVE,
+      rows[0].effectiveFrom, rows[0].effectiveTo,
+      { ...snapshot, lifecycleState: ReferenceLifecycleState.ACTIVE, versionNumber: rows[0].versionNumber },
+      existed ? 'UPSERT_UPDATE' : 'UPSERT_CREATE', null,
+    );
+    return rows[0];
+  }
+
+  private async replaceAliases(entityType: GovernedReferenceEntityType, referenceId: string, aliases?: ReferenceAliasInput[]): Promise<void> {
+    if (aliases === undefined) return;
+    await this.prisma.$executeRaw(Prisma.sql`
+      UPDATE "ReferenceAliasRecord" SET "isActive" = false, "updatedAt" = NOW()
+      WHERE "entityType" = ${entityType} AND "referenceId" = ${referenceId} AND "isActive" = true
+    `);
+    for (const alias of aliases) {
+      const normalized = this.normalizeResolutionAlias(alias.alias);
+      if (!normalized) throw new Error('REFERENCE_ALIAS_EMPTY_AFTER_NORMALIZATION');
+      await this.prisma.$executeRaw(Prisma.sql`
+        INSERT INTO "ReferenceAliasRecord"
+          ("id", "entityType", "referenceId", "alias", "normalizedAlias", "locale", "aliasType", "isActive", "createdAt", "updatedAt")
+        VALUES
+          (${randomUUID()}, ${entityType}, ${referenceId}, ${alias.alias.trim()}, ${normalized}, ${alias.locale ?? null}, ${alias.aliasType ?? 'COMMON'}, true, NOW(), NOW())
+      `);
+    }
+  }
+
+  private async replaceProviderMappings(entityType: GovernedReferenceEntityType, referenceId: string, mappings?: ReferenceProviderMappingInput[]): Promise<void> {
+    if (mappings === undefined) return;
+    await this.prisma.$executeRaw(Prisma.sql`
+      UPDATE "ReferenceProviderMappingRecord" SET "isActive" = false, "updatedAt" = NOW()
+      WHERE "entityType" = ${entityType} AND "referenceId" = ${referenceId} AND "isActive" = true
+    `);
+    for (const mapping of mappings) {
+      const system = mapping.providerSystem.trim();
+      const providerId = mapping.providerId.trim();
+      if (!system || !providerId) throw new Error('REFERENCE_PROVIDER_MAPPING_INVALID');
+      await this.prisma.$executeRaw(Prisma.sql`
+        INSERT INTO "ReferenceProviderMappingRecord"
+          ("id", "entityType", "referenceId", "providerSystem", "providerId", "normalizedProviderSystem", "normalizedProviderId", "isActive", "createdAt", "updatedAt")
+        VALUES
+          (${randomUUID()}, ${entityType}, ${referenceId}, ${system}, ${providerId}, ${system.toLowerCase()}, ${providerId.toLowerCase()}, true, NOW(), NOW())
+        ON CONFLICT ("entityType", "normalizedProviderSystem", "normalizedProviderId")
+        DO UPDATE SET "referenceId" = EXCLUDED."referenceId", "providerSystem" = EXCLUDED."providerSystem",
+                      "providerId" = EXCLUDED."providerId", "isActive" = true, "updatedAt" = NOW()
+      `);
+    }
+  }
+
+  private async appendVersionRecord(
+    entityType: GovernedReferenceEntityType,
+    referenceId: string,
+    versionNumber: number,
+    lifecycleState: ReferenceLifecycleState,
+    effectiveFrom: Date,
+    effectiveTo: Date | null,
+    snapshot: Record<string, unknown>,
+    changeReason: string | null,
+    actorId: string | null,
+  ): Promise<void> {
+    await this.prisma.$executeRaw(Prisma.sql`
+      INSERT INTO "ReferenceVersionRecord"
+        ("id", "entityType", "referenceId", "versionNumber", "lifecycleState", "effectiveFrom", "effectiveTo", "snapshot", "changeReason", "actorId", "createdAt")
+      VALUES
+        (${randomUUID()}, ${entityType}, ${referenceId}, ${versionNumber}, ${lifecycleState}, ${effectiveFrom}, ${effectiveTo}, CAST(${JSON.stringify(snapshot)} AS jsonb), ${changeReason}, ${actorId}, NOW())
+    `);
   }
 
   private isUniqueConstraintViolation(error: unknown): boolean {
@@ -711,6 +920,10 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
 
   public upsertCityInTransaction(data: UpsertReferenceCityDto, context: AtomicPersistenceContext): Promise<ReferenceCityDto> {
     return this.transactionRepository(context).upsertCity(data);
+  }
+
+  public transitionReferenceLifecycleInTransaction(command: ReferenceLifecycleTransitionCommand, context: AtomicPersistenceContext): Promise<void> {
+    return this.transactionRepository(context).transitionReferenceLifecycle(command);
   }
 
   private transactionRepository(context: AtomicPersistenceContext): PrismaReferenceDataRepository {
@@ -758,6 +971,10 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       callingCode: record.callingCode,
       flagAssetId: record.flagAssetId,
       isActive: record.isActive,
+      lifecycleState: record.lifecycleState as ReferenceLifecycleState,
+      versionNumber: record.versionNumber,
+      effectiveFrom: record.effectiveFrom,
+      effectiveTo: record.effectiveTo,
       metadata: record.metadata ? (record.metadata as Record<string, unknown>) : undefined
     };
   }
@@ -772,6 +989,10 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       symbol: record.symbol,
       minorUnit: record.minorUnit,
       isActive: record.isActive,
+      lifecycleState: record.lifecycleState as ReferenceLifecycleState,
+      versionNumber: record.versionNumber,
+      effectiveFrom: record.effectiveFrom,
+      effectiveTo: record.effectiveTo,
       metadata: record.metadata ? (record.metadata as Record<string, unknown>) : undefined
     };
   }
@@ -785,6 +1006,10 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       nativeName: record.nativeName,
       direction: record.direction as 'LTR' | 'RTL',
       isActive: record.isActive,
+      lifecycleState: record.lifecycleState as ReferenceLifecycleState,
+      versionNumber: record.versionNumber,
+      effectiveFrom: record.effectiveFrom,
+      effectiveTo: record.effectiveTo,
       metadata: record.metadata ? (record.metadata as Record<string, unknown>) : undefined
     };
   }
@@ -801,6 +1026,10 @@ export class PrismaReferenceDataRepository implements ITransactionalReferenceDat
       latitude: record.latitude,
       longitude: record.longitude,
       isActive: record.isActive,
+      lifecycleState: record.lifecycleState as ReferenceLifecycleState,
+      versionNumber: record.versionNumber,
+      effectiveFrom: record.effectiveFrom,
+      effectiveTo: record.effectiveTo,
       metadata: record.metadata ? (record.metadata as Record<string, unknown>) : undefined,
       administrativeRegionId: record.administrativeRegionId,
       administrativeRegion: record.administrativeRegion ? {

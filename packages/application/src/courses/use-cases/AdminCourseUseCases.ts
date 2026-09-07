@@ -1,3 +1,4 @@
+import { AssetReferencePolicy, assertAssetReferenceUsable } from '../../asset-platform/AssetReferencePolicy';
 import {
   CourseCompletenessClassifier,
   CourseDto,
@@ -25,6 +26,7 @@ export class AdminCourseUseCases {
   constructor(
     private readonly repository: ICourseRepository,
     private readonly publicationService?: CoursePublicationService,
+    private readonly assetReferences?: AssetReferencePolicy,
   ) {}
 
   public async listCourses(filters: CourseFilters): Promise<PaginatedCourseResult<CourseDto>> {
@@ -38,6 +40,7 @@ export class AdminCourseUseCases {
   }
 
   public async updateCourse(id: string, updates: UpdateCourseDto): Promise<CourseDto> {
+    await assertAssetReferenceUsable(this.assetReferences, updates.thumbnailAssetId, { purpose: 'COURSE_THUMBNAIL' });
     assertNoTranslationPayloadFields('COURSE', updates.optionalFields, ['localizedNames', 'titleEn']);
     const existing = await this.getCourse(id);
     if (updates.originType && updates.originType !== existing.originType) {

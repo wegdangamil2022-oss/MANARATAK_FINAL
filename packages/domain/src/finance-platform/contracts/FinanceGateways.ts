@@ -38,6 +38,17 @@ export interface IPaymentGateway {
   refund(
     gatewayReference: string,
     amount: MoneyAmount,
+    refundReference: string,
+    idempotencyKey: string,
+  ): Promise<PaymentGatewayResult>;
+  getRefundStatus(
+    refundReference: string,
+    gatewayReference: string | undefined,
+    idempotencyKey: string,
+  ): Promise<PaymentGatewayResult>;
+  getStatus(
+    paymentReference: string,
+    gatewayReference: string | undefined,
     idempotencyKey: string,
   ): Promise<PaymentGatewayResult>;
 }

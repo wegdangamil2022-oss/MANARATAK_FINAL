@@ -1,189 +1,111 @@
 import { describe, it, expect } from 'vitest';
 import { loadAppConfig, AppConfigSchema } from '../src/AppConfig';
 
+const asymmetricJwtEnv = {
+  JWT_ACTIVE_KEY_ID: 'test-key-1',
+  JWT_PRIVATE_KEY_PEM: '-----BEGIN ' + 'PRIVATE KEY-----\ntest-private-material\n-----END PRIVATE KEY-----',
+  JWT_PUBLIC_KEY_PEM: '-----BEGIN PUBLIC KEY-----\ntest-public-material\n-----END PUBLIC KEY-----',
+  ACCESS_TOKEN_TTL_SECONDS: '900',
+};
+
+const productionBase = {
+  NODE_ENV: 'production',
+  DATABASE_URL: 'postgresql://user:pass@prod-db:5432/manaratak',
+  REDIS_URL: 'redis://prod-redis:6379',
+  ...asymmetricJwtEnv,
+  CSRF_SECRET: 'a-very-secure-production-csrf-secret-key-32chars',
+  CORS_ORIGIN: 'https://app.manaratak.com',
+  API_BASE_URL: 'https://api.manaratak.com',
+  PUBLIC_WEB_URL: 'https://app.manaratak.com',
+  ADMIN_WEB_URL: 'https://admin.manaratak.com',
+  JWT_ISSUER: 'manaratak-production-api',
+  JWT_AUDIENCE: 'manaratak-production-browser',
+  SECURE_COOKIE: 'true',
+  TRUST_PROXY_HOPS: '1',
+  SECURITY_CSP_ENABLED: 'true',
+  SECURITY_RATE_LIMIT_MAX: '100',
+  SECURITY_RATE_LIMIT_WINDOW_MS: '60000',
+  CERTIFICATE_COMPLETION_WORKER_ENABLED: 'true',
+  CERTIFICATE_COMPLETION_WORKER_INTERVAL_MS: '5000',
+  BACKGROUND_WORKER_ENABLED: 'true',
+  BACKGROUND_WORKER_INTERVAL_MS: '2000',
+  BACKGROUND_WORKER_BATCH_SIZE: '10',
+  BACKGROUND_WORKER_LEASE_MS: '60000',
+  BACKGROUND_WORKER_HEARTBEAT_MS: '15000',
+  BACKGROUND_RETENTION_CRON: '15 2 * * *',
+  MANARATAK_ASSET_PROVIDER_BASE_URL: 'https://asset-provider.manaratak.internal/api/',
+  MANARATAK_ASSET_PROVIDER_API_KEY: 'asset-provider-key',
+  MANARATAK_ASSET_PROVIDER_SIGNING_SECRET: '0123456789abcdef0123456789abcdef',
+  MANARATAK_IMPORT_RAW_RETENTION_DAYS: '365',
+  ADMIN_AUTH_MODE: 'strict',
+};
+
 describe('AppConfig', () => {
-  it('parses valid config successfully in development', () => {
-    const validEnv = {
-      NODE_ENV: 'development',
-      PORT: '4000',
-      DATABASE_URL: 'postgres://localhost/db',
-      REDIS_URL: 'redis://localhost:6379',
-      JWT_SECRET: 'this-is-a-very-long-secret-key-that-is-at-least-32-chars',
-      OTEL_SERVICE_NAME: 'test-service'
-    };
-    
-    const config = loadAppConfig(validEnv);
+  it('parses valid development config and pins short access-token defaults', () => {
+    const config = loadAppConfig({ NODE_ENV: 'development', PORT: '4000' });
     expect(config.PORT).toBe(4000);
-    expect(config.NODE_ENV).toBe('development');
-    expect(config.DATABASE_URL).toBe('postgres://localhost/db');
-    expect(config.REDIS_URL).toBe('redis://localhost:6379');
+    expect(config.JWT_ACTIVE_KEY_ID).toBe('dev-ephemeral');
+    expect(config.ACCESS_TOKEN_TTL_SECONDS).toBe(900);
+    expect(config.ADMIN_AUTH_MODE).toBe('strict');
   });
 
-  it('development/test config loads successfully with safe local defaults when omitted', () => {
-    const config = loadAppConfig({
-      NODE_ENV: 'development',
-    });
-
+  it('development/test config loads with safe local service defaults', () => {
+    const config = loadAppConfig({ NODE_ENV: 'development' });
     expect(config.DATABASE_URL).toBe('postgresql://postgres:postgres@localhost:5432/manaratak_dev');
     expect(config.REDIS_URL).toBe('redis://localhost:6379');
-    expect(config.JWT_SECRET).toContain('dev-secret');
-    expect(config.ADMIN_AUTH_MODE).toBe('strict');
   });
 
   it('fails in production when critical variables are missing', () => {
-    const invalidProductionEnv = {
-      NODE_ENV: 'production',
-      PORT: '4000'
-    };
-    
-    expect(() => loadAppConfig(invalidProductionEnv)).toThrowError(/DATABASE_URL is required/);
-    expect(() => loadAppConfig(invalidProductionEnv)).toThrowError(/JWT_SECRET is required/);
-    expect(() => loadAppConfig(invalidProductionEnv)).toThrowError(/SESSION_SECRET is required/);
-    expect(() => loadAppConfig(invalidProductionEnv)).toThrowError(/CSRF_SECRET is required/);
-    expect(() => loadAppConfig(invalidProductionEnv)).toThrowError(/CORS_ORIGIN is required/);
+    expect(() => loadAppConfig({ NODE_ENV: 'production', PORT: '4000' })).toThrowError(/DATABASE_URL is required/);
+    expect(() => loadAppConfig({ NODE_ENV: 'production', PORT: '4000' })).toThrowError(/JWT_PRIVATE_KEY_PEM is required/);
+    expect(() => loadAppConfig({ NODE_ENV: 'production', PORT: '4000' })).toThrowError(/JWT_PUBLIC_KEY_PEM is required/);
   });
 
   it('fails in production with local SQLite database URL', () => {
-    const prodEnv = {
-      NODE_ENV: 'production',
-      DATABASE_URL: 'file:./dev.db',
-      JWT_SECRET: 'production-jwt-secret-at-least-32-chars-long-secure-token',
-      SESSION_SECRET: 'production-session-secret-at-least-32-chars-long-secure-token',
-      CSRF_SECRET: 'production-csrf-secret-at-least-32-chars-long-secure-token',
-      CORS_ORIGIN: 'https://app.manaratak.com',
-      ADMIN_AUTH_MODE: 'strict'
-    };
-
-    expect(() => loadAppConfig(prodEnv)).toThrowError(/Local SQLite DATABASE_URL is strictly forbidden/);
+    expect(() => loadAppConfig({ ...productionBase, DATABASE_URL: 'file:./dev.db' })).toThrowError(/Local SQLite DATABASE_URL is strictly forbidden/);
   });
 
   it('fails in production with wildcard CORS origin', () => {
-    const prodEnv = {
-      NODE_ENV: 'production',
-      DATABASE_URL: 'postgresql://user:pass@prod-db:5432/manaratak',
-      JWT_SECRET: 'production-jwt-secret-at-least-32-chars-long-secure-token',
-      SESSION_SECRET: 'production-session-secret-at-least-32-chars-long-secure-token',
-      CSRF_SECRET: 'production-csrf-secret-at-least-32-chars-long-secure-token',
-      CORS_ORIGIN: '*',
-      ADMIN_AUTH_MODE: 'strict'
-    };
-
-    expect(() => loadAppConfig(prodEnv)).toThrowError(/CORS_ORIGIN cannot be wildcard/);
+    expect(() => loadAppConfig({ ...productionBase, CORS_ORIGIN: '*' })).toThrowError(/CORS_ORIGIN cannot be wildcard/);
   });
 
-  it('fails in production with known weak or default secrets', () => {
-    const prodEnv = {
-      NODE_ENV: 'production',
-      DATABASE_URL: 'postgresql://user:pass@prod-db:5432/manaratak',
-      JWT_SECRET: 'dev-secret-at-least-32-characters-long-manaratak-key-phrase',
-      SESSION_SECRET: 'manaratak-session-secret-must-be-changed-in-prod-long',
+  it('fails in production with weak CSRF signing secret', () => {
+    expect(() => loadAppConfig({
+      ...productionBase,
       CSRF_SECRET: 'manaratak-default-csrf-secret-must-be-changed-in-prod-long',
-      CORS_ORIGIN: 'https://app.manaratak.com',
-      ADMIN_AUTH_MODE: 'strict'
-    };
-
-    expect(() => loadAppConfig(prodEnv)).toThrowError(/insecure default/);
+    })).toThrowError(/insecure default/);
   });
 
   it('requires REDIS_URL in production for distributed rate limiting', () => {
-    const validProdEnv = {
-      NODE_ENV: 'production',
-      DATABASE_URL: 'postgresql://user:pass@prod-db:5432/manaratak',
-      JWT_SECRET: 'a-very-secure-production-jwt-secret-key-32chars',
-      SESSION_SECRET: 'a-very-secure-production-session-secret-32chars',
-      CSRF_SECRET: 'a-very-secure-production-csrf-secret-key-32chars',
-      CORS_ORIGIN: 'https://app.manaratak.com',
-      ADMIN_AUTH_MODE: 'strict'
-    };
+    const { REDIS_URL, ...withoutRedis } = productionBase;
+    expect(() => loadAppConfig(withoutRedis)).toThrowError(/REDIS_URL is required/);
+  });
 
-    expect(() => loadAppConfig(validProdEnv)).toThrowError(/REDIS_URL is required/);
+  it('rejects access-token TTLs over 15 minutes in every environment', () => {
+    expect(() => loadAppConfig({ NODE_ENV: 'test', ACCESS_TOKEN_TTL_SECONDS: '901' })).toThrowError(/(?:less than or equal to|<=)900/);
+  });
+
+  it('parses explicit false/0 booleans without JavaScript truthiness inversion', () => {
+    const falseConfig = loadAppConfig({ NODE_ENV: 'development', SECURE_COOKIE: 'false', SECURITY_CSP_ENABLED: '0' });
+    expect(falseConfig.SECURE_COOKIE).toBe(false);
+    expect(falseConfig.SECURITY_CSP_ENABLED).toBe(false);
+
+    const trueConfig = loadAppConfig({ NODE_ENV: 'development', SECURE_COOKIE: 'true', SECURITY_CSP_ENABLED: '1' });
+    expect(trueConfig.SECURE_COOKIE).toBe(true);
+    expect(trueConfig.SECURITY_CSP_ENABLED).toBe(true);
   });
 
   it('parses PORT as number', () => {
-    const result = AppConfigSchema.safeParse({
-      NODE_ENV: 'test',
-      DATABASE_URL: 'test',
-      REDIS_URL: 'test',
-      JWT_SECRET: 'test',
-      OTEL_SERVICE_NAME: 'test',
-      PORT: '8080'
-    });
-    if (result.success) {
-      expect(typeof result.data.PORT).toBe('number');
-      expect(result.data.PORT).toBe(8080);
-    } else {
-      throw new Error('Parsing failed: ' + JSON.stringify(result.error.issues));
-    }
+    const result = AppConfigSchema.safeParse({ NODE_ENV: 'test', PORT: '8080' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.PORT).toBe(8080);
   });
 
   it('validates NODE_ENV', () => {
-    const result = AppConfigSchema.safeParse({
-      DATABASE_URL: 'test',
-      REDIS_URL: 'test',
-      JWT_SECRET: 'test',
-      OTEL_SERVICE_NAME: 'test',
-      NODE_ENV: 'invalid_env'
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('allows short JWT_SECRET in test environment', () => {
-    const validEnv = {
-      NODE_ENV: 'test',
-      DATABASE_URL: 'postgres://localhost/db',
-      REDIS_URL: 'redis://localhost:6379',
-      JWT_SECRET: 'short-secret',
-      OTEL_SERVICE_NAME: 'test-service'
-    };
-    
-    const config = loadAppConfig(validEnv);
-    expect(config.JWT_SECRET).toBe('short-secret');
-  });
-
-  it('fails with short JWT_SECRET in development environment', () => {
-    const invalidEnv = {
-      NODE_ENV: 'development',
-      DATABASE_URL: 'postgres://localhost/db',
-      REDIS_URL: 'redis://localhost:6379',
-      JWT_SECRET: 'short-secret',
-      OTEL_SERVICE_NAME: 'test-service'
-    };
-    
-    expect(() => loadAppConfig(invalidEnv)).toThrowError(/JWT_SECRET must be at least 32 characters/);
-  });
-
-  it('defaults admin auth mode to strict in every environment', () => {
-    const config = loadAppConfig({
-      NODE_ENV: 'test',
-      DATABASE_URL: 'postgres://localhost/db',
-      REDIS_URL: 'redis://localhost:6379',
-      JWT_SECRET: 'short-secret',
-      OTEL_SERVICE_NAME: 'test-service'
-    });
-
-    expect(config.ADMIN_AUTH_MODE).toBe('strict');
+    expect(AppConfigSchema.safeParse({ NODE_ENV: 'invalid_env' }).success).toBe(false);
   });
 
   it('requires strict admin auth mode in production', () => {
-    expect(() => loadAppConfig({
-      NODE_ENV: 'production',
-      DATABASE_URL: 'postgres://localhost/db',
-      REDIS_URL: 'redis://localhost:6379',
-      JWT_SECRET: 'this-is-a-very-long-secret-key-that-is-at-least-32-chars',
-      OTEL_SERVICE_NAME: 'test-service',
-      ADMIN_AUTH_MODE: 'demo'
-    })).toThrowError(/ADMIN_AUTH_MODE: Invalid input: expected "strict"/);
-  });
-
-  it('loads strict admin auth without a static bearer token', () => {
-    const config = loadAppConfig({
-      NODE_ENV: 'test',
-      DATABASE_URL: 'postgres://localhost/db',
-      REDIS_URL: 'redis://localhost:6379',
-      JWT_SECRET: 'short-secret',
-      OTEL_SERVICE_NAME: 'test-service',
-      ADMIN_AUTH_MODE: 'strict'
-    });
-    expect(config.ADMIN_AUTH_MODE).toBe('strict');
+    expect(() => loadAppConfig({ ...productionBase, ADMIN_AUTH_MODE: 'demo' })).toThrowError(/expected "strict"/);
   });
 });

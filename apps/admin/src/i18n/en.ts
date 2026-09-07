@@ -11,6 +11,7 @@ export const en = {
   "admin_nav_tests": "International Tests",
   "admin_nav_ai": "AI Governance",
   "admin_nav_tools": "Student Tools",
+  "admin_nav_notifications": "Notifications",
   "admin_nav_health": "System Health",
   "admin_title": "Enterprise Administration Portal",
   "admin_dashboard_title": "Dashboard",
@@ -760,4 +761,8 @@ export const en = {
   "translation_content_deferred": "Content translation deferred",
   "translation_content_writes_blocked": "Content translation writes are disabled in the current infrastructure-only phase.",
   "translation_save_error": "Unable to save translation.",
+  "admin_nav_authorization": "IAM & Authorization",
+  "admin_nav_audit": "Audit Center",
+  "admin_nav_assets": "Assets",
+  "admin_nav_students": "Student Support",
 };

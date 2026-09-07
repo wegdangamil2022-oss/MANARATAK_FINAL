@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import {
   CreateServiceCatalogItemDto,
@@ -16,6 +17,8 @@ import {
   ServiceCatalogRepositoryUpdateDto,
 } from '@manaratak/domain';
 
+import { queryStableCursorPage } from '../api-foundation/StableCursor';
+
 const asRecord = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 const asStrings = (value: unknown): string[] | null =>
@@ -24,11 +27,30 @@ const asStrings = (value: unknown): string[] | null =>
 export class PrismaServicePlatformRepository implements IServiceCatalogRepository, IServiceRequestRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  private catalog() { return (this.prisma as any).serviceCatalogRecord; }
-  private requests() { return (this.prisma as any).serviceRequestRecord; }
+  private catalog(client: any = this.prisma) { return client.serviceCatalogRecord; }
+  private requests(client: any = this.prisma) { return client.serviceRequestRecord; }
+
+  private async atomicEvent<T extends { id: string; publicId?: string; version?: number }>(
+    eventType: string,
+    aggregateType: string,
+    mutate: (tx: any) => Promise<T>,
+    payload: (value: T) => Record<string, unknown>,
+  ): Promise<T> {
+    return this.prisma.$transaction(async (tx: any) => {
+      const value = await mutate(tx);
+      if (!tx.transactionalOutboxRecord?.create) throw new Error('SERVICE_DURABLE_OUTBOX_REQUIRED');
+      const now = new Date();
+      await tx.transactionalOutboxRecord.create({ data: {
+        id: randomUUID(), eventType, domain: 'SERVICES', aggregateType, aggregateId: value.id,
+        payload: payload(value), metadata: { schemaVersion: 1, ownerDomain: 'SERVICES' }, correlationId: randomUUID(),
+        state: 'PENDING', attempts: 0, availableAt: now, createdAt: now,
+      }});
+      return value;
+    });
+  }
 
   async create(data: CreateServiceCatalogItemDto): Promise<ServiceCatalogItemDto> {
-    const row = await this.catalog().create({
+    const row = await this.atomicEvent('ServiceCatalogCreated.v1', 'ServiceCatalogItem', async tx => this.catalog(tx).create({
       data: {
         publicId: data.publicId,
         slug: data.slug,
@@ -65,16 +87,19 @@ export class PrismaServicePlatformRepository implements IServiceCatalogRepositor
         } : undefined,
       },
       include: this.catalogInclude(),
-    });
+    }), row => ({ serviceId: row.id, publicId: row.publicId, status: row.status, version: row.version }));
     return this.mapCatalog(row);
   }
 
-  async update(id: string, data: ServiceCatalogRepositoryUpdateDto): Promise<ServiceCatalogItemDto> {
+  async update(id: string, data: ServiceCatalogRepositoryUpdateDto, expectedVersion: number): Promise<ServiceCatalogItemDto> {
     const countryIds = data.supportedCountryReferenceIds;
     const languageIds = data.supportedLanguageReferenceIds;
-    const row = await this.catalog().update({
-      where: { id },
+    let row: any;
+    try {
+      row = await this.atomicEvent('ServiceCatalogUpdated.v1', 'ServiceCatalogItem', async tx => this.catalog(tx).update({
+      where: { id_version: { id, version: expectedVersion } },
       data: {
+        version: { increment: 1 },
         // publicId is immutable after creation; repository updates must never rewrite identity.
         slug: data.slug,
         canonicalName: data.canonicalName,
@@ -112,7 +137,10 @@ export class PrismaServicePlatformRepository implements IServiceCatalogRepositor
         },
       },
       include: this.catalogInclude(),
-    });
+      }), value => ({ serviceId: value.id, publicId: value.publicId, version: value.version }));
+    } catch (error) {
+      throw this.mapVersionConflict(error, 'SERVICE_CATALOG_VERSION_CONFLICT');
+    }
     return this.mapCatalog(row);
   }
 
@@ -128,15 +156,34 @@ export class PrismaServicePlatformRepository implements IServiceCatalogRepositor
     const row = await this.catalog().findUnique({ where: { canonicalDedupKey }, include: this.catalogInclude() });
     return row ? this.mapCatalog(row) : null;
   }
-  async updateStatus(id: string, status: ServiceStatus): Promise<void> {
-    await this.catalog().update({ where: { id }, data: { status } });
+  async updateStatus(id: string, status: ServiceStatus, expectedVersion: number): Promise<ServiceCatalogItemDto> {
+    try {
+      const row = await this.atomicEvent('ServiceCatalogStatusChanged.v1', 'ServiceCatalogItem', async tx =>
+        this.catalog(tx).update({ where: { id_version: { id, version: expectedVersion } }, data: { status, version: { increment: 1 } }, include: this.catalogInclude() }),
+        value => ({ serviceId: value.id, publicId: value.publicId, status, version: value.version }),
+      );
+      return this.mapCatalog(row);
+    } catch (error) {
+      throw this.mapVersionConflict(error, 'SERVICE_CATALOG_VERSION_CONFLICT');
+    }
   }
 
   async list(filters: ServiceCatalogFilters): Promise<PaginatedServiceCatalogResult<ServiceCatalogItemDto>> {
     return this.listCatalog(filters, false);
   }
   async listPublished(filters: PublicServiceCatalogFilters): Promise<PaginatedServiceCatalogResult<ServiceCatalogItemDto>> {
-    return this.listCatalog({ ...filters, status: ServiceStatus.PUBLISHED }, true);
+    const where: any = {
+      status: ServiceStatus.PUBLISHED,
+      serviceCategory: filters.serviceCategory, fulfillmentType: filters.fulfillmentType,
+      serviceAvailabilityStatus: filters.serviceAvailabilityStatus, deliveryMode: filters.deliveryMode,
+      supportedCountries: filters.supportedCountryReferenceId ? { some: { countryReferenceId: filters.supportedCountryReferenceId } } : undefined,
+      supportedLanguages: filters.supportedLanguageReferenceId ? { some: { languageReferenceId: filters.supportedLanguageReferenceId } } : undefined,
+    };
+    Object.keys(where).forEach((key) => where[key] === undefined && delete where[key]);
+    return queryStableCursorPage({
+      delegate: this.catalog() as any, where, include: this.catalogInclude(), cursor: filters.cursor, limit: filters.limit,
+      map: (row: any) => this.mapCatalog(row),
+    });
   }
 
   private async listCatalog(filters: ServiceCatalogFilters, publishedOnly: boolean) {
@@ -161,7 +208,10 @@ export class PrismaServicePlatformRepository implements IServiceCatalogRepositor
   }
 
   async createRequest(data: CreateServiceRequestDto): Promise<ServiceRequestDto> {
-    return this.mapRequest(await this.requests().create({ data }));
+    const row = await this.atomicEvent('ServiceRequested.v1', 'ServiceRequest', async tx => this.requests(tx).create({ data }), value => ({
+      requestId: value.id, publicId: value.publicId, serviceId: (value as any).serviceId, studentReferenceId: (value as any).studentReferenceId, status: (value as any).status, version: value.version,
+    }));
+    return this.mapRequest(row);
   }
   async findRequestById(id: string) {
     const row = await this.requests().findUnique({ where: { id } });
@@ -186,20 +236,36 @@ export class PrismaServicePlatformRepository implements IServiceCatalogRepositor
     ]);
     return { data: rows.map((row: any) => this.mapRequest(row)), total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
   }
-  async updateRequestStatus(id: string, status: ServiceRequestStatus, fulfillmentMetadata?: Record<string, unknown> | null) {
-    const row = await this.requests().update({
-      where: { id },
-      data: { status, fulfillmentMetadata, completedAt: status === ServiceRequestStatus.COMPLETED ? new Date() : undefined },
-    });
+  async updateRequestStatus(id: string, status: ServiceRequestStatus, expectedVersion: number, fulfillmentMetadata?: Record<string, unknown> | null) {
+    const row = await this.atomicRequestUpdate('ServiceFulfillmentStatusChanged.v1', id, expectedVersion, {
+      status, fulfillmentMetadata, completedAt: status === ServiceRequestStatus.COMPLETED ? new Date() : undefined,
+    }, value => ({ requestId: value.id, publicId: value.publicId, serviceId: (value as any).serviceId, studentReferenceId: (value as any).studentReferenceId, status, version: value.version }));
     return this.mapRequest(row);
   }
-  async linkFinanceInvoice(id: string, financeInvoiceId: string, financeInvoicePublicId: string) {
-    const row = await this.requests().update({ where: { id }, data: { financeInvoiceId, financeInvoicePublicId, status: ServiceRequestStatus.AWAITING_PAYMENT } });
+  async linkFinanceInvoice(id: string, financeInvoiceId: string, financeInvoicePublicId: string, expectedVersion: number) {
+    const row = await this.atomicRequestUpdate('ServiceFinanceInvoiceLinked.v1', id, expectedVersion, { financeInvoiceId, financeInvoicePublicId, status: ServiceRequestStatus.AWAITING_PAYMENT }, value => ({ requestId: value.id, publicId: value.publicId, serviceId: (value as any).serviceId, studentReferenceId: (value as any).studentReferenceId, financeInvoiceId, financeInvoicePublicId, version: value.version }));
     return this.mapRequest(row);
   }
-  async assignProvider(id: string, providerReferenceId: string) {
-    const row = await this.requests().update({ where: { id }, data: { providerReferenceId } });
+  async assignProvider(id: string, providerReferenceId: string, expectedVersion: number) {
+    const row = await this.atomicRequestUpdate('ServiceProviderAssigned.v1', id, expectedVersion, { providerReferenceId }, value => ({ requestId: value.id, publicId: value.publicId, serviceId: (value as any).serviceId, studentReferenceId: (value as any).studentReferenceId, providerReferenceId, version: value.version }));
     return this.mapRequest(row);
+  }
+
+  private async atomicRequestUpdate(eventType: string, id: string, expectedVersion: number, data: Record<string, unknown>, payload: (value: any) => Record<string, unknown>): Promise<any> {
+    try {
+      return await this.atomicEvent(eventType, 'ServiceRequest', async tx => this.requests(tx).update({
+        where: { id_version: { id, version: expectedVersion } },
+        data: { ...data, version: { increment: 1 } },
+      }), payload);
+    } catch (error) {
+      throw this.mapVersionConflict(error, 'SERVICE_REQUEST_VERSION_CONFLICT');
+    }
+  }
+
+  private mapVersionConflict(error: unknown, code: string): Error {
+    const prismaCode = error && typeof error === 'object' && 'code' in error ? String((error as { code?: unknown }).code ?? '') : '';
+    if (prismaCode === 'P2025') return new Error(code);
+    return error instanceof Error ? error : new Error(String(error));
   }
 
   private catalogInclude() {
@@ -240,6 +306,7 @@ export class PrismaServicePlatformRepository implements IServiceCatalogRepositor
       optionalFields: asRecord(row.optionalFields),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      version: row.version,
     };
   }
 
@@ -258,6 +325,7 @@ export class PrismaServicePlatformRepository implements IServiceCatalogRepositor
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       completedAt: row.completedAt,
+      version: row.version,
     };
   }
 }

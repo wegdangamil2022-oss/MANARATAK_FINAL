@@ -404,7 +404,7 @@ export interface MajorFilters {
   pageSize?: number;
 }
 
-export type PublicMajorFilters = Omit<MajorFilters, 'status' | 'completenessStatus'>;
+export type PublicMajorFilters = Omit<MajorFilters, 'status' | 'completenessStatus' | 'page' | 'pageSize'> & { cursor?: string; limit?: number };
 
 export interface PaginatedMajorResult<T = MajorDto> {
   data: T[];
@@ -412,6 +412,8 @@ export interface PaginatedMajorResult<T = MajorDto> {
   page: number;
   pageSize: number;
   totalPages: number;
+  hasMore?: boolean;
+  nextCursor?: string | null;
 }
 
 export interface UpdateMajorDto {

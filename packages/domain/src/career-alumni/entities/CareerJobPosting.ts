@@ -31,9 +31,10 @@ export interface CareerJobPostingDto {
   metadata?: Record<string, unknown> | null;
   createdAt: Date | string;
   updatedAt: Date | string;
+  version: number;
 }
 
-export interface CreateCareerJobPostingDto extends Omit<CareerJobPostingDto, 'id' | 'createdAt' | 'updatedAt' | 'employer'> {}
+export interface CreateCareerJobPostingDto extends Omit<CareerJobPostingDto, 'id' | 'createdAt' | 'updatedAt' | 'employer' | 'version'> {}
 
 export interface UpdateCareerJobPostingDto {
   title?: string;
@@ -69,6 +70,8 @@ export interface CareerJobFilters {
   employerId?: string;
   page?: number;
   pageSize?: number;
+  cursor?: string;
+  limit?: number;
 }
 
 export interface PaginatedCareerResult<T> {
@@ -77,4 +80,6 @@ export interface PaginatedCareerResult<T> {
   page: number;
   pageSize: number;
   totalPages: number;
+  hasMore?: boolean;
+  nextCursor?: string | null;
 }

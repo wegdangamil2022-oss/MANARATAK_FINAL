@@ -1,5 +1,7 @@
 # WP6 Major Source Linkage Report
 
+> **Operational supersession notice (2026-09-06):** Any instruction in this historical remediation artifact that requires an “Original Development Database”, a Google Studio recovery gate, or `WP1_RECOVERY_GATE` is superseded by [`docs/operations/GREENFIELD_DATABASE_PROVISIONING.md`](../../operations/GREENFIELD_DATABASE_PROVISIONING.md). This file remains historical/evidence context and is not current database-operation authority.
+
 Generated from the four current Phase 10 catalog Markdown files and verified against `workspace/catalog-index/phase10CatalogIndex.json`.
 
 | Catalog | Count | Expected | Structural result |

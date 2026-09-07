@@ -1,6 +1,8 @@
 export * from './security/DefaultRateLimiter';
 export * from './security/RedisRateLimiter';
 export * from './background-jobs/InMemoryBackgroundJobExecutionGateway';
+export * from './background-jobs/PrismaBackgroundJobRepository';
+export * from './background-jobs/PrismaBackgroundJobExecutionGateway';
 export * from './event-foundation/InMemoryEventPublishingGateway';
 export * from './event-foundation/PrismaEnterpriseEventRepository';
 export * from './event-foundation/PrismaEventPublishingGateway';
@@ -46,6 +48,8 @@ export * from './courses/ExternalCourseProviderSeed';
 export * from './authorization/PrismaRoleRepository';
 export * from './authorization/PrismaPolicyRepository';
 export * from './authorization/PrismaRoleAssignmentRepository';
+export * from './authorization/PrismaEmergencyAccessRepository';
+export * from './authorization/InMemoryEmergencyAccessRepository';
 export * from './authorization/AdminBootstrapVerifier';
 
 export * from './authorization/InMemoryRoleRepository';
@@ -68,22 +72,16 @@ export * from './finance-platform/FinanceSafetyGateways';
 export { PrismaAIPlatformRepository, PrismaAIPlatformRepository as PrismaAIExecutionRepository } from './ai-platform/PrismaAIPlatformRepository';
 export * from './ai-platform/ProviderAdapters';
 export * from './ai-platform/EnvironmentAIAsyncPayloadProtector';
+/**
+ * @deprecated Runtime code must resolve Prisma from RuntimeResourceRegistry/DI.
+ * This compatibility holder exists only for legacy tests/adapters and never
+ * constructs its own PrismaClient, preventing a second process-local pool.
+ */
 export class PrismaConnection {
   private static instance: any = null;
   constructor(..._args: any[]) {}
-  static async connect(config?: any, logger?: any) {
-    if (!this.instance) {
-      try {
-        const { PrismaClient } = await import('@prisma/client');
-        const dbUrl = config?.getOptional ? config.getOptional('DATABASE_URL') : undefined;
-        this.instance = new PrismaClient(dbUrl ? { datasources: { db: { url: dbUrl } } } : undefined);
-      } catch (err: any) {
-        if (logger?.error) {
-          logger.error('Failed to create PrismaClient instance', err);
-        }
-        throw err;
-      }
-    }
+  static async connect() {
+    if (!this.instance) throw new Error('PRISMA_CONNECTION_NOT_BOUND_TO_RUNTIME_RESOURCE_REGISTRY');
     return this.instance;
   }
   static getInstance() { return this.instance; }
@@ -122,6 +120,7 @@ export * from './validation/ZodValidationProvider';
 export * from './validation/DefaultSanitizer';
 export * from './validation/ValidationService';
 export * from './monitoring/MonitoringService';
+export * from './monitoring/OtlpHttpMonitoringProvider';
 export * from './monitoring/DatabaseHealthChecker';
 export * from './monitoring/RedisHealthChecker';
 export * from './security/SecurityService';
@@ -151,6 +150,7 @@ export * from './network/PublicNetworkAddressPolicy';
 export * from './import-foundation/network/NodeSafeSourceHttpTransport';
 export * from './import-foundation/InMemoryImportRawSnapshotStore';
 export * from './import-foundation/LocalImportRawSnapshotStore';
+export * from './import-foundation/HttpImportRawSnapshotStore';
 export * from './import-foundation/SourceAcquisitionLimiter';
 export * from './degree-level';
 export * from './universities/PrismaUniversityImportChangeExecutorGateway';
@@ -167,3 +167,34 @@ export * from './students/StudentSavedItemHydrationGateways';
 export * from './students/StudentDashboardOwnerReadGateways';
 
 export * from './study-destinations/PrismaStudyDestinationRepository';
+
+export * from './universities/PrismaUniversityMajorResolutionWriter';
+
+export * from './scholarships/PrismaScholarshipMajorResolutionWriter';
+
+export * from './import-foundation/PrismaImportPromotionLinkWriter';
+
+export * from './asset-platform/PrismaAssetUsageRegistryGateway';
+export * from './workflow/PrismaWorkflowRepository';
+export * from './api-foundation/PrismaApiServiceRepository';
+export * from './shared-components/PrismaSharedComponentRepository';
+export * from './workflow/PrismaWorkflowExecutionGateway';
+export * from './api-foundation/PrismaApiExposureGateway';
+export * from './shared-components/PrismaComponentRenderingGateway';
+export * from './retention';
+export * from './provider-http/SignedProviderHttpClient';
+export * from './asset-platform/HttpAssetSecurityGateways';
+export * from './notification/PrismaNotificationRepositories';
+export * from './notification/ProviderNotificationDeliveryGateway';
+
+export * from './api-foundation/PrismaApiIdempotencyStore';
+export * from './search/PrismaSearchRequestRepository';
+export * from './search/PrismaPublicSearchEngineGateway';
+
+export * from './certificates/ProviderNeutralCertificateRenderingService';
+
+export * from './certificates/EapCertificateArtifactStore';
+
+export * from './students/PrismaStudentApplicationTrackerRepository';
+
+export * from './students/ScholarshipStudentApplicationTrackerGateway';

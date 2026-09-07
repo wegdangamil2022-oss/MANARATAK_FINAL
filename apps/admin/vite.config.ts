@@ -1,8 +1,10 @@
 import { defineConfig, Plugin } from 'vite';
+import { frontendSecurityHeadersPlugin } from '../frontend-security/ViteFrontendSecurityHeaders';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 import { fileURLToPath } from 'node:url';
+import { assertLocalReadOnlyBuildAllowed, isUnsafeAdminMethod } from './src/security/LocalAdminReadOnlyPolicy';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -19,8 +21,28 @@ function disableHmrPlugin(): Plugin {
   };
 }
 
-export default defineConfig({
-  plugins: [react(), tailwindcss(), disableHmrPlugin()],
+function localAdminReadOnlyGuardPlugin(): Plugin {
+  return {
+    name: 'local-admin-read-only-guard',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const enabled = process.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true';
+        if (enabled && req.url?.startsWith('/api') && isUnsafeAdminMethod(req.method)) {
+          res.statusCode = 423;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'READ_ONLY_PREVIEW' }));
+          return;
+        }
+        next();
+      });
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => {
+  assertLocalReadOnlyBuildAllowed({ mode, nodeEnv: process.env.NODE_ENV, localReadOnly: process.env.VITE_LOCAL_ADMIN_READ_ONLY });
+  return {
+  plugins: [frontendSecurityHeadersPlugin(), react(), tailwindcss(), localAdminReadOnlyGuardPlugin(), disableHmrPlugin()],
   server: {
     hmr: process.env.DISABLE_HMR === 'true' ? false : { clientPort: 443 },
     port: 3001,
@@ -30,4 +52,5 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  };
 });

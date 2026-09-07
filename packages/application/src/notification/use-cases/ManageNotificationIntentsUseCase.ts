@@ -1,4 +1,4 @@
-import { INotificationIntentRepository } from '@manaratak/domain';
+import { INotificationIntentRepository, INotificationTemplateRepository, NotificationIntentSummary } from '@manaratak/domain';
 import { INotificationPreferenceGateway } from '@manaratak/domain';
 import { NotificationIntent } from '@manaratak/domain';
 import { NotificationId } from '@manaratak/domain';
@@ -10,12 +10,12 @@ import { SchedulingMetadata } from '@manaratak/domain';
 import { ExpirationMetadata } from '@manaratak/domain';
 import { RetryMetadata } from '@manaratak/domain';
 import { CreateIntentDto } from '../dtos/NotificationDtos';
-import { NotificationChannel } from '@manaratak/domain'; // for preference check
 
 export class ManageNotificationIntentsUseCase {
   constructor(
     private readonly intentRepository: INotificationIntentRepository,
-    private readonly preferenceGateway: INotificationPreferenceGateway
+    private readonly preferenceGateway: INotificationPreferenceGateway,
+    private readonly templateRepository?: INotificationTemplateRepository,
   ) {}
 
   public async createIntent(dto: CreateIntentDto): Promise<void> {
@@ -32,9 +32,10 @@ export class ManageNotificationIntentsUseCase {
       ? RetryMetadata.create(dto.retryMaxRetries, dto.retryBackoffMs) 
       : undefined;
 
-    // Default generic channel for preference check (In a real app, this would be derived from the intent/template constraints)
-    const defaultChannel = NotificationChannel.create('ANY');
-    const optedOut = await this.preferenceGateway.hasOptedOut(recipient, defaultChannel);
+    const template = await this.templateRepository?.findById(templateId);
+    if (!template) throw new Error('NOTIFICATION_TEMPLATE_NOT_FOUND');
+    const optedOutByChannel = await Promise.all(template.channels.map(channel => this.preferenceGateway.hasOptedOut(recipient, channel)));
+    const optedOut = optedOutByChannel.length > 0 && optedOutByChannel.every(Boolean);
 
     if (optedOut) {
       // Create and immediately cancel or just don't create? The domain might say create and cancel.
@@ -51,5 +52,19 @@ export class ManageNotificationIntentsUseCase {
     );
 
     await this.intentRepository.save(intent);
+  }
+
+  public listIntents(limit = 100): Promise<NotificationIntentSummary[]> {
+    return this.intentRepository.list(Math.max(1, Math.min(limit, 500)));
+  }
+
+  public cancelIntent(id: string): Promise<void> {
+    if (!id.trim()) throw new Error('NOTIFICATION_INTENT_ID_REQUIRED');
+    return this.intentRepository.cancel(id.trim());
+  }
+
+  public retryIntent(id: string): Promise<void> {
+    if (!id.trim()) throw new Error('NOTIFICATION_INTENT_ID_REQUIRED');
+    return this.intentRepository.retry(id.trim());
   }
 }

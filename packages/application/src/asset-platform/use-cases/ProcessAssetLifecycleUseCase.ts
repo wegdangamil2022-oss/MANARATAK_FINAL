@@ -5,9 +5,8 @@ import {
   IAssetMalwareScannerGateway,
   IAssetSanitizationGateway,
   AssetId,
-  AssetStorageLocator,
   AssetStorageZone,
-  AssetChecksum
+  AssetLifecycleState
 } from '@manaratak/domain';
 
 import {
@@ -19,7 +18,9 @@ import {
   SoftDeleteAssetDto,
   RestoreAssetDto,
   PurgeAssetDto,
-  AssetRecordDto
+  AssetRecordDto,
+  RequestAssetDeliveryGrantDto,
+  AssetDeliveryGrantDto
 } from '../dtos/AssetDtos';
 import { AssetRecordMapper } from '../mappers/AssetRecordMapper';
 
@@ -82,7 +83,7 @@ export class ProcessAssetLifecycleUseCase {
       throw new Error('ASSET_SANITIZATION_NOT_CONFIGURED');
     }
     const result = await this.sanitizationGateway.sanitize(record.locator);
-    record.completeSanitization(result.metadata);
+    record.completeSanitization(result.metadata, result.sanitizedLocator);
 
     await this.assetRepository.save(record);
     return AssetRecordMapper.toDto(record);
@@ -95,24 +96,29 @@ export class ProcessAssetLifecycleUseCase {
       throw new Error(`Asset not found: ${dto.assetId}`);
     }
 
-    let cleanLocator: AssetStorageLocator;
-    if (dto.cleanBucketName && dto.cleanPathKey) {
-      cleanLocator = new AssetStorageLocator(
-        AssetStorageZone.CLEAN,
-        dto.cleanBucketName,
-        dto.cleanPathKey
-      );
-    } else {
-      cleanLocator = await this.storageGateway.moveToCleanZone(record.locator);
-    }
-
-    const checksum = dto.checksumAlgorithm && dto.checksumHash
-      ? new AssetChecksum(dto.checksumAlgorithm, dto.checksumHash)
-      : undefined;
-
-    record.activate(cleanLocator, checksum);
+    const cleanLocator = await this.storageGateway.moveToCleanZone(record.locator);
+    record.activate(cleanLocator);
     await this.assetRepository.save(record);
     return AssetRecordMapper.toDto(record);
+  }
+
+  public async requestDeliveryGrant(dto: RequestAssetDeliveryGrantDto): Promise<AssetDeliveryGrantDto> {
+    const id = new AssetId(dto.assetId);
+    const record = await this.assetRepository.findById(id);
+    if (!record) throw new Error(`Asset not found: ${dto.assetId}`);
+    if (record.state !== AssetLifecycleState.ACTIVE || record.locator.storageZone !== AssetStorageZone.CLEAN) {
+      throw new Error('ASSET_DELIVERY_REQUIRES_ACTIVE_CLEAN_ASSET');
+    }
+    if (!this.storageGateway.generateDeliveryGrant) {
+      throw new Error('ASSET_SECURE_DELIVERY_NOT_CONFIGURED');
+    }
+    const grant = await this.storageGateway.generateDeliveryGrant(record.locator, dto.expiresInSeconds ?? 300);
+    return {
+      assetId: dto.assetId,
+      url: grant.url,
+      headers: grant.headers,
+      expiresAt: grant.expiresAt.toISOString(),
+    };
   }
 
   public async archiveAsset(dto: ArchiveAssetDto): Promise<AssetRecordDto> {
@@ -160,9 +166,15 @@ export class ProcessAssetLifecycleUseCase {
       throw new Error(`Asset not found: ${dto.assetId}`);
     }
 
-    const inUse = await this.usageRegistry.isAssetInUse(id);
+    const usages = this.usageRegistry.findUsages
+      ? await this.usageRegistry.findUsages(id)
+      : null;
+    const inUse = usages ? usages.length > 0 : await this.usageRegistry.isAssetInUse(id);
     if (inUse) {
-      throw new Error(`Cannot purge asset ${dto.assetId} because it is currently in use`);
+      const detail = usages?.length
+        ? ` (${usages.map((usage) => `${usage.consumer}.${usage.field}`).join(', ')})`
+        : '';
+      throw new Error(`Cannot purge asset ${dto.assetId} because it is currently in use${detail}`);
     }
 
     record.purge();

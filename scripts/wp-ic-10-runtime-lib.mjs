@@ -46,6 +46,13 @@ export function validateMemoryResult(input) {
   return { pass: failures.length === 0, failures };
 }
 
+export function providerReplayForceReanalysisInvariant({ operationsSource, identityDiffSource }) {
+  const canonicalOperationOwnsForceBranch =
+    /analyzeBatch\s*\([^)]*options[^)]*\)[\s\S]{0,700}?options\.force[\s\S]{0,400}?identityDiff\.analyzeBatch\s*\(\s*batchId\s*,\s*\{\s*force\s*:\s*true\s*\}\s*\)/m.test(operationsSource);
+  const identityDiffHonorsForce = /options\.force/.test(identityDiffSource);
+  return canonicalOperationOwnsForceBranch && identityDiffHonorsForce;
+}
+
 export function securityAudit(repoRoot) {
   const required = {
     app: 'apps/api/src/app.ts',
@@ -53,9 +60,10 @@ export function securityAudit(repoRoot) {
     coordinator: 'packages/application/src/courses/use-cases/CourseImportCoordinator.ts',
     seedPilot: 'scripts/wp-ic-08-course-seed-pilot.mjs',
     continuation: 'packages/application/src/courses/use-cases/CourseProviderContinuationUseCases.ts',
+    operations: 'packages/application/src/courses/use-cases/CourseImportOperationsUseCases.ts',
     identityDiff: 'packages/application/src/courses/use-cases/CourseImportIdentityDiffUseCase.ts',
     importedAdmin: 'packages/application/src/courses/use-cases/ImportedCourseAdminUseCases.ts',
-    parser: 'packages/application/src/import-foundation/parsers/CourseMasterArtifactParser.ts',
+    parser: 'packages/application/src/courses/parsers/CourseMasterArtifactParser.ts',
     packageJson: 'package.json',
     archivedSessionTest: 'scripts/archive/remediation-root/test_session_manager.ts',
   };
@@ -127,8 +135,11 @@ export function securityAudit(repoRoot) {
   ));
   checks.push(gate(
     'provider-replay-force-reanalysis',
-    /analyzeBatch\(batchId, \{ force: true \}\)/.test(text.continuation) && /options\.force/.test(text.identityDiff),
-    'provider replay bypasses cached analysis without changing ordinary idempotent analysis',
+    providerReplayForceReanalysisInvariant({
+      operationsSource: text.operations,
+      identityDiffSource: text.identityDiff,
+    }),
+    'Canonical CourseImportOperationsUseCases must preserve force re-analysis and the identity-diff implementation must honor options.force.',
   ));
   checks.push(gate(
     'archived-cloudsql-credentials-removed',

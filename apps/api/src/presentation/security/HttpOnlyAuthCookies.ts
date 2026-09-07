@@ -14,7 +14,7 @@ function cookieOptions(env: RuntimeEnv) {
   return {
     httpOnly: true,
     secure: env.SECURE_COOKIE === 'true' || isProductionLike(env),
-    sameSite: 'lax' as const,
+    sameSite: 'strict' as const,
     path: '/api/v1',
   };
 }
@@ -53,7 +53,7 @@ export function setAuthCookies(res: Response, tokens: AuthTokens, env: RuntimeEn
   const options = cookieOptions(env);
   res.cookie(ACCESS_COOKIE_NAME, tokens.accessToken, {
     ...options,
-    maxAge: ttlMilliseconds(env.ACCESS_TOKEN_TTL_SECONDS, 60 * 60),
+    maxAge: ttlMilliseconds(env.ACCESS_TOKEN_TTL_SECONDS, 15 * 60),
   });
   res.cookie(REFRESH_COOKIE_NAME, tokens.refreshToken, {
     ...options,

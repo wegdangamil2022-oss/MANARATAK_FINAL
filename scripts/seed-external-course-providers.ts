@@ -6,7 +6,7 @@ import {
 import { requireDatabaseMutationGate } from './lib/require-database-mutation-gate';
 
 async function main() {
-  requireDatabaseMutationGate('seed-external-course-providers');
+  requireDatabaseMutationGate('seed-external-course-providers', { allowedPurposes: ['seed'] });
   const prisma = new PrismaClient();
   try {
     const repository = new PrismaExternalCourseProviderRepository(prisma);

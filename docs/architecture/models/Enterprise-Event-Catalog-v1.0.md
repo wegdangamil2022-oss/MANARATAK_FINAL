@@ -189,22 +189,18 @@ Roadmap v6.0 does not designate Phase 12 or Phase 15 as the owner of a general-p
   - **Retention Policy:** 1 Year
   - **Ownership:** Platform Architect (WF)
 
-### 6.7. Authentication Events
+### 6.7. Identity and Settings Events — W3 canonical contract
 
-- **Event Name:** `UserRegistered`
-  - **Description:** Emitted when a new identity is created in the IAM system.
-  - **Category:** Authentication Events
-  - **Producer:** Authentication (IAM)
-  - **Consumers:** Phase 15 (Enterprise Student Platform (Student Workspace)), Notification Platform
-  - **Trigger:** Successful identity verification.
-  - **Business Meaning:** A new user has joined the MANARATAK 2.0 ecosystem.
-  - **Payload Responsibility:** Global User ID, Auth Provider.
-  - **Criticality:** Critical
-  - **Delivery Type:** Guaranteed
-  - **Event Type:** Security Event
-  - **Version Strategy:** Semantic
-  - **Retention Policy:** Permanent
-  - **Ownership:** Security Architect
+P05 Identity persists these versioned events atomically with owner state in the transactional outbox: `IdentityCreated.v1`, `IdentityActivated.v1`, `IdentityStatusChanged.v1`, and `IdentityContactUpdated.v1`. P05 Settings likewise emits versioned `SettingDefinitionCreated.v1`, `SettingDefinitionUpdated.v1`, `SettingValueAssigned.v1`, `SettingValueUpdated.v1`, and `SettingValueRolledBack.v1` facts. Stable event/outbox IDs, correlation metadata and idempotent consumers are mandatory. The historical `UserRegistered` label is not a canonical production event.
+
+`IdentityCreated.v1` and lifecycle status facts feed the P15 Student Workspace projection through the durable outbox bridge. Access-denying Identity transitions additionally revoke active sessions at the Identity/Auth owner boundary; consumers must not substitute eventual projection delivery for immediate access denial.
+
+### 6.8. W3 owner-domain event additions
+
+- **Phase 13 Learning:** `CourseEnrolled` and `CourseProgressUpdated` are persisted atomically with enrollment/progress mutation and consumed idempotently by P15. `CourseCompleted` / `LearningPathCompleted` remain the P13→P14 credential facts.
+- **Phase 20 Services:** owner-state transactions publish versioned service catalog/request/fulfillment/provider/finance-link events through the durable outbox.
+- **Phase 21 Career:** employer/job lifecycle transactions publish versioned events, including `JobPosted.v1` and `JobClosed.v1`, through the durable outbox.
+- **Notifications:** approved owner events may create notification intents through an explicit idempotent consumer; notification delivery itself is not domain ownership transfer.
 
 ## 7. Event Dependencies
 
@@ -217,7 +213,10 @@ Roadmap v6.0 does not designate Phase 12 or Phase 15 as the owner of a general-p
 | **Phase 11 Universities** | Enterprise Search | `UniversityOnboarded` | State projection (CQRS) | High |
 | **Phase 12 Scholarships** | Notification/Search | `ScholarshipPublished` | Discovery notification/projection | Medium |
 | **Phase 8 Academic Taxonomy** | Phase 11 Universities | `TaxonomyDisciplineCreated` | Read-model hydration | High |
-| **Authentication/IAM** | Phase 15 Student Workspace | `UserRegistered` | Workspace/profile initialization | Critical |
+| **P05 Identity** | Phase 15 Student Workspace | `IdentityCreated.v1` / `IdentityStatusChanged.v1` | Idempotent workspace provisioning/lifecycle projection | Critical |
+| **Phase 13 Learning** | Phase 15 Student Workspace | `CourseEnrolled` / `CourseProgressUpdated` | Enrollment/progress projection | High |
+| **Phase 20 Services** | Enterprise event projections / approved consumers | versioned Services owner events | Owner-state projection via transactional outbox | High |
+| **Phase 21 Career** | Enterprise event projections / approved consumers | `JobPosted.v1` / `JobClosed.v1` and versioned owner events | Owner-state projection via transactional outbox | High |
 | **Universal Import** | Owning domain import consumers | `ImportJobCompleted` | Import handoff signal; final normalization remains owner-domain responsibility | Medium |
 | **All Domains** | Analytics Platform | approved domain events | Telemetry ingestion | Low |
 

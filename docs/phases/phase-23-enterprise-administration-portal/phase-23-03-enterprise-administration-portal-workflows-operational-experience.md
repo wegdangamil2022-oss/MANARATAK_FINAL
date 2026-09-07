@@ -1,12 +1,14 @@
 # MANARATAK 2.0: Phase 23 (Enterprise Administration Portal) Workflows & Operational Experience
 
 **Document ID:** PHASE-23-03-WORKFLOWS-SPEC  
-**Status:** Baselined & Approved  
+**Status:** SOURCE_REBASELINED — RUNTIME_EVIDENCE_PENDING  
 **Phase:** 23  
 **Domain:** Enterprise Administration Portal  
 **Artifact:** Part C - Workflows & Operational Experience  
 
 ---
+
+> **W7 source-rebaseline notice (2026-09-07):** This specification is source-rebaselined under `MNT-AUD-0045` against the remediated owner APIs, Admin/Public composition, source tests and cross-phase traceability. This status is not runtime or production certification; external DB/provider/deployment/browser evidence remains `RUNTIME_EVIDENCE_PENDING`. See `docs/remediation/P23_P24_REBASELINE_TRACEABILITY.md`.
 
 ### Navigation
 [← Phase 22: Enterprise Product Experience](../phase-22-enterprise-product-experience/phase-22-01-enterprise-product-experience-architecture-specification.md) | [Phase 23: Architecture Spec (Part A)](./phase-23-01-enterprise-administration-portal-architecture-specification.md) | [Phase 23: Structure Contracts (Part B)](./phase-23-02-enterprise-administration-portal-structure-contracts.md) | [Phase 24: Enterprise Public Platform →](../phase-24-enterprise-public-platform/phase-24-01-enterprise-public-platform-architecture-specification.md)
@@ -155,13 +157,13 @@ The administrator experience is defined by:
 ## 23.C.6 Public Platform Command & Visibility Synchronization
 
 **Architectural Commentary**  
-Phase 23 acts as the administrative command surface for visibility, availability, and feature configuration. Phase 23 issues administrative commands (publish, unpublish, feature toggle) via domain APIs and event dispatchers. Phase 24 - Enterprise Public Platform owns final public page composition, visitor routing, SEO rendering, and visitor-facing page state.
+Phase 23 acts as the administrative client for publication, availability, and editorial composition. Commands are always sent to the owning domain or to Phase 16 CMS; Phase 23 does not maintain a parallel public-visibility record. Phase 24 owns visitor routing, SEO rendering, and public composition only.
 
-Administrative commands dispatched from Phase 23 govern:
-- Publishing and unpublishing content records
-- Setting visibility flags and featured item selections
-- Activating or deactivating module feature toggles
-- Updating homepage service display configurations
+Administrative operations from Phase 23 therefore govern:
+- Publishing and unpublishing records through each owner API
+- Activating/deactivating owner-domain availability where that domain defines such lifecycle
+- Editing homepage/navigation/featured composition through Phase 16 CMS navigation/block APIs
+- Previewing the resulting public read models without persisting duplicate visibility flags
 
 ---
 

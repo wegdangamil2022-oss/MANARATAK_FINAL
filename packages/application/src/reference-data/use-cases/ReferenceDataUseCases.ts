@@ -1,3 +1,4 @@
+import { AssetReferencePolicy, assertAssetReferenceUsable } from '../../asset-platform/AssetReferencePolicy';
 import { randomUUID } from 'crypto';
 import {
   IReferenceDataRepository,
@@ -16,7 +17,11 @@ import {
   UpsertReferenceCityDto,
   UpsertReferenceCountryDto,
   UpsertReferenceCurrencyDto,
-  UpsertReferenceLanguageDto
+  UpsertReferenceLanguageDto,
+  GovernedReferenceEntityType,
+  ReferenceLifecycleState,
+  ReferenceRelationshipDto,
+  ReferenceVersionDto
 } from '@manaratak/domain';
 import { AtomicAuditedOutboxMutationExecutor } from '../../event-foundation/use-cases/AtomicAuditedOutboxMutationExecutor';
 import { CountryImportPreviewService, CountrySourceRecord } from '../services/CountryImportPreviewService';
@@ -37,6 +42,7 @@ export class ReferenceDataUseCases {
     private readonly derivedReferencePreview = new CountryDerivedReferencePreviewService(),
     private readonly atomicMutationExecutor?: AtomicAuditedOutboxMutationExecutor,
     private readonly validationService: IReferenceDataValidationService = new ReferenceDataValidationService(),
+    private readonly assetReferences?: AssetReferencePolicy,
   ) {}
 
   public previewCountryImport(input: {
@@ -74,7 +80,7 @@ export class ReferenceDataUseCases {
 
   public async getCountry(iso2Code: string): Promise<ReferenceCountryDto> {
     const country = await this.repository.getCountry(iso2Code);
-    if (!country || !country.isActive) {
+    if (!country || country.lifecycleState !== ReferenceLifecycleState.ACTIVE) {
       throw new ReferenceDataNotFoundError('COUNTRY', iso2Code);
     }
     return country;
@@ -82,7 +88,7 @@ export class ReferenceDataUseCases {
 
   public async getCurrency(isoCode: string): Promise<ReferenceCurrencyDto> {
     const currency = await this.repository.getCurrency(isoCode);
-    if (!currency || !currency.isActive) {
+    if (!currency || currency.lifecycleState !== ReferenceLifecycleState.ACTIVE) {
       throw new ReferenceDataNotFoundError('CURRENCY', isoCode);
     }
     return currency;
@@ -90,13 +96,14 @@ export class ReferenceDataUseCases {
 
   public async getLanguage(isoCode: string): Promise<ReferenceLanguageDto> {
     const language = await this.repository.getLanguage(isoCode);
-    if (!language || !language.isActive) {
+    if (!language || language.lifecycleState !== ReferenceLifecycleState.ACTIVE) {
       throw new ReferenceDataNotFoundError('LANGUAGE', isoCode);
     }
     return language;
   }
 
   public async upsertCountry(data: UpsertReferenceCountryDto, context?: ReferenceDataMutationContext): Promise<ReferenceCountryDto> {
+    await assertAssetReferenceUsable(this.assetReferences, data.flagAssetId, { purpose: 'REFERENCE_COUNTRY_FLAG' });
     this.assertCanonicalValidation('COUNTRY', this.validationService.validateCountry(data).issues);
     return this.atomicUpsert('COUNTRY', data.iso2Code, context, transaction => transaction.repository.upsertCountryInTransaction(data, transaction.context), () => this.repository.upsertCountry(data));
   }
@@ -114,7 +121,7 @@ export class ReferenceDataUseCases {
   public async upsertCity(data: UpsertReferenceCityDto, context?: ReferenceDataMutationContext): Promise<ReferenceCityDto> {
     this.assertCanonicalValidation('CITY', this.validationService.validateCity(data).issues);
     const country = await this.repository.getCountry(data.countryIso2Code);
-    if (!country || !country.isActive) {
+    if (!country || country.lifecycleState !== ReferenceLifecycleState.ACTIVE) {
       throw new ReferenceDataNotFoundError('ACTIVE_COUNTRY', data.countryIso2Code);
     }
     if (data.administrativeRegionId) {
@@ -130,6 +137,66 @@ export class ReferenceDataUseCases {
     const canonicalData: UpsertReferenceCityDto = { ...data, countryReferenceId: country.id };
     const identity = `${data.countryIso2Code}:${data.name}:${data.region ?? ''}`;
     return this.atomicUpsert('CITY', identity, context, transaction => transaction.repository.upsertCityInTransaction(canonicalData, transaction.context), () => this.repository.upsertCity(canonicalData));
+  }
+
+  public getReferenceHistory(entityType: GovernedReferenceEntityType, referenceId: string): Promise<ReferenceVersionDto[]> {
+    return this.repository.getReferenceHistory(entityType, referenceId);
+  }
+
+  public getReferenceRelationships(entityType: GovernedReferenceEntityType, referenceId: string): Promise<ReferenceRelationshipDto[]> {
+    return this.repository.getReferenceRelationships(entityType, referenceId);
+  }
+
+  public async transitionReferenceLifecycle(
+    input: { entityType: GovernedReferenceEntityType; referenceId: string; toState: ReferenceLifecycleState; targetReferenceId?: string; reason: string },
+    context: ReferenceDataMutationContext,
+  ): Promise<void> {
+    if (!context.actorId) throw new ReferenceDataInvariantError('Authenticated actor is required for lifecycle transitions.');
+    if (!input.reason.trim()) throw new ReferenceDataInvariantError('Lifecycle transition reason is required.');
+    const command = { ...input, reason: input.reason.trim(), actorId: context.actorId };
+    if (!this.atomicMutationExecutor) {
+      await this.repository.transitionReferenceLifecycle(command);
+      return;
+    }
+    const repository = this.repository as Partial<ITransactionalReferenceDataRepository>;
+    if (!repository.transitionReferenceLifecycleInTransaction) {
+      throw new Error('REFERENCE_DATA_TRANSACTIONAL_PERSISTENCE_REQUIRED');
+    }
+    const now = new Date();
+    const auditId = randomUUID();
+    const outboxId = randomUUID();
+    const action = `REFERENCE_${input.entityType}_${input.toState}`;
+    await this.atomicMutationExecutor.execute(
+      {
+        id: auditId,
+        reference: `AUD-${auditId}`,
+        action,
+        category: 'REFERENCE_DATA_LIFECYCLE',
+        severity: 'INFO',
+        actorId: context.actorId,
+        actorType: context.actorType || 'IDENTITY',
+        targetId: input.referenceId,
+        targetType: `REFERENCE_${input.entityType}`,
+        source: context.source || 'admin-reference-data-api',
+        timestamp: now,
+        contextMetadata: { toState: input.toState, reason: input.reason.trim(), targetReferenceId: input.targetReferenceId ?? null },
+        correlationReference: context.correlationId,
+      },
+      {
+        id: outboxId,
+        eventType: action,
+        domain: 'REFERENCE_DATA',
+        aggregate: { domain: 'REFERENCE_DATA', aggregateType: input.entityType, aggregateId: input.referenceId },
+        payload: { ...input, reason: input.reason.trim() },
+        metadata: { actorId: context.actorId, atomicity: 'BUSINESS_AUDIT_OUTBOX' },
+        correlationId: context.correlationId,
+        createdAt: now,
+        availableAt: now,
+        state: OutboxProcessingState.PENDING,
+        attempts: 0,
+      },
+      atomicContext => (repository as ITransactionalReferenceDataRepository).transitionReferenceLifecycleInTransaction!(command, atomicContext),
+    );
   }
 
   private assertCanonicalValidation(entityType: string, issues: readonly ReferenceDataValidationIssue[]): void {

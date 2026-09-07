@@ -303,13 +303,13 @@ This section shall describe how this platform exposes its capabilities and inter
 
 ### ARB Decision
 
-- **Status:** Baselined / Production Ready
+- **Status:** BASELINED / SOURCE_COMPLETE — RUNTIME_EVIDENCE_PENDING
 - **Date:** 2026-07-24
 - **Approver:** Enterprise ARB
 
 ### Status
 
-- **Current Status:** Baselined / Production Ready
+- **Current Status:** BASELINED / SOURCE_COMPLETE — RUNTIME_EVIDENCE_PENDING
 
 ---
 

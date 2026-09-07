@@ -64,6 +64,8 @@ export class CareerAdminRouter {
       pageSize: z.string().optional().transform((value) => value ? Math.min(parseInt(value, 10), 50) : 20)
     });
 
+    const expectedVersionSchema = z.object({ expectedVersion: z.number().int().positive() }).strict();
+
     const employerListQuerySchema = z.object({
       verificationStatus: z.nativeEnum(CareerEmployerStatus).optional(),
       employerType: z.string().optional(),
@@ -83,11 +85,13 @@ export class CareerAdminRouter {
     }));
 
     router.post('/employers/:id/verify', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await careerAdminUseCases.setEmployerStatus(req.params.id, CareerEmployerStatus.VERIFIED));
+      const { expectedVersion } = expectedVersionSchema.parse(req.body);
+      res.json(await careerAdminUseCases.setEmployerStatus(req.params.id, CareerEmployerStatus.VERIFIED, expectedVersion));
     }));
 
     router.post('/employers/:id/suspend', asyncHandler(async (req: Request, res: Response) => {
-      res.json(await careerAdminUseCases.setEmployerStatus(req.params.id, CareerEmployerStatus.SUSPENDED));
+      const { expectedVersion } = expectedVersionSchema.parse(req.body);
+      res.json(await careerAdminUseCases.setEmployerStatus(req.params.id, CareerEmployerStatus.SUSPENDED, expectedVersion));
     }));
 
     router.get('/jobs', asyncHandler(async (req: Request, res: Response) => {
@@ -105,23 +109,23 @@ export class CareerAdminRouter {
     }));
 
     router.patch('/jobs/:id', asyncHandler(async (req: Request, res: Response) => {
-      const body = jobSchema.partial().parse(req.body);
-      res.json(await careerAdminUseCases.updateJob(req.params.id, body));
+      const { expectedVersion, ...body } = jobSchema.partial().extend({ expectedVersion: z.number().int().positive() }).strict().parse(req.body);
+      res.json(await careerAdminUseCases.updateJob(req.params.id, body, expectedVersion));
     }));
 
     router.post('/jobs/:id/mark-publishable', asyncHandler(async (req: Request, res: Response) => {
-      await careerAdminUseCases.markReadyToPublish(req.params.id);
-      res.json({ success: true });
+      const { expectedVersion } = expectedVersionSchema.parse(req.body);
+      res.json(await careerAdminUseCases.markReadyToPublish(req.params.id, expectedVersion));
     }));
 
     router.post('/jobs/:id/publish', asyncHandler(async (req: Request, res: Response) => {
-      await careerAdminUseCases.publish(req.params.id);
-      res.json({ success: true });
+      const { expectedVersion } = expectedVersionSchema.parse(req.body);
+      res.json(await careerAdminUseCases.publish(req.params.id, expectedVersion));
     }));
 
     router.post('/jobs/:id/archive', asyncHandler(async (req: Request, res: Response) => {
-      await careerAdminUseCases.archive(req.params.id);
-      res.json({ success: true });
+      const { expectedVersion } = expectedVersionSchema.parse(req.body);
+      res.json(await careerAdminUseCases.archive(req.params.id, expectedVersion));
     }));
 
     router.use((err: any, req: Request, res: Response, next: NextFunction) => {

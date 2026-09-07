@@ -38,7 +38,8 @@ export interface ProvisionIdentityInput {
   timeZone?: string;
   primaryEmail?: string;
   primaryPhone?: string;
-  technicalMetadata?: Record<string, string | number | boolean | null>;
+  /** Server-owned audit principal; never accepted from client JSON. */
+  createdBy: string;
 }
 
 export interface UpdateProfileInput {

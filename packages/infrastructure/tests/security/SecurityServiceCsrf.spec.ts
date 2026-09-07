@@ -1,14 +1,15 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { SecurityService } from '../../src/security/SecurityService';
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 
 describe('SecurityService CSRF Protection', () => {
   let securityService: SecurityService;
-  const sessionSecret = 'test-session-secret-12345';
+  const sessionBinding = 'test-refresh-session-binding-12345';
+  const csrfSigningSecret = 'csrf-signing-key-at-least-32-characters-long';
 
   beforeEach(() => {
     vi.useFakeTimers();
-    securityService = new SecurityService();
+    securityService = new SecurityService(undefined, { signingSecret: csrfSigningSecret });
   });
 
   afterEach(() => {
@@ -16,8 +17,8 @@ describe('SecurityService CSRF Protection', () => {
   });
 
   it('generates non-hardcoded tokens that are unique across multiple calls', () => {
-    const token1 = securityService.generateCsrfToken(sessionSecret);
-    const token2 = securityService.generateCsrfToken(sessionSecret);
+    const token1 = securityService.generateCsrfToken(sessionBinding);
+    const token2 = securityService.generateCsrfToken(sessionBinding);
 
     expect(token1).not.toBe('demo-token');
     expect(token2).not.toBe('demo-token');
@@ -26,69 +27,72 @@ describe('SecurityService CSRF Protection', () => {
   });
 
   it('validates a legitimately generated token successfully', () => {
-    const token = securityService.generateCsrfToken(sessionSecret);
-    const isValid = securityService.validateCsrfToken(token, sessionSecret);
-    expect(isValid).toBe(true);
+    const token = securityService.generateCsrfToken(sessionBinding);
+    expect(securityService.validateCsrfToken(token, sessionBinding)).toBe(true);
   });
 
   it('rejects missing or non-string tokens', () => {
-    expect(securityService.validateCsrfToken('', sessionSecret)).toBe(false);
-    expect(securityService.validateCsrfToken(null as any, sessionSecret)).toBe(false);
-    expect(securityService.validateCsrfToken(undefined as any, sessionSecret)).toBe(false);
+    expect(securityService.validateCsrfToken('', sessionBinding)).toBe(false);
+    expect(securityService.validateCsrfToken(null as any, sessionBinding)).toBe(false);
+    expect(securityService.validateCsrfToken(undefined as any, sessionBinding)).toBe(false);
   });
 
-  it('never falls back to a process-wide CSRF secret', () => {
-    expect(() => securityService.generateCsrfToken('')).toThrow('CSRF_SESSION_SECRET_REQUIRED');
+  it('fails closed when the server-owned signing key or session binding is missing', () => {
+    const unkeyed = new SecurityService();
+    expect(() => unkeyed.generateCsrfToken(sessionBinding)).toThrow('CSRF_SIGNING_SECRET_REQUIRED');
+    expect(() => securityService.generateCsrfToken('')).toThrow('CSRF_SESSION_BINDING_REQUIRED');
+    expect(unkeyed.validateCsrfToken('1.a.b', sessionBinding)).toBe(false);
     expect(securityService.validateCsrfToken('1.a.b', '')).toBe(false);
   });
 
   it('rejects malformed tokens', () => {
-    expect(securityService.validateCsrfToken('not-a-valid-token', sessionSecret)).toBe(false);
-    expect(securityService.validateCsrfToken('part1.part2', sessionSecret)).toBe(false);
-    expect(securityService.validateCsrfToken('a.b.c.d', sessionSecret)).toBe(false);
-    expect(securityService.validateCsrfToken('invalidTimestamp.nonce.sig', sessionSecret)).toBe(false);
+    expect(securityService.validateCsrfToken('not-a-valid-token', sessionBinding)).toBe(false);
+    expect(securityService.validateCsrfToken('part1.part2', sessionBinding)).toBe(false);
+    expect(securityService.validateCsrfToken('a.b.c.d', sessionBinding)).toBe(false);
+    expect(securityService.validateCsrfToken('invalidTimestamp.nonce.sig', sessionBinding)).toBe(false);
   });
 
   it('rejects tampered tokens', () => {
-    const token = securityService.generateCsrfToken(sessionSecret);
+    const token = securityService.generateCsrfToken(sessionBinding);
     const parts = token.split('.');
 
-    // Tamper timestamp
     const tamperedTs = `${Number(parts[0]) - 10}.${parts[1]}.${parts[2]}`;
-    expect(securityService.validateCsrfToken(tamperedTs, sessionSecret)).toBe(false);
+    expect(securityService.validateCsrfToken(tamperedTs, sessionBinding)).toBe(false);
 
-    // Tamper nonce
     const tamperedNonce = `${parts[0]}.tamperednonce123456.${parts[2]}`;
-    expect(securityService.validateCsrfToken(tamperedNonce, sessionSecret)).toBe(false);
+    expect(securityService.validateCsrfToken(tamperedNonce, sessionBinding)).toBe(false);
 
-    // Tamper signature
     const tamperedSig = `${parts[0]}.${parts[1]}.badsignature1234567890abcdef1234567890abcdef1234567890abcdef12345678`;
-    expect(securityService.validateCsrfToken(tamperedSig, sessionSecret)).toBe(false);
+    expect(securityService.validateCsrfToken(tamperedSig, sessionBinding)).toBe(false);
   });
 
-  it('rejects tokens signed with a different session secret', () => {
-    const token = securityService.generateCsrfToken('secret-A');
-    const isValid = securityService.validateCsrfToken(token, 'secret-B');
-    expect(isValid).toBe(false);
+  it('rejects tokens bound to a different refresh session', () => {
+    const token = securityService.generateCsrfToken('refresh-session-A');
+    expect(securityService.validateCsrfToken(token, 'refresh-session-B')).toBe(false);
+  });
+
+  it('rejects tokens after CSRF signing-key rotation', () => {
+    const token = securityService.generateCsrfToken(sessionBinding);
+    const rotated = new SecurityService(undefined, {
+      signingSecret: 'rotated-csrf-signing-key-at-least-32-characters',
+    });
+    expect(rotated.validateCsrfToken(token, sessionBinding)).toBe(false);
   });
 
   it('rejects expired tokens', () => {
-    const token = securityService.generateCsrfToken(sessionSecret);
-
-    // Fast forward 25 hours (default maxAgeMs is 24 hours)
+    const token = securityService.generateCsrfToken(sessionBinding);
     vi.advanceTimersByTime(25 * 60 * 60 * 1000);
-
-    const isValid = securityService.validateCsrfToken(token, sessionSecret);
-    expect(isValid).toBe(false);
+    expect(securityService.validateCsrfToken(token, sessionBinding)).toBe(false);
   });
 
   it('rejects tokens with timestamps in the far future', () => {
-    const farFutureTs = Date.now() + 120000; // 2 mins in future
+    const farFutureTs = Date.now() + 120000;
     const nonce = '0123456789abcdef0123456789abcdef';
-    const futurePayload = `${farFutureTs}.${nonce}`;
-    const futureSig = createHmac('sha256', sessionSecret).update(futurePayload).digest('hex');
+    const bindingDigest = createHash('sha256').update(sessionBinding).digest('hex');
+    const futurePayload = `${bindingDigest}.${farFutureTs}.${nonce}`;
+    const futureSig = createHmac('sha256', csrfSigningSecret).update(futurePayload).digest('hex');
     const futureToken = `${farFutureTs}.${nonce}.${futureSig}`;
 
-    expect(securityService.validateCsrfToken(futureToken, sessionSecret)).toBe(false);
+    expect(securityService.validateCsrfToken(futureToken, sessionBinding)).toBe(false);
   });
 });

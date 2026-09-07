@@ -1,4 +1,4 @@
-import { INotificationTemplateRepository } from '@manaratak/domain';
+import { INotificationTemplateRepository, NotificationTemplateSummary } from '@manaratak/domain';
 import { NotificationTemplate } from '@manaratak/domain';
 import { TemplateId } from '@manaratak/domain';
 import { NotificationChannel } from '@manaratak/domain';
@@ -21,5 +21,9 @@ export class ManageNotificationTemplatesUseCase {
     );
 
     await this.templateRepository.save(template);
+  }
+
+  public listTemplates(limit = 100): Promise<NotificationTemplateSummary[]> {
+    return this.templateRepository.list(Math.max(1, Math.min(limit, 500)));
   }
 }

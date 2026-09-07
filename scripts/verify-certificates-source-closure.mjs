@@ -27,6 +27,10 @@ const files = {
   migration: read('packages/infrastructure/prisma/migrations/20260905050000_certificate_brand_defaults/migration.sql'),
   envApi: read('apps/api/.env.example'),
   envRoot: read('.env.example'),
+  appConfig: read('packages/config/src/AppConfig.ts'),
+  apiServer: read('apps/api/src/server.ts'),
+  apiApp: read('apps/api/src/app.ts'),
+  phase14Runbook: read('docs/implementation-status/MANARATAK-2.0-Phase14-Source-Closure-and-Google-Studio-Runbook.md'),
 };
 
 const checks=[];
@@ -112,7 +116,7 @@ check('CERT-ADM-013', files.adminApp.includes('path="/certificates/:id"'), 'Actu
 check('CERT-ADM-014', files.preview.includes('aria-label="رمز QR للتحقق"'), 'Admin preview labels QR for accessibility.');
 check('CERT-ADM-015', files.adminRouter.includes("'/readiness'") && files.usecase.includes('public async readiness()'), 'Admin reads certificate runtime readiness from the owner service.');
 check('CERT-ADM-016', all(files.adminPage,['publicVerificationBaseUrlConfigured','signingProviderConfigured','artifactRendererRuntimeReady']), 'Admin readiness badges reflect runtime configuration instead of hard-coded READY states.');
-check('CERT-ADM-017', all(files.adminPage,['Logo Asset ID','Seal Asset ID','Signature Asset ID','Design Asset ID']), 'Template editor exposes governed EAP design assets.');
+check('CERT-ADM-017', files.adminPage.includes('AssetPicker') && all(files.adminPage,['logoAssetId','sealAssetId','signatureAssetId','designAssetId']), 'Template editor exposes governed EAP design assets through AssetPicker controls.');
 check('CERT-ADM-018', all(files.adminPage,['سياسة الصلاحية','validityDurationDays','renewalPeriodDays','requiresRevalidation']), 'Template editor exposes validity, renewal and revalidation policy.');
 check('CERT-ADM-019', all(files.adminPage,['لغة الشهادة','اتجاه القالب']), 'Template editor exposes language and layout controls.');
 
@@ -130,6 +134,10 @@ check('CERT-LIFE-010', all(files.contract,['attachArtifacts','AttachCertificateA
 check('CERT-LIFE-011', all(files.usecase,['attachRenderedArtifacts','CERTIFICATE_RENDERED_ARTIFACT_REQUIRED']), 'P14 validates and attaches EAP-rendered certificate assets through the owner use case.');
 check('CERT-LIFE-012', all(files.repo,['ARTIFACTS_ATTACHED','CertificateArtifactsRendered','verificationQrAssetId']), 'Rendered artifact attachment is ledgered and published through the outbox.');
 check('CERT-LIFE-013', files.trust.includes('runtimeReadiness()'), 'Trust policy exposes non-secret runtime readiness signals.');
+check('CERT-WORKER-001', all(files.appConfig,['CERTIFICATE_COMPLETION_WORKER_ENABLED must be true in production/staging','CERTIFICATE_COMPLETION_WORKER_INTERVAL_MS']), 'Certificate completion worker is explicit and mandatory in production configuration.');
+check('CERT-WORKER-002', files.envApi.includes('CERTIFICATE_COMPLETION_WORKER_ENABLED=true') && files.envRoot.includes('CERTIFICATE_COMPLETION_WORKER_ENABLED=true'), 'Certificate worker flags are documented in both canonical env examples.');
+check('CERT-WORKER-003', files.apiServer.includes("pollingWorkerRuntimeRegistry.success('certificate-completion')") && files.apiApp.includes("name: 'polling-workers'") && files.apiApp.includes('lastSuccessLagMs'), 'Certificate worker state/success/failure/lag are health-visible.');
+check('CERT-WORKER-004', files.phase14Runbook.includes('W3 certificate completion worker reconciliation'), 'Google Studio/runtime runbook documents the W3 worker contract.');
 
 // DB/migration source-only contract.
 check('CERT-DB-001', files.schema.includes("@default(\"#142B5F\")") && files.schema.includes("@default(\"#D6A43B\")"), 'Future Prisma template defaults match current brand.');

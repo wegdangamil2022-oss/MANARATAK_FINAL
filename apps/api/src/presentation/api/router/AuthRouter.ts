@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { IAuthService, ISecurityService, ISessionManager, ITokenProvider } from '@manaratak/core';
-import { AccountAccessState, IIdentityRepository, IRoleAssignmentRepository, IRoleRepository, LifeStatus } from '@manaratak/domain';
+import { IAuthService, IPrincipalAccessValidator, ISecurityService, ISessionManager, ITokenProvider } from '@manaratak/core';
+import type { ICredentialVerifier } from '@manaratak/application';
+import { IIdentityRepository, IRoleAssignmentRepository, IRoleRepository } from '@manaratak/domain';
 import { ResponseFormatter } from '../response/ResponseFormatter';
 import { clearAuthCookies, readAccessCookie, readRefreshCookie, setAuthCookies } from '../../security/HttpOnlyAuthCookies';
 import { createHash } from 'node:crypto';
@@ -15,10 +16,21 @@ export class AuthRouter {
     roleRepository?: IRoleRepository;
     tokenProvider?: ITokenProvider;
     sessionManager?: ISessionManager;
+    principalAccessValidator: IPrincipalAccessValidator;
+    credentialVerifier?: ICredentialVerifier;
   }): Router {
-    const { authService, identityRepository, securityService, roleAssignmentRepository, roleRepository, tokenProvider, sessionManager } = cradle;
+    const { authService, identityRepository, securityService, roleAssignmentRepository, roleRepository, tokenProvider, sessionManager, principalAccessValidator, credentialVerifier } = cradle;
     const router = Router();
     const responseFormatter = new ResponseFormatter('v1');
+
+    // Public verification contract for asymmetric access-token consumers.
+    router.get('/jwks.json', (_req: Request, res: Response) => {
+      if (!tokenProvider?.getJwks) {
+        res.status(503).json(responseFormatter.error({ code: 'JWKS_UNAVAILABLE', message: 'Token verification keys are unavailable' }));
+        return;
+      }
+      res.status(200).json(tokenProvider.getJwks());
+    });
 
     // 0. GET /csrf-token
     router.get('/csrf-token', async (req: Request, res: Response) => {
@@ -38,8 +50,10 @@ export class AuthRouter {
         return;
       }
       try {
-        const payload = await tokenProvider.verifyRefreshToken(refreshToken);
-        if (!await sessionManager.isValidSession(payload.userId, refreshToken)) {
+        await tokenProvider.validateRefreshToken(refreshToken);
+        const refreshSession = await sessionManager.findRefreshSession(refreshToken);
+        if (!refreshSession || !await principalAccessValidator.isAuthenticationAllowed(refreshSession.userId)) {
+          if (refreshSession) await sessionManager.revokeAllSessions(refreshSession.userId);
           throw new Error('Inactive session');
         }
         const token = securityService.generateCsrfToken(refreshToken);
@@ -70,7 +84,13 @@ export class AuthRouter {
               const payload = provider.verifyAccessTokenSync
                 ? provider.verifyAccessTokenSync(token)
                 : await provider.verifyAccessToken(token);
-              if (payload?.userId && (!payload.sessionId || !sessionManager || await sessionManager.isSessionActive(payload.userId, payload.sessionId))) {
+              if (
+                payload?.userId
+                && payload.sessionId
+                && sessionManager
+                && await sessionManager.isSessionActive(payload.userId, payload.sessionId)
+                && await principalAccessValidator.isAuthenticationAllowed(payload.userId)
+              ) {
                 principalId = payload.userId;
               }
             } catch (e) {
@@ -87,10 +107,13 @@ export class AuthRouter {
           return;
         }
 
+        if (!await principalAccessValidator.isAuthenticationAllowed(principalId)) {
+          if (sessionManager) await sessionManager.revokeAllSessions(principalId);
+          res.status(401).json(responseFormatter.error({ code: 'SESSION_NOT_ACTIVE', message: 'Authentication required' }));
+          return;
+        }
         const identity = await identityRepository.findById(principalId);
-        const identityActive = identity && [LifeStatus.PROVISIONED, LifeStatus.ACTIVE].includes(identity.status);
-        const accountActive = identity?.account?.accessState === AccountAccessState.ACTIVE;
-        if (!identityActive || !accountActive) {
+        if (!identity) {
           res.status(401).json(responseFormatter.error({ code: 'SESSION_NOT_ACTIVE', message: 'Authentication required' }));
           return;
         }
@@ -170,6 +193,7 @@ export class AuthRouter {
         const identity = await identityRepository.findByEmail(email);
 
         if (!identity) {
+          await credentialVerifier?.verifyDummy?.(password);
           res.status(401).json(responseFormatter.error({
             code: 'UNAUTHORIZED',
             message: 'Invalid credentials or identity not found'

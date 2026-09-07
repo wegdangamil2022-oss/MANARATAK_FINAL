@@ -37,3 +37,7 @@ Baseline SRE runbooks for MANARATAK 2.0 infrastructure deployment and operations
 ## 8. Status
 
 Approved.
+
+## Runtime lifecycle implementation authority — 2026-09-06
+
+The executable API lifecycle is now defined by `apps/api/src/infrastructure/runtime/RuntimeResourceRegistry.ts`, `apps/api/src/app.ts`, and `apps/api/src/server.ts`, with operator guidance in `docs/operations/RUNTIME_RESOURCE_LIFECYCLE.md`. The API must mark readiness DOWN before drain, stop worker scheduling, drain HTTP, and close registry-owned Redis/Prisma resources on both `SIGTERM` and `SIGINT`. Feature-local construction of additional Prisma/Redis clients is not an approved runtime pattern.

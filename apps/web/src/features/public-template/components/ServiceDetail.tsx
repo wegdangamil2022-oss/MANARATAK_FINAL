@@ -29,6 +29,7 @@ interface ServiceDetailProps {
   onOpenContext?: (category: CategoryType) => void;
   isFavorite?: boolean;
   onToggleFavorite?: (id: string) => void;
+  onRequestService?: (requestParameters: Record<string, unknown>) => Promise<void> | void;
   searchAnchor?: string;
   searchTerm?: string;
 }
@@ -37,9 +38,12 @@ function SectionTitle({ id, icon, title, subtitle }: { id?: string; icon: React.
   return <DetailSectionHeader id={id} iconNode={icon} title={title} subtitle={subtitle} />;
 }
 
-export const ServiceDetail: React.FC<ServiceDetailProps> = ({ service, onBack, onOpenContext, isFavorite = false, onToggleFavorite, searchAnchor, searchTerm }) => {
+export const ServiceDetail: React.FC<ServiceDetailProps> = ({ service, onBack, onOpenContext, isFavorite = false, onToggleFavorite, onRequestService, searchAnchor, searchTerm }) => {
   useDetailSearchTarget(searchAnchor, searchTerm);
   const [showRequestNotice, setShowRequestNotice] = useState(false);
+  const [requestParameters, setRequestParameters] = useState<Record<string, string>>({});
+  const [requestError, setRequestError] = useState<string | null>(null);
+  const [requesting, setRequesting] = useState(false);
   const isStudent = service.audience === 'student';
 
   return (
@@ -203,13 +207,26 @@ export const ServiceDetail: React.FC<ServiceDetailProps> = ({ service, onBack, o
 
         <section className="mb-3 rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-3 shadow-sm mn-panel ">
           <SectionTitle icon={<MessageSquareText className="h-4 w-4" />} id="service-request-context" title="سياق طلب الطالب" subtitle="بيانات الطلب وليست تعريفًا ثابتًا للخدمة" />
-          <div className="flex flex-wrap gap-1.5">
-            {service.requestContextFields.map((field) => (
-              <span key={field} className="rounded-full border border-[var(--mn-border)] bg-[var(--mn-page)] px-2 py-1 text-[8.5px] font-bold text-[var(--mn-text-muted)] mn-panel ">
-                {field}
-              </span>
-            ))}
-          </div>
+          {onRequestService ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {service.requestContextFields.map((field) => (
+                <label key={field} className="text-[9px] font-bold text-[var(--mn-text-muted)]">
+                  {field}
+                  <input
+                    required
+                    value={requestParameters[field] ?? ''}
+                    onChange={(event) => setRequestParameters((current) => ({ ...current, [field]: event.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-[var(--mn-border)] bg-[var(--mn-page)] px-2.5 py-2 text-[10px] text-[var(--mn-text)] outline-none focus:ring-2 focus:ring-[var(--mn-focus)]"
+                    placeholder={`أدخل ${field}`}
+                  />
+                </label>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {service.requestContextFields.map((field) => <span key={field} className="rounded-full border border-[var(--mn-border)] bg-[var(--mn-page)] px-2 py-1 text-[8.5px] font-bold text-[var(--mn-text-muted)] mn-panel ">{field}</span>)}
+            </div>
+          )}
         </section>
 
         <section className="mb-3 rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-3 shadow-sm mn-panel ">
@@ -231,13 +248,23 @@ export const ServiceDetail: React.FC<ServiceDetailProps> = ({ service, onBack, o
 
         <button
           type="button"
-          onClick={() => setShowRequestNotice(true)}
-          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-[var(--mn-primary)] to-[var(--mn-hero-secondary)] px-4 text-[11px] font-bold text-white shadow-md transition active:scale-[0.99] mn-inverse "
+          disabled={requesting}
+          onClick={async () => {
+            if (!onRequestService) { setShowRequestNotice(true); return; }
+            const missing = service.requestContextFields.find((field) => !requestParameters[field]?.trim());
+            if (missing) { setRequestError(`أكمل الحقل المطلوب: ${missing}`); return; }
+            setRequestError(null); setRequesting(true);
+            try { await onRequestService(Object.fromEntries(Object.entries(requestParameters).map(([key, value]) => [key, value.trim()]))); }
+            catch (cause) { setRequestError(cause instanceof Error ? cause.message : 'تعذر إرسال الطلب'); }
+            finally { setRequesting(false); }
+          }}
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-[var(--mn-primary)] to-[var(--mn-hero-secondary)] px-4 text-[11px] font-bold text-white shadow-md transition active:scale-[0.99] disabled:opacity-60 mn-inverse "
         >
           <Sparkles className="h-4 w-4 text-[var(--mn-accent-text)]" />
-          اطلب الخدمة
+          {requesting ? 'جارٍ إنشاء الطلب...' : 'اطلب الخدمة'}
         </button>
-        {showRequestNotice && <p role="status" className="mt-3 rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-3 text-sm leading-6 text-[var(--mn-text-muted)]">لم يُرسل طلب بعد. إرسال الطلب يتطلب جلسة مستخدم وربط مسار الطلبات في بيئة التشغيل.</p>}
+        {requestError && <p role="alert" className="mt-3 rounded-xl border border-[var(--mn-danger-border)] bg-[var(--mn-danger-soft)] p-3 text-sm leading-6 text-[var(--mn-danger-text)]">{requestError}</p>}
+        {showRequestNotice && !onRequestService && <p role="status" className="mt-3 rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-3 text-sm leading-6 text-[var(--mn-text-muted)]">هذه معاينة prototype فقط؛ لا يتم إنشاء طلب حقيقي في وضع المعاينة.</p>}
       </main>
     </div>
   );

@@ -147,15 +147,15 @@ export class CanonicalUniversityComparisonGateway implements IUniversityComparis
   }
   private async findAcrossPublishedPages(publicIds: string[]) {
     const found = new Map<string, Awaited<ReturnType<IUniversityRepository['listPublished']>>['data'][number]>();
-    let pageNumber = 1;
-    let totalPages = 1;
+    let cursor: string | undefined;
+    let hasMore = true;
     do {
-      const page = await this.repository.listPublished({ page: pageNumber, pageSize: 100 });
+      const page = await this.repository.listPublished({ cursor, limit: 100 });
       for (const item of page.data)
         if (publicIds.includes(item.publicId)) found.set(item.publicId, item);
-      totalPages = page.totalPages;
-      pageNumber += 1;
-    } while (pageNumber <= totalPages && found.size < publicIds.length);
+      cursor = page.nextCursor ?? undefined;
+      hasMore = page.hasMore === true && Boolean(cursor);
+    } while (hasMore && found.size < publicIds.length);
     return [...found.values()];
   }
 }
@@ -207,18 +207,19 @@ export class CanonicalScholarshipRecommendationGateway implements IScholarshipRe
   }
 
   private async listAllPublished(
-    filters: Omit<Parameters<IScholarshipRepository['listPublished']>[0], 'page' | 'pageSize'>,
+    filters: Parameters<IScholarshipRepository['listPublished']>[0],
   ) {
     const data: Awaited<ReturnType<IScholarshipRepository['listPublished']>>['data'] = [];
-    let page = 1;
-    let totalPages = 1;
+    let cursor: string | undefined;
+    let hasMore = true;
+    let scannedPages = 0;
     do {
-      if (page > 500) throw new Error('SCHOLARSHIP_RECOMMENDATION_CANDIDATE_SCAN_LIMIT_EXCEEDED');
-      const result = await this.repository.listPublished({ ...filters, page, pageSize: 100 });
+      if (++scannedPages > 500) throw new Error('SCHOLARSHIP_RECOMMENDATION_CANDIDATE_SCAN_LIMIT_EXCEEDED');
+      const result = await this.repository.listPublished({ ...filters, cursor, limit: 100 });
       data.push(...result.data);
-      totalPages = result.totalPages;
-      page += 1;
-    } while (page <= totalPages);
+      cursor = result.nextCursor ?? undefined;
+      hasMore = result.hasMore === true && Boolean(cursor);
+    } while (hasMore);
     return data;
   }
 
@@ -258,8 +259,13 @@ function referenceLookup(value: string) {
 export class StudentToolRateLimitGateway implements IStudentToolRateLimitGateway {
   constructor(private readonly limiter: IRateLimiter) {}
   async consume(key: string, limit: number, windowMs: number) {
-    const value = await this.limiter.consume(key, limit, windowMs);
-    return { allowed: value.allowed, remaining: value.remaining, resetAt: value.resetTime };
+    try {
+      const value = await this.limiter.consume(key, limit, windowMs);
+      return { allowed: value.allowed, remaining: value.remaining, resetAt: value.resetTime };
+    } catch {
+      // Expensive Student Tool execution must fail closed if the shared quota store is unavailable.
+      throw new Error('STUDENT_TOOL_QUOTA_STORE_UNAVAILABLE');
+    }
   }
 }
 
@@ -277,11 +283,11 @@ export class EnterpriseStudentToolDependencyHealthGateway
   ): Promise<'READY' | 'DEGRADED' | 'NOT_CONFIGURED' | 'UNAVAILABLE'> {
     try {
       if (dependency.phase === 'PHASE_11') {
-        const page = await this.universities.listPublished({ page: 1, pageSize: 1 });
+        const page = await this.universities.listPublished({ limit: 1 });
         return page.total > 0 ? 'READY' : 'NOT_CONFIGURED';
       }
       if (dependency.phase === 'PHASE_12') {
-        const page = await this.scholarships.listPublished({ page: 1, pageSize: 1 });
+        const page = await this.scholarships.listPublished({ limit: 1 });
         return page.total > 0 ? 'READY' : 'NOT_CONFIGURED';
       }
       if (dependency.phase === 'PHASE_17' && dependency.capabilityKey) {

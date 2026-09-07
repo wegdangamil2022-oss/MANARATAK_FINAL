@@ -4,6 +4,7 @@ import {
   LearningPathCompletedEventPayload,
 } from '@manaratak/domain';
 import { CertificateUseCases } from './CertificateUseCases';
+import { CertificateArtifactRenderUseCase } from './CertificateArtifactRenderUseCase';
 
 export interface CertificateCompletionOutboxRecord {
   id: string;
@@ -19,7 +20,10 @@ export interface CertificateCompletionOutboxRecord {
  * accepts a persisted event record, not caller-supplied pedagogical facts.
  */
 export class CertificateCompletionEventConsumer {
-  constructor(private readonly certificates: CertificateUseCases) {}
+  constructor(
+    private readonly certificates: CertificateUseCases,
+    private readonly artifactRenderer?: CertificateArtifactRenderUseCase,
+  ) {}
 
   public async consume(record: CertificateCompletionOutboxRecord) {
     if (record.domain !== 'COURSES') throw new Error('CERTIFICATE_SOURCE_EVENT_DOMAIN_INVALID');
@@ -41,7 +45,11 @@ export class CertificateCompletionEventConsumer {
       occurredAt: record.createdAt ?? new Date(),
       payload,
     };
-    return this.certificates.consumeCompletionEvent(envelope);
+    const certificate = await this.certificates.consumeCompletionEvent(envelope);
+    if (certificate && this.artifactRenderer) {
+      await this.artifactRenderer.renderCertificate(certificate.id, 'phase14-renderer', record.id);
+    }
+    return certificate;
   }
 
   private object(value: unknown): Record<string, unknown> {

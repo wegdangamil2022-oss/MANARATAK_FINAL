@@ -25,7 +25,7 @@ describe('SearchRouter abuse boundaries', () => {
     });
 
     expect(response.status).toBe(400);
-    expect(response.body.error).toBe('SEARCH_REQUEST_INVALID');
+    expect(response.body.code).toBe('SEARCH_REQUEST_INVALID');
     expect(executeSearch).not.toHaveBeenCalled();
   });
 

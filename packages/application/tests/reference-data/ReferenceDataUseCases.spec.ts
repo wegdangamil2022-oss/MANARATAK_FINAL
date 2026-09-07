@@ -11,7 +11,8 @@ import {
   UpsertReferenceLanguageDto,
   UpsertReferenceCityDto,
   ReferenceDataFilters,
-  AdministrativeRegionDto
+  AdministrativeRegionDto,
+  ReferenceLifecycleState,
 } from '@manaratak/domain';
 
 class MockReferenceDataRepository implements IReferenceDataRepository {
@@ -56,7 +57,7 @@ describe('ReferenceDataUseCases', () => {
     });
 
     it('getCountry returns country if found and active', async () => {
-      const mockResult: ReferenceCountryDto = { id: 'country-eg', iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt', isActive: true };
+      const mockResult: ReferenceCountryDto = { id: 'country-eg', iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt', isActive: true, lifecycleState: ReferenceLifecycleState.ACTIVE };
       repository.getCountry.mockResolvedValue(mockResult);
 
       const result = await useCases.getCountry('EG');
@@ -70,7 +71,7 @@ describe('ReferenceDataUseCases', () => {
     });
 
     it('getCountry throws error if country is inactive', async () => {
-      const mockResult: ReferenceCountryDto = { id: 'country-xx', iso2Code: 'XX', iso3Code: 'XXX', name: 'Inactive', isActive: false };
+      const mockResult: ReferenceCountryDto = { id: 'country-xx', iso2Code: 'XX', iso3Code: 'XXX', name: 'Inactive', isActive: false, lifecycleState: ReferenceLifecycleState.ARCHIVED };
       repository.getCountry.mockResolvedValue(mockResult);
       await expect(useCases.getCountry('XX')).rejects.toThrow('Country not found: XX');
     });
@@ -108,7 +109,7 @@ describe('ReferenceDataUseCases', () => {
     });
 
     it('getCurrency returns currency if found and active', async () => {
-      const mockResult: ReferenceCurrencyDto = { id: 'currency-usd', isoCode: 'USD', name: 'US Dollar', isActive: true };
+      const mockResult: ReferenceCurrencyDto = { id: 'currency-usd', isoCode: 'USD', name: 'US Dollar', isActive: true, lifecycleState: ReferenceLifecycleState.ACTIVE };
       repository.getCurrency.mockResolvedValue(mockResult);
 
       const result = await useCases.getCurrency('USD');
@@ -147,7 +148,7 @@ describe('ReferenceDataUseCases', () => {
     });
 
     it('getLanguage returns language if found and active', async () => {
-      const mockResult: ReferenceLanguageDto = { id: 'language-en', isoCode: 'en', name: 'English', direction: 'LTR', isActive: true };
+      const mockResult: ReferenceLanguageDto = { id: 'language-en', isoCode: 'en', name: 'English', direction: 'LTR', isActive: true, lifecycleState: ReferenceLifecycleState.ACTIVE };
       repository.getLanguage.mockResolvedValue(mockResult);
 
       const result = await useCases.getLanguage('en');
@@ -201,7 +202,7 @@ describe('ReferenceDataUseCases', () => {
     it('upsertCity delegates strict input', async () => {
       const mockInput: UpsertReferenceCityDto = { countryIso2Code: 'EG', name: 'Cairo', isActive: true };
       const mockResult: ReferenceCityDto = { id: 'city-cairo', ...mockInput, isActive: true };
-      repository.getCountry.mockResolvedValue({ id: 'country-eg', iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt', isActive: true });
+      repository.getCountry.mockResolvedValue({ id: 'country-eg', iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt', isActive: true, lifecycleState: ReferenceLifecycleState.ACTIVE });
       repository.upsertCity.mockResolvedValue(mockResult);
 
       const result = await useCases.upsertCity(mockInput);
@@ -210,7 +211,7 @@ describe('ReferenceDataUseCases', () => {
     });
 
     it('rejects a city region owned by another country', async () => {
-      repository.getCountry.mockResolvedValue({ id: 'country-eg', iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt', isActive: true });
+      repository.getCountry.mockResolvedValue({ id: 'country-eg', iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt', isActive: true, lifecycleState: ReferenceLifecycleState.ACTIVE });
       repository.getRegionById.mockResolvedValue({
         id: 'region-us-ca', countryIso2Code: 'US', regionCode: 'US-CA', name: 'California'
       });

@@ -229,7 +229,7 @@ export function MajorDetailPage() {
   const publicMajorUrl = major.slug ? `${PUBLIC_WEB_BASE_URL}/majors/${major.slug}` : undefined;
 
   return (
-    <main dir="rtl" className="mx-auto max-w-7xl space-y-5" style={{ fontFamily: "'Cairo', sans-serif" }}>
+    <main dir="rtl" className="mx-auto max-w-7xl space-y-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <button onClick={() => navigate('/majors')} className="inline-flex w-fit items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-950">
           <ArrowLeft className="h-4 w-4" />

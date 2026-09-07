@@ -106,7 +106,7 @@ describe('ReferenceDataAdminRouter', () => {
     useCases.upsertCountry.mockResolvedValue({ iso2Code: 'EG', iso3Code: 'EGY', name: 'Egypt' });
     const app = createApp(useCases);
 
-    const payload = { iso3Code: 'EGY', name: 'Egypt', nameAr: 'مصر', iso2Code: 'XX' }; // The URL param should override 'XX'
+    const payload = { iso3Code: 'EGY', name: 'Egypt', nameAr: 'مصر' };
     const res = await request(app).put('/admin/reference-data/countries/EG').send(payload);
 
     expect(res.status).toBe(200);
@@ -134,7 +134,7 @@ describe('ReferenceDataAdminRouter', () => {
     useCases.upsertCurrency.mockResolvedValue({ isoCode: 'EGP', name: 'Egyptian Pound' });
     const app = createApp(useCases);
 
-    const payload = { name: 'Egyptian Pound', isoCode: 'XX' }; // URL param should override 'XX'
+    const payload = { name: 'Egyptian Pound' };
     const res = await request(app).put('/admin/reference-data/currencies/EGP').send(payload);
 
     expect(res.status).toBe(200);
@@ -161,7 +161,7 @@ describe('ReferenceDataAdminRouter', () => {
     useCases.upsertLanguage.mockResolvedValue({ isoCode: 'ar', name: 'Arabic', direction: 'RTL' });
     const app = createApp(useCases);
 
-    const payload = { name: 'Arabic', direction: 'RTL', isoCode: 'xx' }; // URL param should override
+    const payload = { name: 'Arabic', direction: 'RTL' };
     const res = await request(app).put('/admin/reference-data/languages/ar').send(payload);
 
     expect(res.status).toBe(200);

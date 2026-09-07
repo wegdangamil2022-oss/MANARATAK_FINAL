@@ -13,29 +13,45 @@ export type MutationAuditScope = 'AUTH' | 'ADMIN' | 'IDENTITY' | 'CONTROL_PLANE'
 export class MutationAuditPolicy {
   private static readonly MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+  // These are explicitly non-mutating validation/preview commands even though
+  // their transport method is POST. Any new exemption must be reviewed here.
+  private static readonly ADMIN_EXEMPTIONS = [
+    /\/preview$/,
+    /\/bulk\/preview$/,
+    /\/nodes\/validate$/,
+  ];
+
+  private static readonly CRITICAL_ADMIN_AREAS = [
+    '/admin/identities', '/admin/authorization', '/admin/settings', '/admin/imports',
+    '/admin/assets', '/admin/reference-data', '/admin/academic-taxonomy',
+    '/admin/international-tests', '/admin/universities', '/admin/majors',
+    '/admin/scholarships', '/admin/courses', '/admin/certificates', '/admin/cms',
+    '/admin/services', '/admin/finance', '/admin/careers', '/admin/ai',
+    '/admin/student-tools', '/admin/notifications', '/admin/platform',
+  ];
+
+  private static readonly HIGH_RISK_ACTIONS = [
+    '/publish', '/archive', '/purge', '/delete', '/cancel', '/refund', '/issue',
+    '/approve', '/reject', '/promote', '/activate', '/deactivate', '/suspend',
+    '/restore', '/fulfill', '/reconcile', '/rotate',
+  ];
+
   public static classify(req: Request, scope: MutationAuditScope): MutationAuditClassification {
     if (!this.MUTATION_METHODS.has(req.method.toUpperCase())) return 'NO_AUDIT_REQUIRED';
     const path = req.originalUrl.split('?')[0].toLowerCase();
+
     if (scope === 'AUTH') return path.includes('/auth/') ? 'CRITICAL_AUDIT_REQUIRED' : 'NO_AUDIT_REQUIRED';
     if (scope === 'IDENTITY') return path.includes('/identities') ? 'CRITICAL_AUDIT_REQUIRED' : 'NO_AUDIT_REQUIRED';
     if (scope === 'CONTROL_PLANE') return 'CRITICAL_AUDIT_REQUIRED';
     if (!path.includes('/admin/')) return 'NO_AUDIT_REQUIRED';
 
-    if (path.endsWith('/preview') || path.includes('/bulk/preview') || path.endsWith('/nodes/validate') || path.endsWith('/transfer')) {
-      return 'NO_AUDIT_REQUIRED';
-    }
-    if (path.includes('/workspace/') || path.endsWith('/academic-taxonomy/import-handoff')) {
-      return 'STANDARD_AUDIT_REQUIRED';
-    }
+    if (this.ADMIN_EXEMPTIONS.some(pattern => pattern.test(path))) return 'NO_AUDIT_REQUIRED';
+    if (this.CRITICAL_ADMIN_AREAS.some(prefix => path.includes(prefix))) return 'CRITICAL_AUDIT_REQUIRED';
+    if (this.HIGH_RISK_ACTIONS.some(fragment => path.includes(fragment))) return 'CRITICAL_AUDIT_REQUIRED';
 
-    const criticalAreas = [
-      '/admin/identities', '/admin/authorization', '/admin/settings', '/admin/imports',
-      '/admin/assets', '/admin/reference-data', '/admin/academic-taxonomy',
-      '/admin/international-tests', '/admin/universities', '/admin/majors'
-    ];
-    return criticalAreas.some(prefix => path.includes(prefix))
-      ? 'CRITICAL_AUDIT_REQUIRED'
-      : 'NO_AUDIT_REQUIRED';
+    // Fail-safe default: every authenticated Admin mutation is auditable unless
+    // it has an explicit reviewed exemption above.
+    return 'STANDARD_AUDIT_REQUIRED';
   }
 }
 
@@ -62,6 +78,7 @@ export class MutationAuditMiddleware {
         atomicity: 'REQUEST_OUTCOME_ONLY',
         atomicBusinessAuditRequired: classification === 'CRITICAL_AUDIT_REQUIRED'
       };
+      const principalRequirement = this.scope === 'AUTH' ? 'OPTIONAL' : 'REQUIRED';
 
       try {
         await AuditHelper.recordMutation(this.repository, req, {
@@ -72,7 +89,10 @@ export class MutationAuditMiddleware {
           result: 'SUCCESS',
           severity: classification === 'CRITICAL_AUDIT_REQUIRED' ? 'WARNING' : 'INFO',
           metadata
-        }, { reliability: classification === 'CRITICAL_AUDIT_REQUIRED' ? 'REQUIRED' : 'BEST_EFFORT' });
+        }, {
+          reliability: classification === 'CRITICAL_AUDIT_REQUIRED' ? 'REQUIRED' : 'BEST_EFFORT',
+          principal: principalRequirement,
+        });
       } catch (error) {
         next(error);
         return;
@@ -87,7 +107,7 @@ export class MutationAuditMiddleware {
           result: res.statusCode < 400 ? 'SUCCESS' : 'FAILURE',
           severity: res.statusCode < 400 ? 'INFO' : 'ERROR',
           metadata: { ...metadata, auditEvent: 'MUTATION_OUTCOME', httpStatus: res.statusCode }
-        }, { reliability: 'BEST_EFFORT' });
+        }, { reliability: 'BEST_EFFORT', principal: principalRequirement });
       });
       next();
     };

@@ -658,3 +658,50 @@
   color: var(--mn-heading);
   padding-inline: 0.08em;
 }
+
+/* CSP-safe animation timing and decorative motion. Kept in a source stylesheet so
+   frontend CSP can use style-src 'self' without inline style/script exceptions. */
+@keyframes mn-fall-text {
+  0% { top: -20%; transform: rotate(-5deg) scale(0.8); opacity: 0; }
+  10% { opacity: 0.12; }
+  90% { opacity: 0.12; }
+  100% { top: 110%; transform: rotate(5deg) scale(1.1); opacity: 0; }
+}
+.falling-text {
+  position: absolute;
+  top: -20%;
+  opacity: 0;
+  color: var(--mn-accent);
+  font-weight: 900;
+  font-family: Arial, sans-serif;
+  animation-name: mn-fall-text;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes mn-course-float {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  20% { opacity: 0.14; }
+  80% { opacity: 0.14; }
+  100% { transform: translateY(-100px) rotate(15deg); opacity: 0; }
+}
+.course-float,
+.imported-course-float {
+  position: absolute;
+  animation-name: mn-course-float;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  color: var(--mn-accent);
+}
+.mn-anim-9-delay-7 { animation-duration: 9s; animation-delay: -7s; }
+.mn-anim-10 { animation-duration: 10s; }
+.mn-anim-10-delay-2 { animation-duration: 10s; animation-delay: -2s; }
+.mn-anim-11-delay-1 { animation-duration: 11s; animation-delay: -1s; }
+.mn-anim-12-delay-4 { animation-duration: 12s; animation-delay: -4s; }
+.mn-anim-13-delay-11 { animation-duration: 13s; animation-delay: -11s; }
+.mn-anim-14-delay-2 { animation-duration: 14s; animation-delay: -2s; }
+.mn-anim-14-delay-9 { animation-duration: 14s; animation-delay: -9s; }
+.mn-anim-15-delay-7 { animation-duration: 15s; animation-delay: -7s; }
+.mn-anim-16-delay-5 { animation-duration: 16s; animation-delay: -5s; }

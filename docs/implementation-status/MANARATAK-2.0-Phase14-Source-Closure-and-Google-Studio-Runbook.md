@@ -88,3 +88,15 @@ The following steps are intentionally deferred until the real environment is sta
 - No seed.
 - No Google Studio runtime pilot.
 - No real KMS, Redis, EAP, CDN, or public-domain connection.
+
+## W3 certificate completion worker reconciliation — 2026-09-07
+
+The former Redis/BullMQ-specific handoff above is superseded for certificate-completion delivery by ADR-029's PostgreSQL durable/outbox worker authority. The source-wired P13→P14 completion consumer is controlled by canonical configuration rather than hidden server-only variables:
+
+- `CERTIFICATE_COMPLETION_WORKER_ENABLED=true` is mandatory in production/staging.
+- `CERTIFICATE_COMPLETION_WORKER_INTERVAL_MS` is explicitly bounded and mandatory in production/staging.
+- `.env.example` carries both variables.
+- Health/Readiness `polling-workers` reports certificate worker state, last start, last success, last failure and computed success lag.
+- graceful shutdown stops polling and drains in-flight completion delivery before resource teardown.
+
+A real PostgreSQL event-delivery run, certificate issuance, provider rendering/signing and Google Studio pilot remain runtime evidence and are intentionally `PENDING`; they are not prerequisites for source completion.

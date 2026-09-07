@@ -1,3 +1,4 @@
+import { AssetReferencePolicy, assertAssetReferencesUsable } from '../../asset-platform/AssetReferencePolicy';
 import { randomUUID } from 'node:crypto';
 import {
   CmsCategoryDto,
@@ -37,12 +38,16 @@ type CreateContentInput = Omit<
 > & { ownerId?: string };
 
 export class AdminCmsUseCases {
-  public constructor(private readonly repository: ICmsRepository, private readonly deliveryCache?: ICmsDeliveryCache | null) {}
+  public constructor(
+    private readonly repository: ICmsRepository,
+    private readonly deliveryCache?: ICmsDeliveryCache | null,
+    private readonly assetReferences?: AssetReferencePolicy,
+  ) {}
 
   public async createContent(data: CreateContentInput, actorId: string): Promise<CmsContentDto> {
     this.ensureActor(actorId);
     CmsPublishingPolicy.assertSlug(data.slug);
-    this.ensureAssetHandles([data.featuredAssetId, data.seoMetadata?.openGraphAssetId]);
+    await this.ensureAssetHandles([data.featuredAssetId, data.seoMetadata?.openGraphAssetId]);
     return this.repository.createContent({
       ...data,
       seoMetadata: this.authoringSeo(data.seoMetadata),
@@ -60,7 +65,7 @@ export class AdminCmsUseCases {
   ): Promise<CmsContentDto> {
     this.ensureActor(actorId);
     if (data.slug) CmsPublishingPolicy.assertSlug(data.slug);
-    this.ensureAssetHandles([data.featuredAssetId, data.seoMetadata?.openGraphAssetId]);
+    await this.ensureAssetHandles([data.featuredAssetId, data.seoMetadata?.openGraphAssetId]);
     return this.repository.updateContent(id, { ...data, seoMetadata: this.authoringSeo(data.seoMetadata) }, actorId);
   }
 
@@ -82,7 +87,7 @@ export class AdminCmsUseCases {
     CmsPublishingPolicy.assertSlug(data.localizedSlug);
     if (!data.body.trim()) throw new Error('CMS_LOCALIZED_BODY_REQUIRED');
     CmsPublishingPolicy.assertSafeRichText(data.body);
-    this.ensureAssetHandles([
+    await this.ensureAssetHandles([
       data.featuredAssetId,
       data.seoMetadata?.openGraphAssetId,
       ...(data.attachmentAssetIds ?? []),
@@ -337,8 +342,9 @@ export class AdminCmsUseCases {
     return governed as T;
   }
 
-  private ensureAssetHandles(assetIds: Array<string | null | undefined>): void {
+  private async ensureAssetHandles(assetIds: Array<string | null | undefined>): Promise<void> {
     for (const assetId of assetIds) CmsPublishingPolicy.assertAssetHandle(assetId);
+    await assertAssetReferencesUsable(this.assetReferences, assetIds, { purpose: 'CMS_PUBLIC_MEDIA' });
   }
 
   private ensureActor(actorId: string): void {

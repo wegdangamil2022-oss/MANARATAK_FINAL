@@ -35,7 +35,7 @@ interface DegreeLevelStats {
 }
 
 async function runLinkage() {
-  requireDatabaseMutationGate('link-majors-taxonomy');
+  requireDatabaseMutationGate('link-majors-taxonomy', { allowedPurposes: ['backfill'] });
   const args = process.argv.slice(2);
   const isDryRun = args.includes('--dry-run') || !args.includes('--execute');
 

@@ -19,7 +19,7 @@
 
 ## 3. Executive Summary
 
-This document serves as the official Enterprise Roadmap for the MANARATAK 2.0 platform. The approved architecture remains a 24-phase Enterprise Modular Monolith roadmap. Source implementation is present through **Phase 19 — Enterprise Finance & Payments Platform**. A deep Phase 2–19 source audit completed on baseline `e57aad8c52a3ee6d686671870e0bf0392ba7417f`; dependency-aware source remediation is now in progress. Database migration execution, live provider verification, distributed-runtime evidence, and final operational closure remain deferred to the approved Google Studio runtime runbook.
+This document serves as the official Enterprise Roadmap for the MANARATAK 2.0 platform. The approved architecture remains a 24-phase Enterprise Modular Monolith roadmap. Source implementation is present through **Phase 19 — Enterprise Finance & Payments Platform**. A deep Phase 2–19 source audit completed on baseline `e57aad8c52a3ee6d686671870e0bf0392ba7417f`; dependency-aware source remediation is now in progress. Database migration execution, live provider verification, distributed-runtime evidence, and final operational closure remain runtime-pending; database mutations are governed by the Greenfield Database Provisioning and Mutation Safety runbook.
 
 ## 4. Current Project Status
 
@@ -34,7 +34,7 @@ This roadmap documents both the approved phase model and the current source-stat
   - **Dependency-aware remediation:** in progress, beginning with W0 authority/quality-gate stabilization.
 - **Runtime / Database Status:**
   - PostgreSQL-backed migration, backfill, recovery, provider, concurrency, and end-to-end runtime proofs are **not closed by source presence alone**.
-  - These remain `PENDING_GOOGLE_STUDIO` and must follow backup/recovery gates before any data mutation.
+  - These remain runtime-pending and must follow the Greenfield database mutation gate plus backup/rollback evidence appropriate to the operation before any data mutation.
 - **Future Roadmap Status:**
   - **Phases 20–24:** not yet treated as completed implementation.
 

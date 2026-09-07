@@ -143,9 +143,9 @@ describe('InternationalTestAdminRouter', () => {
 
     const postRes = await request(app)
       .post('/admin/international-tests/test-1/variants')
-      .send({ variantName: 'Academic', deliveryMode: 'COMPUTER' });
+      .send({ variantName: 'Academic', deliveryMode: 'ONLINE', isActive: true });
     expect(postRes.status).toBe(200);
-    expect(useCases.upsertVariant).toHaveBeenCalledWith('test-1', { variantName: 'Academic', deliveryMode: 'COMPUTER' }, expect.any(Object));
+    expect(useCases.upsertVariant).toHaveBeenCalledWith('test-1', { variantName: 'Academic', deliveryMode: 'ONLINE', isActive: true }, expect.any(Object));
   });
 
   it('GET and POST /admin/international-tests/:id/sections delegate to section use cases', async () => {

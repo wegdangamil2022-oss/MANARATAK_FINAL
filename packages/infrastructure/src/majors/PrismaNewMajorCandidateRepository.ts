@@ -1,5 +1,7 @@
 import { createHash } from 'crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaUniversityMajorResolutionWriter } from '../universities/PrismaUniversityMajorResolutionWriter';
+import { PrismaScholarshipMajorResolutionWriter } from '../scholarships/PrismaScholarshipMajorResolutionWriter';
 import {
   AtomicPersistenceContext,
   INewMajorCandidateRepository,
@@ -32,14 +34,23 @@ const RESOLVED_STATES = ['RESOLVED', 'NOT_APPLICABLE'];
 export class PrismaNewMajorCandidateRepository
   implements ITransactionalNewMajorCandidateRepository
 {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly universityWriter = new PrismaUniversityMajorResolutionWriter(prisma),
+    private readonly scholarshipWriter = new PrismaScholarshipMajorResolutionWriter(prisma),
+  ) {}
 
   withTransaction(context: AtomicPersistenceContext): INewMajorCandidateRepository {
     const transactionClient = (context as Partial<CandidateTransactionContext>).transactionClient;
     if (!context.boundaryId || !transactionClient) {
       throw new Error('NEW_MAJOR_CANDIDATE_ATOMIC_TRANSACTION_CONTEXT_REQUIRED');
     }
-    return new PrismaNewMajorCandidateRepository(transactionClient as unknown as PrismaClient);
+    const transactionPrisma = transactionClient as unknown as PrismaClient;
+    return new PrismaNewMajorCandidateRepository(
+      transactionPrisma,
+      new PrismaUniversityMajorResolutionWriter(transactionPrisma),
+      new PrismaScholarshipMajorResolutionWriter(transactionPrisma),
+    );
   }
 
   async list(filters: NewMajorCandidateFilters): Promise<PaginatedNewMajorCandidateResult> {
@@ -77,35 +88,19 @@ export class PrismaNewMajorCandidateRepository
       .filter(source => source.sourceType === 'SCHOLARSHIP_ELIGIBILITY')
       .map(source => source.sourceId);
 
-    const [universityPrograms, scholarshipMajorTargets, scholarshipEligibilityItems] = await Promise.all([
-      universityProgramIds.length
-        ? this.prisma.universityAcademicProgram.updateMany({
-            where: {
-              id: { in: universityProgramIds },
-              majorId: null,
-              majorMappingState: { in: ['MAJOR_REVIEW_REQUIRED', 'UNMAPPED'] },
-            },
-            data: { majorId, majorMappingState: 'CANONICALLY_MAPPED' },
-          })
-        : Promise.resolve({ count: 0 }),
-      scholarshipTargetIds.length
-        ? this.prisma.scholarshipMajorTarget.updateMany({
-            where: { id: { in: scholarshipTargetIds }, majorId: null, resolutionStatus: { notIn: RESOLVED_STATES } },
-            data: { majorId, resolutionStatus: 'RESOLVED' },
-          })
-        : Promise.resolve({ count: 0 }),
-      scholarshipEligibilityIds.length
-        ? this.prisma.scholarshipEligibilityItem.updateMany({
-            where: { id: { in: scholarshipEligibilityIds }, majorId: null, resolutionStatus: { notIn: RESOLVED_STATES } },
-            data: { majorId, resolutionStatus: 'RESOLVED' },
-          })
-        : Promise.resolve({ count: 0 }),
+    const [universityPrograms, scholarshipResolution] = await Promise.all([
+      this.universityWriter.resolveProgramMajor(universityProgramIds, majorId),
+      this.scholarshipWriter.resolveMajorReferences({
+        targetIds: scholarshipTargetIds,
+        eligibilityIds: scholarshipEligibilityIds,
+        majorId,
+      }),
     ]);
 
     return {
-      universityPrograms: universityPrograms.count,
-      scholarshipMajorTargets: scholarshipMajorTargets.count,
-      scholarshipEligibilityItems: scholarshipEligibilityItems.count,
+      universityPrograms,
+      scholarshipMajorTargets: scholarshipResolution.scholarshipMajorTargets,
+      scholarshipEligibilityItems: scholarshipResolution.scholarshipEligibilityItems,
     };
   }
 

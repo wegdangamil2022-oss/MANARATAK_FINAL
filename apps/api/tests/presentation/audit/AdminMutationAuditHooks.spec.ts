@@ -25,7 +25,8 @@ describe('Phase 05 Slice 2: Admin Mutation Audit Hooks', () => {
     beforeEach(() => {
       mockManageRolesUseCase = {
         createRole: vi.fn().mockResolvedValue({ id: 'role-1' }),
-        getRole: vi.fn().mockResolvedValue({ id: 'role-1', name: 'Admin' })
+        getRole: vi.fn().mockResolvedValue({ id: 'role-1', name: 'Admin', description: 'Administrator', permissions: [], policyIds: [] }),
+        listRoles: vi.fn().mockResolvedValue([]),
       };
       mockAssignRoleUseCase = {
         execute: vi.fn().mockResolvedValue({ success: true })
@@ -34,7 +35,7 @@ describe('Phase 05 Slice 2: Admin Mutation Audit Hooks', () => {
       app = express();
       app.use(express.json());
       app.use((req, _res, next) => {
-        (req as any).user = { id: 'admin-user-123', type: 'IDENTITY' };
+        req.authUserId = 'admin-user-123';
         next();
       });
       app.use('/api/v1/admin/auth', AuthorizationAdminRouter.create({
@@ -48,11 +49,11 @@ describe('Phase 05 Slice 2: Admin Mutation Audit Hooks', () => {
       const res = await request(app)
         .post('/api/v1/admin/auth/roles')
         .set('x-correlation-id', 'corr-roles-1')
-        .send({ name: 'SUPER_ADMIN' });
+        .send({ id: 'role-super-admin', name: 'SUPER_ADMIN', description: 'Super administrator', permissions: [], policyIds: [] });
 
       expect(res.status).toBe(201);
       expect(mockManageRolesUseCase.createRole).toHaveBeenCalledWith(
-        { name: 'SUPER_ADMIN' },
+        { id: 'role-super-admin', name: 'SUPER_ADMIN', description: 'Super administrator', permissions: [], policyIds: [] },
         expect.objectContaining({
           actorId: 'admin-user-123',
           actorType: 'IDENTITY',
@@ -76,11 +77,11 @@ describe('Phase 05 Slice 2: Admin Mutation Audit Hooks', () => {
       const res = await request(app)
         .post('/api/v1/admin/auth/assignments')
         .set('x-actor-id', 'admin-user-123')
-        .send({ roleId: 'role-1', identityId: 'identity-1' });
+        .send({ id: 'assignment-1', roleId: 'role-1', identityId: 'identity-1' });
 
       expect(res.status).toBe(201);
       expect(mockAssignRoleUseCase.execute).toHaveBeenCalledWith(
-        { roleId: 'role-1', identityId: 'identity-1' },
+        { id: 'assignment-1', roleId: 'role-1', identityId: 'identity-1' },
         expect.objectContaining({
           actorId: 'admin-user-123',
           actorType: 'IDENTITY',
@@ -163,6 +164,7 @@ describe('Phase 05 Slice 2: Admin Mutation Audit Hooks', () => {
 
       app = express();
       app.use(express.json());
+      app.use((req, _res, next) => { req.authUserId = 'admin-identity-1'; next(); });
       app.use('/api/v1/identities', IdentityRouter.create({
         ...mockIdentityUseCases,
         auditRecordRepo: auditRepo
@@ -172,7 +174,7 @@ describe('Phase 05 Slice 2: Admin Mutation Audit Hooks', () => {
     it('POST / (provision) creates audit record', async () => {
       const res = await request(app)
         .post('/api/v1/identities')
-        .send({ type: 'INDIVIDUAL', primaryEmail: 'user@example.com' });
+        .send({ type: 'Human', primaryEmail: 'user@example.com' });
 
       expect(res.status).toBe(201);
       const records = getRecords();

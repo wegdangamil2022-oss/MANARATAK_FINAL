@@ -21,7 +21,7 @@ describe('ScholarshipPublicRouter', () => {
     useCases.listScholarships.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
     const app = createApp(useCases);
 
-    const res = await request(app).get('/public/scholarships?countryReferenceId=country-us&degreeLevelId=degree-bachelor&majorId=major-cs&universityId=university-1&academicProgramId=program-1&internationalTestId=test-ielts&page=2&pageSize=100');
+    const res = await request(app).get('/public/scholarships?countryReferenceId=country-us&degreeLevelId=degree-bachelor&majorId=major-cs&universityId=university-1&academicProgramId=program-1&internationalTestId=test-ielts&limit=50');
     
     expect(res.status).toBe(200);
     // Page size should be bounded to 50
@@ -32,8 +32,7 @@ describe('ScholarshipPublicRouter', () => {
       universityId: 'university-1',
       academicProgramId: 'program-1',
       internationalTestId: 'test-ielts',
-      page: 2,
-      pageSize: 50
+      limit: 50
     }, 'ar');
   });
 
@@ -81,10 +80,10 @@ describe('ScholarshipPublicRouter', () => {
   it('forwards the requested public locale and removes it from domain filters', async () => {
     const useCases = createMockUseCases();
     useCases.listScholarships.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
-    const res = await request(createApp(useCases)).get('/public/scholarships?locale=en&page=1');
+    const res = await request(createApp(useCases)).get('/public/scholarships?locale=en&limit=20');
 
     expect(res.status).toBe(200);
-    expect(useCases.listScholarships).toHaveBeenCalledWith({ page: 1, pageSize: 20 }, 'en');
+    expect(useCases.listScholarships).toHaveBeenCalledWith({ limit: 20 }, 'en');
   });
 
   it('rejects unsupported locales with the shared locale contract', async () => {

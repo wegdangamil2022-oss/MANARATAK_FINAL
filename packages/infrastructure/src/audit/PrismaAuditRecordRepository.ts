@@ -19,7 +19,10 @@ import {
   TraceReference,
   AuditChainReference,
   AuditRetentionMetadata,
-  AuditLifecycleState
+  AuditLifecycleState,
+  AuditRecordPageQuery,
+  AuditRecordPage,
+  AuditIntegrityReport
 } from '@manaratak/domain';
 import { AuditSecretSanitizer } from './AuditSecretSanitizer';
 import type { PrismaAtomicPersistenceContext } from '../event-foundation/PrismaTransactionalOutboxStore';
@@ -51,10 +54,8 @@ export interface AuditRecordRow {
 export interface PrismaAuditRecordDelegate {
   findUnique(args: { where: { id?: string; reference?: string } }): Promise<AuditRecordRow | null>;
   findMany(args?: { where?: unknown }): Promise<AuditRecordRow[]>;
-  upsert(args: {
-    where: { id: string };
-    update: Omit<AuditRecordRow, 'createdAt' | 'updatedAt'>;
-    create: Omit<AuditRecordRow, 'createdAt' | 'updatedAt'>;
+  create(args: {
+    data: Omit<AuditRecordRow, 'createdAt' | 'updatedAt'>;
   }): Promise<AuditRecordRow>;
 }
 
@@ -168,11 +169,12 @@ export class PrismaAuditRecordRepository implements ITransactionalAuditRecordRep
       lifecycleState: record.getLifecycleState(),
     };
 
-    await client.auditRecord.upsert({
-      where: { id: data.id },
-      update: data,
-      create: data,
-    });
+    try {
+      await client.auditRecord.create({ data });
+    } catch (error: any) {
+      if (error?.code === 'P2002') throw new Error('AUDIT_APPEND_ONLY_DUPLICATE');
+      throw error;
+    }
   }
 
   async listRecentImportOperations(limit = 20): Promise<Array<{
@@ -218,6 +220,52 @@ export class PrismaAuditRecordRepository implements ITransactionalAuditRecordRep
         httpStatus: Number.isFinite(httpStatus) && httpStatus > 0 ? httpStatus : undefined,
         result: Number.isFinite(httpStatus) && httpStatus >= 400 ? 'FAILURE' : 'SUCCESS',
       }));
+  }
+
+  async queryPage(input: AuditRecordPageQuery): Promise<AuditRecordPage> {
+    const limit = Math.min(100, Math.max(1, Math.trunc(input.limit ?? 50)));
+    const where: any = {
+      ...(input.actorId ? { actorId: input.actorId } : {}),
+      ...(input.targetId ? { targetId: input.targetId } : {}),
+      ...(input.action ? { action: input.action } : {}),
+      ...(input.category ? { category: input.category } : {}),
+      ...(input.severity ? { severity: input.severity } : {}),
+      ...(input.correlationId ? { correlationReference: input.correlationId } : {}),
+      ...(input.cursor ? { OR: [
+        { timestamp: { lt: input.cursor.timestamp } },
+        { timestamp: input.cursor.timestamp, id: { lt: input.cursor.id } },
+      ] } : {}),
+    };
+    const rows = await (this.prisma as any).auditRecord.findMany({
+      where: Object.keys(where).length ? where : undefined,
+      orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+    });
+    const hasMore = rows.length > limit;
+    const selected = rows.slice(0, limit);
+    const items = selected.map((row: AuditRecordRow) => this.mapToDomain(row));
+    const last = selected.at(-1);
+    return { items, hasMore, nextCursor: hasMore && last ? { timestamp: new Date(last.timestamp), id: String(last.id) } : null };
+  }
+
+  async verifyIntegrity(): Promise<AuditIntegrityReport> {
+    const rows = await (this.prisma as any).auditRecord.findMany({
+      select: { id: true, reference: true, chainReference: true, timestamp: true },
+      orderBy: [{ timestamp: 'asc' }, { id: 'asc' }],
+    });
+    const references = new Map<string, Date>(rows.map((row: any): [string, Date] => [String(row.reference), new Date(row.timestamp)]));
+    const now = Date.now() + 5 * 60_000;
+    const brokenChainReferences: string[] = [];
+    const futureTimestamps: string[] = [];
+    for (const row of rows) {
+      const timestamp = new Date(row.timestamp);
+      if (timestamp.getTime() > now) futureTimestamps.push(String(row.reference));
+      if (row.chainReference) {
+        const previous = references.get(String(row.chainReference));
+        if (!previous || previous.getTime() > timestamp.getTime()) brokenChainReferences.push(String(row.reference));
+      }
+    }
+    return { status: brokenChainReferences.length === 0 && futureTimestamps.length === 0 ? 'PASS' : 'FAIL', checkedRecords: rows.length, brokenChainReferences, futureTimestamps };
   }
 
   async findBy(specification: ISpecification<AuditRecord>): Promise<AuditRecord[]> {

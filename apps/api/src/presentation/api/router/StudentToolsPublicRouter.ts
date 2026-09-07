@@ -5,12 +5,15 @@ import {
   StudentToolExecutionUseCases,
   StudentToolRegistryUseCases,
 } from '@manaratak/application';
+import type { PrismaApiIdempotencyStore } from '@manaratak/infrastructure';
+import { createCanonicalIdempotencyMiddleware } from '../../middleware/CanonicalIdempotencyMiddleware';
 
 export class StudentToolsPublicRouter {
   static create(cradle: {
     studentToolRegistryUseCases: StudentToolRegistryUseCases;
     studentToolExecutionUseCases: StudentToolExecutionUseCases;
     studentToolAnonymousSessionService: StudentToolAnonymousSessionService;
+    apiIdempotencyStore: PrismaApiIdempotencyStore;
   }) {
     const router = Router();
     const safe =
@@ -23,6 +26,14 @@ export class StudentToolsPublicRouter {
       implementationStatus: z.string().optional(),
       search: z.string().optional(),
     });
+    router.use(createCanonicalIdempotencyMiddleware({
+      store: cradle.apiIdempotencyStore,
+      requireKey: true,
+      principalResolver: (req) => req.authUserId
+        || req.header('x-student-tools-session')
+        || `anonymous-network:${req.ip || req.socket.remoteAddress || 'unknown'}`,
+    }));
+
     const anonymousIdentity = (req: Request, res: Response) => {
       const networkReference = req.ip || req.socket.remoteAddress || 'unknown';
       const resolved = cradle.studentToolAnonymousSessionService.resolve(
@@ -71,6 +82,28 @@ export class StudentToolsPublicRouter {
         res.status(201).json({
           data: await cradle.studentToolExecutionUseCases.saveExecutionForStudent(
             req.params.executionId,
+            req.authUserId,
+          ),
+        });
+      }),
+    );
+    router.post(
+      '/executions/:executionId/claim',
+      safe(async (req, res) => {
+        if (!req.authUserId) return void res.status(401).json({ error: 'TOOL_AUTH_REQUIRED' });
+        const presentedAnonymousSession = req.header('x-student-tools-session')?.trim();
+        if (!presentedAnonymousSession) {
+          return void res.status(400).json({ error: 'TOOL_ANONYMOUS_SESSION_REQUIRED' });
+        }
+        const networkReference = req.ip || req.socket.remoteAddress || 'unknown';
+        const anonymous = cradle.studentToolAnonymousSessionService.resolve(
+          presentedAnonymousSession,
+          networkReference,
+        );
+        res.status(201).json({
+          data: await cradle.studentToolExecutionUseCases.claimAnonymousExecutionForStudent(
+            req.params.executionId,
+            anonymous.sessionReference,
             req.authUserId,
           ),
         });
@@ -135,6 +168,8 @@ export class StudentToolsPublicRouter {
         ? 404
         : code.includes('AUTH_REQUIRED')
           ? 401
+          : code.includes('QUOTA_STORE_UNAVAILABLE')
+            ? 503
           : code.includes('RATE_LIMITED')
             ? 429
             : code.includes('RESULT_EXPIRED')

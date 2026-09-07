@@ -18,4 +18,4 @@ if (violations.length) {
 }
 
 console.log('SOURCE_ARCHITECTURE_GUARD=PASS');
-console.log('SOURCE_ARCHITECTURE_GUARD_RULES=PrismaBoundary,CanonicalIdentity,PublicLiveFixtures,P15LocalStorage,P23ControlPlane,P17VendorAuthority,P13P14CertificateBoundary,RoadmapAuthority,CrossPhaseMatrix');
+console.log('SOURCE_ARCHITECTURE_GUARD_RULES=PrismaBoundary,CanonicalIdentity,PublicLiveFixtures,P15LocalStorage,P23ControlPlane,P17VendorAuthority,P13P14CertificateBoundary,RoadmapAuthority,CrossPhaseMatrix,OperationalTooling');

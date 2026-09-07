@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, Plugin } from 'vite';
+import { frontendSecurityHeadersPlugin } from '../frontend-security/ViteFrontendSecurityHeaders';
+import { assertPublicBuildDataMode, prototypeCapabilityEnabled } from './src/config/PublicDataModePolicy';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -58,13 +60,16 @@ function expressApiPlugin(): Plugin {
   };
 }
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
   const rootDir = path.resolve(__dirname, '../..');
   process.env.PRISMA_TELEMETRY_DISABLED = '1';
+  assertPublicBuildDataMode({ mode, nodeEnv: process.env.NODE_ENV, dataMode: process.env.VITE_PUBLIC_TEMPLATE_DATA_MODE });
+  const allowPrototypeData = prototypeCapabilityEnabled(process.env.NODE_ENV || mode);
   console.log('DISABLE_HMR is:', process.env.DISABLE_HMR);
   return {
     root: __dirname,
-    plugins: [react(), tailwindcss(), expressApiPlugin(), disableHmrPlugin()],
+    define: { '__MANARATAK_PROTOTYPE_DATA_ENABLED__': JSON.stringify(allowPrototypeData) },
+    plugins: [frontendSecurityHeadersPlugin(), react(), tailwindcss(), expressApiPlugin(), disableHmrPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

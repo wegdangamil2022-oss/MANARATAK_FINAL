@@ -63,6 +63,14 @@ class FakeAssetStorageGateway implements IAssetStorageGateway {
     return new AssetStorageLocator(AssetStorageZone.CLEAN, 'clean-bucket', `clean/${quarantineLocator.pathKey}`);
   }
 
+  async generateDeliveryGrant(locator: AssetStorageLocator, expiresInSeconds: number) {
+    return {
+      url: `https://cdn.example.test/${locator.pathKey}`,
+      headers: {},
+      expiresAt: new Date(Date.now() + expiresInSeconds * 1000),
+    };
+  }
+
   async archive(locator: AssetStorageLocator): Promise<void> {}
   async restore(locator: AssetStorageLocator): Promise<void> {}
   async delete(locator: AssetStorageLocator): Promise<void> {}
@@ -98,7 +106,7 @@ class FakeMalwareScannerGateway implements IAssetMalwareScannerGateway {
 class FakeSanitizationGateway implements IAssetSanitizationGateway {
   async sanitize(locator: AssetStorageLocator): Promise<SanitizationResult> {
     return {
-      sanitizedLocator: locator,
+      sanitizedLocator: new AssetStorageLocator(AssetStorageZone.QUARANTINE, locator.bucketName, `sanitized/${locator.pathKey}`),
       metadata: new AssetSanitizationMetadata(true, new Date(), 'Sanitized via Fake Gateway')
     };
   }
@@ -204,6 +212,29 @@ describe('Phase 05 EAP Application Layer - Slice 2B', () => {
 
     expect(activated.state).toBe(AssetLifecycleState.ACTIVE);
     expect(activated.storageZone).toBe(AssetStorageZone.CLEAN);
+  });
+
+  it('activates the sanitized quarantine object and exposes only temporary delivery grants after activation', async () => {
+    await ingestUseCase.requestUploadLocator({
+      assetId: 'asset-delivery',
+      assetReference: 'ref-delivery',
+      ownerId: 'user-77',
+      ownerType: 'STUDENT',
+      originalFilename: 'photo.png',
+      mimeType: 'image/png',
+      fileExtension: 'png',
+      byteSize: 500,
+      classification: AssetSecurityClassification.PUBLIC,
+    });
+    await expect(lifecycleUseCase.requestDeliveryGrant({ assetId: 'asset-delivery' }))
+      .rejects.toThrow('ASSET_DELIVERY_REQUIRES_ACTIVE_CLEAN_ASSET');
+    await lifecycleUseCase.validateAsset({ assetId: 'asset-delivery' });
+    const sanitized = await lifecycleUseCase.sanitizeAsset({ assetId: 'asset-delivery' });
+    expect(sanitized.storageLocator).toContain('sanitized/');
+    const activated = await lifecycleUseCase.activateAsset({ assetId: 'asset-delivery' });
+    expect(activated.storageLocator).toContain('clean/sanitized/');
+    const grant = await lifecycleUseCase.requestDeliveryGrant({ assetId: 'asset-delivery', expiresInSeconds: 60 });
+    expect(grant.url).toContain('https://cdn.example.test/');
   });
 
   it('purge is blocked when IAssetUsageRegistryGateway reports usage', async () => {

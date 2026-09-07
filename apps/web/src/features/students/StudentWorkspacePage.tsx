@@ -1,6 +1,6 @@
 import React, { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Award, Bell, BookOpen, Bookmark, CheckCircle2, Compass, Folder, Heart, Home, LockKeyhole, Route, Settings2, Star, X } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { ArrowLeft, Award, Bell, BookOpen, Bookmark, CheckCircle2, ClipboardList, Compass, Folder, Heart, Home, LockKeyhole, Route, Settings2, Star, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
   ApiClient,
@@ -10,25 +10,31 @@ import {
   StudentFinanceInvoiceDto,
   StudentFinancePaymentDto,
   StudentWorkspaceSnapshotDto,
+  StudentApplicationTrackerDto,
+  StudentServiceRequestDto,
 } from '../../api/client';
 
-type WorkspaceTab = 'HOME' | 'JOURNEY' | 'VAULT' | 'SETTINGS';
+type WorkspaceTab = 'HOME' | 'JOURNEY' | 'VAULT' | 'SERVICES' | 'SETTINGS';
 
 const tabs: Array<{ id: WorkspaceTab; label: string; icon: LucideIcon }> = [
   { id: 'HOME', label: 'الرئيسية', icon: Home },
   { id: 'JOURNEY', label: 'رحلتي', icon: Route },
   { id: 'VAULT', label: 'خزنتي', icon: Heart },
+  { id: 'SERVICES', label: 'طلباتي', icon: ClipboardList },
   { id: 'SETTINGS', label: 'التحكم والخصوصية', icon: Settings2 },
 ];
 
 export function StudentWorkspacePage({ initialTab = 'HOME' }: { initialTab?: WorkspaceTab } = {}) {
+  const location = useLocation();
   const [studentReferenceId, setStudentReferenceId] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<StudentDashboardSummaryDto | null>(null);
   const [invoices, setInvoices] = useState<StudentFinanceInvoiceDto[]>([]);
   const [paymentsByInvoice, setPaymentsByInvoice] = useState<
     Record<string, StudentFinancePaymentDto[]>
   >({});
-  const [tab, setTab] = useState<WorkspaceTab>(initialTab);
+  const queryTab = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tab') : null;
+  const resolvedInitialTab: WorkspaceTab = queryTab === 'journey' ? 'JOURNEY' : queryTab === 'vault' ? 'VAULT' : queryTab === 'services' ? 'SERVICES' : queryTab === 'settings' ? 'SETTINGS' : initialTab;
+  const [tab, setTab] = useState<WorkspaceTab>(resolvedInitialTab);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +42,16 @@ export function StudentWorkspacePage({ initialTab = 'HOME' }: { initialTab?: Wor
   const [retryKey, setRetryKey] = useState(0);
   const [snapshots, setSnapshots] = useState<StudentWorkspaceSnapshotDto[]>([]);
   const [hydratedSavedItems, setHydratedSavedItems] = useState<HydratedStudentSavedItemDto[]>([]);
+  const [applicationTrackers, setApplicationTrackers] = useState<StudentApplicationTrackerDto[]>([]);
+  const [serviceRequests, setServiceRequests] = useState<StudentServiceRequestDto[]>([]);
+  const [selectedServiceRequest, setSelectedServiceRequest] = useState<StudentServiceRequestDto | null>(null);
+  useEffect(() => {
+    const requested = new URLSearchParams(location.search).get('tab');
+    const next: WorkspaceTab | null = requested === 'journey' ? 'JOURNEY' : requested === 'vault' ? 'VAULT' : requested === 'services' ? 'SERVICES' : requested === 'settings' ? 'SETTINGS' : null;
+    if (next) setTab(next);
+    if (next === 'VAULT' && location.hash === '#certificates') window.setTimeout(() => document.getElementById('certificates')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  }, [location.search, location.hash]);
+
 
   useEffect(() => {
     let active = true;
@@ -46,11 +62,13 @@ export function StudentWorkspacePage({ initialTab = 'HOME' }: { initialTab?: Wor
         const identity = await ApiClient.getCurrentStudentIdentity();
         if (!active) return;
         setStudentReferenceId(identity.principalId);
-        const [dashboardResult, invoiceResult, snapshotResult, hydratedSavedResult] = await Promise.allSettled([
+        const [dashboardResult, invoiceResult, snapshotResult, hydratedSavedResult, trackerResult, serviceRequestResult] = await Promise.allSettled([
           ApiClient.getMyStudentDashboard(),
           ApiClient.getStudentInvoices(identity.principalId),
           ApiClient.listMyStudentWorkspaceSnapshots(),
           ApiClient.listMyHydratedStudentSavedItems(),
+          ApiClient.listMyStudentApplicationTrackers(),
+          ApiClient.listMyStudentServiceRequests(),
         ]);
         if (!active) return;
         if (dashboardResult.status === 'rejected') throw dashboardResult.reason;
@@ -58,6 +76,14 @@ export function StudentWorkspacePage({ initialTab = 'HOME' }: { initialTab?: Wor
         setInvoices(invoiceResult.status === 'fulfilled' ? invoiceResult.value.data : []);
         setSnapshots(snapshotResult.status === 'fulfilled' ? snapshotResult.value : []);
         setHydratedSavedItems(hydratedSavedResult.status === 'fulfilled' ? hydratedSavedResult.value : []);
+        setApplicationTrackers(trackerResult.status === 'fulfilled' ? trackerResult.value : []);
+        setServiceRequests(serviceRequestResult.status === 'fulfilled' ? serviceRequestResult.value.data : []);
+        const requestedServiceId = new URLSearchParams(window.location.search).get('requestId');
+        if (requestedServiceId) {
+          const request = serviceRequestResult.status === 'fulfilled' ? serviceRequestResult.value.data.find((item) => item.id === requestedServiceId) : undefined;
+          if (request) setSelectedServiceRequest(request);
+          else { try { setSelectedServiceRequest(await ApiClient.getMyStudentServiceRequest(requestedServiceId)); } catch { /* request may be unavailable */ } }
+        }
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : 'تعذر تحميل مساحة الطالب');
       } finally {
@@ -93,6 +119,50 @@ export function StudentWorkspacePage({ initialTab = 'HOME' }: { initialTab?: Wor
     }
   }
 
+  async function updateApplicationStage(tracker: StudentApplicationTrackerDto, stage: string) {
+    setSaving(true); setError(null);
+    try {
+      const updated = await ApiClient.updateMyStudentApplicationTracker(tracker.id, { expectedVersion: tracker.version, stage });
+      setApplicationTrackers((items) => items.map((item) => item.id === tracker.id ? { ...updated, owner: item.owner } : item));
+      setNotice('تم تحديث مرحلة التقديم وحفظها في مساحة الطالب.');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر تحديث مرحلة التقديم'); }
+    finally { setSaving(false); }
+  }
+
+  async function toggleApplicationChecklist(tracker: StudentApplicationTrackerDto, itemId: string, completed: boolean) {
+    setSaving(true); setError(null);
+    try {
+      const updated = await ApiClient.updateMyStudentApplicationChecklistItem(tracker.id, itemId, completed, tracker.version);
+      setApplicationTrackers((items) => items.map((item) => item.id === tracker.id ? { ...updated, owner: item.owner } : item));
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر تحديث قائمة التقديم'); }
+    finally { setSaving(false); }
+  }
+
+  async function archiveApplicationTracker(tracker: StudentApplicationTrackerDto) {
+    setSaving(true); setError(null);
+    try {
+      const updated = await ApiClient.archiveMyStudentApplicationTracker(tracker.id, tracker.version);
+      setApplicationTrackers((items) => items.map((item) => item.id === tracker.id ? { ...updated, owner: item.owner } : item));
+      setNotice('تمت أرشفة ملف التقديم وإلغاء التذكير المرتبط به.');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر أرشفة ملف التقديم'); }
+    finally { setSaving(false); }
+  }
+
+  async function removeApplicationTracker(tracker: StudentApplicationTrackerDto) {
+    if (!window.confirm('إزالة ملف التقديم من مساحة الطالب؟')) return;
+    setSaving(true); setError(null);
+    try { await ApiClient.removeMyStudentApplicationTracker(tracker.id); setApplicationTrackers((items) => items.filter((item) => item.id !== tracker.id)); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر إزالة ملف التقديم'); }
+    finally { setSaving(false); }
+  }
+
+  async function openServiceRequest(requestId: string) {
+    setSaving(true); setError(null);
+    try { const request = await ApiClient.getMyStudentServiceRequest(requestId); setSelectedServiceRequest(request); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر تحميل طلب الخدمة'); }
+    finally { setSaving(false); }
+  }
+
   async function savePreferences(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!dashboard || !studentReferenceId) return;
@@ -107,6 +177,7 @@ export function StudentWorkspacePage({ initialTab = 'HOME' }: { initialTab?: Wor
         preferredLanguage: String(form.get('preferredLanguage') || 'ar'),
         timezone: String(form.get('timezone') || 'Asia/Aden'),
         theme: String(form.get('theme') || 'SYSTEM'),
+        avatarAssetId: String(form.get('avatarAssetId') || '').trim() || null,
         notificationMatrix: {
           inApp: form.get('notifyInApp') === 'on',
           email: form.get('notifyEmail') === 'on',
@@ -312,12 +383,7 @@ export function StudentWorkspacePage({ initialTab = 'HOME' }: { initialTab?: Wor
   return (
     <main dir="rtl" className="mn-page-shell min-h-screen pb-16 text-[var(--mn-text)]">
       <section className="mn-inverse relative overflow-hidden bg-gradient-to-br from-[var(--mn-primary)] via-[var(--mn-secondary)] to-[var(--mn-primary)] text-white">
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage: 'radial-gradient(circle at 20% 30%, var(--mn-accent) 0 2px, transparent 3px)',
-          }}
-        />
+        <div className="mn-student-hero-pattern absolute inset-0 opacity-20" />
         <div className="relative mx-auto max-w-7xl px-[9px] py-10 sm:px-6 lg:px-8">
           <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
             <div className="flex items-center gap-5">
@@ -387,10 +453,11 @@ export function StudentWorkspacePage({ initialTab = 'HOME' }: { initialTab?: Wor
             onTogglePayments={toggleInvoicePayments}
           />
         )}
-        {tab === 'JOURNEY' && <JourneyView dashboard={dashboard} />}
+        {tab === 'JOURNEY' && <JourneyView dashboard={dashboard} trackers={applicationTrackers} saving={saving} onStageChange={updateApplicationStage} onChecklistToggle={toggleApplicationChecklist} onArchive={archiveApplicationTracker} onRemove={removeApplicationTracker} />}
         {tab === 'VAULT' && (
           <VaultView dashboard={dashboard} hydratedSavedItems={hydratedSavedItems} saving={saving} onCreateCollection={createCollection} onRenameCollection={renameCollection} onDeleteCollection={deleteCollection} onMoveSavedItem={moveSavedItem} />
         )}
+        {tab === 'SERVICES' && <ServiceRequestsView requests={serviceRequests} selected={selectedServiceRequest} saving={saving} onOpen={openServiceRequest} />}
         {tab === 'SETTINGS' && (
           <SettingsView
             dashboard={dashboard}
@@ -535,7 +602,7 @@ function HomeView({
   );
 }
 
-function JourneyView({ dashboard }: { dashboard: StudentDashboardSummaryDto }) {
+function JourneyView({ dashboard, trackers, saving, onStageChange, onChecklistToggle, onArchive, onRemove }: { dashboard: StudentDashboardSummaryDto; trackers: StudentApplicationTrackerDto[]; saving: boolean; onStageChange: (tracker: StudentApplicationTrackerDto, stage: string) => void; onChecklistToggle: (tracker: StudentApplicationTrackerDto, itemId: string, completed: boolean) => void; onArchive: (tracker: StudentApplicationTrackerDto) => void; onRemove: (tracker: StudentApplicationTrackerDto) => void }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
       <Panel title="مساري التعليمي">
@@ -556,6 +623,7 @@ function JourneyView({ dashboard }: { dashboard: StudentDashboardSummaryDto }) {
         )}
       </Panel>
       <div className="space-y-6">
+        <ApplicationTrackersPanel trackers={trackers} saving={saving} onStageChange={onStageChange} onChecklistToggle={onChecklistToggle} onArchive={onArchive} onRemove={onRemove} />
         <Panel title="حصيلة الرحلة">
           <div className="space-y-4">
             <ProgressRow label="متوسط التقدم" value={dashboard.statistics.averageCourseProgress} />
@@ -571,6 +639,36 @@ function JourneyView({ dashboard }: { dashboard: StudentDashboardSummaryDto }) {
       </div>
     </div>
   );
+}
+
+const APPLICATION_STAGES = ['تجهيز المستندات', 'كتابة خطاب الدافع', 'خطابات التوصية', 'تم إرسال الطلب', 'المقابلة الشخصية', 'تم القبول بنجاح'];
+
+function ApplicationTrackersPanel({ trackers, saving, onStageChange, onChecklistToggle, onArchive, onRemove }: { trackers: StudentApplicationTrackerDto[]; saving: boolean; onStageChange: (tracker: StudentApplicationTrackerDto, stage: string) => void; onChecklistToggle: (tracker: StudentApplicationTrackerDto, itemId: string, completed: boolean) => void; onArchive: (tracker: StudentApplicationTrackerDto) => void; onRemove: (tracker: StudentApplicationTrackerDto) => void }) {
+  const active = trackers.filter((tracker) => tracker.status === 'ACTIVE');
+  return <Panel title="ملفات التقديم للمنح">
+    {active.length ? <div className="space-y-4">{active.map((tracker) => {
+      const completed = tracker.checklist.filter((item) => item.completed).length;
+      const progress = tracker.checklist.length ? Math.round((completed / tracker.checklist.length) * 100) : 0;
+      return <article key={tracker.id} className="rounded-2xl border border-[var(--mn-border)] p-4">
+        <div className="flex items-start justify-between gap-3"><div><h3 className="font-bold">{tracker.owner?.displayName || tracker.scholarshipSlug || tracker.scholarshipId}</h3><p className="mt-1 text-xs text-[var(--mn-text-muted)]">{tracker.owner?.country || 'منحة دراسية'} · {tracker.deadlineAt ? `الموعد ${formatDate(tracker.deadlineAt)}` : 'الموعد غير محدد'}</p></div><span className="rounded-full bg-[var(--mn-surface-muted)] px-2 py-1 text-xs font-bold">{progress}%</span></div>
+        {tracker.owner && !tracker.owner.available && <p className="mt-3 rounded-xl bg-[var(--mn-warning-soft)] px-3 py-2 text-xs font-bold text-[var(--mn-warning-text)]">المنحة لم تعد متاحة لدى المصدر المالك؛ يبقى سجل التقديم محفوظًا للطالب.</p>}
+        <label className="mt-3 block text-xs font-bold">مرحلة التقديم<select disabled={saving} value={tracker.stage} onChange={(event) => onStageChange(tracker, event.target.value)} className="mt-1 w-full rounded-xl border bg-[var(--mn-surface)] px-3 py-2">{APPLICATION_STAGES.map((stage) => <option key={stage}>{stage}</option>)}</select></label>
+        <div className="mt-3 space-y-2">{tracker.checklist.map((item) => <label key={item.id} className="flex items-center gap-2 rounded-xl bg-[var(--mn-surface-muted)] px-3 py-2 text-sm"><input disabled={saving} type="checkbox" checked={item.completed} onChange={(event) => onChecklistToggle(tracker, item.id, event.target.checked)} /><span className={item.completed ? 'line-through text-[var(--mn-text-muted)]' : ''}>{item.label}</span></label>)}</div>
+        <div className="mt-3 flex gap-2"><button type="button" disabled={saving} onClick={() => onArchive(tracker)} className="rounded-lg border px-3 py-1.5 text-xs font-bold">أرشفة</button><button type="button" disabled={saving} onClick={() => onRemove(tracker)} className="rounded-lg border border-[var(--mn-danger-border)] px-3 py-1.5 text-xs font-bold text-[var(--mn-danger-text)]">إزالة</button></div>
+      </article>;
+    })}</div> : <EmptyState icon={<ClipboardList className="h-7 w-7" />} title="لا توجد ملفات تقديم نشطة" text="أضف منحة إلى المتابعة من صفحة المنحة، وسيُحفظ تقدمك هنا عبر جميع أجهزتك." href="/scholarships" action="استكشف المنح" />}
+  </Panel>;
+}
+
+function ServiceRequestsView({ requests, selected, saving, onOpen }: { requests: StudentServiceRequestDto[]; selected: StudentServiceRequestDto | null; saving: boolean; onOpen: (id: string) => void }) {
+  return <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
+    <Panel title="طلبات الخدمات">
+      {requests.length ? <div className="space-y-2">{requests.map((request) => <button key={request.id} type="button" disabled={saving} onClick={() => onOpen(request.id)} className="w-full rounded-xl border border-[var(--mn-border)] p-3 text-right hover:border-[var(--mn-border-gold)]"><div className="font-bold">{request.publicId}</div><div className="mt-1 text-xs text-[var(--mn-text-muted)]">{request.status} · {formatDate(request.createdAt)}</div></button>)}</div> : <EmptyState icon={<ClipboardList className="h-7 w-7" />} title="لا توجد طلبات خدمات" text="يمكنك إنشاء طلب من صفحة أي خدمة منشورة." href="/services" action="استكشف الخدمات" />}
+    </Panel>
+    <Panel title="تفاصيل الطلب">
+      {selected ? <div className="space-y-3"><div><span className="text-xs text-[var(--mn-text-muted)]">رقم الطلب</span><div className="font-mono font-bold">{selected.publicId}</div></div><div><span className="text-xs text-[var(--mn-text-muted)]">الحالة</span><div className="font-bold">{selected.status}</div></div><div><span className="text-xs text-[var(--mn-text-muted)]">الخدمة</span><div className="font-mono text-sm">{selected.serviceId}</div></div><pre className="overflow-x-auto rounded-xl bg-[var(--mn-surface-muted)] p-3 text-xs">{JSON.stringify(selected.requestParameters, null, 2)}</pre></div> : <p className="text-sm text-[var(--mn-text-muted)]">اختر طلبًا لعرض تفاصيله.</p>}
+    </Panel>
+  </div>;
 }
 
 function VaultView({
@@ -704,7 +802,7 @@ function VaultView({
             />
           )}
         </Panel>
-        <Panel title="شهاداتي">
+        <div id="certificates"><Panel title="شهاداتي">
           {dashboard.certificates.length ? (
             <div className="space-y-3">
               {dashboard.certificates.map((certificate) => (
@@ -740,10 +838,45 @@ function VaultView({
               text="ستصل شهادات الدورات المكتملة إلى خزنتك تلقائيًا."
             />
           )}
-        </Panel>
+        </Panel></div>
       </div>
     </div>
   );
+}
+
+function StudentAvatarAssetPicker({ currentAssetId }: { currentAssetId: string | null }) {
+  const [assets, setAssets] = useState<Array<{ id: string; reference: string; metadata?: { originalFilename?: string; mimeType?: string } }>>([]);
+  const [selected, setSelected] = useState(currentAssetId ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  useEffect(() => {
+    let active = true;
+    ApiClient.listMyActiveStudentAssets('image/').then((page) => { if (active) setAssets(page.items); }).catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : 'تعذر تحميل الصور'); });
+    return () => { active = false; };
+  }, []);
+  async function preview() {
+    if (!selected) return;
+    setPreviewing(true); setError(null);
+    try {
+      const grant = await ApiClient.getMyStudentAssetDeliveryGrant(selected);
+      if (grant.headers && Object.keys(grant.headers).length) {
+        const response = await fetch(grant.url, { headers: grant.headers });
+        if (!response.ok) throw new Error('تعذر تحميل المعاينة الآمنة');
+        const objectUrl = URL.createObjectURL(await response.blob());
+        window.open(objectUrl, '_blank', 'noopener,noreferrer');
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      } else window.open(grant.url, '_blank', 'noopener,noreferrer');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'تعذر إنشاء المعاينة'); }
+    finally { setPreviewing(false); }
+  }
+  return <Field label="الصورة الشخصية من أصولك الآمنة">
+    <select name="avatarAssetId" value={selected} onChange={(event) => setSelected(event.target.value)} className="field">
+      <option value="">بدون صورة</option>
+      {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.metadata?.originalFilename || asset.reference}</option>)}
+    </select>
+    {selected ? <button type="button" onClick={() => void preview()} disabled={previewing} className="mt-2 rounded-lg border px-3 py-1.5 text-xs font-bold disabled:opacity-50">{previewing ? 'جاري التحميل…' : 'معاينة مؤقتة'}</button> : null}
+    {error ? <span className="mt-1 block text-xs text-red-600">{error}</span> : null}
+  </Field>;
 }
 
 function SettingsView({
@@ -784,6 +917,7 @@ function SettingsView({
                 className="field"
               />
             </Field>
+            <StudentAvatarAssetPicker currentAssetId={dashboard.workspace.avatarAssetId ?? null} />
             <Field label="اللغة">
               <select
                 name="preferredLanguage"
@@ -1017,7 +1151,7 @@ function CourseCard({
 }) {
   return (
     <Link
-      to={`/courses/${course.courseSlug}`}
+      to={`../student/courses/${encodeURIComponent(course.courseId)}`}
       className={`group block rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)] p-4 hover:border-[var(--mn-border-gold)] hover:shadow-sm ${wide ? 'sm:p-5' : ''}`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -1029,12 +1163,7 @@ function CourseCard({
         </div>
         <span className="text-sm font-bold text-[var(--mn-success-text)]">{course.progressPercentage}%</span>
       </div>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--mn-surface-muted)]">
-        <div
-          className="h-full rounded-full bg-[var(--mn-secondary)]"
-          style={{ width: `${Math.min(100, Math.max(0, course.progressPercentage))}%` }}
-        />
-      </div>
+      <progress className="mn-native-progress mn-native-progress-secondary mt-4 h-2 w-full" value={Math.min(100, Math.max(0, course.progressPercentage))} max={100} aria-label="تقدم الدورة" />
       <div className="mt-3 flex justify-between text-xs text-[var(--mn-text-muted)]">
         <span>
           {course.lastAccessedAt
@@ -1078,12 +1207,7 @@ function ProgressRow({ label, value }: { label: string; value: number }) {
         <span className="font-bold">{label}</span>
         <span className="text-[var(--mn-text-muted)]">{value}%</span>
       </div>
-      <div className="h-2.5 rounded-full bg-[var(--mn-surface-muted)]">
-        <div
-          className="h-full rounded-full bg-[var(--mn-secondary)]"
-          style={{ width: `${value}%` }}
-        />
-      </div>
+      <progress className="mn-native-progress mn-native-progress-secondary h-2.5 w-full" value={Math.min(100, Math.max(0, value))} max={100} aria-label={label} />
     </div>
   );
 }
@@ -1153,15 +1277,24 @@ function Field({
   children,
 }: {
   label: string;
-  children: React.ReactElement<{ className?: string }>;
+  children: React.ReactNode;
 }) {
+  const singleControl = React.isValidElement<{ className?: string }>(children) && React.Children.count(children) === 1;
+  if (singleControl) {
+    return (
+      <label className="block text-sm font-semibold text-[var(--mn-text)]">
+        {label}
+        {React.cloneElement(children, {
+          className: `${children.props.className || ''} mt-2 w-full rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface)] px-3 py-2.5 font-normal outline-none focus:border-[var(--mn-focus)] focus:ring-2 focus:ring-[var(--mn-gold-surface)]`,
+        })}
+      </label>
+    );
+  }
   return (
-    <label className="block text-sm font-semibold text-[var(--mn-text)]">
-      {label}
-      {React.cloneElement(children, {
-        className: `${children.props.className || ''} mt-2 w-full rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface)] px-3 py-2.5 font-normal outline-none focus:border-[var(--mn-focus)] focus:ring-2 focus:ring-[var(--mn-gold-surface)]`,
-      })}
-    </label>
+    <div className="block text-sm font-semibold text-[var(--mn-text)]">
+      <span>{label}</span>
+      <div className="mt-2 space-y-2">{children}</div>
+    </div>
   );
 }
 

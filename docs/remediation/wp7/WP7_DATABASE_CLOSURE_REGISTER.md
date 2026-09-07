@@ -1,5 +1,7 @@
 # WP7 Database Closure Register
 
+> **Operational supersession notice (2026-09-06):** Any instruction in this historical remediation artifact that requires an “Original Development Database”, a Google Studio recovery gate, or `WP1_RECOVERY_GATE` is superseded by [`docs/operations/GREENFIELD_DATABASE_PROVISIONING.md`](../../operations/GREENFIELD_DATABASE_PROVISIONING.md). This file remains historical/evidence context and is not current database-operation authority.
+
 Status: `DATABASE_VERIFICATION_REQUIRED`
 
 No database operation was executed in WP7.

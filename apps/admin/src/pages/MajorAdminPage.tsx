@@ -151,7 +151,7 @@ export function MajorAdminPage() {
   };
 
   return (
-    <div dir="rtl" className="mx-auto max-w-7xl space-y-5" style={{ fontFamily: "'Cairo', sans-serif" }}>
+    <div dir="rtl" className="mx-auto max-w-7xl space-y-5">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-bold text-[#0E7C86]">المرحلة 10 · منصة التخصصات الأكاديمية</p>

@@ -193,7 +193,7 @@ The following criteria constitute the formal governance gates for Phase 22, ensu
 
 ### 22.A.10.4 ARB Decision
 
-**Decision:** Approved for Baseline / Production Ready  
+**Decision:** APPROVED_FOR_BASELINE / SOURCE_COMPLETE — RUNTIME_EVIDENCE_PENDING  
 **Approver:** Chief Enterprise Architect & Architecture Review Board (ARB)  
 
 ---

@@ -1,3 +1,5 @@
+> **Historical / superseded runtime note (MNT-AUD-0109, W2):** `createInMemoryPrismaClient()` was removed from the canonical production composition on 2026-09-06. This document is retained only as historical evidence and must not be used as current runtime authority.
+
 # MANARATAK 2.0 - Sprint 3.3.1 Implementation Report
 
 ## Scholarship Admin Runtime Proof & API Wiring Fix

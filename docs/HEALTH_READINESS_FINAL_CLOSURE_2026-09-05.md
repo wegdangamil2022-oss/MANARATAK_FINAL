@@ -1,5 +1,7 @@
 # Health & Readiness Final Source Closure — 2026-09-05
 
+> **2026-09-06 remediation rebaseline — MNT-AUD-0063:** the historical `63/63 PASS` below did not prove dependency criticality. `MonitoringService` previously forced indicators named `redis`/`cache` to optional even when composition registered them as required. Source semantics are now corrected to respect `indicator.isOptional` only. Production Redis DOWN must drive readiness DOWN/HTTP 503. Runtime deployment evidence remains pending.
+
 ## Decision
 The pre-existing workspace was structurally strong, but final audit found three closure blockers: detailed diagnostics were exposed outside the admin API boundary, two expected probes were never registered, and the release-ready boolean represented configuration only rather than a complete release gate.
 

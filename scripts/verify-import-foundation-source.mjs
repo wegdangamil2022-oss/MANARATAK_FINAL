@@ -53,6 +53,14 @@ pass('Capabilities distinguish handoff-ready from staging-only',
   useCases.includes("integrationMode: handoffReady ? 'DOMAIN_HANDOFF_READY' : 'STAGING_ONLY'") &&
   useCases.includes("semanticPromotionOwner: 'OWNING_DOMAIN'"));
 
+const importWorker = read('packages/application/src/background-jobs/handlers/ImportQueueBackgroundJobHandler.ts');
+const apiServer = read('apps/api/src/server.ts');
+const appConfig = read('packages/config/src/AppConfig.ts');
+pass('Durable Import retry/reclaim has an autonomous runtime worker',
+  importWorker.includes('processNextQueuedBatch') && apiServer.includes('IMPORT_QUEUE_SWEEP_JOB_TYPE') && apiServer.includes('system.import.queue-sweep'));
+pass('Import worker cadence is part of canonical production configuration',
+  appConfig.includes('BACKGROUND_IMPORT_CRON must be explicitly configured in production/staging'));
+
 const container = read('apps/api/src/infrastructure/di/container.ts');
 pass('Registered generic handoff consumers are explicit',
   /SCHOLARSHIPS:\s*scholarshipImportHandoffConsumer/.test(container) &&

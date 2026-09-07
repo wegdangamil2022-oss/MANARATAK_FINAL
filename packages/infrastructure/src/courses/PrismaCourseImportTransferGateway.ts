@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaImportPromotionLinkWriter } from '../import-foundation/PrismaImportPromotionLinkWriter';
 import type { AtomicPersistenceContext } from '@manaratak/domain';
 import type {
   CourseFieldProvenanceWrite,
@@ -20,14 +21,21 @@ function asObject(value: Prisma.JsonValue | null): Record<string, unknown> | und
 }
 
 export class PrismaCourseImportTransferGateway implements CourseImportTransferGateway {
-  public constructor(private readonly prisma: PrismaClient) {}
+  public constructor(
+    private readonly prisma: PrismaClient,
+    private readonly importPromotionWriter = new PrismaImportPromotionLinkWriter(prisma),
+  ) {}
 
   public withTransaction(context: AtomicPersistenceContext): CourseImportTransferGateway {
     const transactionClient = (context as Partial<CourseTransferTransactionContext>).transactionClient;
     if (!context.boundaryId || !transactionClient) {
       throw new Error('COURSE_IMPORT_ATOMIC_TRANSACTION_CONTEXT_REQUIRED');
     }
-    return new PrismaCourseImportTransferGateway(transactionClient as unknown as PrismaClient);
+    const transactionPrisma = transactionClient as unknown as PrismaClient;
+    return new PrismaCourseImportTransferGateway(
+      transactionPrisma,
+      new PrismaImportPromotionLinkWriter(transactionPrisma),
+    );
   }
 
   public async getRecordById(recordId: string): Promise<CourseImportTransferStoredRecord | null> {
@@ -92,13 +100,7 @@ export class PrismaCourseImportTransferGateway implements CourseImportTransferGa
     courseId: string;
     processingNotes: string;
   }): Promise<void> {
-    await this.prisma.importRecord.update({
-      where: { id: input.recordId },
-      data: {
-        promotedEntityId: input.courseId,
-        processingNotes: input.processingNotes,
-      },
-    });
+    await this.importPromotionWriter.recordPromotion(input);
   }
 
   public async linkAnalysisCourse(input: {

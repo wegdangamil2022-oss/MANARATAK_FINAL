@@ -513,7 +513,7 @@ The Enterprise Architecture Board formally confirms the following regarding the 
 
 ### Status
 
-- **Current Status:** Baselined / Production Ready
+- **Current Status:** BASELINED / SOURCE_COMPLETE — RUNTIME_EVIDENCE_PENDING
 
 ---
 

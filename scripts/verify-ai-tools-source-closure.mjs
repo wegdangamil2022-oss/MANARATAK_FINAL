@@ -13,7 +13,7 @@ const toolExecution = read('packages/application/src/student-tools/use-cases/Stu
 const toolServices = read('packages/domain/src/student-tools/services.ts');
 const toolPublicRouter = read('apps/api/src/presentation/api/router/StudentToolsPublicRouter.ts');
 const toolGateways = read('packages/infrastructure/src/student-tools/StudentToolGateways.ts');
-const cors = read('apps/api/src/presentation/security/SecurityMiddlewareFactory.ts');
+const cors = read('apps/api/src/presentation/security/CanonicalApiCorsPolicy.ts');
 const webClient = read('apps/web/src/api/client.ts');
 const webRouter = read('apps/web/src/router/index.tsx');
 const publicApp = read('apps/web/src/features/public-template/PublicTemplateApp.tsx');
@@ -58,8 +58,8 @@ const checks = {
   tool_idempotency_reuse_rejected: /TOOL_IDEMPOTENCY_KEY_REUSED/.test(toolExecution),
   tool_fingerprint_persisted: /safeUsageMetadata: \{ locale: context\.locale, requestFingerprint \}/.test(toolExecution),
   anonymous_session_server_signed: /studentToolAnonymousSessionService\.resolve/.test(toolPublicRouter),
-  anonymous_session_request_header_allowed: /x-student-tools-session/.test(cors),
-  anonymous_session_response_header_exposed: /exposedHeaders:[\s\S]*x-student-tools-session/.test(cors),
+  anonymous_session_request_header_allowed: /X-Student-Tools-Session/.test(cors) && /CANONICAL_API_REQUEST_HEADERS/.test(cors),
+  anonymous_session_response_header_exposed: /CANONICAL_API_EXPOSED_HEADERS/.test(cors) && /X-Student-Tools-Session-Expires-At/.test(cors),
   anonymous_session_browser_persisted: /STUDENT_TOOLS_SESSION_STORAGE_KEY/.test(webClient) && /sessionStorage\.setItem/.test(webClient),
   browser_execution_idempotency: /idempotencyKey: crypto\.randomUUID\(\)/.test(webClient),
   save_does_not_submit_result: /saveStudentToolExecution\(executionId: string\)/.test(webClient) && !/saveStudentToolExecution\(executionId: string, result/.test(webClient),
@@ -80,13 +80,13 @@ const checks = {
   scholarship_result_deep_link: /to=\{`\/scholarships\//.test(executionPage),
   university_deep_link_owner_hydration: /ApiClient\.getUniversityBySlug/.test(publicApp),
 
-  canonical_ai_admin_redirect: /CanonicalAdminRedirect legacyPath="\/admin\/ai"/.test(webRouter),
-  canonical_tools_admin_redirect: /CanonicalAdminRedirect legacyPath="\/admin\/student-tools"/.test(webRouter),
+  canonical_ai_admin_redirect: /path: 'admin\/\*'/.test(webRouter) && /<CanonicalAdminRedirect legacyPath=\{window\.location\.pathname\}/.test(webRouter),
+  canonical_tools_admin_redirect: /path: 'admin\/\*'/.test(webRouter) && /targetPath = normalizedLegacyPath\.replace\(\/\^\\\/admin\//.test(webRouter),
   duplicate_ai_admin_removed: !exists('apps/web/src/features/admin-preview/AdminAiGovernancePreviewPage.tsx'),
   ai_admin_brand_identity: /#142B5F/.test(aiAdmin) && /#0E7C86/.test(aiAdmin),
   tools_admin_brand_identity: /#142B5F/.test(toolsAdmin) && /#0E7C86/.test(toolsAdmin),
   ai_admin_runtime_pending_semantics: /RUNTIME_PENDING/.test(aiAdmin),
-  execution_page_brand_identity: /#142B5F/.test(executionPage) && /#D6A43B/.test(executionPage),
+  execution_page_brand_identity: /var\(--mn-primary\)/.test(executionPage) && /var\(--mn-secondary\)/.test(executionPage) && /var\(--mn-border-gold\)/.test(executionPage),
   no_fake_success_ui_copy: !/fake success|simulated execution|mock health/i.test(aiAdmin + toolsAdmin + executionPage),
 };
 

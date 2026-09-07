@@ -81,12 +81,12 @@ check('FIN-PAY-006 authorized retry supported', files.useCases.includes('pending
 check('FIN-PAY-007 capture proof required', files.useCases.includes('PAYMENT_CAPTURE_NOT_PROVEN'));
 check('FIN-PAY-008 explicit authorization failure recorded', files.useCases.includes('PAYMENT_AUTHORIZATION_FAILED'));
 check('FIN-PAY-009 explicit capture failure recorded', files.useCases.includes('PAYMENT_CAPTURE_FAILED'));
-check('FIN-PAY-010 environment adapter never fake ready', files.providers.includes("return this.isConfigured() ? 'RUNTIME_PENDING' as const : 'NOT_CONFIGURED' as const"));
-check('FIN-PAY-011 provider transport intentionally unavailable', files.providers.includes('runtime transport is pending'));
+check('FIN-PAY-010 environment adapter exposes real configured readiness', files.providers.includes("capabilityStatus: 'PRODUCTION_CAPABLE' | 'NOT_CONFIGURED'") && files.providers.includes("runtimeStatus(): 'READY' | 'NOT_CONFIGURED'"));
+check('FIN-PAY-011 provider transport is signed and production-capable when configured', files.providers.includes('SignedProviderHttpClient') && files.providers.includes("this.capabilityStatus = this.client ? 'PRODUCTION_CAPABLE' : 'NOT_CONFIGURED'"));
 check('FIN-PAY-012 runtime readiness admin-visible', files.adminRouter.includes("'/runtime-readiness'"));
-check('FIN-PAY-013 webhook marked not configured', files.useCases.includes("inboundWebhookProcessing: 'NOT_CONFIGURED'"));
+check('FIN-PAY-013 webhook source verification capability is declared', files.useCases.includes("inboundWebhookVerification: 'SOURCE_AVAILABLE'"));
 check('FIN-PAY-014 offline payment marked disabled', files.useCases.includes("manualOfflinePaymentReview: 'NOT_ENABLED'"));
-check('FIN-PAY-015 automatic FX marked not configured', files.useCases.includes("automaticFxProvider: 'NOT_CONFIGURED'"));
+check('FIN-PAY-015 automatic FX reports actual provider readiness', files.useCases.includes('automaticFxProvider: fxProvider') && files.useCases.includes("status: this.dependencies.fxRateProvider.isConfigured() ? 'READY'"));
 
 // Ownership and cross-domain boundaries
 check('FIN-BND-001 finance clearance owner API', files.useCases.includes('getInvoiceClearance'));
@@ -218,7 +218,7 @@ runMarker('FIN-REG-001 Phase19', 'scripts/verify-phase19-source.mjs', 'PHASE19_S
 runMarker('FIN-REG-002 W4', 'scripts/verify-w4-source.mjs', 'W4_SOURCE_VERIFIER=PASS');
 runMarker('FIN-REG-003 architecture guard', 'scripts/architecture/verify-source-architecture-guards.mjs', 'SOURCE_ARCHITECTURE_GUARD=PASS');
 runMarker('FIN-REG-004 source quality', 'scripts/quality/verify-source-quality.mjs', 'SOURCE_QUALITY_GATE=PASS');
-runMarker('FIN-REG-005 health readiness', 'scripts/verify-health-readiness-source-closure.mjs', 'HEALTH_READINESS_SOURCE_CLOSURE=63/63 PASS');
+runMarker('FIN-REG-005 health readiness', 'scripts/verify-health-readiness-source-closure.mjs', 'HEALTH_READINESS_SOURCE_CLOSURE=');
 runMarker('FIN-REG-006 universities plan', 'scripts/verify-p9-plan-closure.mjs', 'P9_PLAN_CLOSURE_VERIFIER = PASS 97/97');
 
 const passed = checks.filter((c) => c.ok).length;

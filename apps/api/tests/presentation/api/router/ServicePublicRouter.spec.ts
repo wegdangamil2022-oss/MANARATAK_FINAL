@@ -27,7 +27,7 @@ describe('ServicePublicRouter', () => {
     expect(res.body.data).toHaveLength(1);
     expect(useCases.listServices).toHaveBeenCalledWith(expect.objectContaining({
       serviceCategory: 'VISA_SERVICES',
-      pageSize: 50
+      limit: 20
     }));
   });
 

@@ -110,6 +110,8 @@ function parseCompleteness(value: string): CourseImportCompletenessState {
   }
 }
 
+import { queryStableCursorPage } from '../api-foundation/StableCursor';
+
 const RESERVED_OPTIONAL_FIELD_KEYS = new Set([
   'id',
   'publicId',
@@ -319,8 +321,6 @@ export class PrismaCourseRepository implements ITransactionalCourseRepository {
   }
 
   public async listPublished(filters: PublicCourseFilters): Promise<PaginatedCourseResult<CourseDto>> {
-    const page = Math.max(1, filters.page ?? 1);
-    const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
     const where: Prisma.CourseWhereInput = {
       status: CourseStatus.PUBLISHED,
       completenessStatus: CourseImportCompletenessState.COMPLETE,
@@ -343,7 +343,10 @@ export class PrismaCourseRepository implements ITransactionalCourseRepository {
     if (filters.category) where.category = filters.category;
     if (filters.learningLanguage) where.learningLanguage = filters.learningLanguage;
 
-    return this.listPage(where, page, pageSize);
+    return queryStableCursorPage({
+      delegate: this.prisma.course as any, where, cursor: filters.cursor, limit: filters.limit,
+      map: (record: any) => this.mapToDto(record),
+    });
   }
 
   private async listPage(

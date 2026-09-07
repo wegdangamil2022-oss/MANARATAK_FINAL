@@ -135,35 +135,18 @@ export const CoursesLandingPage: React.FC<CoursesLandingPageProps> = ({ onBack, 
           <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-[var(--mn-primary)] rounded-full mix-blend-screen filter blur-[100px] opacity-20 mn-inverse " />
 
           {/* Subtle Floating Elements: Training Icons */}
-          <style>{`
-            @keyframes floatUp {
-              0% { transform: translateY(0px) rotate(0deg); opacity: 0; }
-              20% { opacity: 0.15; }
-              80% { opacity: 0.15; }
-              100% { transform: translateY(-100px) rotate(15deg); opacity: 0; }
-            }
-            .course-float {
-              position: absolute;
-              animation: floatUp ease-in-out infinite;
-              color: var(--mn-accent);
-            }
-          `}</style>
 
           <PlayCircle
-            className="course-float w-16 h-16 left-[15%] top-[60%]"
-            style={{ animationDuration: '10s', animationDelay: '0s' }}
+            className="course-float mn-anim-10 w-16 h-16 left-[15%] top-[60%]"
           />
           <TrendingUp
-            className="course-float w-12 h-12 left-[80%] top-[40%]"
-            style={{ animationDuration: '12s', animationDelay: '-4s' }}
+            className="course-float mn-anim-12-delay-4 w-12 h-12 left-[80%] top-[40%]"
           />
           <Briefcase
-            className="course-float w-10 h-10 left-[40%] top-[70%]"
-            style={{ animationDuration: '14s', animationDelay: '-2s' }}
+            className="course-float mn-anim-14-delay-2 w-10 h-10 left-[40%] top-[70%]"
           />
           <Sparkles
-            className="course-float w-8 h-8 left-[60%] top-[30%]"
-            style={{ animationDuration: '9s', animationDelay: '-7s' }}
+            className="course-float mn-anim-9-delay-7 w-8 h-8 left-[60%] top-[30%]"
           />
         </div>
 

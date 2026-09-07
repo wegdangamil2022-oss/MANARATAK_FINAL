@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AssetLifecycleState,
+  AssetSecurityClassification,
   CourseAccessType,
   CourseImportCompletenessState,
   CourseOriginType,
@@ -142,7 +143,11 @@ describe('CourseCurriculumUseCases', () => {
         questionBanks: [],
         questions: [],
       });
-    assetRepo.findById.mockResolvedValue({ state: AssetLifecycleState.ACTIVE });
+    assetRepo.findById.mockResolvedValue({
+      state: AssetLifecycleState.ACTIVE,
+      classification: AssetSecurityClassification.PUBLIC,
+      metadata: { mimeType: 'video/mp4' },
+    });
     curriculumRepo.attachAssetToLesson = vi.fn().mockResolvedValue({ id: 'asset-ref-1' });
 
     await useCases.attachAssetToLesson('course-1', {

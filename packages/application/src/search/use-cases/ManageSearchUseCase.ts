@@ -24,7 +24,7 @@ export class ManageSearchUseCase {
     private readonly searchEngineGateway: ISearchEngineGateway
   ) {}
 
-  public async executeSearch(dto: SearchRequestDto): Promise<SearchResult> {
+  public async executeSearch(dto: SearchRequestDto): Promise<{ request: SearchRequest; result: SearchResult }> {
     const rawId = `search-req-${randomUUID()}`;
     const rawRef = `search-ref-${randomUUID()}`;
 
@@ -69,7 +69,7 @@ export class ManageSearchUseCase {
 
     await this.searchRequestRepository.save(request);
 
-    return result;
+    return { request, result };
   }
 
   public async getSearchRequestHistory(rawReference: string): Promise<SearchRequest[]> {

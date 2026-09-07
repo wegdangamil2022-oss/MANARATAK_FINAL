@@ -23,19 +23,17 @@ export class BackgroundJobSpecification implements ISpecification<BackgroundJob>
     return new BackgroundJobSpecification(undefined, undefined, status);
   }
 
+  public getReference(): JobReference | undefined { return this.reference; }
+  public getOwnerReference(): JobOwnerReference | undefined { return this.ownerReference; }
+  public getStatus(): BackgroundJobStatus | undefined { return this.status; }
+
   public isSatisfiedBy(job: BackgroundJob): boolean {
-    if (this.reference && !job.getReference().equals(this.reference)) {
-      return false;
-    }
+    if (this.reference && !job.getReference().equals(this.reference)) return false;
     if (this.ownerReference) {
       const jobOwner = job.getOwnerReference();
-      if (!jobOwner || !jobOwner.equals(this.ownerReference)) {
-        return false;
-      }
+      if (!jobOwner || !jobOwner.equals(this.ownerReference)) return false;
     }
-    if (this.status && job.getStatus() !== this.status) {
-      return false;
-    }
+    if (this.status && job.getStatus() !== this.status) return false;
     return true;
   }
 }

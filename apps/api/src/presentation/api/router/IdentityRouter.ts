@@ -8,13 +8,21 @@ import {
   UpdateProfileUseCase,
   UpdateContactUseCase,
   GetIdentityUseCase,
-  ListIdentitiesUseCase,
-  ProvisionIdentityInput,
-  ListIdentitiesInput
+  ListIdentitiesUseCase
 } from '@manaratak/application';
 import { IAuditRecordRepository } from '@manaratak/domain';
 import { ResponseFormatter } from '../response/ResponseFormatter';
 import { AuditHelper } from '../../audit/AuditHelper';
+import {
+  emptyBodySchema,
+  identityContactUpdateSchema,
+  identityIdParamSchema,
+  identityLifecycleReasonSchema,
+  identityListQuerySchema,
+  identityProfileUpdateSchema,
+  identityProvisionSchema,
+  parseStrict,
+} from '../../validation/StrictControlPlaneSchemas';
 
 export class IdentityRouter {
   public static create({ provisionIdentityUseCase, activateIdentityUseCase, suspendIdentityUseCase, archiveIdentityUseCase, purgeIdentityUseCase, updateProfileUseCase, updateContactUseCase, getIdentityUseCase, listIdentitiesUseCase, auditRecordRepo }: { provisionIdentityUseCase: ProvisionIdentityUseCase, activateIdentityUseCase: ActivateIdentityUseCase, suspendIdentityUseCase: SuspendIdentityUseCase, archiveIdentityUseCase: ArchiveIdentityUseCase, purgeIdentityUseCase: PurgeIdentityUseCase, updateProfileUseCase: UpdateProfileUseCase, updateContactUseCase: UpdateContactUseCase, getIdentityUseCase: GetIdentityUseCase, listIdentitiesUseCase: ListIdentitiesUseCase, auditRecordRepo?: IAuditRecordRepository }): Router {
@@ -29,16 +37,9 @@ export class IdentityRouter {
 
     // 1. Provision Identity
     router.post('/', async (req: Request, res: Response) => {
-      const result = await provisionUseCase.execute({
-        type: req.body.type as ProvisionIdentityInput['type'],
-        displayName: req.body.displayName,
-        avatarUrl: req.body.avatarUrl,
-        preferredLanguage: req.body.preferredLanguage,
-        timeZone: req.body.timeZone,
-        primaryEmail: req.body.primaryEmail,
-        primaryPhone: req.body.primaryPhone,
-        technicalMetadata: req.body.technicalMetadata
-      });
+      const body = parseStrict(identityProvisionSchema, req.body);
+      if (!req.authUserId) throw new Error('AUTHENTICATED_ADMIN_ACTOR_REQUIRED');
+      const result = await provisionUseCase.execute({ ...body, createdBy: req.authUserId });
 
       if (result.isSuccess) {
         const val = result.getValue();
@@ -46,9 +47,9 @@ export class IdentityRouter {
           action: 'PROVISION_IDENTITY',
           category: 'IDENTITY',
           targetType: 'IDENTITY',
-          targetId: (val as any)?.id || (val as any)?.identityId || req.body.primaryEmail,
+          targetId: val.id || body.primaryEmail,
           result: 'SUCCESS',
-          metadata: { type: req.body.type, primaryEmail: req.body.primaryEmail }
+          metadata: { type: body.type, primaryEmail: body.primaryEmail }
         });
         res.status(201).json(responseFormatter.success(val));
       } else {
@@ -56,7 +57,7 @@ export class IdentityRouter {
           action: 'PROVISION_IDENTITY',
           category: 'IDENTITY',
           targetType: 'IDENTITY',
-          targetId: req.body.primaryEmail,
+          targetId: body.primaryEmail,
           result: 'FAILURE',
           error: result.error
         });
@@ -69,7 +70,8 @@ export class IdentityRouter {
 
     // 2. Get Identity Details (Read-only, no audit)
     router.get('/:id', async (req: Request, res: Response) => {
-      const result = await getIdentityUseCase.execute(req.params.id);
+      const { id } = parseStrict(identityIdParamSchema, req.params);
+      const result = await getIdentityUseCase.execute(id);
       if (result.isSuccess) {
         res.status(200).json(responseFormatter.success(result.getValue()));
       } else {
@@ -82,12 +84,8 @@ export class IdentityRouter {
 
     // 3. List Identities (Paged & Filtered, Read-only, no audit)
     router.get('/', async (req: Request, res: Response) => {
-      const result = await listIdentitiesUseCase.execute({
-        type: req.query.type as ListIdentitiesInput['type'],
-        status: req.query.status as ListIdentitiesInput['status'],
-        limit: req.query.limit ? Number(req.query.limit) : 20,
-        offset: req.query.offset ? Number(req.query.offset) : 0
-      });
+      const query = parseStrict(identityListQuerySchema, req.query);
+      const result = await listIdentitiesUseCase.execute(query);
 
       if (result.isSuccess) {
         res.status(200).json(responseFormatter.success(result.getValue()));
@@ -101,13 +99,15 @@ export class IdentityRouter {
 
     // 4. Activate Identity
     router.post('/:id/activate', async (req: Request, res: Response) => {
-      const result = await activateUseCase.execute(req.params.id);
+      parseStrict(emptyBodySchema, req.body ?? {});
+      const { id } = parseStrict(identityIdParamSchema, req.params);
+      const result = await activateUseCase.execute(id);
       if (result.isSuccess) {
         await AuditHelper.recordMutation(auditRecordRepo, req, {
           action: 'ACTIVATE_IDENTITY',
           category: 'IDENTITY',
           targetType: 'IDENTITY',
-          targetId: req.params.id,
+          targetId: id,
           result: 'SUCCESS'
         });
         res.status(200).json(responseFormatter.success(result.getValue()));
@@ -116,7 +116,7 @@ export class IdentityRouter {
           action: 'ACTIVATE_IDENTITY',
           category: 'IDENTITY',
           targetType: 'IDENTITY',
-          targetId: req.params.id,
+          targetId: id,
           result: 'FAILURE',
           error: result.error
         });
@@ -129,18 +129,17 @@ export class IdentityRouter {
 
     // 5. Suspend Identity
     router.post('/:id/suspend', async (req: Request, res: Response) => {
-      const result = await suspendUseCase.execute({
-        identityId: req.params.id,
-        reason: req.body.reason
-      });
+      const { id } = parseStrict(identityIdParamSchema, req.params);
+      const body = parseStrict(identityLifecycleReasonSchema, req.body);
+      const result = await suspendUseCase.execute({ identityId: id, reason: body.reason });
       if (result.isSuccess) {
         await AuditHelper.recordMutation(auditRecordRepo, req, {
           action: 'SUSPEND_IDENTITY',
           category: 'IDENTITY',
           targetType: 'IDENTITY',
-          targetId: req.params.id,
+          targetId: id,
           result: 'SUCCESS',
-          metadata: { reason: req.body.reason }
+          metadata: { reason: body.reason }
         });
         res.status(200).json(responseFormatter.success(result.getValue()));
       } else {
@@ -148,7 +147,7 @@ export class IdentityRouter {
           action: 'SUSPEND_IDENTITY',
           category: 'IDENTITY',
           targetType: 'IDENTITY',
-          targetId: req.params.id,
+          targetId: id,
           result: 'FAILURE',
           error: result.error
         });
@@ -161,18 +160,17 @@ export class IdentityRouter {
 
     // 6. Archive Identity
     router.post('/:id/archive', async (req: Request, res: Response) => {
-      const result = await archiveUseCase.execute({
-        identityId: req.params.id,
-        reason: req.body.reason
-      });
+      const { id } = parseStrict(identityIdParamSchema, req.params);
+      const body = parseStrict(identityLifecycleReasonSchema, req.body);
+      const result = await archiveUseCase.execute({ identityId: id, reason: body.reason });
       if (result.isSuccess) {
         await AuditHelper.recordMutation(auditRecordRepo, req, {
           action: 'ARCHIVE_IDENTITY',
           category: 'IDENTITY',
           targetType: 'IDENTITY',
-          targetId: req.params.id,
+          targetId: id,
           result: 'SUCCESS',
-          metadata: { reason: req.body.reason }
+          metadata: { reason: body.reason }
         });
         res.status(200).json(responseFormatter.success(result.getValue()));
       } else {
@@ -180,7 +178,7 @@ export class IdentityRouter {
           action: 'ARCHIVE_IDENTITY',
           category: 'IDENTITY',
           targetType: 'IDENTITY',
-          targetId: req.params.id,
+          targetId: id,
           result: 'FAILURE',
           error: result.error
         });
@@ -193,18 +191,17 @@ export class IdentityRouter {
 
     // 7. Purge/Delete Identity (GDPR compliant)
     router.delete('/:id', async (req: Request, res: Response) => {
-      const result = await purgeUseCase.execute({
-        identityId: req.params.id,
-        reason: req.body.reason
-      });
+      const { id } = parseStrict(identityIdParamSchema, req.params);
+      const body = parseStrict(identityLifecycleReasonSchema, req.body);
+      const result = await purgeUseCase.execute({ identityId: id, reason: body.reason });
       if (result.isSuccess) {
         await AuditHelper.recordMutation(auditRecordRepo, req, {
           action: 'PURGE_IDENTITY',
           category: 'IDENTITY',
           targetType: 'IDENTITY',
-          targetId: req.params.id,
+          targetId: id,
           result: 'SUCCESS',
-          metadata: { reason: req.body.reason }
+          metadata: { reason: body.reason }
         });
         res.status(200).json(responseFormatter.success(result.getValue()));
       } else {
@@ -212,7 +209,7 @@ export class IdentityRouter {
           action: 'PURGE_IDENTITY',
           category: 'IDENTITY',
           targetType: 'IDENTITY',
-          targetId: req.params.id,
+          targetId: id,
           result: 'FAILURE',
           error: result.error
         });
@@ -225,19 +222,15 @@ export class IdentityRouter {
 
     // 8. Update Profile Details
     router.put('/:id/profile', async (req: Request, res: Response) => {
-      const result = await updateProfileUseCase.execute({
-        identityId: req.params.id,
-        displayName: req.body.displayName,
-        avatarUrl: req.body.avatarUrl,
-        preferredLanguage: req.body.preferredLanguage,
-        timeZone: req.body.timeZone
-      });
+      const { id } = parseStrict(identityIdParamSchema, req.params);
+      const body = parseStrict(identityProfileUpdateSchema, req.body);
+      const result = await updateProfileUseCase.execute({ identityId: id, ...body });
       if (result.isSuccess) {
         await AuditHelper.recordMutation(auditRecordRepo, req, {
           action: 'UPDATE_IDENTITY_PROFILE',
           category: 'IDENTITY',
           targetType: 'IDENTITY',
-          targetId: req.params.id,
+          targetId: id,
           result: 'SUCCESS'
         });
         res.status(200).json(responseFormatter.success(result.getValue()));
@@ -246,7 +239,7 @@ export class IdentityRouter {
           action: 'UPDATE_IDENTITY_PROFILE',
           category: 'IDENTITY',
           targetType: 'IDENTITY',
-          targetId: req.params.id,
+          targetId: id,
           result: 'FAILURE',
           error: result.error
         });
@@ -259,19 +252,15 @@ export class IdentityRouter {
 
     // 9. Update Contact Registry
     router.put('/:id/contact', async (req: Request, res: Response) => {
-      const result = await updateContactUseCase.execute({
-        identityId: req.params.id,
-        email: req.body.email,
-        phone: req.body.phone,
-        verifyEmail: req.body.verifyEmail,
-        verifyPhone: req.body.verifyPhone
-      });
+      const { id } = parseStrict(identityIdParamSchema, req.params);
+      const body = parseStrict(identityContactUpdateSchema, req.body);
+      const result = await updateContactUseCase.execute({ identityId: id, ...body });
       if (result.isSuccess) {
         await AuditHelper.recordMutation(auditRecordRepo, req, {
           action: 'UPDATE_IDENTITY_CONTACT',
           category: 'IDENTITY',
           targetType: 'IDENTITY',
-          targetId: req.params.id,
+          targetId: id,
           result: 'SUCCESS'
         });
         res.status(200).json(responseFormatter.success(result.getValue()));
@@ -280,7 +269,7 @@ export class IdentityRouter {
           action: 'UPDATE_IDENTITY_CONTACT',
           category: 'IDENTITY',
           targetType: 'IDENTITY',
-          targetId: req.params.id,
+          targetId: id,
           result: 'FAILURE',
           error: result.error
         });

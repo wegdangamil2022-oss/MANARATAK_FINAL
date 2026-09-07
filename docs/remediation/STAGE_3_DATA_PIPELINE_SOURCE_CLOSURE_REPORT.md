@@ -1,5 +1,7 @@
 # Stage 3 Data Pipeline Source Closure Report
 
+> **Operational supersession notice (2026-09-06):** Recovery-era database instructions in this historical artifact are superseded by [`docs/operations/GREENFIELD_DATABASE_PROVISIONING.md`](../operations/GREENFIELD_DATABASE_PROVISIONING.md). This file remains evidence/history and is not current database-operation authority.
+
 Date: 2026-08-13
 
 Status: `SOURCE_PREPARATION_COMPLETE / DATABASE_RUNTIME_PENDING`

@@ -1,3 +1,6 @@
+import { AssetReferencePolicy, assertAssetReferenceUsable } from '../../asset-platform/AssetReferencePolicy';
+import { unicodeSlugSegment } from '../../canonicalization/UnicodeCanonicalization';
+import { canonicalizeCareerIdentityText } from '../../canonicalization/OwnerDomainIdentityPolicies';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   CareerEmployerDto,
@@ -58,13 +61,13 @@ export class CareerAdminUseCases {
   constructor(
     private readonly repository: ICareerRepository,
     private readonly references: ICareerReferenceGateway,
+    private readonly assetReferences?: AssetReferencePolicy,
   ) {}
 
   public async createEmployer(input: CreateEmployerInput): Promise<CareerEmployerDto> {
-    const canonicalName = normalizeText(input.displayName);
+    const canonicalName = canonicalizeCareerIdentityText(input.displayName);
     if (!canonicalName) throw new Error('Employer displayName is required');
-    if (input.logoAssetId && /^https?:\/\//i.test(input.logoAssetId))
-      throw new Error('logoAssetId must be a Phase 05 EAP handle, not a raw URL');
+    await assertAssetReferenceUsable(this.assetReferences, input.logoAssetId, { purpose: 'CAREER_EMPLOYER_LOGO' });
 
     const countryReferenceId = await this.resolveOptionalCountry(input.countryReferenceId ?? input.country);
     if ((input.cityReferenceId || input.city) && !countryReferenceId) throw new Error('CAREER_CITY_REQUIRES_COUNTRY');
@@ -78,7 +81,7 @@ export class CareerAdminUseCases {
       countryReferenceId,
       cityReferenceId,
       publicId: `career_emp_${randomUUID()}`,
-      slug: `${slugify(input.displayName)}-${shortHash(canonicalDedupKey)}`,
+      slug: `${unicodeSlugSegment(input.displayName)}-${shortHash(canonicalDedupKey)}`,
       canonicalName,
       canonicalDedupKey,
       verificationStatus: CareerEmployerStatus.UNVERIFIED,
@@ -96,7 +99,8 @@ export class CareerAdminUseCases {
     const cityReferenceId = input.cityReferenceId || input.city
       ? await this.references.resolveCityReference(input.cityReferenceId ?? input.city ?? '', countryReferenceId.id)
       : null;
-    const canonicalTitle = normalizeText(input.title);
+    const canonicalTitle = canonicalizeCareerIdentityText(input.title);
+    if (!canonicalTitle) throw new Error('Job title must contain at least one Unicode letter or number');
     const canonicalDedupKey = [
       canonicalTitle,
       input.employerId,
@@ -112,7 +116,7 @@ export class CareerAdminUseCases {
       countryReferenceId: countryReferenceId.id,
       cityReferenceId: cityReferenceId?.id ?? null,
       publicId: `career_job_${randomUUID()}`,
-      slug: `${slugify(`${input.title}-${employer.displayName}`)}-${shortHash(canonicalDedupKey)}`,
+      slug: `${unicodeSlugSegment(`${input.title}-${employer.displayName}`)}-${shortHash(canonicalDedupKey)}`,
       canonicalTitle,
       canonicalDedupKey,
       status: CareerJobStatus.READY_TO_REVIEW,
@@ -125,16 +129,20 @@ export class CareerAdminUseCases {
     return this.repository.listEmployers({ ...filters, pageSize: Math.min(filters.pageSize || 50, 50) });
   }
 
-  public async setEmployerStatus(id: string, status: CareerEmployerStatus): Promise<CareerEmployerDto> {
+  public async setEmployerStatus(id: string, status: CareerEmployerStatus, expectedVersion: number): Promise<CareerEmployerDto> {
+    this.assertExpectedVersion(expectedVersion);
     const employer = await this.repository.findEmployerById(id);
     if (!employer) throw new Error('Recruitment employer not found');
     if (status === CareerEmployerStatus.UNVERIFIED)
       throw new Error('Employer status cannot be reset to UNVERIFIED after review');
-    return this.repository.updateEmployer(id, { verificationStatus: status });
+    if (employer.version !== expectedVersion) throw new Error('CAREER_EMPLOYER_VERSION_CONFLICT');
+    return this.repository.updateEmployer(id, { verificationStatus: status }, expectedVersion);
   }
 
-  public async updateJob(id: string, updates: UpdateCareerJobPostingDto): Promise<CareerJobPostingDto> {
+  public async updateJob(id: string, updates: UpdateCareerJobPostingDto, expectedVersion: number): Promise<CareerJobPostingDto> {
+    this.assertExpectedVersion(expectedVersion);
     const existing = await this.getJob(id);
+    if (existing.version !== expectedVersion) throw new Error('CAREER_JOB_VERSION_CONFLICT');
     const canonical: UpdateCareerJobPostingDto = { ...updates };
     const countryReferenceId = updates.countryReferenceId !== undefined || updates.country !== undefined
       ? (await this.references.resolveCountryReference(updates.countryReferenceId ?? updates.country ?? '')).id
@@ -153,7 +161,8 @@ export class CareerAdminUseCases {
       await this.references.resolveCityReference(existing.cityReferenceId, countryReferenceId);
     }
 
-    const canonicalTitle = updates.title ? normalizeText(updates.title) : existing.canonicalTitle;
+    const canonicalTitle = updates.title ? canonicalizeCareerIdentityText(updates.title) : existing.canonicalTitle;
+    if (!canonicalTitle) throw new Error('Job title must contain at least one Unicode letter or number');
     const cityReferenceId = canonical.cityReferenceId === undefined ? existing.cityReferenceId : canonical.cityReferenceId;
     const employmentType = updates.employmentType ?? existing.employmentType;
     const canonicalDedupKey = [
@@ -167,7 +176,7 @@ export class CareerAdminUseCases {
       const duplicate = await this.repository.findJobByDedupKey(canonicalDedupKey);
       if (duplicate && duplicate.id !== id) throw new Error('A matching job posting already exists');
     }
-    return this.repository.updateJob(id, { ...canonical, canonicalTitle, canonicalDedupKey });
+    return this.repository.updateJob(id, { ...canonical, canonicalTitle, canonicalDedupKey }, expectedVersion);
   }
 
   public async listJobs(filters: CareerJobFilters): Promise<PaginatedCareerResult<CareerJobPostingDto>> {
@@ -178,14 +187,18 @@ export class CareerAdminUseCases {
     if (!job) throw new Error(`Career job with id ${id} not found`);
     return job;
   }
-  public async markReadyToPublish(id: string): Promise<void> {
+  public async markReadyToPublish(id: string, expectedVersion: number): Promise<CareerJobPostingDto> {
+    this.assertExpectedVersion(expectedVersion);
     const job = await this.getJob(id);
+    if (job.version !== expectedVersion) throw new Error('CAREER_JOB_VERSION_CONFLICT');
     if (job.status !== CareerJobStatus.READY_TO_REVIEW)
       throw new Error('Only READY_TO_REVIEW jobs can be marked READY_TO_PUBLISH');
-    await this.repository.updateJobStatus(id, CareerJobStatus.READY_TO_PUBLISH);
+    return this.repository.updateJobStatus(id, CareerJobStatus.READY_TO_PUBLISH, expectedVersion);
   }
-  public async publish(id: string): Promise<void> {
+  public async publish(id: string, expectedVersion: number): Promise<CareerJobPostingDto> {
+    this.assertExpectedVersion(expectedVersion);
     const job = await this.getJob(id);
+    if (job.version !== expectedVersion) throw new Error('CAREER_JOB_VERSION_CONFLICT');
     if (job.status !== CareerJobStatus.READY_TO_PUBLISH)
       throw new Error('Only READY_TO_PUBLISH jobs can be PUBLISHED');
     const employer = await this.repository.findEmployerById(job.employerId);
@@ -193,11 +206,17 @@ export class CareerAdminUseCases {
       throw new Error('Only jobs from VERIFIED employers can be PUBLISHED');
     if (job.applicationDeadline && new Date(job.applicationDeadline).getTime() <= Date.now())
       throw new Error('Expired job opportunities cannot be PUBLISHED');
-    await this.repository.updateJobStatus(id, CareerJobStatus.PUBLISHED);
+    return this.repository.updateJobStatus(id, CareerJobStatus.PUBLISHED, expectedVersion);
   }
-  public async archive(id: string): Promise<void> {
-    await this.getJob(id);
-    await this.repository.updateJobStatus(id, CareerJobStatus.ARCHIVED);
+  public async archive(id: string, expectedVersion: number): Promise<CareerJobPostingDto> {
+    this.assertExpectedVersion(expectedVersion);
+    const job = await this.getJob(id);
+    if (job.version !== expectedVersion) throw new Error('CAREER_JOB_VERSION_CONFLICT');
+    return this.repository.updateJobStatus(id, CareerJobStatus.ARCHIVED, expectedVersion);
+  }
+
+  private assertExpectedVersion(expectedVersion: number): void {
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) throw new Error('CAREER_EXPECTED_VERSION_REQUIRED');
   }
 
   private async resolveOptionalCountry(value?: string | null): Promise<string | null> {
@@ -213,13 +232,6 @@ export class CareerAdminUseCases {
   }
 }
 
-function normalizeText(value: string): string {
-  return value.toLowerCase().replace(/\b(urgent|hiring|best|opportunity|2024|2025|2026|2027)\b/g, '').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-}
-function slugify(value: string): string {
-  const slug = normalizeText(value).replace(/\s+/g, '-');
-  return slug || 'career';
-}
 function shortHash(value: string): string {
   return createHash('sha256').update(value).digest('hex').slice(0, 8);
 }

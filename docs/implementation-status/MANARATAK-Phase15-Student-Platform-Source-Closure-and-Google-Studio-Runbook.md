@@ -1,3 +1,5 @@
+> **Authentication authority (2026-09-06):** `docs/operations/AUTH_TOKEN_KEY_ROTATION.md` is the active token/key-rotation runbook.
+
 # إغلاق المرحلة 15 — منصة الطالب المؤسسية
 
 ## حالة المصدر
@@ -52,7 +54,7 @@
 
 ### 2. الهوية والأمان
 
-1. اضبط `JWT_SECRET` ومدة access/refresh tokens.
+1. اضبط مفاتيح RS256 (`JWT_ACTIVE_KEY_ID` / private/public PEM) واجعل `ACCESS_TOKEN_TTL_SECONDS<=900`؛ refresh credentials opaque وعمر الجلسة يدار عبر `SESSION_TTL_SECONDS`.
 2. تأكد أن `userId` داخل JWT هو نفسه `studentReferenceId` المعتمد لمساحة الطالب.
 3. اختبر أن طالبًا لا يستطيع قراءة أو تعديل معرف طالب آخر.
 4. اربط التعليق والأرشفة لاحقًا بصلاحيات إدارة المرحلة 23، ولا تفتحها لمسارات الطالب.
@@ -68,7 +70,7 @@
 الأحداث الأولى المطلوب ربطها:
 
 - `StudentIdentityCreated`
-- `CourseEnrollmentCreated`
+- `CourseEnrolled`
 - `CourseProgressUpdated`
 - `CourseCompleted`
 - `CertificateIssued`

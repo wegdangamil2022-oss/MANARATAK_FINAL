@@ -19,9 +19,10 @@ const historical='docs/remediation/p13/P13_HISTORICAL_EVIDENCE_REGISTER_2026-09-
 for(const f of [matrix,report,pending,trace,historical,'scripts/verify-p13-final-source-closure.mjs']) check(`P13-FILE ${f}`,exists(f));
 
 const mx=read(matrix); const rows=mx.split('\n').filter(l=>/^\| R-\d{3} \|/u.test(l));
-check('P13-MATRIX v2.0.0',mx.includes('**Version:** 2.0.0'));
-check('P13-MATRIX final active status',mx.includes('**Status:** ACTIVE — P13 FINAL SOURCE CLOSURE'));
-check('P13-MATRIX exactly 68 relationship rows',rows.length===68,String(rows.length));
+check('P13-MATRIX current rebaselined version',mx.includes('**Version:** 3.0.0-source-rebaselined'));
+check('P13-MATRIX current active status',mx.includes('**Status:** ACTIVE — SOURCE_REBASELINED / RUNTIME_EVIDENCE_PENDING'));
+check('P13-MATRIX exactly 69 current relationship rows',rows.length===69,String(rows.length));
+for(let i=1;i<=69;i++){const id=`R-${String(i).padStart(3,'0')}`; check(`P13-MATRIX current row ${id}`,rows.some(l=>l.startsWith(`| ${id} |`)));}
 check('P13-MATRIX no Missing',!rows.some(l=>l.includes('| Missing |')));
 check('P13-MATRIX no Partial',!rows.some(l=>l.includes('| Partial |')));
 check('P13-MATRIX only source-closed/runtime-pending',rows.every(l=>l.includes('| Source Closed |')||l.includes('| Runtime Pending |')));
@@ -29,7 +30,7 @@ for(const id of ['R-024','R-025','R-026','R-027','R-028','R-033']){
  const row=rows.find(l=>l.startsWith(`| ${id} |`))||'';
  check(`P13-MATRIX ${id} final repaired`,row.includes('| Runtime Pending |')&&row.includes('P13 FINAL'));
 }
-check('P13-MATRIX final counts documented',mx.includes('`Partial`: **0**')&&mx.includes('`Missing`: **0**')&&mx.includes('`Runtime Pending`: **67**'));
+const sourceClosedCount=rows.filter(l=>l.includes('| Source Closed |')).length; const runtimePendingCount=rows.filter(l=>l.includes('| Runtime Pending |')).length; check('P13-MATRIX current counts consistent',sourceClosedCount===2&&runtimePendingCount===67&&sourceClosedCount+runtimePendingCount===69,`sourceClosed=${sourceClosedCount},runtimePending=${runtimePendingCount}`); check('P13-REPORT retains historical P13 snapshot',has(report,'68 total; 1 Source Closed; 67 Runtime Pending; 0 Partial; 0 Missing'));
 
 const studentDomain='packages/domain/src/students/index.ts';
 const savedGate='packages/infrastructure/src/students/StudentSavedItemHydrationGateways.ts';
@@ -92,8 +93,7 @@ check('P13-AUDIT P15 live localStorage not authority',!read(webStudent).includes
 const pkg=JSON.parse(read('package.json')), scripts=pkg.scripts||{};
 check('P13-PKG verifier script',scripts['phase13:plan:verify']==='node scripts/verify-p13-final-source-closure.mjs');
 check('P13-PKG full CI includes P13',scripts['ci:source:full']?.includes('phase13:plan:verify'));
-const ci=read('.github/workflows/ci.yml');
-check('P13-CI runs final source audit',ci.includes('npm run phase13:plan:verify'));
+const ci=read('.github/workflows/ci.yml'); const closureManifest=JSON.parse(read('scripts/ci/source-closure-manifest.json')); const p7p13Gate=(closureManifest.gates??[]).find(g=>g.id==='p7-p13-plan'); check('P13-CI runs canonical closure manifest',ci.includes('npm run ci:closure:manifest')); check('P13-MANIFEST final source audit registered',p7p13Gate?.classification==='SOURCE'&&String(p7p13Gate.command).includes('phase13:plan:verify'));
 
 function run(label,file){const r=spawnSync(process.execPath,[file],{cwd:root,encoding:'utf8'}); const out=`${r.stdout||''}${r.stderr||''}`; check(label,r.status===0,out.trim().slice(-1600)); return out;}
 for(const [label,file,marker] of [

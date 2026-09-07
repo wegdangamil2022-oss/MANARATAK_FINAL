@@ -130,7 +130,7 @@ export const FeaturedCourses: React.FC<FeaturedCoursesProps> = ({
 
                       <div className="flex items-center gap-0.5 text-[var(--mn-accent-text)] text-[9px] font-bold">
                         <Star className="w-2.5 h-2.5 fill-[var(--mn-accent-soft)]" />
-                        <span>{course.rating}</span>
+                        <span>{course.rating ?? 'غير متوفر'}</span>
                       </div>
                     </div>
 

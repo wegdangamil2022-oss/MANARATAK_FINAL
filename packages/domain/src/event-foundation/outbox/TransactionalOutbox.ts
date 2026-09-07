@@ -5,16 +5,13 @@ export enum OutboxProcessingState {
   FAILED = 'FAILED'
 }
 
-export interface OutboxAggregateIdentity {
-  domain: string;
-  aggregateType: string;
-  aggregateId: string;
-}
+export interface OutboxAggregateIdentity { domain: string; aggregateType: string; aggregateId: string; }
+export interface SanitizedOutboxFailure { code: string; message: string; failedAt: Date; }
 
-export interface SanitizedOutboxFailure {
-  code: string;
-  message: string;
-  failedAt: Date;
+export interface OutboxLeaseOwnership {
+  workerId: string;
+  leaseToken: string;
+  claimUntil: Date;
 }
 
 export interface TransactionalOutboxEntry {
@@ -32,47 +29,31 @@ export interface TransactionalOutboxEntry {
   attempts: number;
   processedAt?: Date;
   lastError?: SanitizedOutboxFailure;
+  lease?: OutboxLeaseOwnership;
 }
 
-/** Opaque handle supplied by a future persistence unit of work. */
-export interface AtomicPersistenceContext {
-  readonly boundaryId: string;
-}
+export interface AtomicPersistenceContext { readonly boundaryId: string; }
 
 export interface OutboxClaimRequest {
   workerId: string;
   batchSize: number;
   claimUntil: Date;
   now: Date;
-  /** Optional bounded subscription filter; prevents a domain worker from consuming unrelated events. */
   domain?: string;
   eventTypes?: readonly string[];
 }
 
 export interface ITransactionalOutboxStore {
-  appendInTransaction(
-    entry: TransactionalOutboxEntry,
-    transaction: AtomicPersistenceContext
-  ): Promise<void>;
+  appendInTransaction(entry: TransactionalOutboxEntry, transaction: AtomicPersistenceContext): Promise<void>;
   claimPendingBatch(request: OutboxClaimRequest): Promise<TransactionalOutboxEntry[]>;
-  markProcessed(id: string, processedAt: Date): Promise<void>;
-  markFailed(
-    id: string,
-    failure: SanitizedOutboxFailure,
-    nextAvailableAt: Date
-  ): Promise<void>;
+  renewLease(id: string, ownership: OutboxLeaseOwnership, now: Date, newClaimUntil: Date): Promise<boolean>;
+  markProcessed(id: string, ownership: OutboxLeaseOwnership, processedAt: Date): Promise<boolean>;
+  markFailed(id: string, ownership: OutboxLeaseOwnership, failure: SanitizedOutboxFailure, nextAvailableAt: Date): Promise<boolean>;
 }
 
-export interface OutboxDeliveryContext {
-  /** Consumers must use this stable value as their idempotency key. */
-  idempotencyKey: string;
-}
-
+export interface OutboxDeliveryContext { idempotencyKey: string; }
 export interface IOutboxDeliveryGateway {
-  deliver(
-    entry: TransactionalOutboxEntry,
-    context: OutboxDeliveryContext
-  ): Promise<void>;
+  deliver(entry: TransactionalOutboxEntry, context: OutboxDeliveryContext): Promise<void>;
 }
 
 export interface OutboxDispatchRequest {
@@ -82,7 +63,6 @@ export interface OutboxDispatchRequest {
   maxAttempts: number;
   baseBackoffMs: number;
   maxBackoffMs: number;
-  /** Optional bounded subscription filter forwarded to the durable outbox store. */
   domain?: string;
   eventTypes?: readonly string[];
 }
@@ -92,6 +72,7 @@ export interface OutboxDispatchResult {
   processed: number;
   failed: number;
   exhausted: number;
+  leaseLost: number;
 }
 
 export interface ITransactionalOutboxDispatcher {

@@ -44,7 +44,6 @@ describe('PrismaSessionManager', () => {
     expect(isValid).toBe(true);
     expect(mockPrisma.sessionRecord.findFirst).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
-        identityId: 'user1',
         refreshTokenHash: hashToken('valid-token'),
         revokedAt: null,
       })

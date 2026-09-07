@@ -1,5 +1,7 @@
 # Codex Local Closure Reclassification
 
+> **Operational supersession notice (2026-09-06):** Any instruction in this historical remediation artifact that requires an “Original Development Database”, a Google Studio recovery gate, or `WP1_RECOVERY_GATE` is superseded by [`docs/operations/GREENFIELD_DATABASE_PROVISIONING.md`](../../operations/GREENFIELD_DATABASE_PROVISIONING.md). This file remains historical/evidence context and is not current database-operation authority.
+
 Status date: 2026-08-13
 
 This register separates source and local-runtime evidence from database evidence. It does not reduce the canonical count of 96 grouped closure gates and does not authorize migrations, imports, backfills, or other database mutations.

@@ -10,7 +10,7 @@ import { ConfigurationResolutionService } from '@manaratak/domain';
 
 describe('W1 composition boundaries', () => {
   it('wires settings resolution repositories explicitly under PROXY injection', () => {
-    registerDependencies({ NODE_ENV: 'test', JWT_SECRET: 'test-secret-key-must-be-long-enough-32-chars' });
+    registerDependencies({ NODE_ENV: 'test' });
     const service = container.resolve<ConfigurationResolutionService>('configurationResolutionService') as any;
     expect(service).toBeInstanceOf(ConfigurationResolutionService);
     expect(service.definitionRepo).toBeDefined();
@@ -20,7 +20,6 @@ describe('W1 composition boundaries', () => {
   it('constructs Phase 6 positional adapters through explicit factories instead of cradle injection', () => {
     registerDependencies({
       NODE_ENV: 'test',
-      JWT_SECRET: 'test-secret-key-must-be-long-enough-32-chars',
       IMPORT_RAW_SNAPSHOT_DIR: 'var/test-import-raw',
     });
 
@@ -39,7 +38,7 @@ describe('W1 composition boundaries', () => {
   });
 
   it('resolves the concrete JWT provider from Infrastructure, not Application', () => {
-    registerDependencies({ NODE_ENV: 'test', JWT_SECRET: 'test-secret-key-must-be-long-enough-32-chars' });
+    registerDependencies({ NODE_ENV: 'test' });
     expect(container.resolve('tokenProvider')).toBeInstanceOf(JwtTokenProvider);
   });
 });

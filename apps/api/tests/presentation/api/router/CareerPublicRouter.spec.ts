@@ -17,7 +17,7 @@ describe('CareerPublicRouter', () => {
     expect(response.status).toBe(200);
     expect(careerPublicUseCases.listPublishedJobs).toHaveBeenCalledWith(expect.objectContaining({
       country: 'Yemen',
-      pageSize: 50
+      limit: 20
     }));
   });
 });

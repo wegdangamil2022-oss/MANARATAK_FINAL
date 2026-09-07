@@ -1,3 +1,4 @@
+import { generateOpaqueIdentifier } from './IdentifierGenerator';
 import { Identifier } from './Identifier';
 
 export abstract class Entity<T> {
@@ -5,7 +6,7 @@ export abstract class Entity<T> {
   public readonly props: T;
 
   constructor(props: T, id?: Identifier<string | number>) {
-    this._id = id ? id : new Identifier<string | number>(Math.random().toString(36).substring(2, 15));
+    this._id = id ? id : new Identifier<string | number>(generateOpaqueIdentifier());
     this.props = props;
   }
 

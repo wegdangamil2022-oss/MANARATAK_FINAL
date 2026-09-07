@@ -7,6 +7,7 @@ export interface IRoleAssignmentRepository {
   save(assignment: RoleAssignment): Promise<void>;
   findBy(specification: ISpecification<RoleAssignment>): Promise<RoleAssignment[]>;
   findByIdentityId(identityId: string): Promise<RoleAssignment[]>;
+  listAll(): Promise<RoleAssignment[]>;
   delete(id: string): Promise<void>;
 }
 

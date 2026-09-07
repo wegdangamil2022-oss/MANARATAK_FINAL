@@ -24,6 +24,8 @@ import {
   TaxonomyMappedMajorDto,
 } from '@manaratak/domain';
 
+import { queryStableCursorPage } from '../api-foundation/StableCursor';
+
 const MAJOR_INCLUDE = {
   academicField: true,
   discipline: true,
@@ -272,7 +274,35 @@ export class PrismaMajorRepository implements ITransactionalMajorRepository {
   }
 
   async listPublished(filters: PublicMajorFilters): Promise<PaginatedMajorResult<MajorDto>> {
-    return this.list({ ...filters, status: MajorStatus.PUBLISHED });
+    const where: Prisma.MajorWhereInput = { status: MajorStatus.PUBLISHED };
+    const and: Prisma.MajorWhereInput[] = [];
+    if (filters.degreeLevel) and.push(this.withLegacyOptionalFallback(
+      { levelProfiles: { some: { degreeLevel: { is: { canonicalCode: filters.degreeLevel.toUpperCase() as any } } } } },
+      { optionalFields: { path: ['degreeLevel'], equals: filters.degreeLevel } },
+    ));
+    if (filters.academicFieldOrDiscipline) and.push(this.withLegacyOptionalFallback(
+      { OR: [
+        { academicField: { is: { canonicalName: { contains: filters.academicFieldOrDiscipline, mode: 'insensitive' } } } },
+        { discipline: { is: { canonicalName: { contains: filters.academicFieldOrDiscipline, mode: 'insensitive' } } } },
+      ] },
+      { optionalFields: { path: ['academicFieldOrDiscipline'], string_contains: filters.academicFieldOrDiscipline } },
+    ));
+    if (filters.collegeOrFaculty) and.push(this.withLegacyOptionalFallback(
+      { facultyName: { contains: filters.collegeOrFaculty, mode: 'insensitive' } },
+      { optionalFields: { path: ['collegeOrFaculty'], string_contains: filters.collegeOrFaculty } },
+    ));
+    if (filters.academicFieldId) where.academicFieldId = filters.academicFieldId;
+    if (filters.disciplineId) where.disciplineId = filters.disciplineId;
+    if (filters.search) where.OR = [
+      { displayName: { contains: filters.search, mode: 'insensitive' } },
+      { canonicalName: { contains: filters.search, mode: 'insensitive' } },
+      { slug: { contains: filters.search, mode: 'insensitive' } },
+    ];
+    if (and.length) where.AND = and;
+    return queryStableCursorPage({
+      delegate: this.prisma.major as any, where, include: MAJOR_INCLUDE,
+      cursor: filters.cursor, limit: filters.limit, map: (record: any) => this.mapToDto(record),
+    });
   }
 
   async createVersion(data: Omit<MajorVersionDto, 'id' | 'createdAt' | 'updatedAt'>): Promise<MajorVersionDto> {

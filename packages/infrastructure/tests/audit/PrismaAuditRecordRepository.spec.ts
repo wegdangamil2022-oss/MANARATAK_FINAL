@@ -28,7 +28,7 @@ describe('PrismaAuditRecordRepository', () => {
   beforeEach(() => {
     mockPrisma = {
       auditRecord: {
-        upsert: vi.fn(),
+        create: vi.fn(),
         findMany: vi.fn(),
         findUnique: vi.fn()
       }
@@ -65,43 +65,47 @@ describe('PrismaAuditRecordRepository', () => {
 
     await repository.save(record);
 
-    expect(mockPrisma.auditRecord.upsert).toHaveBeenCalledTimes(1);
-    const upsertArgs = mockPrisma.auditRecord.upsert.mock.calls[0][0];
+    expect(mockPrisma.auditRecord.create).toHaveBeenCalledTimes(1);
+    const createArgs = mockPrisma.auditRecord.create.mock.calls[0][0];
 
-    expect(upsertArgs.where).toEqual({ id: 'audit-record-1' });
-    expect(upsertArgs.create.id).toBe('audit-record-1');
-    expect(upsertArgs.create.reference).toBe('AUD-2026-0001');
-    expect(upsertArgs.create.action).toBe('USER_LOGIN');
-    expect(upsertArgs.create.category).toBe('AUTHENTICATION');
-    expect(upsertArgs.create.severity).toBe('INFO');
-    expect(upsertArgs.create.actorId).toBe('user-100');
-    expect(upsertArgs.create.actorType).toBe('IDENTITY');
-    expect(upsertArgs.create.targetId).toBe('system-portal');
-    expect(upsertArgs.create.targetType).toBe('SYSTEM');
-    expect(upsertArgs.create.source).toBe('192.168.1.1');
-    expect(upsertArgs.create.complianceMetadata).toEqual(['GDPR', 'HIPAA']);
-    expect(upsertArgs.create.correlationReference).toBe('corr-888');
-    expect(upsertArgs.create.traceReference).toBe('trace-999');
-    expect(upsertArgs.create.chainReference).toBe('AUD-2026-0000');
-    expect(upsertArgs.create.retentionPeriodInDays).toBe(90);
+    expect(createArgs.data.id).toBe('audit-record-1');
+    expect(createArgs.data.reference).toBe('AUD-2026-0001');
+    expect(createArgs.data.action).toBe('USER_LOGIN');
+    expect(createArgs.data.category).toBe('AUTHENTICATION');
+    expect(createArgs.data.severity).toBe('INFO');
+    expect(createArgs.data.actorId).toBe('user-100');
+    expect(createArgs.data.actorType).toBe('IDENTITY');
+    expect(createArgs.data.targetId).toBe('system-portal');
+    expect(createArgs.data.targetType).toBe('SYSTEM');
+    expect(createArgs.data.source).toBe('192.168.1.1');
+    expect(createArgs.data.complianceMetadata).toEqual(['GDPR', 'HIPAA']);
+    expect(createArgs.data.correlationReference).toBe('corr-888');
+    expect(createArgs.data.traceReference).toBe('trace-999');
+    expect(createArgs.data.chainReference).toBe('AUD-2026-0000');
+    expect(createArgs.data.retentionPeriodInDays).toBe(90);
 
     // Verify secret sanitization in persisted payload
-    expect(upsertArgs.create.contextMetadata.ip).toBe('192.168.1.1');
-    expect(upsertArgs.create.contextMetadata.userAgent).toBe('Mozilla/5.0');
-    expect(upsertArgs.create.contextMetadata.password).toBe('[REDACTED]');
+    expect(createArgs.data.contextMetadata.ip).toBe('192.168.1.1');
+    expect(createArgs.data.contextMetadata.userAgent).toBe('Mozilla/5.0');
+    expect(createArgs.data.contextMetadata.password).toBe('[REDACTED]');
+  });
+
+  it('rejects duplicate append attempts instead of updating historical evidence', async () => {
+    mockPrisma.auditRecord.create.mockRejectedValue({ code: 'P2002' });
+    await expect(repository.save(createSampleAuditRecord())).rejects.toThrow('AUDIT_APPEND_ONLY_DUPLICATE');
   });
 
   it('saves through the supplied transaction client for atomic mutations', async () => {
-    const transactionUpsert = vi.fn();
+    const transactionCreate = vi.fn();
     const record = createSampleAuditRecord();
 
     await repository.saveInTransaction(record, {
       boundaryId: 'boundary-1',
-      transactionClient: { auditRecord: { upsert: transactionUpsert } }
+      transactionClient: { auditRecord: { create: transactionCreate } }
     } as any);
 
-    expect(transactionUpsert).toHaveBeenCalledOnce();
-    expect(mockPrisma.auditRecord.upsert).not.toHaveBeenCalled();
+    expect(transactionCreate).toHaveBeenCalledOnce();
+    expect(mockPrisma.auditRecord.create).not.toHaveBeenCalled();
   });
 
   it('rejects atomic save without a transaction client', async () => {

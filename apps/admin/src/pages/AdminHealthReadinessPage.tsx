@@ -91,15 +91,6 @@ interface HealthOverview {
   productionReadiness: ProductionReadiness;
 }
 
-const BRAND = {
-  primary: '#142B5F',
-  secondary: '#0E7C86',
-  accent: '#D6A43B',
-  mist: '#DDEFF2',
-  ivory: '#FAF7F0',
-  ink: '#203442',
-};
-
 const COMPONENT_META: Record<string, { ar: string; en: string; owner: string; href?: string; icon: typeof Server }> = {
   database: { ar: 'قاعدة البيانات', en: 'PostgreSQL / Prisma', owner: 'Core Infrastructure', icon: Database },
   redis: { ar: 'Redis وحالة التشغيل الموزع', en: 'Redis Runtime State', owner: 'Core Infrastructure', icon: Layers3 },
@@ -192,10 +183,9 @@ export function AdminHealthReadinessPage() {
   };
 
   return (
-    <div className="min-h-full space-y-6" dir="rtl" style={{ fontFamily: 'Cairo, sans-serif', color: BRAND.ink }}>
+    <div className="min-h-full space-y-6 font-sans text-[#203442]" dir="rtl">
       <section
-        className="overflow-hidden rounded-[28px] border shadow-sm"
-        style={{ borderColor: '#c9dde1', background: `linear-gradient(135deg, ${BRAND.primary}, ${BRAND.secondary})` }}
+        className="overflow-hidden rounded-[28px] border border-[#c9dde1] bg-gradient-to-br from-[#142B5F] to-[#0E7C86] shadow-sm"
       >
         <div className="flex flex-col gap-5 p-6 text-white lg:flex-row lg:items-center lg:justify-between lg:p-8">
           <div className="max-w-3xl">
@@ -212,8 +202,7 @@ export function AdminHealthReadinessPage() {
             <button
               onClick={() => void refresh()}
               disabled={loading}
-              className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold shadow-sm disabled:opacity-60"
-              style={{ color: BRAND.primary }}
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-[#142B5F] shadow-sm disabled:opacity-60"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               إعادة الفحص
@@ -293,7 +282,7 @@ export function AdminHealthReadinessPage() {
         />
       </section>
 
-      <nav className="flex flex-wrap gap-1 rounded-2xl border bg-white p-1.5 shadow-sm" style={{ borderColor: '#d7e6e8' }}>
+      <nav className="flex flex-wrap gap-1 rounded-2xl border border-[#d7e6e8] bg-white p-1.5 shadow-sm">
         <TabButton active={activeTab === 'OVERVIEW'} onClick={() => setActiveTab('OVERVIEW')} label="نظرة عامة" count={activeFindings.length} />
         <TabButton active={activeTab === 'COMPONENTS'} onClick={() => setActiveTab('COMPONENTS')} label="المكونات" count={overview?.components.length} />
         <TabButton active={activeTab === 'RELEASE'} onClick={() => setActiveTab('RELEASE')} label="جاهزية الإطلاق" count={overview?.productionReadiness.findings.length} />
@@ -303,13 +292,13 @@ export function AdminHealthReadinessPage() {
 
       {loading && !overview ? (
         <div className="flex min-h-64 items-center justify-center rounded-2xl border bg-white">
-          <RefreshCw className="h-7 w-7 animate-spin" style={{ color: BRAND.secondary }} />
+          <RefreshCw className="h-7 w-7 animate-spin text-[#0E7C86]" />
         </div>
       ) : null}
 
       {overview && activeTab === 'OVERVIEW' && (
         <div className="grid gap-5 xl:grid-cols-[1.2fr_.8fr]">
-          <section className="rounded-2xl border bg-white shadow-sm" style={{ borderColor: '#d7e6e8' }}>
+          <section className="rounded-2xl border border-[#d7e6e8] bg-white shadow-sm">
             <SectionHeader title="المشكلات النشطة" subtitle="مشتقة من الفحوصات الحالية وبوابة الإطلاق؛ ليست حوادث تجريبية أو سجلات مصطنعة." />
             <div className="divide-y">
               {activeFindings.length ? activeFindings.map((finding) => (
@@ -318,7 +307,7 @@ export function AdminHealthReadinessPage() {
                   <div>
                     <div className="font-black">{finding.title}</div>
                     <div className="mt-1 text-sm leading-6 text-slate-600">{finding.detail}</div>
-                    <div className="mt-2 text-xs font-bold" style={{ color: BRAND.secondary }}>{finding.source}</div>
+                    <div className="mt-2 text-xs font-bold text-[#0E7C86]">{finding.source}</div>
                   </div>
                 </div>
               )) : (
@@ -327,7 +316,7 @@ export function AdminHealthReadinessPage() {
             </div>
           </section>
 
-          <section className="rounded-2xl border bg-white shadow-sm" style={{ borderColor: '#d7e6e8' }}>
+          <section className="rounded-2xl border border-[#d7e6e8] bg-white shadow-sm">
             <SectionHeader title="ملخص آخر فحص" subtitle="الوقت والحالة مأخوذان من API الحالي، وليس من قيم ثابتة." />
             <div className="space-y-3 p-5 text-sm">
               <InfoRow label="آخر فحص" value={formatDate(overview.checkedAt)} />
@@ -344,11 +333,11 @@ export function AdminHealthReadinessPage() {
       )}
 
       {overview && activeTab === 'COMPONENTS' && (
-        <section className="overflow-hidden rounded-2xl border bg-white shadow-sm" style={{ borderColor: '#d7e6e8' }}>
+        <section className="overflow-hidden rounded-2xl border border-[#d7e6e8] bg-white shadow-sm">
           <SectionHeader title="حالة مكونات المنظومة" subtitle="تُعرض فقط الحالات التي يملك الـBackend فحصًا أو Capability Probe حقيقيًا لها." />
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-sm">
-              <thead style={{ backgroundColor: BRAND.ivory }}>
+              <thead className="bg-[#FAF7F0]">
                 <tr className="text-right text-xs font-black text-slate-600">
                   <th className="px-5 py-3">المكون</th>
                   <th className="px-5 py-3">المالك</th>
@@ -367,7 +356,7 @@ export function AdminHealthReadinessPage() {
                     <tr key={component.id} className="hover:bg-slate-50/70">
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <span className="rounded-xl p-2" style={{ backgroundColor: BRAND.mist, color: BRAND.secondary }}><Icon className="h-4 w-4" /></span>
+                          <span className="rounded-xl bg-[#DDEFF2] p-2 text-[#0E7C86]"><Icon className="h-4 w-4" /></span>
                           <div><div className="font-black">{meta.ar}</div><div className="text-xs text-slate-500">{meta.en}</div></div>
                         </div>
                       </td>
@@ -379,7 +368,7 @@ export function AdminHealthReadinessPage() {
                       <td className="px-5 py-4">
                         <div className="flex gap-2">
                           <button onClick={() => setSelectedComponent(component)} className="rounded-lg border px-3 py-1.5 text-xs font-bold hover:bg-slate-50">التفاصيل</button>
-                          {meta.href && <Link to={meta.href} className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold" style={{ backgroundColor: BRAND.mist, color: BRAND.secondary }}>فتح القسم <ExternalLink className="h-3 w-3" /></Link>}
+                          {meta.href && <Link to={meta.href} className="inline-flex items-center gap-1 rounded-lg bg-[#DDEFF2] px-3 py-1.5 text-xs font-bold text-[#0E7C86]">فتح القسم <ExternalLink className="h-3 w-3" /></Link>}
                         </div>
                       </td>
                     </tr>
@@ -392,12 +381,12 @@ export function AdminHealthReadinessPage() {
       )}
 
       {overview && activeTab === 'RELEASE' && (
-        <section className="overflow-hidden rounded-2xl border bg-white shadow-sm" style={{ borderColor: '#d7e6e8' }}>
+        <section className="overflow-hidden rounded-2xl border border-[#d7e6e8] bg-white shadow-sm">
           <SectionHeader
             title="بوابة جاهزية الإنتاج"
             subtitle={`آخر تقييم: ${formatDate(overview.productionReadiness.checkedAt)} — هذه النتائج Sanitized ولا تحتوي قيم ENV السرية.`}
           />
-          <div className="border-b p-5" style={{ backgroundColor: overview.releaseReady ? '#ecfdf5' : '#fff7ed' }}>
+          <div className={`border-b p-5 ${overview.releaseReady ? 'bg-emerald-50' : 'bg-orange-50'}`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="text-lg font-black">{overview.releaseReady ? 'جاهز للإطلاق من ناحية البوابة الشاملة' : 'الإطلاق محجوب حتى اكتمال التكوين والتشغيل والتغطية'}</div>
@@ -415,7 +404,7 @@ export function AdminHealthReadinessPage() {
             {overview.productionReadiness.findings.length ? overview.productionReadiness.findings.map((finding) => (
               <div key={finding.id} className="grid gap-4 p-5 lg:grid-cols-[120px_180px_1fr]">
                 <SeverityBadge severity={finding.severity} />
-                <div className="text-xs font-black" style={{ color: BRAND.secondary }}>{finding.area}</div>
+                <div className="text-xs font-black text-[#0E7C86]">{finding.area}</div>
                 <div>
                   <div className="font-black">{finding.message}</div>
                   <div className="mt-1 text-sm leading-6 text-slate-600">{finding.recommendation}</div>
@@ -428,7 +417,7 @@ export function AdminHealthReadinessPage() {
       )}
 
       {overview && activeTab === 'COVERAGE' && (
-        <section className="rounded-2xl border bg-white shadow-sm" style={{ borderColor: '#d7e6e8' }}>
+        <section className="rounded-2xl border border-[#d7e6e8] bg-white shadow-sm">
           <SectionHeader title="تغطية المراقبة" subtitle="الهدف هنا كشف النقص، لا إخفاؤه. عدم وجود Probe يظهر صراحة كفجوة مراقبة." />
           <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-3">
             {overview.coverage.expected.map((id) => {
@@ -436,10 +425,10 @@ export function AdminHealthReadinessPage() {
               const meta = componentLabel(id);
               const Icon = meta.icon;
               return (
-                <div key={id} className="rounded-2xl border p-4" style={{ borderColor: monitored ? '#b7ddd8' : '#f2d39a', backgroundColor: monitored ? '#f1fbfa' : '#fffaf0' }}>
+                <div key={id} className={`rounded-2xl border p-4 ${monitored ? 'border-[#b7ddd8] bg-[#f1fbfa]' : 'border-[#f2d39a] bg-[#fffaf0]'}`}>
                   <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2"><Icon className="h-4 w-4" style={{ color: monitored ? BRAND.secondary : BRAND.accent }} /><span className="font-black">{meta.ar}</span></div>
-                    <span className="rounded-full px-2.5 py-1 text-[11px] font-black" style={{ backgroundColor: monitored ? '#d9f2ee' : '#fff0ca', color: monitored ? BRAND.secondary : '#946b13' }}>{monitored ? 'MONITORED' : 'NOT MONITORED'}</span>
+                    <div className="flex items-center gap-2"><Icon className={`h-4 w-4 ${monitored ? 'text-[#0E7C86]' : 'text-[#D6A43B]'}`} /><span className="font-black">{meta.ar}</span></div>
+                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${monitored ? 'bg-[#d9f2ee] text-[#0E7C86]' : 'bg-[#fff0ca] text-[#946b13]'}`}>{monitored ? 'MONITORED' : 'NOT MONITORED'}</span>
                   </div>
                   <div className="mt-2 text-xs text-slate-500">{meta.en}</div>
                 </div>
@@ -456,39 +445,39 @@ export function AdminHealthReadinessPage() {
       )}
 
       {overview && activeTab === 'REPORT' && (
-        <section className="rounded-2xl border bg-white shadow-sm" style={{ borderColor: '#d7e6e8' }}>
+        <section className="rounded-2xl border border-[#d7e6e8] bg-white shadow-sm">
           <SectionHeader title="التقرير التشخيصي" subtitle="نسخة Sanitized صالحة للنسخ أو التصدير. لا تتضمن كلمات مرور أو Tokens أو Connection Strings." />
           <div className="flex flex-wrap gap-2 border-b p-4">
-            <button onClick={() => void copyReport()} className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold" style={{ backgroundColor: BRAND.mist, color: BRAND.secondary }}><Copy className="h-4 w-4" />{copied ? 'تم النسخ' : 'نسخ الملخص'}</button>
-            <button onClick={downloadReport} className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white" style={{ backgroundColor: BRAND.primary }}><FileJson className="h-4 w-4" />تنزيل JSON</button>
+            <button onClick={() => void copyReport()} className="inline-flex items-center gap-2 rounded-xl bg-[#DDEFF2] px-4 py-2 text-sm font-bold text-[#0E7C86]"><Copy className="h-4 w-4" />{copied ? 'تم النسخ' : 'نسخ الملخص'}</button>
+            <button onClick={downloadReport} className="inline-flex items-center gap-2 rounded-xl bg-[#142B5F] px-4 py-2 text-sm font-bold text-white"><FileJson className="h-4 w-4" />تنزيل JSON</button>
           </div>
-          <pre dir="ltr" className="max-h-[520px] overflow-auto whitespace-pre-wrap break-words p-5 text-left font-mono text-xs leading-6" style={{ backgroundColor: '#0f1f36', color: '#dcecf0' }}>{diagnosticText(overview)}</pre>
+          <pre dir="ltr" className="max-h-[520px] overflow-auto whitespace-pre-wrap break-words bg-[#0f1f36] p-5 text-left font-mono text-xs leading-6 text-[#dcecf0]">{diagnosticText(overview)}</pre>
         </section>
       )}
 
       <section className="grid gap-3 md:grid-cols-2">
-        <Link to="/review-queue" className="rounded-2xl border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" style={{ borderColor: '#DDEFF2' }}>
+        <Link to="/review-queue" className="rounded-2xl border border-[#DDEFF2] bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="font-black">جاهزية المحتوى والنشر</div>
               <p className="mt-1 text-sm leading-6 text-slate-500">مشكلات اكتمال المنح والجامعات والتخصصات والدورات والاختبارات والخدمات وCMS تبقى عند المجالات المالكة وتُجمع في قائمة المراجعة، ولا تُكرر داخل صحة التشغيل.</p>
             </div>
-            <ClipboardCheck className="h-5 w-5 shrink-0" style={{ color: BRAND.secondary }} />
+            <ClipboardCheck className="h-5 w-5 shrink-0 text-[#0E7C86]" />
           </div>
         </Link>
-        <Link to="/certificates" className="rounded-2xl border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" style={{ borderColor: '#DDEFF2' }}>
+        <Link to="/certificates" className="rounded-2xl border border-[#DDEFF2] bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="font-black">جاهزية الشهادات</div>
               <p className="mt-1 text-sm leading-6 text-slate-500">حالة القالب والجهة المصدرة والتوقيع وRenderer وإصدار الشهادة تُدار داخل مجال الشهادات؛ هذا القسم يراقب البنية ولا يتجاوز ملكية P14.</p>
             </div>
-            <ShieldCheck className="h-5 w-5 shrink-0" style={{ color: BRAND.accent }} />
+            <ShieldCheck className="h-5 w-5 shrink-0 text-[#D6A43B]" />
           </div>
         </Link>
       </section>
 
-      <div className="flex items-start gap-3 rounded-2xl border p-4 text-sm" style={{ borderColor: '#d6c18c', backgroundColor: BRAND.ivory }}>
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" style={{ color: BRAND.accent }} />
+      <div className="flex items-start gap-3 rounded-2xl border border-[#d6c18c] bg-[#FAF7F0] p-4 text-sm">
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#D6A43B]" />
         <div>
           <div className="font-black">حدود القسم</div>
           <p className="mt-1 leading-6 text-slate-600">هذه الصفحة للمراقبة والتشخيص فقط. إصلاح البيانات، إعادة تشغيل دفعات الاستيراد، تغيير إعدادات الأمن، إدارة المفاتيح، أو تنفيذ عمليات مالية يتم من القسم المالك وبصلاحياته.</p>
@@ -518,13 +507,13 @@ function GateCheck({ label, ready, detail }: { label: string; ready: boolean; de
 
 function MetricCard({ label, value, hint, icon: Icon, tone }: { label: string; value: string; hint: string; icon: typeof Activity; tone: 'good' | 'warn' | 'bad' | 'neutral' }) {
   const palette = tone === 'good'
-    ? { bg: '#effaf7', border: '#b9e1d6', icon: BRAND.secondary }
+    ? 'border-[#b9e1d6] bg-[#effaf7] text-[#0E7C86]'
     : tone === 'warn'
-      ? { bg: '#fff9eb', border: '#f0d49c', icon: BRAND.accent }
+      ? 'border-[#f0d49c] bg-[#fff9eb] text-[#D6A43B]'
       : tone === 'bad'
-        ? { bg: '#fff4f4', border: '#efc1c1', icon: '#b42318' }
-        : { bg: '#f8fafc', border: '#dce4ea', icon: BRAND.primary };
-  return <div className="rounded-2xl border p-4 shadow-sm" style={{ backgroundColor: palette.bg, borderColor: palette.border }}><div className="flex items-center justify-between gap-2"><span className="text-xs font-bold text-slate-500">{label}</span><Icon className="h-4 w-4" style={{ color: palette.icon }} /></div><div className="mt-2 text-xl font-black">{value}</div><div className="mt-1 truncate text-[11px] text-slate-500">{hint}</div></div>;
+        ? 'border-[#efc1c1] bg-[#fff4f4] text-[#b42318]'
+        : 'border-[#dce4ea] bg-[#f8fafc] text-[#142B5F]';
+  return <div className={`rounded-2xl border p-4 shadow-sm ${palette}`}><div className="flex items-center justify-between gap-2"><span className="text-xs font-bold text-slate-500">{label}</span><Icon className="h-4 w-4" /></div><div className="mt-2 text-xl font-black text-[#203442]">{value}</div><div className="mt-1 truncate text-[11px] text-slate-500">{hint}</div></div>;
 }
 
 function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
@@ -532,32 +521,32 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle: string })
 }
 
 function TabButton({ active, onClick, label, count }: { active: boolean; onClick: () => void; label: string; count?: number }) {
-  return <button onClick={onClick} className="rounded-xl px-4 py-2 text-sm font-bold transition" style={{ backgroundColor: active ? BRAND.primary : 'transparent', color: active ? 'white' : BRAND.ink }}>{label}{count != null ? <span className="mr-2 rounded-full px-2 py-0.5 text-[10px]" style={{ backgroundColor: active ? 'rgba(255,255,255,.15)' : BRAND.mist, color: active ? 'white' : BRAND.secondary }}>{count}</span> : null}</button>;
+  return <button onClick={onClick} className={`rounded-xl px-4 py-2 text-sm font-bold transition ${active ? 'bg-[#142B5F] text-white' : 'text-[#203442]'}`}>{label}{count != null ? <span className={`mr-2 rounded-full px-2 py-0.5 text-[10px] ${active ? 'bg-white/15 text-white' : 'bg-[#DDEFF2] text-[#0E7C86]'}`}>{count}</span> : null}</button>;
 }
 
 function StatusBadge({ status, optional }: { status: HealthStatus; optional?: boolean }) {
-  const map = status === 'UP' ? { bg: '#dcf5ec', fg: '#08745d', icon: CheckCircle2 } : status === 'DEGRADED' ? { bg: '#fff0ca', fg: '#946b13', icon: AlertTriangle } : status === 'DOWN' ? { bg: '#fee4e2', fg: '#b42318', icon: XCircle } : { bg: '#eef2f6', fg: '#536273', icon: CircleHelp };
+  const map = status === 'UP' ? { tone: 'bg-[#dcf5ec] text-[#08745d]', icon: CheckCircle2 } : status === 'DEGRADED' ? { tone: 'bg-[#fff0ca] text-[#946b13]', icon: AlertTriangle } : status === 'DOWN' ? { tone: 'bg-[#fee4e2] text-[#b42318]', icon: XCircle } : { tone: 'bg-[#eef2f6] text-[#536273]', icon: CircleHelp };
   const Icon = map.icon;
-  return <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black" style={{ backgroundColor: map.bg, color: map.fg }}><Icon className="h-3.5 w-3.5" />{statusArabic(status)}{optional ? ' • اختياري' : ''}</span>;
+  return <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black ${map.tone}`}><Icon className="h-3.5 w-3.5" />{statusArabic(status)}{optional ? ' • اختياري' : ''}</span>;
 }
 
 function SeverityBadge({ severity }: { severity: Severity }) {
-  const map = severity === 'BLOCKER' ? { bg: '#fee4e2', fg: '#b42318', label: 'معوق' } : severity === 'WARNING' ? { bg: '#fff0ca', fg: '#946b13', label: 'تحذير' } : { bg: BRAND.mist, fg: BRAND.secondary, label: 'معلومة' };
-  return <span className="h-fit w-fit rounded-full px-3 py-1 text-xs font-black" style={{ backgroundColor: map.bg, color: map.fg }}>{map.label}</span>;
+  const map = severity === 'BLOCKER' ? { tone: 'bg-[#fee4e2] text-[#b42318]', label: 'معوق' } : severity === 'WARNING' ? { tone: 'bg-[#fff0ca] text-[#946b13]', label: 'تحذير' } : { tone: 'bg-[#DDEFF2] text-[#0E7C86]', label: 'معلومة' };
+  return <span className={`h-fit w-fit rounded-full px-3 py-1 text-xs font-black ${map.tone}`}>{map.label}</span>;
 }
 
 function EmptyState({ icon: Icon, title, detail }: { icon: typeof Activity; title: string; detail: string }) {
-  return <div className="flex flex-col items-center justify-center p-10 text-center"><span className="rounded-2xl p-3" style={{ backgroundColor: BRAND.mist, color: BRAND.secondary }}><Icon className="h-6 w-6" /></span><div className="mt-3 font-black">{title}</div><div className="mt-1 max-w-lg text-sm leading-6 text-slate-500">{detail}</div></div>;
+  return <div className="flex flex-col items-center justify-center p-10 text-center"><span className="rounded-2xl bg-[#DDEFF2] p-3 text-[#0E7C86]"><Icon className="h-6 w-6" /></span><div className="mt-3 font-black">{title}</div><div className="mt-1 max-w-lg text-sm leading-6 text-slate-500">{detail}</div></div>;
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
-  return <div className="flex items-center justify-between gap-4 rounded-xl px-3 py-2.5" style={{ backgroundColor: BRAND.ivory }}><span className="text-slate-500">{label}</span><span className="font-black">{value}</span></div>;
+  return <div className="flex items-center justify-between gap-4 rounded-xl bg-[#FAF7F0] px-3 py-2.5"><span className="text-slate-500">{label}</span><span className="font-black">{value}</span></div>;
 }
 
 function ComponentDrawer({ component, onClose }: { component: HealthComponent; onClose: () => void }) {
   const meta = componentLabel(component.id);
   const entries = Object.entries(component.details || {});
-  return <div className="fixed inset-0 z-50 flex bg-slate-950/35" dir="rtl" style={{ fontFamily: 'Cairo, sans-serif' }} onMouseDown={onClose}><aside className="mr-auto h-full w-full max-w-xl overflow-y-auto bg-white shadow-2xl" onMouseDown={(event) => event.stopPropagation()}><div className="sticky top-0 flex items-start justify-between gap-4 border-b bg-white p-5"><div><div className="text-xl font-black">{meta.ar}</div><div className="mt-1 text-xs text-slate-500">{meta.en} • {meta.owner}</div></div><button onClick={onClose} className="rounded-lg border px-3 py-1.5 text-sm font-bold">إغلاق</button></div><div className="space-y-5 p-5"><div className="flex flex-wrap gap-2"><StatusBadge status={component.status} optional={component.optional} />{component.capabilityStatus && <span className="rounded-full px-3 py-1 text-xs font-bold" style={{ backgroundColor: BRAND.mist, color: BRAND.secondary }}>{component.capabilityStatus}</span>}</div>{component.error && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><div className="font-black">التشخيص</div><div className="mt-1 font-mono text-xs">{component.error}</div></div>}<div className="grid gap-3 sm:grid-cols-2"><InfoRow label="آخر فحص" value={formatDate(component.checkedAt)} /><InfoRow label="Latency" value={component.latencyMs != null ? `${component.latencyMs} ms` : '—'} /></div><div><div className="mb-2 font-black">تفاصيل آمنة</div>{entries.length ? <div className="divide-y rounded-xl border">{entries.map(([key, value]) => <div key={key} className="grid grid-cols-[150px_1fr] gap-3 p-3 text-xs"><span className="font-mono text-slate-500">{key}</span><span className="break-all font-bold">{displayValue(value)}</span></div>)}</div> : <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">لا توجد تفاصيل إضافية من الفحص الحالي.</div>}</div>{meta.href && <Link to={meta.href} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white" style={{ backgroundColor: BRAND.secondary }}>فتح القسم المالك <ExternalLink className="h-4 w-4" /></Link>}</div></aside></div>;
+  return <div className="fixed inset-0 z-50 flex bg-slate-950/35 font-sans" dir="rtl" onMouseDown={onClose}><aside className="mr-auto h-full w-full max-w-xl overflow-y-auto bg-white shadow-2xl" onMouseDown={(event) => event.stopPropagation()}><div className="sticky top-0 flex items-start justify-between gap-4 border-b bg-white p-5"><div><div className="text-xl font-black">{meta.ar}</div><div className="mt-1 text-xs text-slate-500">{meta.en} • {meta.owner}</div></div><button onClick={onClose} className="rounded-lg border px-3 py-1.5 text-sm font-bold">إغلاق</button></div><div className="space-y-5 p-5"><div className="flex flex-wrap gap-2"><StatusBadge status={component.status} optional={component.optional} />{component.capabilityStatus && <span className="rounded-full bg-[#DDEFF2] px-3 py-1 text-xs font-bold text-[#0E7C86]">{component.capabilityStatus}</span>}</div>{component.error && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><div className="font-black">التشخيص</div><div className="mt-1 font-mono text-xs">{component.error}</div></div>}<div className="grid gap-3 sm:grid-cols-2"><InfoRow label="آخر فحص" value={formatDate(component.checkedAt)} /><InfoRow label="Latency" value={component.latencyMs != null ? `${component.latencyMs} ms` : '—'} /></div><div><div className="mb-2 font-black">تفاصيل آمنة</div>{entries.length ? <div className="divide-y rounded-xl border">{entries.map(([key, value]) => <div key={key} className="grid grid-cols-[150px_1fr] gap-3 p-3 text-xs"><span className="font-mono text-slate-500">{key}</span><span className="break-all font-bold">{displayValue(value)}</span></div>)}</div> : <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">لا توجد تفاصيل إضافية من الفحص الحالي.</div>}</div>{meta.href && <Link to={meta.href} className="inline-flex items-center gap-2 rounded-xl bg-[#0E7C86] px-4 py-2.5 text-sm font-bold text-white">فتح القسم المالك <ExternalLink className="h-4 w-4" /></Link>}</div></aside></div>;
 }
 
 function componentLabel(id: string) {

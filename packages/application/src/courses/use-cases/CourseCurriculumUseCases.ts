@@ -1,6 +1,7 @@
 import {
   AssetId,
   AssetLifecycleState,
+  AssetSecurityClassification,
   CourseDto,
   CourseOriginType,
   CoursePositionUpdateDto,
@@ -218,6 +219,17 @@ export class CourseCurriculumUseCases {
     if (!asset) throw new Error('COURSE_LESSON_ASSET_NOT_FOUND');
     if (asset.state !== AssetLifecycleState.ACTIVE) {
       throw new Error(`COURSE_LESSON_ASSET_NOT_ACTIVE:${asset.state}`);
+    }
+    if (![AssetSecurityClassification.PUBLIC, AssetSecurityClassification.INTERNAL].includes(asset.classification)) {
+      throw new Error(`COURSE_LESSON_ASSET_CLASSIFICATION_NOT_ALLOWED:${asset.classification}`);
+    }
+    const allowedMimePrefixes: Record<string, readonly string[]> = {
+      VIDEO: ['video/'], IMAGE: ['image/'], PDF: ['application/pdf'],
+      DOCUMENT: ['application/', 'text/'], AUDIO: ['audio/'], SUBTITLE: ['text/'], OTHER: [],
+    };
+    const allowed = allowedMimePrefixes[data.assetType] ?? [];
+    if (allowed.length && !allowed.some((prefix) => asset.metadata.mimeType.toLowerCase().startsWith(prefix))) {
+      throw new Error(`COURSE_LESSON_ASSET_MIME_NOT_ALLOWED:${asset.metadata.mimeType}`);
     }
     await this.ensureMutableCourse(courseId);
     await this.ensureCurriculumMember(courseId, 'lessons', data.lessonId);

@@ -8,6 +8,7 @@ export class PrismaCredentialVerifier implements ICredentialVerifier {
   public async verify(userId: string, credentialValue: string): Promise<boolean> {
     try {
       if (!userId || !credentialValue) {
+        if (credentialValue) await PasswordHasher.verifyDummy(credentialValue);
         return false;
       }
 
@@ -26,17 +27,20 @@ export class PrismaCredentialVerifier implements ICredentialVerifier {
       });
 
       if (!identity) {
-        return false; // Deterministic invalid-credential response without leakage
+        await PasswordHasher.verifyDummy(credentialValue);
+        return false;
       }
 
       // 2. Disabled/inactive identity or account rejection
       if (![LifeStatus.PROVISIONED, LifeStatus.ACTIVE].includes(identity.status) || !identity.account || identity.account.accessState !== AccountAccessState.ACTIVE) {
-        return false; // Rejects disabled/inactive principal
+        await PasswordHasher.verifyDummy(credentialValue);
+        return false;
       }
 
       // 3. Credential lookup
       const credential = identity.credentials?.[0];
       if (!credential || !credential.passwordHash) {
+        await PasswordHasher.verifyDummy(credentialValue);
         return false;
       }
 
@@ -46,5 +50,9 @@ export class PrismaCredentialVerifier implements ICredentialVerifier {
       // Fail closed deterministically without throwing or leaking database details
       return false;
     }
+  }
+
+  public async verifyDummy(credentialValue: string): Promise<void> {
+    await PasswordHasher.verifyDummy(credentialValue);
   }
 }

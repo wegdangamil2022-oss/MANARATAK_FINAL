@@ -99,7 +99,16 @@ export class AssetRecord {
     this.props.state = AssetLifecycleState.SANITIZING;
   }
 
-  public completeSanitization(sanitization: AssetSanitizationMetadata): void {
+  public completeSanitization(sanitization: AssetSanitizationMetadata, sanitizedLocator?: AssetStorageLocator): void {
+    if (this.props.state !== AssetLifecycleState.SANITIZING) {
+      throw new Error('Can only complete sanitization from SANITIZING state');
+    }
+    if (sanitizedLocator) {
+      if (sanitizedLocator.storageZone !== AssetStorageZone.QUARANTINE) {
+        throw new Error('Sanitized asset must remain in QUARANTINE storage zone until activation');
+      }
+      this.props.locator = sanitizedLocator;
+    }
     this.props.sanitization = sanitization;
     this.events.push(new AssetSanitizedEvent(this.props.id));
   }

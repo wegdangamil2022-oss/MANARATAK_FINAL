@@ -147,8 +147,8 @@ export const CountryDetailModal: React.FC<CountryDetailModalProps> = ({
               </p>
               <div className="flex flex-wrap items-center gap-1.5 mt-2">
                 <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-[9px] font-bold">{country.continent}</span>
-                <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-[9px] font-bold">{country.universitiesCount} جامعة</span>
-                <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-[9px] font-bold">{country.scholarshipsCount} منحة</span>
+                <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-[9px] font-bold">{country.universitiesCount == null ? 'عدد الجامعات غير متوفر' : `${country.universitiesCount} جامعة`}</span>
+                <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-[9px] font-bold">{country.scholarshipsCount == null ? 'عدد المنح غير متوفر' : `${country.scholarshipsCount} منحة`}</span>
               </div>
             </div>
           </div>

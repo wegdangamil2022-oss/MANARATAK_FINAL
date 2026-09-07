@@ -1,7 +1,7 @@
 # MANARATAK 2.0: Phase 20 (Enterprise Services Platform) Enterprise Architecture
 
 **Document ID:** PHASE-20-01-ARCH-SPEC
-**Status:** Baselined / Production Ready
+**Status:** BASELINED / SOURCE_COMPLETE — RUNTIME_EVIDENCE_PENDING
 **Phase:** 20
 **Domain:** Enterprise Services Platform
 **Artifact:** Part A - Architecture Specification
@@ -284,7 +284,7 @@ This specification establishes a robust, extensible foundation for all MANARATAK
 ### 20.A.10.4 ARB Decision
 
 - **Decision:** APPROVED
-- **Status:** BASELINED / PRODUCTION READY
+- **Status:** BASELINED / SOURCE_COMPLETE — RUNTIME_EVIDENCE_PENDING
 - **Next Steps:** Proceed to Phase 20 Part B (Enterprise Domain Contracts).
 
 ---

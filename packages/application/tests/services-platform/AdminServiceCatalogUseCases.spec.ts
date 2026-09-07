@@ -31,12 +31,13 @@ describe('AdminServiceCatalogUseCases', () => {
     status: ServiceStatus.READY_TO_PUBLISH,
     completenessStatus: ServiceCompletenessStatus.COMPLETE,
     createdAt: new Date(),
-    updatedAt: new Date()
+    updatedAt: new Date(),
+    version: 1
   };
 
   beforeEach(() => {
     repository = {
-      create: vi.fn().mockImplementation((data) => Promise.resolve({ id: 'svc-1', createdAt: new Date(), updatedAt: new Date(), ...data })),
+      create: vi.fn().mockImplementation((data) => Promise.resolve({ id: 'svc-1', createdAt: new Date(), updatedAt: new Date(), version: 1, ...data })),
       update: vi.fn(),
       findById: vi.fn().mockResolvedValue(completeService),
       findBySlug: vi.fn(),
@@ -70,12 +71,48 @@ describe('AdminServiceCatalogUseCases', () => {
     }));
   });
 
+
+  it('preserves Arabic identity and keeps distinct Arabic service names distinct under identical dimensions', async () => {
+    const first = await useCases.createService({
+      displayName: 'خِدمةُ التأشيرات',
+      serviceCategory: ServiceCategory.VISA_SERVICES,
+      fulfillmentType: ServiceFulfillmentType.CONSULTATION,
+      serviceDescription: 'خدمة تأشيرات.',
+      serviceAvailabilityStatus: ServiceAvailabilityStatus.AVAILABLE,
+      requiredInputsOrDocuments: ['Passport'],
+      deliveryMode: ServiceDeliveryMode.ONLINE,
+      responsibleServiceOwnerType: 'MANARATAK_TEAM'
+    });
+    const second = await useCases.createService({
+      displayName: 'استشارات التأشيرات',
+      serviceCategory: ServiceCategory.VISA_SERVICES,
+      fulfillmentType: ServiceFulfillmentType.CONSULTATION,
+      serviceDescription: 'استشارات تأشيرات.',
+      serviceAvailabilityStatus: ServiceAvailabilityStatus.AVAILABLE,
+      requiredInputsOrDocuments: ['Passport'],
+      deliveryMode: ServiceDeliveryMode.ONLINE,
+      responsibleServiceOwnerType: 'MANARATAK_TEAM'
+    });
+
+    expect(first.canonicalName).toBe('خدمة التاشيرات');
+    expect(first.slug).toMatch(/^خدمة-التاشيرات-[0-9a-f]{8}$/u);
+    expect(second.canonicalName).toBe('استشارات التاشيرات');
+    expect(first.canonicalDedupKey).not.toBe(second.canonicalDedupKey);
+  });
+
+  it('recomputes Unicode canonical identity on Arabic display-name update', async () => {
+    vi.mocked(repository.update).mockImplementation(async (_id, data) => ({ ...completeService, ...data }));
+    const result = await useCases.updateService('svc-1', { displayName: 'إدارةُ التأشيرات' }, 1);
+    expect(result.canonicalName).toBe('ادارة التاشيرات');
+    expect(result.canonicalDedupKey).toContain('ادارة التاشيرات|');
+  });
+
   it('prevents publishing unless the service is ready to publish', async () => {
     vi.mocked(repository.findById).mockResolvedValueOnce({
       ...completeService,
       status: ServiceStatus.READY_TO_REVIEW
     });
 
-    await expect(useCases.publish('svc-1')).rejects.toThrow('READY_TO_PUBLISH');
+    await expect(useCases.publish('svc-1', 1)).rejects.toThrow('READY_TO_PUBLISH');
   });
 });

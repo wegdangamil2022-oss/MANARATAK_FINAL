@@ -1,10 +1,10 @@
 # Final Handoff Manifest
 
-Status: `CLEAN SOURCE HANDOFF PREPARED / DB AND RUNTIME PENDING GOOGLE STUDIO`
+Status: `SOURCE REMEDIATION IN PROGRESS / DB AND RUNTIME EVIDENCE PENDING`
 
 ## Canonical Root
 
-`C:\Users\HP\Documents\Codex\2026-08-12\new-chat\MANARATAK_CURRENT_2026-08-12`
+The checked-out MANARATAK repository root. Historical machine-specific paths are not operational authority.
 
 ## Source Tree
 
@@ -16,18 +16,18 @@ Status: `CLEAN SOURCE HANDOFF PREPARED / DB AND RUNTIME PENDING GOOGLE STUDIO`
 
 ## Runtime Prerequisites
 
-- Node.js 20+ and npm 10+.
+- Node.js 22.16.0 (supported range `>=22.16.0 <23`) and npm `>=10.9.0 <11`.
 - Dependencies restored from `package-lock.json` using `npm ci` in the approved environment.
-- PostgreSQL Development DB/proxy configuration supplied securely in Google Studio.
+- A clean or explicitly selected PostgreSQL target supplied securely in the controlled runtime environment.
 - Redis when required by the selected runtime composition.
 - Environment values based on `.env.example`; no real credentials are included.
 
 ## Current Gates
 
-- Authoritative register: [WP8 Google Studio Closure Master Register](../wp8/WP8_GOOGLE_STUDIO_CLOSURE_MASTER_REGISTER.md).
+- Database-operation authority: [Greenfield Database Provisioning and Mutation Safety](../../operations/GREENFIELD_DATABASE_PROVISIONING.md).
 - Tracked Google Studio closure groups: 96.
-- Original Development DB: external Google Studio dependency.
-- Build/tests: pending Google Studio; no local dependency installation was performed.
+- Database runtime evidence: pending against a verified clean/selected PostgreSQL target; no historical/original database is required.
+- Full build/tests: require a complete dependency installation and controlled runtime; source-only checks do not certify runtime closure.
 - Phase 10: source freeze prepared, final freeze pending DB/runtime.
 - Phase 11: contracts prepared, bulk import blocked.
 
@@ -65,4 +65,4 @@ University workbook fingerprints are recorded in the Dry Run report and were ver
 
 ## Handoff Rule
 
-Do not start schema/data mutations merely because the source handoff is organized. Resume at the WP-1 Database Recovery Gate in Google Studio and close each owner WP gate with backup, before/after counters, referential checks, rollback evidence, and executable build/test output.
+Do not start schema/data mutations merely because the source handoff is organized. Follow `docs/operations/GREENFIELD_DATABASE_PROVISIONING.md`: verify the exact target, explicitly authorize one mutation purpose, capture before/after and referential evidence, retain rollback/recovery artifacts, and record executable build/test output.

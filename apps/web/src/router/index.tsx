@@ -13,6 +13,7 @@ import { localizeLocation, resolveLegacyPublicLocale } from '../i18n/localeRouti
 import PublicTemplateApp from '../features/public-template/PublicTemplateApp';
 import { CertificateVerificationPage } from '../features/certificates';
 import { StudentToolPage } from '../features/student-tools';
+import { CourseLearnerPage } from '../features/learning';
 const PageLoadingFallback = () => {
   const { t } = useTranslation();
   return (
@@ -124,6 +125,10 @@ const router = createBrowserRouter([
         element: <PublicTemplateApp />,
       },
       {
+        path: 'content/:slug',
+        element: <PublicTemplateApp />,
+      },
+      {
         path: 'services',
         element: <PublicTemplateApp />,
       },
@@ -162,6 +167,10 @@ const router = createBrowserRouter([
       {
         path: 'verify-certificate',
         element: <CertificateVerificationPage />,
+      },
+      {
+        path: 'student/courses/:courseId',
+        element: <CourseLearnerPage />,
       },
       {
         path: 'student',

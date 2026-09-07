@@ -36,9 +36,12 @@ The physical database design for MANARATAK 2.0 is governed by a strict set of ar
 
 ---
 
+
+> **Canonical persistence override — ADR-028 (2026-09-06):** Sections that originally prescribed PostgreSQL logical schema-per-context isolation are superseded. The current deployable Modular Monolith uses a single PostgreSQL database and Prisma `public` schema. Domain isolation is enforced through the machine-readable persistence ownership manifest, owner-only mutation adapters, approved read models, and source guards. Historical multi-schema diagrams/snippets below are design-history only where not yet rewritten.
+
 ### 4. Database Architecture Overview
 
-The MANARATAK 2.0 physical database is architected around a single, highly optimized **PostgreSQL** instance supporting logical multi-schema isolation. Under our _Evolutionary Architecture_ and _Walking Skeleton Strategy_, this architecture supports rapid initial development in a single deployment environment, while guaranteeing a seamless transition to isolated physical database instances for autonomous deployable modules if physical scaling limits (Evolution Triggers) are breached.
+The MANARATAK 2.0 physical database is one **PostgreSQL** instance using the canonical Prisma `public` schema for the current Enterprise Modular Monolith. Logical ownership is not inferred from PostgreSQL schema names: each Prisma model is assigned to one Domain owner by ADR-028 and `persistence-ownership.manifest.json`. Owner-only mutation ports and approved read models preserve the extraction boundary while retaining canonical relational integrity in the shared physical database.
 
 ```
        +--------------------------------------------------------+
@@ -72,19 +75,17 @@ The MANARATAK 2.0 physical database is architected around a single, highly optim
 
 ---
 
-### 5. Schema Strategy
+### 5. Persistence Ownership Strategy (ADR-028)
 
-The database utilizes PostgreSQL **logical schemas** to isolate the data models of each Bounded Context.
+The database uses a shared physical Prisma schema with **machine-enforced logical ownership**.
 
-- **Schema Partitioning**:
-  - `scholarship_schema`: Contains tables related to scholarships, funding matrices, and eligibility rules.
-  - `student_schema`: Contains tables governing students, profiles, applications, records, preferences, and uploaded documents.
-  - `university_schema`: Contains tables detailing universities and their physical campus branches.
-  - `academic_schema`: Contains tables classifying major families, academic programs, and career insights.
-  - `knowledge_schema`: Contains tables housing regional visa rules, country study profiles, and editorial articles.
-  - `import_schema`: Contains tables facilitating ingestion pipelines, processing tasks, and raw payload storage.
-  - `lookup_schema`: Contains global lookup and reference tables (e.g., ISO country list, language identifiers, global taxonomies).
-- **Isolation Enforcement**: Cross-schema foreign keys are strictly forbidden. Users/Roles mapping to specific application modules are restricted to their corresponding schemas, preventing lateral unauthorized read/writes.
+- Every Prisma model has exactly one owner in `docs/architecture/persistence/persistence-ownership.manifest.json`.
+- A Domain adapter may mutate only models it owns.
+- Cross-context reads are denied by default and allowed only through explicitly registered read-model/reference-lookup adapters.
+- Canonical relational IDs/FKs are permitted when they preserve one source of truth and do not transfer mutation ownership.
+- Cross-context workflows use owner mutation ports, application contracts, transactional handoff ports or domain events.
+- New migrations declare `MANARATAK_MIGRATION_OWNER`, `MANARATAK_MIGRATION_SCOPE` and `ADR-028`; mixed-owner migrations require explicit architecture approval.
+- Future physical extraction remains possible because business-layer dependencies target owner contracts rather than foreign ORM delegates.
 
 ---
 
@@ -343,7 +344,7 @@ To prepare the database for extreme data scaling (millions of transactional appl
 The physical database design integrates scalability directly into its foundation:
 
 - **Read-Write Splitting Readiness**: By separating read paths (such as the public-facing scholarship search index) from transactional writes (such as draft editing and student application submissions), the database can easily leverage PostgreSQL **Read Replicas**. Write operations route to the Primary database instance, while read-only traffic scales horizontally across cheaper replication nodes.
-- **Schema Decoupling to Independent Databases**: Because there are no physical joins or foreign key constraints crossing the Bounded Context schemas, the database can easily transition from a single PostgreSQL instance to fully independent, isolated database engines over the network. This represents a core evolutionary escape hatch of our architecture.
+- **Schema Decoupling to Independent Databases**: Physical extraction remains an evolutionary escape hatch because cross-context mutation ownership is prohibited and business/application layers depend on owner contracts/events rather than foreign ORM delegates. Any relational FK retained in the shared database is an integrity mechanism, not permission for cross-domain mutation. Extraction therefore replaces approved reference/read-model links deliberately rather than relying on schema names as the boundary.
 
 ---
 

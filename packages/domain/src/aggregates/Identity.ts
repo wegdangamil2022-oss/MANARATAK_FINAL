@@ -1,4 +1,4 @@
-import { AggregateRoot, Identifier } from '@manaratak/core';
+import { AggregateRoot, Identifier, generateOpaqueIdentifier } from '@manaratak/core';
 import { IdentityType } from '../enums/IdentityType';
 import { LifeStatus } from '../enums/LifeStatus';
 import { User } from '../entities/User';
@@ -51,7 +51,7 @@ export class Identity extends AggregateRoot<IdentityProps> {
     technicalMetadata: TechnicalMetadata,
     id?: Identifier<string | number>
   ): Identity {
-    const identityId = id ? id.toString() : Math.random().toString(36).substring(2, 15);
+    const identityId = id ? id.toString() : generateOpaqueIdentifier();
     const identifier = new Identifier<string | number>(identityId);
 
     const account = new Account({

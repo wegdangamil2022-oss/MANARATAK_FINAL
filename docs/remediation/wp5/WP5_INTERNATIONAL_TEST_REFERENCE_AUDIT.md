@@ -1,5 +1,7 @@
 # WP5 International Tests Reference Audit
 
+> **Operational supersession notice (2026-09-06):** Any instruction in this historical remediation artifact that requires an “Original Development Database”, a Google Studio recovery gate, or `WP1_RECOVERY_GATE` is superseded by [`docs/operations/GREENFIELD_DATABASE_PROVISIONING.md`](../../operations/GREENFIELD_DATABASE_PROVISIONING.md). This file remains historical/evidence context and is not current database-operation authority.
+
 | Area | Before | After | Remaining limitation |
 |---|---|---|---|
 | Country | ISO codes, relationship rows, and JSON IDs could all appear authoritative | Semantic writes resolve and persist Phase 7 IDs; ISO2 is compatibility/provenance; source migration/FK prepared | Existing legacy rows require Google Studio reconciliation/backfill |

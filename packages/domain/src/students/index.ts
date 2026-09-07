@@ -301,8 +301,84 @@ export interface StudentDashboardSummaryDto {
   partialFailures: string[];
 }
 
+export interface StudentSupportWorkspaceSummaryDto {
+  studentReferenceId: string;
+  status: StudentWorkspaceStatus;
+  version: number;
+  displayName?: string | null;
+  preferredLanguage?: string | null;
+  timezone?: string | null;
+  lastActiveAt?: Date | null;
+  updatedAt: Date;
+}
+
+export interface StudentSupportWorkspacePageDto {
+  items: StudentSupportWorkspaceSummaryDto[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface StudentSupportWorkspaceDetailDto extends StudentSupportWorkspaceSummaryDto {
+  provisioningHealth: {
+    state: 'HEALTHY' | 'PENDING' | 'FAILED';
+    pendingEventCount: number;
+    failedEventCount: number;
+    lastEventAt?: Date | null;
+    lastFailureCode?: string | null;
+  };
+  consentAudit: {
+    hasDecision: boolean;
+    lastDecidedAt?: Date | null;
+  };
+  linkedSummaries: {
+    activeCourseCount: number;
+    certificateCount: number;
+    unreadNotificationCount: number;
+  };
+}
+
+export type StudentApplicationTrackerStatus = 'ACTIVE' | 'ARCHIVED';
+
+export interface StudentApplicationChecklistItemDto {
+  id: string; trackerId: string; label: string; completed: boolean; position: number; completedAt?: Date | null; createdAt: Date; updatedAt: Date;
+}
+
+export interface StudentApplicationTrackerDto {
+  id: string; studentReferenceId: string; scholarshipId: string; scholarshipSlug?: string | null;
+  stage: string; notes?: string | null; deadlineAt?: Date | null; status: StudentApplicationTrackerStatus; version: number;
+  checklist: StudentApplicationChecklistItemDto[]; createdAt: Date; updatedAt: Date; archivedAt?: Date | null;
+}
+
+export interface CreateStudentApplicationTrackerDto {
+  studentReferenceId: string; scholarshipId: string; scholarshipSlug?: string | null; stage?: string; notes?: string | null; deadlineAt?: Date | null; checklistLabels?: string[];
+}
+export interface UpdateStudentApplicationTrackerDto {
+  expectedVersion: number; stage?: string; notes?: string | null; deadlineAt?: Date | null;
+}
+
+export interface IStudentApplicationTrackerRepository {
+  create(data: CreateStudentApplicationTrackerDto): Promise<StudentApplicationTrackerDto>;
+  list(studentReferenceId: string): Promise<StudentApplicationTrackerDto[]>;
+  findById(studentReferenceId: string, trackerId: string): Promise<StudentApplicationTrackerDto | null>;
+  update(studentReferenceId: string, trackerId: string, data: UpdateStudentApplicationTrackerDto): Promise<StudentApplicationTrackerDto>;
+  setChecklistItem(studentReferenceId: string, trackerId: string, itemId: string, completed: boolean, expectedVersion: number): Promise<StudentApplicationTrackerDto>;
+  archive(studentReferenceId: string, trackerId: string, expectedVersion: number): Promise<StudentApplicationTrackerDto>;
+  remove(studentReferenceId: string, trackerId: string): Promise<void>;
+}
+
+export interface StudentApplicationScholarshipOwnerDto {
+  id: string; slug?: string | null; displayName: string; country?: string | null; deadlineAt?: Date | null; lifecycleStatus?: string | null; available: boolean;
+}
+export interface IStudentApplicationScholarshipGateway { resolve(scholarshipId: string): Promise<StudentApplicationScholarshipOwnerDto | null>; }
+export interface IStudentApplicationReminderGateway {
+  schedule(input: { trackerId: string; trackerVersion: number; studentReferenceId: string; scholarshipId: string; deadlineAt: Date }): Promise<void>;
+  cancel(trackerId: string, trackerVersion: number): Promise<void>;
+}
+
 export interface IStudentWorkspaceRepository {
   findWorkspace(studentReferenceId: string): Promise<StudentWorkspaceDto | null>;
+  listSupportWorkspaces(input: { query?: string; status?: StudentWorkspaceStatus; limit?: number; cursor?: string }): Promise<StudentSupportWorkspacePageDto>;
+  getSupportWorkspaceDetail(studentReferenceId: string): Promise<StudentSupportWorkspaceDetailDto | null>;
   upsertWorkspace(data: UpsertStudentWorkspaceDto): Promise<StudentWorkspaceDto>;
   updatePrivacyConsent(data: UpdateStudentPrivacyConsentDto): Promise<StudentPrivacyConsentDecisionDto>;
   getDashboardSummary(studentReferenceId: string): Promise<StudentDashboardSummaryDto | null>;

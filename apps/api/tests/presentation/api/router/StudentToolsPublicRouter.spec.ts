@@ -24,6 +24,11 @@ describe('StudentToolsPublicRouter', () => {
     })),
   });
 
+  const createIdempotencyStore = () => ({
+    begin: vi.fn().mockResolvedValue({ kind: 'ACQUIRED', scopeHash: 'scope-1', leaseToken: 'lease-1' }),
+    complete: vi.fn().mockResolvedValue(undefined),
+  });
+
   const createApp = (
     useCases: ReturnType<typeof createUseCases>,
     executionUseCases = createExecutionUseCases(),
@@ -35,6 +40,7 @@ describe('StudentToolsPublicRouter', () => {
       studentToolRegistryUseCases: useCases as any,
       studentToolExecutionUseCases: executionUseCases as any,
       studentToolAnonymousSessionService: sessionService as any,
+      apiIdempotencyStore: createIdempotencyStore() as any,
     }));
     return { app, sessionService };
   };
@@ -57,7 +63,7 @@ describe('StudentToolsPublicRouter', () => {
     executionUseCases.execute.mockResolvedValue({ toolKey: 'major-fit-helper', executionPublicId: 'ai-1', status: 'COMPLETED', output: 'Suggested majors' });
     const { app } = createApp(useCases, executionUseCases);
 
-    const res = await request(app).post('/tools/major-fit-helper/execute').send({ input: 'I like science.' });
+    const res = await request(app).post('/tools/major-fit-helper/execute').set('Idempotency-Key', 'execute-major-fit-1').send({ input: 'I like science.' });
 
     expect(res.status).toBe(200);
     expect(res.headers['x-student-tools-session']).toBe('v1.issued.signed');
@@ -88,7 +94,7 @@ describe('StudentToolsPublicRouter', () => {
     const useCases = createUseCases();
     const executionUseCases = createExecutionUseCases();
     const { app } = createApp(useCases, executionUseCases);
-    const res = await request(app).post('/tools/executions/stx_1/save');
+    const res = await request(app).post('/tools/executions/stx_1/save').set('Idempotency-Key', 'save-execution-1');
     expect(res.status).toBe(401);
     expect(executionUseCases.saveExecutionForStudent).not.toHaveBeenCalled();
   });

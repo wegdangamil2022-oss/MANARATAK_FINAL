@@ -187,12 +187,7 @@ export const StudentWorkspacePage: React.FC<StudentWorkspacePageProps> = ({
                 <ShieldCheck className="w-5 h-5 text-[var(--mn-accent)]" />
               </div>
             </div>
-            <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-[var(--mn-accent)] transition-all mn-gold "
-                style={{ width: `${profile ? profileCompletion : 8}%` }}
-              />
-            </div>
+            <progress className="mn-native-progress mn-native-progress-accent-on-dark h-1.5 w-full" value={Math.min(100, Math.max(0, profile ? profileCompletion : 8))} max={100} aria-label="اكتمال مساحة الطالب" />
             {!profile && (
               <button
                 onClick={onOpenAuth}

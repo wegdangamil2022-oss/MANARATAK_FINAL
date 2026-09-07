@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { EvaluateAccessUseCase } from '@manaratak/application';
 import { ResponseFormatter } from '../response/ResponseFormatter';
+import { authorizationEvaluateSchema, parseStrict } from '../../validation/StrictControlPlaneSchemas';
 
 export class AuthorizationRuntimeRouter {
   public static create({ evaluateAccessUseCase  }: { evaluateAccessUseCase: EvaluateAccessUseCase }): Router {
@@ -9,7 +10,7 @@ export class AuthorizationRuntimeRouter {
 
     router.post('/evaluate', async (req: Request, res: Response) => {
       try {
-        const decision = await evaluateAccessUseCase.execute(req.body);
+        const decision = await evaluateAccessUseCase.execute(parseStrict(authorizationEvaluateSchema, req.body));
         res.status(200).json(responseFormatter.success(decision));
       } catch {
         res.status(400).json(responseFormatter.error({

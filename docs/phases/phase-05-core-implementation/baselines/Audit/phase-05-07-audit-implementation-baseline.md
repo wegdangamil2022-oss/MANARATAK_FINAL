@@ -60,7 +60,7 @@ All layers have been audited to guarantee pure separation of concerns, absolute 
 
 - **Verification Status:** **CONFIRMED**
 - **Analysis:** `AuditRouter` operates strictly as a delivery-mechanism adapter:
-  - **Post Handler (`/records`):** Translates incoming HTTP JSON bodies into the simplified application DTO representation and invokes `createAuditRecord()`.
+  - **Audit HTTP boundary:** `GET /records` is query-only. Canonical audit evidence is produced internally from trusted mutation execution context; generic client-facing `POST /records` is prohibited.
   - **Get Handler (`/records`):** Receives HTTP query strings, maps them to the search query DTO, triggers `queryAuditRecords()`, and translates the returned domain entities into serializable HTTP JSON responses.
   - **Constraint Compliance:** Contains zero business rules, validation criteria, repository instantiations, database clients, or Aggregate construction logic.
 

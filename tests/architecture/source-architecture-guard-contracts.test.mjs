@@ -11,6 +11,7 @@ import {
   collectPrismaBoundaryViolations,
   collectPublicFixtureViolations,
   collectStudentLocalStorageViolations,
+  collectOperationalToolingViolations,
 } from '../../scripts/architecture/source-architecture-guard-core.mjs';
 
 function fixture(files) {
@@ -29,6 +30,7 @@ test('blocks Prisma outside Infrastructure but allows Infrastructure ownership a
   const root = fixture({
     'apps/web/src/leak.ts': "import { PrismaClient } from '@prisma/client'; new PrismaClient();",
     'packages/infrastructure/src/reference-data/Repo.ts': "import { PrismaClient } from '@prisma/client'; export class Repo {}",
+    'apps/api/src/infrastructure/runtime/RuntimeResourceRegistry.ts': "import { PrismaClient } from '@prisma/client'; export class RuntimeResourceRegistry { get() { return new PrismaClient(); } }",
   });
   assert.deepEqual(kinds(collectPrismaBoundaryViolations(root)), ['cross-domain-prisma']);
 });
@@ -70,4 +72,24 @@ test('blocks AI vendor SDK/endpoints outside P17 and allows the ai-platform adap
 test('blocks certificate generation inside P13', () => {
   const root = fixture({ 'packages/application/src/courses/Bad.ts': 'issueCertificate(courseId);' });
   assert.ok(kinds(collectCertificateBoundaryViolations(root)).includes('p13-certificate-authority'));
+});
+
+
+test('scripts/** rejects unclassified direct Prisma and presentation bypasses', () => {
+  const root = fixture({
+    'scripts/architecture/operational-tooling-boundary.json': JSON.stringify({ classifiedDirectPrismaScripts: [] }),
+    'scripts/bad-db.mjs': "import { PrismaClient } from '@prisma/client'; new PrismaClient();",
+    'scripts/bad-ui.mjs': "import x from '../apps/web/src/thing.ts';",
+  });
+  const found = new Set(kinds(collectOperationalToolingViolations(root)));
+  assert.ok(found.has('operational-prisma-unclassified'));
+  assert.ok(found.has('operational-presentation-bypass'));
+});
+
+test('scripts/** permits explicitly classified direct Prisma tooling', () => {
+  const root = fixture({
+    'scripts/architecture/operational-tooling-boundary.json': JSON.stringify({ classifiedDirectPrismaScripts: ['scripts/database/tool.mjs'] }),
+    'scripts/database/tool.mjs': "import { PrismaClient } from '@prisma/client'; new PrismaClient();",
+  });
+  assert.deepEqual(collectOperationalToolingViolations(root), []);
 });

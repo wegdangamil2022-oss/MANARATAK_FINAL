@@ -1,7 +1,17 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
+import { ValidationException } from '@manaratak/core';
 import { StudentToolExecutionUseCases, StudentToolRegistryUseCases } from '@manaratak/application';
 import { StudentToolLifecycleStatus } from '@manaratak/domain';
+import {
+  parseStrict,
+  studentToolAdminListQuerySchema,
+  studentToolAdminTestSchema,
+  studentToolAvailabilitySchema,
+  studentToolFlagsSchema,
+  studentToolLifecycleParamSchema,
+  studentToolMetadataPatchSchema,
+  toolKeyParamSchema,
+} from '../../validation/StrictControlPlaneSchemas';
 export class StudentToolsAdminRouter {
   static create(cradle: {
     studentToolRegistryUseCases: StudentToolRegistryUseCases;
@@ -40,27 +50,22 @@ export class StudentToolsAdminRouter {
       '/',
       safe(async (req, res) => {
         res.json({
-          data: await cradle.studentToolRegistryUseCases.listAdminTools({
-            category: typeof req.query.category === 'string' ? req.query.category : undefined,
-            visibility: typeof req.query.visibility === 'string' ? req.query.visibility : undefined,
-            implementationStatus:
-              typeof req.query.implementationStatus === 'string'
-                ? req.query.implementationStatus
-                : undefined,
-            search: typeof req.query.search === 'string' ? req.query.search : undefined,
-          }),
+          data: await cradle.studentToolRegistryUseCases.listAdminTools(
+            parseStrict(studentToolAdminListQuerySchema, req.query),
+          ),
         });
       }),
     );
     router.get(
       '/:toolKey',
       safe(async (req, res) => {
-        const tool = await cradle.studentToolRegistryUseCases.findTool(req.params.toolKey);
+        const { toolKey } = parseStrict(toolKeyParamSchema, req.params);
+        const tool = await cradle.studentToolRegistryUseCases.findTool(toolKey);
         if (!tool) return void res.status(404).json({ error: 'TOOL_NOT_FOUND' });
         const [telemetry, executions, audit, operations] = await Promise.all([
-          cradle.studentToolRegistryUseCases.telemetry(req.params.toolKey),
-          cradle.studentToolRegistryUseCases.executions(req.params.toolKey, 1, 25),
-          cradle.studentToolRegistryUseCases.audit(req.params.toolKey),
+          cradle.studentToolRegistryUseCases.telemetry(toolKey),
+          cradle.studentToolRegistryUseCases.executions(toolKey, 1, 25),
+          cradle.studentToolRegistryUseCases.audit(toolKey),
           cradle.studentToolRegistryUseCases.operationalStatus(tool),
         ]);
         res.json({ data: { tool, telemetry, executions, audit, ...operations } });
@@ -69,19 +74,11 @@ export class StudentToolsAdminRouter {
     router.patch(
       '/:toolKey/metadata',
       safe(async (req, res) => {
-        const patch = z
-          .object({
-            nameAr: z.string().min(1).optional(),
-            nameEn: z.string().min(1).optional(),
-            descriptionAr: z.string().optional(),
-            descriptionEn: z.string().optional(),
-            estimatedMinutes: z.number().int().min(0).optional(),
-            iconAssetId: z.string().nullable().optional(),
-          })
-          .parse(req.body);
+        const { toolKey } = parseStrict(toolKeyParamSchema, req.params);
+        const patch = parseStrict(studentToolMetadataPatchSchema, req.body);
         res.json({
           data: await cradle.studentToolRegistryUseCases.update(
-            req.params.toolKey,
+            toolKey,
             patch,
             actor(req),
           ),
@@ -91,23 +88,12 @@ export class StudentToolsAdminRouter {
     router.patch(
       '/:toolKey/availability',
       safe(async (req, res) => {
-        const body = z
-          .object({
-            semanticVersion: z.string().regex(/^\d+\.\d+\.\d+$/),
-            changeNote: z.string().min(1).max(1000),
-            publicEnabled: z.boolean(),
-            anonymousEnabled: z.boolean(),
-            authenticatedEnabled: z.boolean(),
-            adminOnly: z.boolean(),
-            allowedLocales: z.array(z.enum(['ar', 'en'])),
-            allowedRegions: z.array(z.string()),
-            maintenanceMode: z.boolean(),
-          })
-          .parse(req.body);
+        const { toolKey } = parseStrict(toolKeyParamSchema, req.params);
+        const body = parseStrict(studentToolAvailabilitySchema, req.body);
         const { semanticVersion, changeNote, ...availability } = body;
         res.json({
           data: await cradle.studentToolRegistryUseCases.updateVersionedConfiguration(
-            req.params.toolKey,
+            toolKey,
             { availability },
             { semanticVersion, changeNote },
             actor(req),
@@ -118,17 +104,11 @@ export class StudentToolsAdminRouter {
     router.patch(
       '/:toolKey/flags',
       safe(async (req, res) => {
-        const featureFlags = z
-          .object({
-            globallyEnabled: z.boolean(),
-            anonymousEnabled: z.boolean(),
-            authenticatedEnabled: z.boolean(),
-            maintenanceMode: z.boolean(),
-          })
-          .parse(req.body);
+        const { toolKey } = parseStrict(toolKeyParamSchema, req.params);
+        const featureFlags = parseStrict(studentToolFlagsSchema, req.body);
         res.json({
           data: await cradle.studentToolRegistryUseCases.update(
-            req.params.toolKey,
+            toolKey,
             { featureFlags },
             actor(req),
           ),
@@ -138,17 +118,17 @@ export class StudentToolsAdminRouter {
     router.post(
       '/:toolKey/lifecycle/:action',
       safe(async (req, res) => {
-        const actions: Record<string, StudentToolLifecycleStatus> = {
+        const { toolKey, action } = parseStrict(studentToolLifecycleParamSchema, req.params);
+        const actions: Record<typeof action, StudentToolLifecycleStatus> = {
           activate: StudentToolLifecycleStatus.ACTIVE,
           testing: StudentToolLifecycleStatus.TESTING,
           deprecate: StudentToolLifecycleStatus.DEPRECATED,
           retire: StudentToolLifecycleStatus.RETIRED,
         };
-        const lifecycle = actions[req.params.action];
-        if (!lifecycle) throw new Error('INVALID_LIFECYCLE_ACTION');
+        const lifecycle = actions[action];
         res.json({
           data: await cradle.studentToolRegistryUseCases.transition(
-            req.params.toolKey,
+            toolKey,
             lifecycle,
             actor(req),
           ),
@@ -159,9 +139,11 @@ export class StudentToolsAdminRouter {
       '/:toolKey/test',
       safe(async (req, res) => {
         actor(req);
-        const result = await cradle.studentToolExecutionUseCases.execute(req.params.toolKey, {
-          input: req.body.input,
-          locale: req.body.locale === 'en' ? 'en' : 'ar',
+        const { toolKey } = parseStrict(toolKeyParamSchema, req.params);
+        const body = parseStrict(studentToolAdminTestSchema, req.body);
+        const result = await cradle.studentToolExecutionUseCases.execute(toolKey, {
+          input: body.input,
+          locale: body.locale ?? 'ar',
           consumerType: 'ADMIN_TEST',
           authenticatedStudentReference: req.authUserId,
           isTest: true,
@@ -170,10 +152,11 @@ export class StudentToolsAdminRouter {
       }),
     );
     router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
-      if (error instanceof z.ZodError)
-        return res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
+      if (error instanceof ValidationException)
+        return res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
       const code = error instanceof Error ? error.message : 'STUDENT_TOOL_ADMIN_ERROR';
-      res.status(code.includes('NOT_FOUND') ? 404 : 400).json({ error: code });
+      const status = code.includes('NOT_FOUND') ? 404 : code.includes('QUOTA_STORE_UNAVAILABLE') ? 503 : code.includes('RATE_LIMITED') ? 429 : 400;
+      res.status(status).json({ error: code });
     });
     return router;
   }

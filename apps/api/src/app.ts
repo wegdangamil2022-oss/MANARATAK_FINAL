@@ -2,33 +2,31 @@ import * as awilix from 'awilix';
 import express, { Router, Express, Request, Response } from 'express';
 import * as path from 'path';
 import { container, registerDependencies } from './infrastructure/di/container.js';
-import { assertAssetSecurityProvidersForRuntime, createRateLimiterForRuntime, isDatabaseRequiredForRuntime } from './infrastructure/di/RuntimeDependencyPolicy.js';
+import { assertAssetSecurityProvidersForRuntime, assertImportRawSnapshotStoreForRuntime, createRateLimiterForRuntime, isDatabaseRequiredForRuntime } from './infrastructure/di/RuntimeDependencyPolicy.js';
 import { 
-  PrismaConnection,
   AsyncLogContext,
   PinoLoggerProvider,
   LoggerService,
   RequestLogger,
   ErrorLogger,
   DefaultErrorSerializer,
-  ZodValidationProvider,
-  DefaultSanitizer,
-  ValidationService,
   MonitoringService,
+  OtlpHttpMonitoringProvider,
   SecurityService,
   DatabaseHealthChecker,
-  RedisClientFactory,
   RedisHealthChecker
 } from '@manaratak/infrastructure';
-import { ConfigurationRegistry, EnvironmentLoader, EnvironmentConfigurationProvider, ProductionReadinessValidator, ZodEnvironmentValidator } from '@manaratak/config';
-import { IConfigurationService, ILogger, IValidationService, ISecurityService, IMonitoringService, IRateLimiter, ITokenProvider, ISessionManager, HealthStatus } from '@manaratak/core';
+import { ConfigurationRegistry, EnvironmentLoader, EnvironmentConfigurationProvider, ProductionReadinessValidator, ZodEnvironmentValidator, loadAppConfig } from '@manaratak/config';
+import { IConfigurationService, ILogger, ISecurityService, IMonitoringService, IRateLimiter, ITokenProvider, ISessionManager, HealthStatus } from '@manaratak/core';
 
 class AppSecurityService extends SecurityService implements ISecurityService {}
 
 class AppMonitoringService extends MonitoringService implements IMonitoringService {}
 import { LoggingMiddleware } from './presentation/middleware/LoggingMiddleware.js';
 import { GlobalExceptionHandler } from './presentation/middleware/GlobalExceptionHandler.js';
-import { DtoValidationMiddleware } from './presentation/validation/DtoValidationMiddleware.js';
+import { canonicalProblemDetailsMiddleware } from './presentation/middleware/CanonicalProblemDetailsMiddleware.js';
+import { createCanonicalIdempotencyMiddleware } from './presentation/middleware/CanonicalIdempotencyMiddleware.js';
+import { OptionalAuthMiddleware } from './presentation/middleware/OptionalAuthMiddleware.js';
 import { ApiRouter } from './presentation/api/router/ApiRouter.js';
 import { ResponseFormatter } from './presentation/api/response/ResponseFormatter.js';
 import { MonitoringRouter } from './presentation/api/router/MonitoringRouter.js';
@@ -36,6 +34,8 @@ import { MonitoringMiddleware } from './presentation/monitoring/MonitoringMiddle
 import { SecurityMiddlewareFactory } from './presentation/security/SecurityMiddlewareFactory.js';
 import { SecurityValidator } from './presentation/security/SecurityValidator.js';
 import { MutationAuditMiddleware } from './presentation/audit/MutationAuditMiddleware.js';
+import { RuntimeResourceRegistry } from './infrastructure/runtime/RuntimeResourceRegistry.js';
+import { buildCanonicalCorsOrigins } from './presentation/security/CanonicalApiCorsPolicy.js';
 
 export interface CreateApiAppOptions {
   securityService?: ISecurityService;
@@ -43,6 +43,8 @@ export interface CreateApiAppOptions {
   monitoringService?: IMonitoringService;
   env?: Record<string, string | undefined>;
   resetCache?: boolean;
+  connectExternalServices?: boolean;
+  databaseClient?: any;
 }
 
 let appInstance: Express | null = null;
@@ -87,7 +89,10 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
         const loader = new EnvironmentLoader([envProvider]);
         config = await ConfigurationRegistry.bootstrap(loader, new ZodEnvironmentValidator());
       }
-      const productionReadinessReport = ProductionReadinessValidator.validate(currentEnv);
+      // Readiness consumes the same normalized AppConfig contract as runtime bootstrap.
+      // This prevents boolean/number coercion or hidden raw-process.env requirements from drifting.
+      const normalizedRuntimeConfig = loadAppConfig(currentEnv);
+      const productionReadinessReport = ProductionReadinessValidator.validate(normalizedRuntimeConfig);
 
       const nodeEnv = config.getOptional<string>('NODE_ENV') || currentEnv.NODE_ENV;
       const isProductionOrStaging = nodeEnv === 'production' || nodeEnv === 'staging';
@@ -111,6 +116,13 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
         level: config.getOptional<string>('LOG_LEVEL') || currentEnv.LOG_LEVEL || 'info',
       });
       const logger = new LoggerService(pinoProvider, logContext, config);
+      const runtimeResources = new RuntimeResourceRegistry(
+        currentEnv,
+        config,
+        logger,
+        options?.connectExternalServices !== false,
+        options?.databaseClient,
+      );
 
       const requestLogger = new RequestLogger(logger, logContext);
       const errorLogger = new ErrorLogger(logger, logContext);
@@ -119,18 +131,28 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
       const errorSerializer = new DefaultErrorSerializer();
       const exceptionHandler = new GlobalExceptionHandler(logger, logContext, errorSerializer);
 
-      // Bootstrap Validation
-      const validationProvider = new ZodValidationProvider();
-      const inputSanitizer = new DefaultSanitizer();
-      const validationService = new ValidationService(validationProvider, inputSanitizer);
-      const dtoValidationMiddleware = new DtoValidationMiddleware(validationService);
+      // Presentation validation is enforced route-locally with strict Zod schemas.
+      // The previously orphaned DtoValidationMiddleware bootstrap was retired.
 
-      // Bootstrap Monitoring
-      const monitoringService = options?.monitoringService || new AppMonitoringService(undefined);
+      // Bootstrap Monitoring. Production/staging readiness already fails closed if the OTLP endpoint is absent.
+      const monitoringProvider = currentEnv.OTEL_EXPORTER_OTLP_ENDPOINT
+        ? new OtlpHttpMonitoringProvider({
+            endpoint: currentEnv.OTEL_EXPORTER_OTLP_ENDPOINT,
+            serviceName: currentEnv.OTEL_SERVICE_NAME || 'manaratak-api',
+            environment: currentEnv.NODE_ENV || 'development',
+            exportIntervalMs: Number(currentEnv.OTEL_EXPORT_INTERVAL_MS || 10_000),
+            traceSampleRatio: Number(currentEnv.OTEL_TRACES_SAMPLER_RATIO ?? 1),
+          })
+        : undefined;
+      const monitoringService = options?.monitoringService || new AppMonitoringService(monitoringProvider);
 
-      // Bootstrap Security
-      const rateLimiter = options?.rateLimiter || createRateLimiterForRuntime(currentEnv, logger);
-      const securityService = options?.securityService || new AppSecurityService(rateLimiter);
+      // Bootstrap Security. Production rate limiting reuses the process-owned Redis client.
+      const connectExternalServices = options?.connectExternalServices !== false;
+      const sharedRedisClient = connectExternalServices ? runtimeResources.getRedisClient() : undefined;
+      const rateLimiter = options?.rateLimiter || createRateLimiterForRuntime(currentEnv, logger, undefined, sharedRedisClient);
+      const securityService = options?.securityService || new AppSecurityService(rateLimiter, {
+        signingSecret: config.getOptional<string>('CSRF_SECRET') || currentEnv.CSRF_SECRET,
+      });
 
       // Assert Production Security Guardrails
       SecurityValidator.assertProductionSecurity(currentEnv, securityService, rateLimiter);
@@ -142,10 +164,14 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     if (Number.isInteger(trustProxyHops) && trustProxyHops > 0) app.set('trust proxy', trustProxyHops);
 
     // Security Configuration
-    const cspEnabled = config.getOptional<string>('SECURITY_CSP_ENABLED') === 'true';
-    const corsOrigins = config.getOptional<string>('CORS_ORIGIN') 
-      ? [config.getOptional<string>('CORS_ORIGIN')!] 
-      : config.getOptional<string>('SECURITY_CORS_ORIGINS')?.split(',') || ['http://localhost:3000'];
+    const cspEnabled = config.getOptional<boolean>('SECURITY_CSP_ENABLED') === true;
+    const corsOrigins = buildCanonicalCorsOrigins({
+      corsOrigin: config.getOptional<string>('CORS_ORIGIN') || currentEnv.CORS_ORIGIN,
+      publicWebUrl: config.getOptional<string>('PUBLIC_WEB_URL') || currentEnv.PUBLIC_WEB_URL,
+      adminWebUrl: config.getOptional<string>('ADMIN_WEB_URL') || currentEnv.ADMIN_WEB_URL,
+      additionalOrigins: config.getOptional<string>('SECURITY_CORS_ORIGINS') || currentEnv.SECURITY_CORS_ORIGINS,
+    });
+    if (corsOrigins.length === 0) corsOrigins.push('http://localhost:3000');
     const rateLimitMax = parseInt(config.getOptional<string>('SECURITY_RATE_LIMIT_MAX') || '100', 10);
     const rateLimitWindow = parseInt(config.getOptional<string>('SECURITY_RATE_LIMIT_WINDOW_MS') || '60000', 10);
     const adminAuthMode = SecurityMiddlewareFactory.resolveAdminAuthMode({
@@ -168,11 +194,32 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     const monitoringMiddleware = new MonitoringMiddleware(monitoringService);
     app.use(monitoringMiddleware.generate());
 
-    // Register DI Dependencies
-    registerDependencies(currentEnv, config);
+    // Register DI Dependencies against the same process-owned resource registry.
+    registerDependencies(currentEnv, config, runtimeResources);
+    app.locals.runtimeResourceRegistry = runtimeResources;
+    app.locals.monitoringProvider = monitoringProvider;
     container.register({ 
       monitoringService: awilix.asValue(monitoringService),
       securityService: awilix.asValue(securityService)
+    });
+
+    monitoringService.registerIndicator({
+      name: 'runtime-lifecycle',
+      isOptional: false,
+      checkHealth: async () => ({
+        status: runtimeResources.isShuttingDown() ? HealthStatus.DOWN : HealthStatus.UP,
+        timestamp: new Date().toISOString(),
+        ...(runtimeResources.isShuttingDown() ? { error: 'RUNTIME_SHUTTING_DOWN' } : {}),
+        details: { capabilityStatus: runtimeResources.isShuttingDown() ? 'DRAINING' : 'AVAILABLE' },
+      }),
+    });
+
+    monitoringService.registerIndicator({
+      name: 'telemetry-exporter',
+      isOptional: !isProductionOrStaging,
+      checkHealth: async () => monitoringProvider
+        ? monitoringProvider.getReadiness()
+        : ({ status: isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.DEGRADED, timestamp: new Date().toISOString(), error: 'OTEL_EXPORTER_NOT_CONFIGURED', details: { capabilityStatus: 'NOT_CONFIGURED' } }),
     });
 
     const describeRuntimeCapability = (provider: any): string => {
@@ -194,16 +241,18 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     // Production-like runtimes must never start with the deliberately unavailable
     // local/no-op asset security composition. This check happens before any DB connect.
     assertAssetSecurityProvidersForRuntime(currentEnv, assetRuntimeProviders);
+    assertImportRawSnapshotStoreForRuntime(currentEnv, container.resolve<any>('importRawSnapshotStore'));
 
     // Establish Database Connection if available
     if (databaseRequired && !currentEnv.DATABASE_URL) {
       throw new Error('DATABASE_URL is required for this runtime mode');
     }
     const databaseUrl = config.getOptional<string>('DATABASE_URL') || currentEnv.DATABASE_URL;
-    if (databaseUrl) {
+    if (databaseUrl || options?.databaseClient) {
       try {
-        await PrismaConnection.connect(config, logger);
-        const dbHealthChecker = new DatabaseHealthChecker(PrismaConnection.getInstance());
+        const prisma = options?.databaseClient ?? container.resolve<any>('prisma');
+        if (connectExternalServices && typeof prisma?.$connect === 'function') await prisma.$connect();
+        const dbHealthChecker = new DatabaseHealthChecker(prisma);
         monitoringService.registerIndicator({
           name: 'database',
           isOptional: false,
@@ -242,7 +291,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
       isOptional: !isProductionOrStaging,
       checkHealth: async () => {
         try {
-          const prisma = PrismaConnection.getInstance() as any;
+          const prisma = container.resolve<any>('prisma');
           const rows = await prisma.$queryRawUnsafe(
             'SELECT COUNT(*)::int AS "failedCount" FROM "_prisma_migrations" WHERE "finished_at" IS NULL AND "rolled_back_at" IS NULL',
           );
@@ -302,7 +351,8 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     const redisUrl = config.getOptional<string>('REDIS_URL') || currentEnv.REDIS_URL;
     if (redisUrl) {
       try {
-        const redisClient = RedisClientFactory.createClient(config, logger);
+        const redisClient = container.resolve<any>('redisClient');
+        if (!redisClient) throw new Error('REDIS_URL is required to create the canonical Redis runtime client.');
         const redisHealthChecker = new RedisHealthChecker(redisClient);
         
         monitoringService.registerIndicator({
@@ -341,6 +391,22 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
         })
       });
     }
+
+    const studentToolRateLimiter = container.resolve<any>('studentToolRateLimiter');
+    monitoringService.registerIndicator({
+      name: 'student-tools-quota',
+      isOptional: !isProductionOrStaging,
+      checkHealth: async () => {
+        const productionCapable = studentToolRateLimiter?.isProductionReady === true
+          && studentToolRateLimiter?.capabilityStatus === 'PRODUCTION_CAPABLE';
+        return {
+          status: productionCapable ? HealthStatus.UP : (isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.DEGRADED),
+          timestamp: new Date().toISOString(),
+          ...((isProductionOrStaging && !productionCapable) ? { error: 'STUDENT_TOOL_QUOTA_STORE_NOT_DISTRIBUTED' } : {}),
+          details: { capabilityStatus: productionCapable ? 'PRODUCTION_CAPABLE' : 'DEVELOPMENT_ONLY' },
+        };
+      },
+    });
 
     // Operational capability probes used by the Health & Readiness control plane.
     // These probes expose configuration/capability state only; they never return secrets.
@@ -433,41 +499,91 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
         const registry = container.resolve<any>('financePaymentGatewayRegistry');
         const provider = typeof registry?.get === 'function' ? registry.get(providerKey) : null;
         const configured = Boolean(provider && typeof provider.isConfigured === 'function' && provider.isConfigured());
+        const capabilityStatus = provider && typeof provider.runtimeStatus === 'function'
+          ? String(provider.runtimeStatus())
+          : (configured ? 'RUNTIME_PENDING' : 'NOT_CONFIGURED');
+        const ready = configured && capabilityStatus === 'READY';
         return {
-          // The current environment-backed adapter intentionally has no live transport yet.
-          status: HealthStatus.DEGRADED,
+          status: ready ? HealthStatus.UP : (isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.DEGRADED),
           timestamp: new Date().toISOString(),
-          error: configured ? 'PAYMENT_RUNTIME_TRANSPORT_PENDING' : 'PAYMENT_PROVIDER_NOT_CONFIGURED',
-          details: {
-            capabilityStatus: configured ? 'TRANSPORT_PENDING' : 'NOT_CONFIGURED',
-            providerConfigured: configured,
-          },
+          ...(!ready ? { error: configured ? 'PAYMENT_PROVIDER_RUNTIME_NOT_READY' : 'PAYMENT_PROVIDER_NOT_CONFIGURED' } : {}),
+          details: { capabilityStatus, providerConfigured: configured, providerKey },
         };
       },
     });
 
     monitoringService.registerIndicator({
       name: 'notifications',
-      isOptional: true,
+      isOptional: !isProductionOrStaging,
       checkHealth: async () => {
         const intentRepo = container.resolve<any>('notificationIntentRepo');
         const templateRepo = container.resolve<any>('notificationTemplateRepo');
         const preferenceGateway = container.resolve<any>('notificationPrefGateway');
-        const capabilities = [
-          describeRuntimeCapability(intentRepo),
-          describeRuntimeCapability(templateRepo),
-          describeRuntimeCapability(preferenceGateway),
-        ];
-        const available = capabilities.every((status) => !['UNAVAILABLE', 'NOT_CONFIGURED', 'LOCAL_ONLY'].includes(status));
+        const deliveryGateway = container.resolve<any>('notificationDeliveryGateway');
+        const persistence = describeRuntimeCapability(intentRepo);
+        const templates = describeRuntimeCapability(templateRepo);
+        const preferences = describeRuntimeCapability(preferenceGateway);
+        const provider = describeRuntimeCapability(deliveryGateway);
+        const backgroundWorkerEnabled = config.getOptional<boolean>('BACKGROUND_WORKER_ENABLED') === true;
+        const deliveryCadenceConfigured = Boolean(config.getOptional<string>('BACKGROUND_NOTIFICATION_CRON'));
+        const durable = !['UNAVAILABLE', 'NOT_CONFIGURED', 'LOCAL_ONLY'].includes(persistence)
+          && !['UNAVAILABLE', 'NOT_CONFIGURED', 'LOCAL_ONLY'].includes(templates);
+        const providerReady = provider === 'PRODUCTION_CAPABLE';
+        const available = durable && providerReady && backgroundWorkerEnabled && deliveryCadenceConfigured;
         return {
-          status: available ? HealthStatus.UP : HealthStatus.DEGRADED,
+          status: available ? HealthStatus.UP : (isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.DEGRADED),
           timestamp: new Date().toISOString(),
-          ...(!available ? { error: 'NOTIFICATION_RUNTIME_NOT_CONFIGURED' } : {}),
+          ...(!available ? { error: 'NOTIFICATION_RUNTIME_NOT_READY' } : {}),
           details: {
-            capabilityStatus: available ? 'AVAILABLE' : 'NOT_CONFIGURED',
-            persistence: capabilities[0],
-            templates: capabilities[1],
-            preferences: capabilities[2],
+            capabilityStatus: available ? 'PRODUCTION_CAPABLE' : (durable ? 'RUNTIME_PENDING' : 'NOT_CONFIGURED'),
+            persistence,
+            templates,
+            preferences,
+            provider,
+            backgroundWorkerEnabled,
+            deliveryCadenceConfigured,
+          },
+        };
+      },
+    });
+
+    monitoringService.registerIndicator({
+      name: 'polling-workers',
+      isOptional: !isProductionOrStaging,
+      checkHealth: async () => {
+        const registry = container.resolve<any>('pollingWorkerRuntimeRegistry');
+        const now = Date.now();
+        const configured = {
+          certificateCompletion: config.getOptional<boolean>('CERTIFICATE_COMPLETION_WORKER_ENABLED') === true,
+          studentWorkspace: config.getOptional<boolean>('STUDENT_WORKSPACE_OUTBOX_WORKER_ENABLED') === true,
+          ownerDomainOutbox: config.getOptional<boolean>('OWNER_DOMAIN_OUTBOX_WORKER_ENABLED') === true,
+        };
+        const decorate = (name: string) => {
+          const snapshot = registry?.snapshot?.(name) ?? { state: 'STOPPED' };
+          const lastSuccessAt = snapshot.lastSuccessAt ? Date.parse(snapshot.lastSuccessAt) : NaN;
+          return {
+            ...snapshot,
+            lastSuccessLagMs: Number.isFinite(lastSuccessAt) ? Math.max(0, now - lastSuccessAt) : null,
+          };
+        };
+        const workers = {
+          certificateCompletion: decorate('certificate-completion'),
+          studentWorkspace: decorate('student-workspace-outbox'),
+          ownerDomainOutbox: decorate('owner-domain-outbox'),
+        };
+        const expectedNames = Object.entries(configured).filter(([, enabled]) => enabled).map(([name]) => name);
+        const unavailable = expectedNames.filter((name) => workers[name as keyof typeof workers].state === 'STOPPED');
+        const degraded = expectedNames.filter((name) => workers[name as keyof typeof workers].state === 'DEGRADED');
+        const allConfigured = Object.values(configured).every(Boolean);
+        const healthy = allConfigured && unavailable.length === 0 && degraded.length === 0;
+        return {
+          status: healthy ? HealthStatus.UP : (isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.DEGRADED),
+          timestamp: new Date().toISOString(),
+          ...(!healthy ? { error: unavailable.length ? 'POLLING_WORKER_STOPPED' : 'POLLING_WORKER_DEGRADED' } : {}),
+          details: {
+            capabilityStatus: healthy ? 'PRODUCTION_CAPABLE' : 'RUNTIME_PENDING',
+            configured,
+            workers,
           },
         };
       },
@@ -475,22 +591,40 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
 
     monitoringService.registerIndicator({
       name: 'background-jobs',
-      isOptional: true,
+      isOptional: !isProductionOrStaging,
       checkHealth: async () => {
         const repository = container.resolve<any>('bgJobRepo');
         const execution = container.resolve<any>('bgJobGateway');
+        const runtimeState = container.resolve<any>('backgroundWorkerRuntimeState');
         const repositoryStatus = describeRuntimeCapability(repository);
         const executionStatus = describeRuntimeCapability(execution);
-        const available = !['UNAVAILABLE', 'NOT_CONFIGURED', 'LOCAL_ONLY'].includes(repositoryStatus)
-          && !['UNAVAILABLE', 'NOT_CONFIGURED', 'LOCAL_ONLY'].includes(executionStatus);
+        const workerEnabled = config.getOptional<boolean>('BACKGROUND_WORKER_ENABLED') === true;
+        const durable = repository?.persistenceClassification === 'DURABLE'
+          && execution?.persistenceClassification === 'DURABLE'
+          && execution?.capabilityStatus === 'PRODUCTION_CAPABLE';
+        let queueSnapshot: any = null;
+        let queueError: string | undefined;
+        try {
+          queueSnapshot = typeof execution?.getOperationalSnapshot === 'function'
+            ? await execution.getOperationalSnapshot()
+            : null;
+        } catch (error: any) {
+          queueError = error?.message || 'BACKGROUND_JOB_QUEUE_HEALTH_FAILED';
+        }
+        const runtimeSnapshot = runtimeState?.snapshot?.() ?? { state: 'STOPPED' };
+        const available = durable && workerEnabled && !queueError && runtimeSnapshot.state !== 'STOPPED';
         return {
-          status: available ? HealthStatus.UP : HealthStatus.DEGRADED,
+          status: available ? HealthStatus.UP : (isProductionOrStaging ? HealthStatus.DOWN : HealthStatus.DEGRADED),
           timestamp: new Date().toISOString(),
-          ...(!available ? { error: 'BACKGROUND_JOB_RUNTIME_NOT_CONFIGURED' } : {}),
+          ...(!available ? { error: queueError || (!workerEnabled ? 'BACKGROUND_WORKER_DISABLED' : 'BACKGROUND_JOB_RUNTIME_NOT_READY') } : {}),
           details: {
-            capabilityStatus: available ? 'AVAILABLE' : 'NOT_CONFIGURED',
+            capabilityStatus: available ? 'PRODUCTION_CAPABLE' : (durable ? 'RUNTIME_PENDING' : 'NOT_CONFIGURED'),
             repository: repositoryStatus,
             execution: executionStatus,
+            persistence: execution?.persistenceClassification,
+            workerEnabled,
+            worker: runtimeSnapshot,
+            queue: queueSnapshot,
           },
         };
       },
@@ -562,6 +696,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
 
     // Define API v1 Router
     const v1Router = Router();
+    v1Router.use(canonicalProblemDetailsMiddleware);
 
     // Register versioned routes
 
@@ -586,22 +721,24 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     // Admin Security Middleware
     const adminTokenProvider = container.resolve<ITokenProvider>('tokenProvider');
     const adminSessionManager = container.resolve<ISessionManager>('sessionManager');
-    const adminIdentityRepository = container.resolve<any>('identityRepository');
+    const principalAccessValidator = container.resolve<any>('principalAccessValidator');
     v1Router.use('/admin', SecurityMiddlewareFactory.createAdminGuard({
       mode: adminAuthMode,
       tokenProvider: adminTokenProvider,
       sessionManager: adminSessionManager,
-      identityRepository: adminIdentityRepository,
+      principalAccessValidator,
     }));
+    const apiIdempotencyStore = container.resolve<any>('apiIdempotencyStore');
+    v1Router.use('/admin', createCanonicalIdempotencyMiddleware({ store: apiIdempotencyStore, requireKey: true }));
     v1Router.use('/admin', new MutationAuditMiddleware(auditRecordRepository, 'ADMIN').generate());
     const requireAdminPermission = SecurityMiddlewareFactory.createAdminPermissionGuard;
 
     // Core Admin Domain Routers (Identity & Audit)
     v1Router.use('/admin/identities', requireAdminPermission('admin:identities:manage'), container.resolve<Router>('identityRouter'));
-    v1Router.use('/identities', SecurityMiddlewareFactory.createAdminGuard({ mode: adminAuthMode, tokenProvider: adminTokenProvider, sessionManager: adminSessionManager, identityRepository: adminIdentityRepository }), new MutationAuditMiddleware(auditRecordRepository, 'IDENTITY').generate(), requireAdminPermission('admin:identities:manage'), container.resolve<Router>('identityRouter'));
+    v1Router.use('/identities', SecurityMiddlewareFactory.createAdminGuard({ mode: adminAuthMode, tokenProvider: adminTokenProvider, sessionManager: adminSessionManager, principalAccessValidator }), createCanonicalIdempotencyMiddleware({ store: apiIdempotencyStore, requireKey: true }), new MutationAuditMiddleware(auditRecordRepository, 'IDENTITY').generate(), requireAdminPermission('admin:identities:manage'), container.resolve<Router>('identityRouter'));
 
     v1Router.use('/admin/audit', requireAdminPermission('admin:audit:manage'), container.resolve<Router>('auditRouter'));
-    v1Router.use('/audit', SecurityMiddlewareFactory.createAdminGuard({ mode: adminAuthMode, tokenProvider: adminTokenProvider, sessionManager: adminSessionManager, identityRepository: adminIdentityRepository }), requireAdminPermission('admin:audit:manage'), container.resolve<Router>('auditRouter'));
+    v1Router.use('/audit', SecurityMiddlewareFactory.createAdminGuard({ mode: adminAuthMode, tokenProvider: adminTokenProvider, sessionManager: adminSessionManager, principalAccessValidator }), requireAdminPermission('admin:audit:manage'), container.resolve<Router>('auditRouter'));
 
     // 2. Active Phase 2-10 Domain Routers (Eager) - Phase 6-10 Roadmap Scope
     // Phase 6: Import Foundation & Assets
@@ -636,7 +773,8 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     // Legacy route locations are preserved for compatibility, but every mutation-capable
     // control-plane router is now inside the same strict auth + audit + RBAC boundary as /admin.
     const protectControlPlane = (permission: string, routerName: string) => [
-      SecurityMiddlewareFactory.createAdminGuard({ mode: adminAuthMode, tokenProvider: adminTokenProvider }),
+      SecurityMiddlewareFactory.createAdminGuard({ mode: adminAuthMode, tokenProvider: adminTokenProvider, sessionManager: adminSessionManager, principalAccessValidator }),
+      createCanonicalIdempotencyMiddleware({ store: apiIdempotencyStore, requireKey: true }),
       new MutationAuditMiddleware(auditRecordRepository, 'CONTROL_PLANE').generate(),
       requireAdminPermission(permission),
       lazyRouter(routerName),
@@ -670,8 +808,13 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     v1Router.use('/admin/certificates', lazyRouter('certificateAdminRouter'));
     v1Router.use('/public/certificates', lazyRouter('certificatePublicRouter'));
     v1Router.use('/student', lazyRouter('studentWorkspaceRouter'));
+    v1Router.use('/admin/students', requireAdminPermission('admin:students:support'), lazyRouter('studentSupportAdminRouter'));
     v1Router.use('/admin/student-tools', requireAdminPermission('admin:student-tools:manage'), lazyRouter('studentToolsAdminRouter'));
-    v1Router.use('/public/student-tools', lazyRouter('studentToolsPublicRouter'));
+    v1Router.use(
+      '/public/student-tools',
+      new OptionalAuthMiddleware(adminTokenProvider, adminSessionManager, principalAccessValidator).generate(),
+      lazyRouter('studentToolsPublicRouter'),
+    );
     v1Router.use('/admin/cms', requireAdminPermission('admin:cms:manage'), lazyRouter('cmsAdminRouter'));
     v1Router.use('/public/cms', lazyRouter('cmsPublicRouter'));
     v1Router.use('/admin/services', requireAdminPermission('admin:services:manage'), lazyRouter('serviceAdminRouter'));
@@ -679,7 +822,11 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     v1Router.use('/admin/finance', requireAdminPermission('admin:finance:manage'), lazyRouter('financeAdminRouter'));
     v1Router.use('/admin/careers', requireAdminPermission('admin:careers:manage'), lazyRouter('careerAdminRouter'));
     v1Router.use('/public/careers', lazyRouter('careerPublicRouter'));
-    v1Router.use('/ai', requireAdminPermission('admin:ai:manage'), lazyRouter('aiGatewayRouter'));
+    // Phase 17 privileged operator gateway. Canonical Admin path inherits the
+    // strict /admin auth + mutation-audit boundary; the legacy /ai alias keeps
+    // compatibility but composes the same explicit control-plane boundary.
+    v1Router.use('/admin/ai/operator', requireAdminPermission('admin:ai:manage'), lazyRouter('aiGatewayRouter'));
+    v1Router.use('/ai', ...protectControlPlane('admin:ai:manage', 'aiGatewayRouter'));
     v1Router.use('/admin/ai', requireAdminPermission('admin:ai:manage'), lazyRouter('aiAdminRouter'));
 
     // Public monitoring exposes only liveness/readiness health contracts. The richer

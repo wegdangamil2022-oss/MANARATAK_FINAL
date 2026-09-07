@@ -73,7 +73,7 @@ check('JOBS-API-005 web list path matches owner API', webClient.includes('/publi
 check('JOBS-API-006 web detail path matches owner API', webClient.includes('/public/careers/jobs/${encodeURIComponent(slug)}'));
 check('JOBS-API-007 stale singular route removed', !webClient.includes('/public/career/jobs'));
 check('JOBS-API-008 external URLs limited to http/https', adminRouter.includes('Only http/https URLs are allowed'));
-check('JOBS-API-009 list pagination bounded', publicUse.includes('Math.min(filters.pageSize || 20, 50)'));
+check('JOBS-API-009 list pagination bounded', publicRouter.includes('limit: z.coerce.number().int().min(1).max(100).default(20)') && publicUse.includes('limit: Math.min(filters.limit || 20, 50)') && publicUse.includes('cursor: filters.cursor'));
 
 // Public UI integrity
 check('JOBS-WEB-001 live loader uses owner API', live.includes('ApiClient.getCareerJobs'));

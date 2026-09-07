@@ -26,7 +26,13 @@ describe('StudentWorkspaceRouter', () => {
         studentDashboardHydrationService: { getDashboard: useCases.getDashboard } as any,
         financeStudentUseCases: {} as any,
         tokenProvider: {
-          verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'student-1' }),
+          verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'student-1', sessionId: 'session-1' }),
+        } as any,
+        sessionManager: { isSessionActive: vi.fn().mockResolvedValue(true), revokeAllSessions: vi.fn() } as any,
+        principalAccessValidator: { isAuthenticationAllowed: vi.fn().mockResolvedValue(true) } as any,
+        apiIdempotencyStore: {
+          begin: vi.fn().mockResolvedValue({ kind: 'NEW', scopeHash: 'scope-1', leaseToken: 'lease-1' }),
+          complete: vi.fn().mockResolvedValue(undefined),
         } as any,
       }),
     );
@@ -78,6 +84,7 @@ describe('StudentWorkspaceRouter', () => {
     const res = await request(app)
       .post('/student/student-1/saved-items')
       .set('Authorization', 'Bearer valid-student-token')
+      .set('Idempotency-Key', 'student-save-item-1')
       .send({ entityType: StudentSavedItemType.COURSE, entityId: 'course-1' });
 
     expect(res.status).toBe(201);
@@ -115,6 +122,7 @@ describe('StudentWorkspaceRouter', () => {
     useCases.updatePrivacyConsent.mockResolvedValue({ id: 'decision-1', workspaceVersion: 3 });
     const preferences = { retainSearchHistory: false, allowPersonalization: true, allowProductAnalytics: true, publicProfileEnabled: false };
     const res = await request(createApp(useCases)).put('/student/privacy-consent').set('Authorization', 'Bearer valid-student-token')
+      .set('Idempotency-Key', 'student-privacy-1')
       .send({ expectedVersion: 2, purpose: 'student settings', privacyPreferences: preferences });
     expect(res.status).toBe(200);
     expect(useCases.updatePrivacyConsent).toHaveBeenCalledWith(expect.objectContaining({ studentReferenceId: 'student-1', actorId: 'student-1', expectedVersion: 2, privacyPreferences: preferences }));
@@ -123,6 +131,7 @@ describe('StudentWorkspaceRouter', () => {
   it('rejects privacy fields on generic workspace updates instead of stripping them', async () => {
     const useCases = createUseCases();
     const res = await request(createApp(useCases)).put('/student/workspace').set('Authorization', 'Bearer valid-student-token')
+      .set('Idempotency-Key', 'student-workspace-1')
       .send({ expectedVersion: 1, privacyPreferences: { retainSearchHistory: false } });
     expect(res.status).toBe(400);
     expect(useCases.upsertWorkspace).not.toHaveBeenCalled();
@@ -131,6 +140,7 @@ describe('StudentWorkspaceRouter', () => {
   it.each(['FAVORITES', 'SMART'])('rejects public collection type spoofing: %s', async (type) => {
     const useCases = createUseCases();
     const res = await request(createApp(useCases)).post('/student/collections').set('Authorization', 'Bearer valid-student-token')
+      .set('Idempotency-Key', `student-collection-${type.toLowerCase()}`)
       .send({ name: 'قائمتي', type });
     expect(res.status).toBe(400);
     expect(useCases.createCollection).not.toHaveBeenCalled();

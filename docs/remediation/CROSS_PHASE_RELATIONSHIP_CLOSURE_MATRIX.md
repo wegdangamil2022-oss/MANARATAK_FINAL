@@ -1,15 +1,15 @@
 # Cross-Phase Relationship Closure Matrix
 
-**Status:** ACTIVE — P13 FINAL SOURCE CLOSURE  
-**Version:** 2.0.0  
-**Status date:** 2026-09-03  
+**Status:** ACTIVE — SOURCE_REBASELINED / RUNTIME_EVIDENCE_PENDING  
+**Version:** 3.0.0-source-rebaselined  
+**Status date:** 2026-09-07  
 **Architecture authority:** Roadmap v6.0 + P1-closed Enterprise architecture models  
-**Source baseline:** original source commit `e8af4f0e36fabbaf9f7cf38b5d1f4d0a88829012`, carried forward through the P3-closed full-project package (`SHA-256 dca26ee8f0a294a59a39e8d5939c9239493d19776ba1ab98a432c1562f8be790`)  
-**Scope:** source-level cross-phase relationships P7–P24; no live DB mutation or runtime certification.
+**Source baseline:** W0–W6 source closure evidence plus W7 documentation/source rebaseline. The distributed ZIP contains no trustworthy upstream `.git` metadata; commit/PR attestation remains an external governance evidence item and is not fabricated.
+**Scope:** enterprise material relationships P05–P24 plus relevant P01–P04 governance/foundation dependencies; no live DB mutation or runtime certification.
 
 ## 1. Authority and use
 
-This is the **single active Cross-Phase Relationship Closure Matrix** for the current Source Closure plan. It replaces historical integration matrices as an execution checklist; historical files such as `docs/remediation/wp8/WP8_INTEGRATION_MATRIX.md` remain evidence only and are **not** current closure authority. P13 may label/archive those historical reports after final source verification.
+This is the **single active Cross-Phase Relationship Source-Rebaseline Register**. W0–W6 source closure evidence and W7 verification establish the current source boundary. `Runtime Pending` is intentionally retained wherever the remaining proof requires DB/provider/deployment/browser execution. Historical closure-step labels remain provenance only and never override the current `Status` column.
 
 Rules applied while building this matrix:
 
@@ -30,6 +30,7 @@ Rules applied while building this matrix:
 | **Partial** | Some source layers exist, but at least one contract/wiring/identity/consumer edge is incomplete or unsafe. |
 | **Source Closed** | All source obligations for this relationship are closed and source-proven; no DB/runtime proof is required for the stated relation. |
 | **Runtime Pending** | Source relationship is closed; remaining verification requires the real DB/environment/E2E runtime. |
+| **Source Rebaselined** | Source relationship has been reconciled to current code/tests; remaining external proof, if any, is stated separately. |
 
 ### Explicit non-ownership boundaries
 
@@ -58,7 +59,33 @@ The table uses these compact evidence keys. Each key points to current repositor
 - `SVC-D`: `packages/domain/src/services-platform/`; `SVC-A`: `packages/application/src/services-platform/`; `SVC-R`: `packages/infrastructure/src/services-platform/PrismaServicePlatformRepository.ts`; canonical-reference and finance adapters: `packages/infrastructure/src/services-platform/ServicePlatformGateways.ts`.
 - `CAREER-D`: `packages/domain/src/career-alumni/`; `CAREER-A`: `packages/application/src/career-alumni/`; `CAREER-R`: `packages/infrastructure/src/career-alumni/PrismaCareerRepository.ts`; canonical geography adapter: `packages/infrastructure/src/career-alumni/CareerReferenceGateway.ts`.
 
-## 4. Active relationship closure matrix
+
+## W7 rebaseline decision
+
+- W0–W6 source gates are inherited as previously closed evidence; W7 does not reimplement those waves.
+- No material cross-phase row remains `Rebaseline Open` after W7.
+- Source-complete relationships that still require an external database, provider, deployment control plane, browser, telemetry collector or recovery environment are `Runtime Pending`.
+- This matrix does not declare whole-platform `PRODUCTION_READY`.
+- P23/P24 authority is synchronized in `P23_P24_REBASELINE_TRACEABILITY.md`.
+
+## 4. Enterprise rebaseline extension register
+
+The following material edges were absent from the former P7–P24-only “final” scope or were reopened by the v0.68 remediation audit. These rows take precedence over any historical closure wording below.
+
+| ID | Owner | Consumer | Material relationship | Finding roots | Current status | Required proof before closure |
+| --- | --- | --- | --- | --- | --- | --- |
+| X-001 | P05 Identity | P15 Student | Identity creation/activation → Student Workspace auto-provisioning | `MNT-AUD-0016`, `0076` | Runtime Pending | Versioned Identity transactional-outbox producer, durable lease-fenced delivery and idempotent P15 projection are source-wired; disposable DB/crash-window E2E remains pending. |
+| X-002 | P05 EAP | P11/P12/P14/P15/P16/P21/P23 | Asset reference validity, security/lifecycle checks, Admin Asset Center/picker, purge safety | `MNT-AUD-0011`, `0026`, `0030`, `0050` | Runtime Pending | Source adapters/policy/Admin controls are closed; provider sandbox, real storage/security pipeline and DB/browser purge/reference E2E remain pending. |
+| X-003 | P06 Import | Owner domains | Durable raw snapshots, retry/reclaim worker, semantic handoff into owning domains | `MNT-AUD-0012`, `0086` | Runtime Pending | Durable raw provider plus recurring import retry/reclaim handler are source-wired; provider/DB crash-restart and owner-handoff E2E remain pending. |
+| X-004 | P05 Identity/Auth | P17/P18/P19/P20/P21/P23 | Authenticated principal, active identity/session revocation, control-plane guards | `MNT-AUD-0062`, `0065`, `0071`, `0076`, `0105` | Runtime Pending | Source auth/session/active-identity guards are closed; deployed multi-session revocation/concurrency and browser/runtime proof remain pending. |
+| X-005 | Event/Worker foundation | P13/P14/P15/P16/P17/P19/P20/P21 | Transactional outbox → dispatcher/worker → consumer/inbox with retry/fencing | `MNT-AUD-0007`, `0068`, `0080`, `0093`, `0016`, `0017`, `0054`, `0060`, `0077`, `0089` | Runtime Pending | PostgreSQL worker/outbox fencing, owner producers, handlers, idempotent projections, retry/DLQ source and worker health are wired; disposable DB/provider multi-instance/crash evidence remains pending. |
+| X-006 | P23 Admin | All owner domains | Permission-aware owner actions, immutable audit, validation, exhaustive queues and result states | `MNT-AUD-0020`, `0021`, `0033`, `0036`, `0044`, `0064`, `0084`, `0110`, `0111`, `0112` | Runtime Pending | Source action parity, permissions, audit, validation and queue behavior are closed; deployed Admin/browser/DB evidence remains pending. |
+| X-007 | P24 Public | Owner read APIs | Complete pagination/search, truthful relationships/facts, locale, SEO and course identity composition | `MNT-AUD-0022`, `0024`, `0025`, `0028`, `0029`, `0037`, `0069`, `0100` | Runtime Pending | Source pagination/search/fact/locale/SEO/identity composition is closed; deployed crawl, owner-runtime and browser evidence remain pending. |
+| X-008 | P18 Student Tools | P15 Student/Public handoff | Optional authenticated ownership, distributed quotas, public→student save handoff | `MNT-AUD-0107`, `0113` | Runtime Pending | Optional-auth/ownership/save source flow is closed; distributed quota/provider and deployed unauth→auth/browser evidence remain pending. |
+
+## 5. Source-rebaselined relationship rows
+
+> **W7 authority:** the `Status` column below is current source truth. `Closure step` is historical provenance only. Rows marked `Runtime Pending` are source-closed for the stated relationship but still require external DB/provider/browser evidence.
 
 
 | ID | Owner | Consumer | Relationship / owner truth | Canonical identity | Domain contract | Application / query contract | Repository mapping | API / read-model DTO | Admin editor | Public navigation | Student hydration | Event / projection | Source tests | Status | Closure step |
@@ -131,6 +158,7 @@ The table uses these compact evidence keys. Each key points to current repositor
 | R-066 | P20 | P24 | Public Services | Service `publicId/slug` + canonical linked P7 refs | `SVC-D` | `PublicServiceCatalogUseCases` | `SVC-R` | `ServicePublicRouter` | N/A | `loadPublishedServices` consumes P20 catalog and preserves canonical country/language IDs; `PUBLIC_SERVICES` removed from live composition; no invented Course→Service relation without owner read-model evidence | See R-031 | P20 catalog/request owner truth | Service public/use-case tests + P8/P10 verifiers | Runtime Pending | P10 CLOSED |
 | R-067 | P21 | P24 | Public Career opportunities | Job/employer public IDs/slugs + canonical country/city refs | `CAREER-D` | `CareerPublicUseCases` | `CAREER-R` | `CareerPublicRouter` | N/A | `loadPublishedCareers` consumes P21 published jobs and preserves canonical P7 geography; static career catalog removed from live composition; no display-name identity | N/A | P21 remains opportunity/employer truth | Career public/application tests + P8/P10 verifiers | Runtime Pending | P10 CLOSED |
 | R-068 | P22 | P24 | Product-experience navigation/UX contract; no business-data ownership | N/A by design; P22 owns experience principles, not domain identity | No P22 business domain package by design | Presentation-level navigation contract | N/A | N/A | N/A | `usePublicNavigation`; `PublicTemplateApp` live composition exposes loading/empty/unavailable/retry states and never silently substitutes prototype data | N/A | N/A | `publicUx.spec.ts` + P10 verifier | Source Closed | P10 CLOSED |
+| R-069 | P7-P21 + P16 CMS | P23/P24 | Public visibility/composition governance | Owner public IDs/slugs + owner publication/availability lifecycle; CMS navigation/block IDs for editorial ordering | Owner domain contracts + `CMS-D` | Phase 23 calls owner/CMS commands; Phase 24 consumes owner public queries + CMS published composition | Owner repositories + `CMS-R`; no P23 visibility table | Existing owner public/admin routers + `CmsAdminRouter`/`CmsPublicRouter` | P23 is command UI only; no duplicate visibility persistence | P24 renders only owner-published records and published CMS navigation/blocks | N/A | Owner lifecycle/CMS publication events remain authoritative | W4 composition-governance source test | Source Closed | W4 MNT-AUD-0033 |
 
 
 ## 5. Historical measurement snapshots (progress evidence only)

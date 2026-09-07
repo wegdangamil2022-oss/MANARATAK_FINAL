@@ -266,8 +266,7 @@ describe('PrismaCourseRepository', () => {
       platformName: 'Example Platform',
       category: 'Technology',
       learningLanguage: 'English',
-      page: 1,
-      pageSize: 10,
+      limit: 10,
     });
 
     expect(prisma.course.findMany).toHaveBeenCalledWith({
@@ -289,9 +288,8 @@ describe('PrismaCourseRepository', () => {
           },
         ] }],
       },
-      skip: 0,
-      take: 10,
-      orderBy: { createdAt: 'desc' },
+      take: 11,
+      orderBy: { id: 'asc' },
     });
   });
 

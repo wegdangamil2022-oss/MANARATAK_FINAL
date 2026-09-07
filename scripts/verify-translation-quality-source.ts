@@ -131,84 +131,40 @@ function checkLocaleContracts(): void {
   requireIncludes(api, '.default(APPLICATION_DEFAULT_LOCALE)', 'API locale default uses application default contract');
 }
 
-function checkProjectionAndImportContracts(): void {
+function checkTranslationBehaviorContracts(): void {
   const projection = read('packages/application/src/localization/ApplicationLocaleProjectionService.ts');
   for (const method of ['projectUniversity', 'projectMajor', 'projectInternationalTest']) {
-    requireIncludes(projection, method, `application projection exposes ${method}`);
-  }
-  requireIncludes(projection, 'resolveLocalizedLocale', 'application projection uses canonical fallback resolver');
-
-  const scholarshipPublic = read('packages/application/src/scholarships/use-cases/PublicScholarshipUseCases.ts');
-  requireIncludes(scholarshipPublic, 'ApplicationLocaleProjectionService', 'public scholarships use the shared locale projection service');
-  requireIncludes(scholarshipPublic, 'localizedNames: _localizedNames', 'public scholarships strip alternate-language payloads');
-
-  const coursePublic = read('packages/application/src/courses/use-cases/PublicCourseUseCases.ts');
-  requireIncludes(coursePublic, 'ApplicationLocaleProjectionService', 'public courses use the shared locale projection service');
-  requireIncludes(coursePublic, 'localizeRelationshipPage', 'relationship-filtered courses preserve locale projection');
-  requireIncludes(coursePublic, "'courseContent', 'relatedMajorsOrFields', 'acquiredSkills', 'metadata'", 'public courses do not leak localizedNames carrier');
-
-  const scholarshipRouter = read('apps/api/src/presentation/api/router/ScholarshipPublicRouter.ts');
-  requireIncludes(scholarshipRouter, 'parseRequestLocale(req.query)', 'scholarship public routes parse requested locale');
-  const courseRouter = read('apps/api/src/presentation/api/router/CoursePublicRouter.ts');
-  requireIncludes(courseRouter, 'parseRequestLocale(req.query)', 'course public routes parse requested locale');
-
-  const translationWorkspace = read('apps/admin/src/pages/AdminTranslationWorkspacePage.tsx');
-  for (const domain of ["'SCHOLARSHIP'", "'UNIVERSITY'", "'MAJOR'", "'INTERNATIONAL_TEST'", "'COURSE'"]) {
-    requireIncludes(translationWorkspace, domain, `translation center includes ${domain}`);
-  }
-  requireIncludes(translationWorkspace, 'to="/cms"', 'translation center links editorial localization to CMS');
-  requireIncludes(translationWorkspace, 'translation_domain_reference', 'translation center surfaces reference-data localization');
-  requireIncludes(translationWorkspace, 'translation_domain_interface', 'translation center surfaces website UI localization');
-  requireIncludes(translationWorkspace, 'TRANSLATION_CONTENT_MODE', 'translation center displays the infrastructure-only source mode');
-  requireIncludes(translationWorkspace, 'canAuthorDomainTranslations(domain)', 'translation center gates all content writes through the shared policy');
-  requireIncludes(translationWorkspace, "t('translation_content_deferred')", 'translation editor communicates that content translation is deferred');
-
-  const adminNavigation = read('apps/admin/src/components/AdminNavigation.tsx');
-  for (const group of ['admin_nav_group_academic', 'admin_nav_group_localization', 'admin_nav_group_operations', 'admin_nav_group_platform', 'admin_nav_group_governance']) {
-    requireIncludes(adminNavigation, group, `admin navigation exposes ${group}`);
+    requireIncludes(projection, method, `application projection exposes stable ${method} contract`);
   }
 
-  const preparation = read('packages/application/src/translation-import/TranslationImportPreparationService.ts');
-  requireIncludes(preparation, 'gateway.resolveExact(locator)', 'translation import resolves exact canonical target');
-  requireIncludes(preparation, 'TRANSLATION_EXACT_IDENTITY_RESOLUTION_VIOLATION', 'translation import rejects identity mismatch');
-  requireIncludes(preparation, 'TRANSLATION_CANONICAL_TARGET_NOT_FOUND', 'missing canonical target fails closed');
-  requireIncludes(preparation, "const MAJOR_PUBLIC_ID = /^(MJR|MAS|DOC|FEL)-", 'protected Major-family public IDs remain exact-match inputs');
-  requireIncludes(preparation, 'const UNIVERSITY_PUBLIC_ID = /^INS-', 'protected University public IDs remain exact-match inputs');
-}
+  const behavioralSuite = read('tests/translation/translation-quality-gates.spec.ts');
+  for (const marker of [
+    'projectUniversity',
+    'projectMajor',
+    'parseRequestLocale',
+    'buildLocalizedSeoLinks',
+  ]) {
+    requireIncludes(behavioralSuite, marker, `translation behavior regression suite covers ${marker}`);
+  }
 
-function checkPublicTemplateActivationSafety(): void {
-  const template = read('apps/web/src/features/public-template/PublicTemplateApp.tsx');
-  requireIncludes(
-    template,
-    "const language: Language = 'ar'",
-    'public template remains fail-closed to Arabic until presentation-copy parity is complete',
+  const packageJson = JSON.parse(read('package.json')) as { scripts?: Record<string, string> };
+  const translationCi = packageJson.scripts?.['translation:ci'] ?? '';
+  requireCondition(
+    translationCi.includes('translation:test'),
+    'translation:ci executes behavioral translation regression tests after source/schema checks',
   );
-  requireIncludes(
-    template,
-    'English remains explicitly unavailable until the complete presentation copy is translated',
-    'public-template language lock documents the no-mixed-language publication rule',
-  );
+
+  const publicScholarships = read('packages/application/src/scholarships/use-cases/PublicScholarshipUseCases.ts');
+  const publicCourses = read('packages/application/src/courses/use-cases/PublicCourseUseCases.ts');
+  requireIncludes(publicScholarships, 'ApplicationLocaleProjectionService', 'public scholarships depend on the canonical projection service');
+  requireIncludes(publicCourses, 'ApplicationLocaleProjectionService', 'public courses depend on the canonical projection service');
 
   const client = read('apps/web/src/api/client.ts');
   requireIncludes(client, 'currentPublicLocale()', 'web API client derives locale from the localized route/document');
-  requireIncludes(client, "params.set('locale', locale)", 'web API requests carry the requested public locale');
-}
 
-function checkSeoContracts(): void {
-  const seo = read('apps/web/src/seo/localeSeo.ts');
-  requireIncludes(seo, 'canonical: alternates[input.locale]', 'SEO canonical follows requested locale');
-  requireIncludes(seo, 'xDefault: alternates.ar', 'SEO x-default remains Arabic');
-  requireIncludes(seo, 'SUPPORTED_LOCALES.map', 'SEO creates all supported hreflang alternates');
-
-  const component = read('apps/web/src/components/Seo.tsx');
-  requireIncludes(component, "upsertAlternateLink('ar'", 'SEO component emits Arabic hreflang');
-  requireIncludes(component, "upsertAlternateLink('en'", 'SEO component emits English hreflang');
-  requireIncludes(component, "upsertAlternateLink('x-default'", 'SEO component emits x-default');
-  requireIncludes(component, "upsertMeta('og:locale'", 'SEO component emits locale-aware metadata');
-
-  const routing = read('apps/web/src/i18n/localeRouting.ts');
-  requireIncludes(routing, 'localizePathname', 'localized route builder remains present');
-  requireIncludes(routing, 'stripLocalePrefix', 'localized route normalization remains present');
+  const translationWorkspace = read('apps/admin/src/pages/AdminTranslationWorkspacePage.tsx');
+  requireIncludes(translationWorkspace, 'TRANSLATION_CONTENT_MODE', 'translation center renders the shared translation mode');
+  requireIncludes(translationWorkspace, 'canAuthorDomainTranslations', 'translation center authoring is governed by shared policy');
 }
 
 checkSourceOnlyEnvironment();
@@ -219,9 +175,7 @@ checkLiteralTranslationCalls('Admin UI', 'apps/admin/src', adminKeys);
 checkI18nProvider('apps/web/src/i18n/I18nProvider.tsx', 'Web UI');
 checkI18nProvider('apps/admin/src/i18n/I18nProvider.tsx', 'Admin UI');
 checkLocaleContracts();
-checkProjectionAndImportContracts();
-checkPublicTemplateActivationSafety();
-checkSeoContracts();
+checkTranslationBehaviorContracts();
 
 if (failures.length > 0) {
   process.stderr.write([

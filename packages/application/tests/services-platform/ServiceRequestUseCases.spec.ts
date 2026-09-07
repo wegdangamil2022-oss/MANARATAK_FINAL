@@ -34,6 +34,7 @@ const service = {
   completenessStatus: ServiceCompletenessStatus.COMPLETE,
   createdAt: new Date(),
   updatedAt: new Date(),
+  version: 1,
 };
 
 const request = {
@@ -45,6 +46,7 @@ const request = {
   requestParameters: {},
   createdAt: new Date(),
   updatedAt: new Date(),
+  version: 1,
 };
 
 describe('Phase 20 service request ownership and finance handoff', () => {
@@ -94,13 +96,13 @@ describe('Phase 20 service request ownership and finance handoff', () => {
   it('keeps finance authority behind IServiceFinanceGateway and stores only returned invoice identity', async () => {
     const useCases = new AdminServiceFulfillmentUseCases(catalog, requests, finance);
     const result = await useCases.createFinanceInvoice({
-      requestId: 'req-1', amountMinorUnits: '12500', currencyCode: 'USD', scale: 2, actorId: 'admin-1',
+      requestId: 'req-1', amountMinorUnits: '12500', currencyCode: 'USD', scale: 2, actorId: 'admin-1', expectedVersion: 1,
     });
     expect(finance.createDraftInvoice).toHaveBeenCalledWith(expect.objectContaining({
       requestId: 'req-1', requestPublicId: 'svc_req_public', studentReferenceId: 'student-1',
       amountMinorUnits: '12500', currencyCode: 'USD', scale: 2, actorId: 'admin-1',
     }));
-    expect(requests.linkFinanceInvoice).toHaveBeenCalledWith('req-1', 'fin-1', 'fin-public-1');
+    expect(requests.linkFinanceInvoice).toHaveBeenCalledWith('req-1', 'fin-1', 'fin-public-1', 1);
     expect(result.financeInvoiceId).toBe('fin-1');
   });
   it('blocks paid-service fulfillment until Finance proves clearance', async () => {
@@ -115,7 +117,7 @@ describe('Phase 20 service request ownership and finance handoff', () => {
     });
     const useCases = new AdminServiceFulfillmentUseCases(catalog, requests, finance);
 
-    await expect(useCases.transitionRequest('req-1', ServiceRequestStatus.IN_PROGRESS))
+    await expect(useCases.transitionRequest('req-1', ServiceRequestStatus.IN_PROGRESS, 1))
       .rejects.toThrow('SERVICE_FINANCIAL_CLEARANCE_REQUIRED:ISSUED');
     expect(requests.updateRequestStatus).not.toHaveBeenCalled();
   });
@@ -129,10 +131,10 @@ describe('Phase 20 service request ownership and finance handoff', () => {
     });
     const useCases = new AdminServiceFulfillmentUseCases(catalog, requests, finance);
 
-    await useCases.transitionRequest('req-1', ServiceRequestStatus.IN_PROGRESS);
+    await useCases.transitionRequest('req-1', ServiceRequestStatus.IN_PROGRESS, 1);
 
     expect(finance.getInvoiceClearance).toHaveBeenCalledWith('fin-1');
-    expect(requests.updateRequestStatus).toHaveBeenCalledWith('req-1', ServiceRequestStatus.IN_PROGRESS, undefined);
+    expect(requests.updateRequestStatus).toHaveBeenCalledWith('req-1', ServiceRequestStatus.IN_PROGRESS, 1, undefined);
   });
 
 });

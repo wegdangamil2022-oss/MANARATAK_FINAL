@@ -15,6 +15,7 @@ import {
   ContextMetadata,
   CorrelationReference
 } from '@manaratak/domain';
+import { getAuthenticatedPrincipal } from '../security/AuthenticatedPrincipal';
 
 export interface AuditRecordParams {
   action: string;
@@ -29,6 +30,7 @@ export interface AuditRecordParams {
 
 export interface AuditRecordOptions {
   reliability: 'REQUIRED' | 'BEST_EFFORT';
+  principal: 'REQUIRED' | 'OPTIONAL';
 }
 
 export class AuditHelper {
@@ -36,7 +38,7 @@ export class AuditHelper {
     repo: IAuditRecordRepository | undefined,
     req: Request,
     params: AuditRecordParams,
-    options: AuditRecordOptions = { reliability: 'BEST_EFFORT' }
+    options: AuditRecordOptions = { reliability: 'BEST_EFFORT', principal: 'OPTIONAL' }
   ): Promise<void> {
     if (!repo) {
       if (options.reliability === 'REQUIRED') throw new Error('REQUIRED_AUDIT_REPOSITORY_UNAVAILABLE');
@@ -44,12 +46,10 @@ export class AuditHelper {
     }
 
     try {
-      const actorId =
-        (req as any).user?.id ||
-        (req as any).user?.identityId ||
-        'ANONYMOUS';
-
-      const actorType = (req as any).user?.type || 'IDENTITY';
+      const principal = getAuthenticatedPrincipal(req);
+      if (!principal && options.principal === 'REQUIRED') throw new Error('AUDIT_AUTHENTICATED_PRINCIPAL_REQUIRED');
+      const actorId = principal?.principalId || 'ANONYMOUS';
+      const actorType = principal?.actorType || 'IDENTITY';
 
       const targetId =
         params.targetId ||
@@ -63,13 +63,10 @@ export class AuditHelper {
         'N/A';
 
       const source = req.ip || req.socket?.remoteAddress || 'api-router';
-
       const correlationId =
         (req.headers['x-correlation-id'] as string) ||
         (req.headers['x-request-id'] as string);
-
-      const severity =
-        params.severity || (params.result === 'SUCCESS' ? 'INFO' : 'ERROR');
+      const severity = params.severity || (params.result === 'SUCCESS' ? 'INFO' : 'ERROR');
 
       const safeMetadata: Record<string, any> = {
         result: params.result,
@@ -90,7 +87,7 @@ export class AuditHelper {
 
       const record = AuditRecord.create(
         AuditId.create(randomUUID()),
-        AuditReference.create(`AUD-${Date.now()}-${Math.floor(Math.random() * 10000)}`),
+        AuditReference.create(`AUD-${Date.now()}-${randomUUID()}`),
         AuditAction.create(params.action),
         AuditCategory.create(params.category),
         AuditSeverity.create(severity),
@@ -105,7 +102,6 @@ export class AuditHelper {
 
       await repo.save(record);
     } catch (err) {
-      // Safe non-blocking best-effort audit logging: do not throw error to avoid disrupting primary operation
       console.error('Audit recording failed.');
       if (options.reliability === 'REQUIRED') throw err;
     }

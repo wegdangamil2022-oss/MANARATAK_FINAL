@@ -1,13 +1,20 @@
 import { Router } from 'express';
 import { ManageApiServicesUseCase } from '@manaratak/application';
+import {
+  apiServiceCreateSchema,
+  apiServiceListQuerySchema,
+  apiServicePublishVersionSchema,
+  parseStrict,
+  referenceParamSchema,
+} from '../../validation/StrictControlPlaneSchemas';
 
 export class ApiFoundationRouter {
-  public static create({ manageApiServicesUseCase  }: { manageApiServicesUseCase: ManageApiServicesUseCase }): Router {
+  public static create({ manageApiServicesUseCase }: { manageApiServicesUseCase: ManageApiServicesUseCase }): Router {
     const router = Router();
 
     router.post('/', async (req, res, next) => {
       try {
-        const result = await manageApiServicesUseCase.createApiService(req.body);
+        const result = await manageApiServicesUseCase.createApiService(parseStrict(apiServiceCreateSchema, req.body));
         res.status(201).json(result);
       } catch (error: any) {
         next(error);
@@ -16,10 +23,7 @@ export class ApiFoundationRouter {
 
     router.get('/', async (req, res, next) => {
       try {
-        const criteria = {
-          ownerReference: req.query.ownerReference as string,
-          lifecycleState: req.query.lifecycleState as string
-        };
+        const criteria = parseStrict(apiServiceListQuerySchema, req.query);
         const result = await manageApiServicesUseCase.listApiServices(criteria);
         res.status(200).json(result);
       } catch (error: any) {
@@ -29,7 +33,8 @@ export class ApiFoundationRouter {
 
     router.get('/:reference', async (req, res, next) => {
       try {
-        const result = await manageApiServicesUseCase.getApiServiceByReference(req.params.reference);
+        const { reference } = parseStrict(referenceParamSchema, req.params);
+        const result = await manageApiServicesUseCase.getApiServiceByReference(reference);
         res.status(200).json(result);
       } catch (error: any) {
         next(error);
@@ -38,7 +43,8 @@ export class ApiFoundationRouter {
 
     router.post('/:reference/activate', async (req, res, next) => {
       try {
-        const result = await manageApiServicesUseCase.activateApiService(req.params.reference);
+        const { reference } = parseStrict(referenceParamSchema, req.params);
+        const result = await manageApiServicesUseCase.activateApiService(reference);
         res.status(200).json(result);
       } catch (error: any) {
         next(error);
@@ -47,7 +53,8 @@ export class ApiFoundationRouter {
 
     router.post('/:reference/deprecate', async (req, res, next) => {
       try {
-        const result = await manageApiServicesUseCase.deprecateApiService(req.params.reference);
+        const { reference } = parseStrict(referenceParamSchema, req.params);
+        const result = await manageApiServicesUseCase.deprecateApiService(reference);
         res.status(200).json(result);
       } catch (error: any) {
         next(error);
@@ -56,7 +63,8 @@ export class ApiFoundationRouter {
 
     router.post('/:reference/archive', async (req, res, next) => {
       try {
-        const result = await manageApiServicesUseCase.archiveApiService(req.params.reference);
+        const { reference } = parseStrict(referenceParamSchema, req.params);
+        const result = await manageApiServicesUseCase.archiveApiService(reference);
         res.status(200).json(result);
       } catch (error: any) {
         next(error);
@@ -65,17 +73,9 @@ export class ApiFoundationRouter {
 
     router.post('/:reference/publish-version', async (req, res, next) => {
       try {
-        const dto = {
-          reference: req.params.reference,
-          endpoints: req.body.endpoints,
-          operations: req.body.operations,
-          version: req.body.version,
-          contractMetadata: req.body.contractMetadata,
-          compatibilityMetadata: req.body.compatibilityMetadata,
-          exposureIntent: req.body.exposureIntent,
-          metadata: req.body.metadata
-        };
-        const result = await manageApiServicesUseCase.publishVersion(dto);
+        const { reference } = parseStrict(referenceParamSchema, req.params);
+        const payload = parseStrict(apiServicePublishVersionSchema, req.body);
+        const result = await manageApiServicesUseCase.publishVersion({ reference, ...payload });
         res.status(201).json(result);
       } catch (error: any) {
         next(error);

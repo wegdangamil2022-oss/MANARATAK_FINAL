@@ -163,9 +163,9 @@ Before merging a new script, ensure:
 
 ### Compliant Examples
 
-- **File Path:** `/scripts/db/seed-database.ts`
+- **File Path:** `/scripts/database/seed-orchestrator.mjs`
 - **File Path:** `/apps/api/scripts/deploy/release.sh`
-- **package.json:** `"db:seed": "npx tsx scripts/db/seed-database.ts"`
+- **package.json:** `"db:seed": "node scripts/database/seed-orchestrator.mjs apply"`
 - **Bash Script Header:**
   ```bash
   #!/usr/bin/env bash

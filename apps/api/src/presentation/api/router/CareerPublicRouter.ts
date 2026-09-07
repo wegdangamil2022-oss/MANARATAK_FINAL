@@ -21,8 +21,8 @@ export class CareerPublicRouter {
       country: z.string().optional(),
       city: z.string().optional(),
       employerId: z.string().optional(),
-      page: z.string().optional().transform((value) => value ? parseInt(value, 10) : 1),
-      pageSize: z.string().optional().transform((value) => value ? Math.min(parseInt(value, 10), 50) : 20)
+      cursor: z.string().trim().min(1).max(2048).optional(),
+      limit: z.coerce.number().int().min(1).max(100).default(20)
     });
 
     router.get('/jobs', asyncHandler(async (req: Request, res: Response) => {

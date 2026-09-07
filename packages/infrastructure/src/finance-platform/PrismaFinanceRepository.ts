@@ -403,6 +403,67 @@ export class PrismaFinanceRepository implements IFinanceRepository {
     });
   }
 
+  async recordReconciledCapturedPaymentAtomic(
+    paymentId: string,
+    evidence: { gatewayReference: string; safeMaskedMetadata?: Record<string, string> },
+    ctx: FinanceMutationContext,
+  ): Promise<FinancePaymentDto> {
+    return this.tx(async (tx) => {
+      const current = await tx.financePaymentRecord.findUnique({ where: { id: paymentId } });
+      if (!current) throw new Error('Payment attempt not found');
+      if (current.status === PaymentStatus.CAPTURED) return this.payment(current);
+      if (![PaymentStatus.PENDING, PaymentStatus.AUTHORIZED].includes(current.status))
+        throw new Error(`Payment cannot reconcile capture from ${current.status}`);
+      if (!current.gatewayProvider || !evidence.gatewayReference?.trim())
+        throw new Error('Reconciled payment requires authenticated provider evidence');
+      if (current.gatewayReference && current.gatewayReference !== evidence.gatewayReference)
+        throw new Error('Reconciled gateway reference mismatch');
+      const gatewayDuplicate = await tx.financePaymentRecord.findFirst({
+        where: { gatewayProvider: current.gatewayProvider, gatewayReference: evidence.gatewayReference, NOT: { id: current.id } },
+      });
+      if (gatewayDuplicate) throw new Error('Duplicate external payment capture rejected');
+      const invoice = await tx.financeInvoiceRecord.findUnique({ where: { id: current.invoiceId } });
+      if (!invoice) throw new Error('Payment invoice not found');
+      const amount = money(current.amountMinorUnits, current.currencyCode, current.scale);
+      if (BigInt(amount.amountMinorUnits) <= 0n || BigInt(amount.amountMinorUnits) > BigInt(invoice.dueMinorUnits))
+        throw new Error('Reconciled payment amount exceeds outstanding invoice balance');
+      const attemptCount = await tx.financePaymentAttemptRecord.count({ where: { paymentId: current.id } });
+      const row = await tx.financePaymentRecord.update({
+        where: { id: current.id },
+        data: {
+          status: PaymentStatus.CAPTURED,
+          gatewayReference: evidence.gatewayReference,
+          capturedAt: new Date(),
+          safeMaskedMetadata: evidence.safeMaskedMetadata as any,
+          failureReason: null,
+          attempts: { create: { sequence: attemptCount + 1, status: PaymentStatus.CAPTURED, gatewayReference: evidence.gatewayReference } },
+        },
+      });
+      const cash = await this.systemAccount(tx, 'PAYMENT_CLEARING', 'ASSET', amount.currencyCode, amount.scale);
+      const receivable = await this.systemAccount(tx, 'ACCOUNTS_RECEIVABLE', 'ASSET', amount.currencyCode, amount.scale);
+      await this.postWithinTx(tx, {
+        ...ctx,
+        idempotencyKey: `${ctx.idempotencyKey}:ledger`,
+        businessReferenceType: 'PAYMENT',
+        businessReferenceId: row.id,
+        postings: [
+          { accountId: cash.id, direction: 'DEBIT', amount },
+          { accountId: receivable.id, direction: 'CREDIT', amount },
+        ],
+      });
+      const due = BigInt(invoice.dueMinorUnits) - BigInt(amount.amountMinorUnits);
+      await tx.financeInvoiceRecord.update({
+        where: { id: invoice.id, version: invoice.version },
+        data: { dueMinorUnits: due.toString(), status: due === 0n ? InvoiceStatus.PAID : InvoiceStatus.PARTIALLY_PAID, paidAt: due === 0n ? new Date() : null, version: { increment: 1 } },
+      });
+      await tx.financeDocumentRecord.create({
+        data: { publicId: `fin_receipt_${randomUUID()}`, type: 'RECEIPT', invoiceId: invoice.id, paymentId: row.id, amountMinorUnits: amount.amountMinorUnits, currencyCode: amount.currencyCode, scale: amount.scale, issuedBy: ctx.actorId },
+      });
+      await this.govern(tx, ctx, 'FINANCE_PAYMENT_RECONCILED_CAPTURED', row.id, { invoiceId: invoice.id, gatewayProvider: row.gatewayProvider, gatewayReference: evidence.gatewayReference });
+      return this.payment(row);
+    });
+  }
+
   async recordCapturedPaymentAtomic(
     data: CreateFinancePaymentDto,
     ctx: FinanceMutationContext,

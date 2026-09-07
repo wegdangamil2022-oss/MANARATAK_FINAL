@@ -1,12 +1,14 @@
 # MANARATAK 2.0: Phase 23 (Enterprise Administration Portal) Structure Contracts
 
 **Document ID:** PHASE-23-02-STRUCT-CONTRACTS  
-**Status:** Baselined & Approved  
+**Status:** SOURCE_REBASELINED — RUNTIME_EVIDENCE_PENDING  
 **Phase:** 23  
 **Domain:** Enterprise Administration Portal  
 **Artifact:** Part B - Administration Structure Contracts  
 
 ---
+
+> **W7 source-rebaseline notice (2026-09-07):** This specification is source-rebaselined under `MNT-AUD-0045` against the remediated owner APIs, Admin/Public composition, source tests and cross-phase traceability. This status is not runtime or production certification; external DB/provider/deployment/browser evidence remains `RUNTIME_EVIDENCE_PENDING`. See `docs/remediation/P23_P24_REBASELINE_TRACEABILITY.md`.
 
 ### Navigation
 [← Phase 22: Enterprise Product Experience](../phase-22-enterprise-product-experience/phase-22-01-enterprise-product-experience-architecture-specification.md) | [Phase 23: Architecture Spec (Part A)](./phase-23-01-enterprise-administration-portal-architecture-specification.md) | [Phase 23: Workflows & Operational Experience (Part C)](./phase-23-03-enterprise-administration-portal-workflows-operational-experience.md) | [Phase 24: Enterprise Public Platform →](../phase-24-enterprise-public-platform/phase-24-01-enterprise-public-platform-architecture-specification.md)
@@ -508,15 +510,15 @@ export const MonitoredSystemEvents: string[] = [
 ### 23.B.6 Public Platform Visibility & Command Surface Contracts
 
 **Architectural Commentary**  
-Phase 23 acts as the administrative command surface for visibility and feature toggles. Phase 23 issues administrative commands (publish, unpublish, feature toggle) through approved domain APIs/events. Phase 24 - Enterprise Public Platform owns final public page composition, routing, rendering, SEO, and visitor-facing page state.
+Phase 23 is the administrative client for owner-domain publication/availability commands and Phase 16 CMS composition commands. It does not persist an independent public-visibility truth. Phase 24 owns rendering/composition only and consumes the published owner/CMS read models.
 
 ```typescript
 export interface IPublicPlatformCommandSurface {
-  canIssuePublishCommand: boolean; // true
-  canIssueUnpublishCommand: boolean; // true
-  canIssueSectionVisibilityToggle: boolean; // true
-  canIssueFeatureStateToggle: boolean; // true
-  ownsPublicPageRendering: boolean; // false (Delegated to Phase 24)
+  canIssueOwnerPublishCommand: boolean; // true, through owner APIs
+  canIssueOwnerUnpublishCommand: boolean; // true, through owner APIs
+  canEditCmsNavigationAndBlocks: boolean; // true, through Phase 16 APIs
+  ownsIndependentVisibilityStore: boolean; // false
+  ownsPublicPageRendering: boolean; // false (Phase 24)
 }
 ```
 

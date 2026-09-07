@@ -65,7 +65,7 @@ function slugify(name: string): string {
 }
 
 async function main() {
-  requireDatabaseMutationGate('import-bachelors-phase10');
+  requireDatabaseMutationGate('import-bachelors-phase10', { allowedPurposes: ['import'] });
   console.log('Initializing dependency container and registering dependencies...');
   registerDependencies();
   const prisma = container.resolve<PrismaClient>('prisma');

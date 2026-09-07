@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState, type SetStateAction } from 'react';
-import type { CategoryType, Scholarship, University, Major, Exam, ImportedCourse, PublicArticle, Service, ServiceAudience } from './types';
+import type { CategoryType, Scholarship, University, Major, Exam, Course, ImportedCourse, PublicArticle, Service, ServiceAudience } from './types';
 import type { TabType } from './components/BottomNavBar';
 
 export const initialNavigation = {
@@ -14,6 +14,7 @@ export const initialNavigation = {
   selectedUniversity: null as University | null,
   selectedMajor: null as Major | null,
   selectedExam: null as Exam | null,
+  selectedCourse: null as Course | null,
   selectedImportedCourse: null as ImportedCourse | null,
   selectedArticle: null as PublicArticle | null,
   selectedService: null as Service | null,
@@ -26,7 +27,7 @@ export const initialNavigation = {
   detailSearchTerm: '',
 };
 export type NavigationState = typeof initialNavigation;
-const detailKeys = ['selectedScholarship', 'selectedUniversity', 'selectedMajor', 'selectedExam', 'selectedImportedCourse', 'selectedArticle', 'selectedService'] as const;
+const detailKeys = ['selectedScholarship', 'selectedUniversity', 'selectedMajor', 'selectedExam', 'selectedCourse', 'selectedImportedCourse', 'selectedArticle', 'selectedService'] as const;
 const emptyDetails = Object.fromEntries(detailKeys.map(key => [key, null]));
 type Entry = {version: 29; index: number; route: NavigationState; scroll: number};
 function readEntry(): Entry | null {
@@ -54,6 +55,7 @@ export function publicUrlForState(state: NavigationState): string {
   else if (state.selectedScholarship) path = `/scholarships/${entityKey(state.selectedScholarship)}`;
   else if (state.selectedUniversity) path = `/universities/${entityKey(state.selectedUniversity)}`;
   else if (state.selectedMajor) path = `/majors/${entityKey(state.selectedMajor)}`;
+  else if (state.selectedCourse) path = `/courses/${entityKey(state.selectedCourse)}`;
   else if (state.selectedImportedCourse) path = `/courses/${entityKey(state.selectedImportedCourse)}`;
   else if (state.selectedArticle) path = `/articles/${entityKey(state.selectedArticle)}`;
   else if (state.selectedService) path = `/services/${entityKey(state.selectedService)}`;

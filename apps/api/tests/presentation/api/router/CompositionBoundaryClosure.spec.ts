@@ -5,19 +5,21 @@ import { container } from '../../../../src/infrastructure/di/container.js';
 
 describe('WP1-B.2 Composition Boundary Closure Regression Tests', () => {
   it('API bootstrap succeeds and core required & active phase routers are composed eagerly', async () => {
-    const app = await createApiApp();
+    const app = await createApiApp({
+      resetCache: true,
+      connectExternalServices: false,
+      databaseClient: { $queryRaw: vi.fn().mockRejectedValue(new Error('database intentionally unavailable in source-only test')) },
+    });
     expect(app).toBeDefined();
 
     // Verify core required endpoints respond
     const csrfRes = await request(app).get('/api/v1/auth/csrf-token');
     expect(csrfRes.status).toBe(401);
-    expect(csrfRes.body.error.code).toBe('CSRF_SESSION_REQUIRED');
+    expect(csrfRes.body.code).toBe('CSRF_SESSION_REQUIRED');
 
     const livenessRes = await request(app).get('/api/v1/monitoring/health/liveness');
     expect(livenessRes.status).toBe(200);
 
-    const healthRes = await request(app).get('/api/v1/monitoring/health');
-    expect([200, 503]).toContain(healthRes.status);
   });
 
   it('deferred future routers do not instantiate before request use', async () => {

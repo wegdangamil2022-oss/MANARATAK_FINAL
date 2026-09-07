@@ -19,6 +19,7 @@ import {
   ScholarshipRequiredDocumentDto,
   ScholarshipUniversityLinkDto,
 } from '@manaratak/domain';
+import { generateOpaqueIdentifier } from '@manaratak/core';
 import type { IScholarshipCanonicalLookupGateway, ScholarshipCanonicalLookupTarget } from '../resolution';
 import { assertNoTranslationPayloadFields } from '@manaratak/shared';
 import { AtomicDomainMutationCoordinator, AtomicMutationRequestContext } from '../../event-foundation/use-cases/AtomicDomainMutationCoordinator';
@@ -132,7 +133,7 @@ export class AdminScholarshipUseCases {
 
     const classification = ScholarshipCompletenessClassifier.classify(payloadForClassification);
 
-    const publicId = `sch_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+    const publicId = `sch_${generateOpaqueIdentifier()}`;
     const slug = displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') || `scholarship-${Date.now()}`;
     const canonicalName = displayName;
     const canonicalDedupKey = ScholarshipDeduplicationService.buildKey({

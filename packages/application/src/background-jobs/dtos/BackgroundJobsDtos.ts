@@ -11,23 +11,10 @@ export interface EnqueueJobDto {
   ownerReference?: string;
 }
 
-export interface CancelJobDto {
-  jobReference: string;
+export interface EnsureRecurringJobDto extends Omit<EnqueueJobDto, 'runAt'> {
+  stableReference: string;
+  cronExpression: string;
 }
 
-export interface GetJobStatusDto {
-  jobReference: string;
-}
-
-export interface CompleteJobDto {
-  jobReference: string;
-}
-
-export interface FailJobDto {
-  jobReference: string;
-  reason?: string;
-}
-
-export interface StartJobDto {
-  jobReference: string;
-}
+export interface CancelJobDto { jobReference: string; }
+export interface GetJobStatusDto { jobReference: string; }

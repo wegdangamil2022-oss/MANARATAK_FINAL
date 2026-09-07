@@ -308,8 +308,8 @@ export interface PublicScholarshipFilters {
   sponsorName?: string;
   applicationDeadlineFrom?: Date;
   applicationDeadlineTo?: Date;
-  page?: number;
-  pageSize?: number;
+  cursor?: string;
+  limit?: number;
 }
 
 export interface ScholarshipPage<T> {
@@ -318,6 +318,8 @@ export interface ScholarshipPage<T> {
   page: number;
   pageSize: number;
   totalPages: number;
+  hasMore?: boolean;
+  nextCursor?: string | null;
 }
 
 export type PublicScholarshipDto = Omit<

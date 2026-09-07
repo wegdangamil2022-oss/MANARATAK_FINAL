@@ -302,5 +302,5 @@ Any Pull Request violating the following constraints MUST be automatically rejec
 
 ---
 
-**Status:** APPROVED FOR IMPLEMENTATION / PRODUCTION READY  
+**Status:** BASELINED / SOURCE_COMPLETE — RUNTIME_EVIDENCE_PENDING  
 **Approver:** Chief Enterprise Architect & Architecture Review Board (ARB)  

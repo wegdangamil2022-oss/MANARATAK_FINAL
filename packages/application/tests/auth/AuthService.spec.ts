@@ -1,17 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import { AuthService } from '../../src/auth/AuthService';
-import type { ITokenProvider, TokenPayload, AuthTokens } from '@manaratak/core';
+import type { IPrincipalAccessValidator, ITokenProvider, TokenPayload, AuthTokens } from '@manaratak/core';
 import { InMemorySessionManager } from '../../src/auth/InMemorySessionManager';
 import { ICredentialVerifier } from '../../src/auth/ICredentialVerifier';
 
 
+
+const allowPrincipal: IPrincipalAccessValidator = {
+  isAuthenticationAllowed: async () => true,
+};
+
 class TestTokenProvider implements ITokenProvider {
   private counter = 0;
-  async generateTokens(payload: TokenPayload): Promise<AuthTokens> {
+  async generateAccessToken(payload: TokenPayload): Promise<string> {
     this.counter += 1;
+    return `access:${payload.userId}:${payload.sessionId ?? 'none'}:${this.counter}`;
+  }
+  async generateRefreshToken(): Promise<string> {
+    this.counter += 1;
+    return `mrt_${'A'.repeat(42)}${String(this.counter % 10)}`;
+  }
+  async generateTokens(payload: TokenPayload): Promise<AuthTokens> {
     return {
-      accessToken: `access:${payload.userId}:${this.counter}`,
-      refreshToken: `refresh:${payload.userId}:${this.counter}`,
+      accessToken: await this.generateAccessToken(payload),
+      refreshToken: await this.generateRefreshToken(),
     };
   }
   async verifyAccessToken(token: string): Promise<TokenPayload> {
@@ -19,10 +31,8 @@ class TestTokenProvider implements ITokenProvider {
     if (!token.startsWith('access:') || !userId) throw new Error('Invalid access token');
     return { userId };
   }
-  async verifyRefreshToken(token: string): Promise<TokenPayload> {
-    const [, userId] = token.split(':');
-    if (!token.startsWith('refresh:') || !userId) throw new Error('Invalid refresh token');
-    return { userId };
+  async validateRefreshToken(token: string): Promise<void> {
+    if (!token.startsWith('mrt_')) throw new Error('Invalid refresh token');
   }
 }
 
@@ -31,7 +41,7 @@ describe('AuthService and Package Helpers', () => {
     it('login without credential fails', async () => {
       const tokenProvider = new TestTokenProvider();
       const sessionManager = new InMemorySessionManager();
-      const authService = new AuthService(tokenProvider, sessionManager);
+      const authService = new AuthService(tokenProvider, sessionManager, allowPrincipal);
 
       await expect(authService.login('user-123')).rejects.toThrow('Credential required for verification');
     });
@@ -42,7 +52,7 @@ describe('AuthService and Package Helpers', () => {
       const fakeVerifier: ICredentialVerifier = {
         verify: async (_userId, credentialValue) => credentialValue === 'correct-password',
       };
-      const authService = new AuthService(tokenProvider, sessionManager, fakeVerifier);
+      const authService = new AuthService(tokenProvider, sessionManager, allowPrincipal, fakeVerifier);
 
       await expect(authService.login('user-123', 'wrong-password')).rejects.toThrow('Credential verification failed');
     });
@@ -53,7 +63,7 @@ describe('AuthService and Package Helpers', () => {
       const fakeVerifier: ICredentialVerifier = {
         verify: async (_userId, credentialValue) => credentialValue === 'correct-password',
       };
-      const authService = new AuthService(tokenProvider, sessionManager, fakeVerifier);
+      const authService = new AuthService(tokenProvider, sessionManager, allowPrincipal, fakeVerifier);
 
       const tokens = await authService.login('user-123', 'correct-password');
       expect(tokens.accessToken).toBeDefined();
@@ -61,40 +71,44 @@ describe('AuthService and Package Helpers', () => {
     });
   });
 
+  it('refresh fails closed and revokes sessions when principal lifecycle is no longer active', async () => {
+    const tokenProvider = new TestTokenProvider();
+    const sessionManager = new InMemorySessionManager();
+    const lifecycle = { isAuthenticationAllowed: async () => false };
+    const authService = new AuthService(tokenProvider, sessionManager, lifecycle);
+    const refreshToken = `mrt_${'C'.repeat(43)}`;
+
+    await sessionManager.createSession('user-123', refreshToken, 'session-123');
+
+    await expect(authService.refreshTokens(refreshToken)).rejects.toThrow('Session revoked, expired, replayed, or invalid');
+    expect(await sessionManager.findRefreshSession(refreshToken)).toBeNull();
+    expect(await sessionManager.isSessionActive('user-123', 'session-123')).toBe(false);
+  });
+
   describe('InMemorySessionManager Hashing', () => {
     it('raw refresh tokens are not stored directly in InMemorySessionManager internals', async () => {
       const sessionManager = new InMemorySessionManager() as any;
       const userId = 'user-123';
-      const rawRefreshToken = 'super-secret-refresh-token';
+      const rawRefreshToken = `mrt_${'B'.repeat(43)}`;
 
       await sessionManager.createSession(userId, rawRefreshToken);
 
-      const userSessions = sessionManager.sessions.get(userId);
-      expect(userSessions).toBeDefined();
-      expect(userSessions.has(rawRefreshToken)).toBe(false); // does not store raw token
-
-      // Should contain the hashed version
-      const expectedHashed = require('crypto')
-        .createHash('sha256')
-        .update(rawRefreshToken)
-        .digest('hex');
-      expect(Array.from(userSessions.values())).toContain(expectedHashed);
-
-      // isValidSession should work with raw token input
-      const isValid = await sessionManager.isValidSession(userId, rawRefreshToken);
-      expect(isValid).toBe(true);
+      const rawState = JSON.stringify(Array.from(sessionManager.sessionsById.values()));
+      expect(rawState).not.toContain(rawRefreshToken);
+      const session = await sessionManager.findRefreshSession(rawRefreshToken);
+      expect(session?.userId).toBe(userId);
     });
 
     it('logout revokes session', async () => {
       const sessionManager = new InMemorySessionManager();
       const userId = 'user-123';
-      const rawRefreshToken = 'super-secret-refresh-token';
+      const rawRefreshToken = `mrt_${'B'.repeat(43)}`;
 
       await sessionManager.createSession(userId, rawRefreshToken);
-      expect(await sessionManager.isValidSession(userId, rawRefreshToken)).toBe(true);
+      expect(await sessionManager.findRefreshSession(rawRefreshToken)).not.toBeNull();
 
       await sessionManager.revokeSession(userId, rawRefreshToken);
-      expect(await sessionManager.isValidSession(userId, rawRefreshToken)).toBe(false);
+      expect(await sessionManager.findRefreshSession(rawRefreshToken)).toBeNull();
     });
 
     it('tracks the access token session identifier and invalidates it on logout', async () => {

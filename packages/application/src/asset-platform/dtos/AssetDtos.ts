@@ -27,6 +27,12 @@ export interface AssetUploadLocatorDto {
   bucketName: string;
   pathKey: string;
   lifecycleState: AssetLifecycleState;
+  uploadGrant?: {
+    uploadUrl: string;
+    method: 'PUT' | 'POST';
+    headers: Readonly<Record<string, string>>;
+    expiresAt: string;
+  };
 }
 
 export interface RegisterQuarantinedAssetDto {
@@ -62,10 +68,18 @@ export interface SanitizeAssetDto {
 
 export interface ActivateAssetDto {
   assetId: string;
-  cleanBucketName?: string;
-  cleanPathKey?: string;
-  checksumAlgorithm?: string;
-  checksumHash?: string;
+}
+
+export interface RequestAssetDeliveryGrantDto {
+  assetId: string;
+  expiresInSeconds?: number;
+}
+
+export interface AssetDeliveryGrantDto {
+  assetId: string;
+  url: string;
+  headers: Readonly<Record<string, string>>;
+  expiresAt: string;
 }
 
 export interface ArchiveAssetDto {

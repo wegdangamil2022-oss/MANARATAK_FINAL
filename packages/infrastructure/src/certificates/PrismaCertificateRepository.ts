@@ -12,6 +12,7 @@ import {
   CertificateMutationContext,
   CertificateStatus,
   CertificateTemplateDto,
+  CertificateTemplateVersionDto,
   CertificateTemplateStatus,
   CreateCertificateIssuerDto,
   CreateCertificateTemplateDto,
@@ -167,6 +168,11 @@ export class PrismaCertificateRepository implements ICertificateRepository {
     return row ? this.template(row) : null;
   }
 
+  public async findTemplateVersionById(id: string): Promise<CertificateTemplateVersionDto | null> {
+    const row = await this.db.certificateTemplateVersion.findUnique({ where: { id } });
+    return row ? this.templateVersion(row) : null;
+  }
+
   public async findActiveTemplateByName(name: string): Promise<CertificateTemplateDto | null> {
     const row = await this.db.certificateTemplate.findFirst({
       where: { name, status: CertificateTemplateStatus.ACTIVE, issuer: { status: 'ACTIVE' }, currentVersionId: { not: null } },
@@ -207,12 +213,20 @@ export class PrismaCertificateRepository implements ICertificateRepository {
           ...(data.certificatePdfAssetId !== undefined ? { certificatePdfAssetId: data.certificatePdfAssetId } : {}),
           ...(data.previewImageAssetId !== undefined ? { previewImageAssetId: data.previewImageAssetId } : {}),
           ...(data.verificationQrAssetId !== undefined ? { verificationQrAssetId: data.verificationQrAssetId } : {}),
+          ...(data.renderMetadata !== undefined ? {
+            metadata: json({
+              ...((current.metadata && typeof current.metadata === 'object' && !Array.isArray(current.metadata)) ? current.metadata : {}),
+              artifactState: 'RENDERED',
+              render: data.renderMetadata ?? null,
+            }),
+          } : {}),
         },
       });
       await this.appendMutation(tx, row.id, 'ARTIFACTS_ATTACHED', data.actorId, null, data.correlationId, {
         certificatePdfAssetId: row.certificatePdfAssetId ?? null,
         previewImageAssetId: row.previewImageAssetId ?? null,
         verificationQrAssetId: row.verificationQrAssetId ?? null,
+        renderMetadata: data.renderMetadata ?? null,
       }, 'CertificateArtifactsRendered');
       return this.certificate(row);
     });
@@ -565,6 +579,22 @@ export class PrismaCertificateRepository implements ICertificateRepository {
       },
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+    };
+  }
+
+  private templateVersion(row: any): CertificateTemplateVersionDto {
+    return {
+      id: row.id, publicId: row.publicId, templateId: row.templateId, issuerId: row.issuerId,
+      versionNumber: row.versionNumber, status: row.status as CertificateTemplateStatus,
+      language: row.language, layout: row.layout, accentColor: row.accentColor, secondaryColor: row.secondaryColor,
+      titleAr: row.titleAr, titleEn: row.titleEn, bodyAr: row.bodyAr, bodyEn: row.bodyEn,
+      signatoryNameAr: row.signatoryNameAr, signatoryNameEn: row.signatoryNameEn,
+      signatoryTitleAr: row.signatoryTitleAr, signatoryTitleEn: row.signatoryTitleEn,
+      logoAssetId: row.logoAssetId, sealAssetId: row.sealAssetId, signatureAssetId: row.signatureAssetId, designAssetId: row.designAssetId,
+      validityPolicy: row.validityPolicy, validityDurationDays: row.validityDurationDays, renewalPeriodDays: row.renewalPeriodDays,
+      renewalPolicy: row.renewalPolicy, requiresRevalidation: row.requiresRevalidation,
+      metadata: row.metadata as Record<string, unknown> | null, createdBy: row.createdBy, approvedBy: row.approvedBy,
+      approvedAt: row.approvedAt, createdAt: row.createdAt,
     };
   }
 

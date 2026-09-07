@@ -17,6 +17,7 @@ const shell = read('apps/admin/src/App.tsx');
 const nav = read('apps/admin/src/components/AdminNavigation.tsx');
 const env = read('.env.example');
 const tests = read('apps/api/tests/presentation/monitoring/HealthMonitoring.spec.ts');
+const monitoringServiceSource = read('packages/infrastructure/src/monitoring/MonitoringService.ts');
 
 check('admin page calls protected monitoring overview', page.includes("'/admin/monitoring/overview'"));
 check('admin page does not call public diagnostic overview', !page.includes("request<HealthOverview>('/monitoring/overview')"));
@@ -27,7 +28,7 @@ check('admin monitoring explicitly enables diagnostics', app.includes('diagnosti
 check('public monitoring still mounted', app.includes("v1Router.use('/monitoring', MonitoringRouter.create"));
 check('public monitoring mount does not receive production report', /v1Router\.use\('\/monitoring',[\s\S]*?MonitoringRouter\.create\(\{[\s\S]*?monitoringService,[\s\S]*?runtimeMode:[\s\S]*?\}\)\);/.test(app));
 
-for (const probe of ['database','redis','asset-platform','import-foundation','admin-auth','ai-providers','payment-gateway','notifications','background-jobs','database-schema','public-web']) {
+for (const probe of ['database','redis','asset-platform','import-foundation','admin-auth','ai-providers','payment-gateway','notifications','background-jobs','student-tools-quota','database-schema','public-web']) {
   check(`expected probe ${probe}`, router.includes(`'${probe}'`));
   check(`registered probe ${probe}`, app.includes(`name: '${probe}'`));
 }
@@ -39,6 +40,16 @@ check('public web probe is bounded', app.includes('setTimeout(() => controller.a
 check('public web probe does not chase redirects', app.includes("redirect: 'manual'"));
 check('production public web requires https', app.includes("isProductionOrStaging && parsed.protocol !== 'https:'"));
 check('public web url documented', env.includes('PUBLIC_WEB_URL=https://app.manaratak.org'));
+check('readiness respects registered dependency criticality only', !monitoringServiceSource.includes("name === 'redis'") && !monitoringServiceSource.includes("name === 'cache'") && monitoringServiceSource.includes('indicator.isOptional === true'));
+check('production Redis is registered required by composition', app.includes("name: 'redis'") && app.includes('isOptional: !isProductionOrStaging'));
+check('required Redis regression exists in workspace tests', tests.includes('returns DOWN when Redis is explicitly required even though its indicator name is redis'));
+try {
+  const { spawnSync } = await import('node:child_process');
+  const result = spawnSync(process.execPath, ['--test', path.join(root, 'tests/runtime/monitoring-required-dependency-runtime.test.mjs')], { cwd: root, encoding: 'utf8' });
+  check('required dependency runtime semantics execute', result.status === 0 && /# fail 0/.test(`${result.stdout || ''}\n${result.stderr || ''}`));
+} catch {
+  check('required dependency runtime semantics execute', false);
+}
 
 check('release gate includes configuration readiness', router.includes('configurationReady: production.ready'));
 check('release gate includes runtime readiness', router.includes('runtimeReady: readiness.status === HealthStatus.UP'));

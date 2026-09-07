@@ -4,7 +4,7 @@ import { requireDatabaseMutationGate } from './lib/require-database-mutation-gat
 const prisma = new PrismaClient();
 
 async function run() {
-  requireDatabaseMutationGate('reconcile-major-sections');
+  requireDatabaseMutationGate('reconcile-major-sections', { allowedPurposes: ['backfill'] });
   console.log('Starting data reconciliation...');
   
   // Clean up any sections that lack both profileId and versionId

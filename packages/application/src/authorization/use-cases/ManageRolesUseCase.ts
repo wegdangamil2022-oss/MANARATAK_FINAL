@@ -29,4 +29,8 @@ export class ManageRolesUseCase {
   public async getRole(id: string): Promise<Role | null> {
     return this.roleRepository.findById(id);
   }
+
+  public async listRoles(): Promise<Role[]> {
+    return this.roleRepository.listAll();
+  }
 }

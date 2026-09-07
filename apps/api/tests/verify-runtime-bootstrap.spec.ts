@@ -25,7 +25,11 @@ describe('WP1-C.1 Runtime Bootstrap Verification', () => {
 
     try {
       // 2. Boot real API runtime
-      const app = await createApiApp();
+      const app = await createApiApp({
+        resetCache: true,
+        connectExternalServices: false,
+        databaseClient: { $queryRaw: vi.fn().mockRejectedValue(new Error('database intentionally unavailable in source-only test')) },
+      });
 
       // 3. Confirm binding to port
       await new Promise<void>((resolve, reject) => {
@@ -91,7 +95,7 @@ describe('WP1-C.1 Runtime Bootstrap Verification', () => {
 
       expect(response2.status).toBeGreaterThanOrEqual(400);
       const body2 = await response2.json();
-      expect(body2.error?.traceId || body2.error?.code).toBeDefined();
+      expect(body2.traceId || body2.code).toBeDefined();
 
       // Verify error log entry uses the server-issued correlation ID.
       const returnedErrorCorrelationId = response2.headers.get('x-correlation-id');
