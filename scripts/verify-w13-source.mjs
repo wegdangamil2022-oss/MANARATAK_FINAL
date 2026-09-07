@@ -61,8 +61,10 @@ const checks = {
 
   'P18-RECO-002':
     /listAllPublished/.test(gateways) &&
-    /page <= totalPages/.test(gateways) &&
-    /pageSize: 100/.test(gateways) &&
+    /cursor: string \| undefined/.test(gateways) &&
+    /listPublished\(\{ \.\.\.filters, cursor, limit: 100 \}\)/.test(gateways) &&
+    /cursor = result\.nextCursor \?\? undefined/.test(gateways) &&
+    /hasMore = result\.hasMore === true && Boolean\(cursor\)/.test(gateways) &&
     /SCHOLARSHIP_RECOMMENDATION_CANDIDATE_SCAN_LIMIT_EXCEEDED/.test(gateways),
 
   'P18-SAVE-003':
