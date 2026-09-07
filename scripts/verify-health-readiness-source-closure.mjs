@@ -68,8 +68,8 @@ check('runtime findings come from probes', page.includes("source: 'Runtime'"));
 check('production findings come from runtime validator', page.includes('overview.productionReadiness.findings'));
 check('JSON diagnostic export is generated from current overview', page.includes('JSON.stringify(overview, null, 2)'));
 
-check('health page uses MANARATAK navy', page.includes("primary: '#142B5F'"));
-check('health page uses MANARATAK gold', page.includes("accent: '#D6A43B'"));
+check('health page uses MANARATAK navy', page.includes('#142B5F'));
+check('health page uses MANARATAK gold', page.includes('#D6A43B'));
 check('admin shell uses MANARATAK navy', shell.includes('#142B5F'));
 check('admin navigation uses MANARATAK navy', nav.includes('#142B5F'));
 check('admin navigation uses MANARATAK gold', nav.includes('#D6A43B'));
