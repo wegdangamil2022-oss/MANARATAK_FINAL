@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createApiApp } from '../src/app';
 import { container } from '../src/infrastructure/di/container';
 import { PrismaCredentialVerifier } from '@manaratak/infrastructure';
@@ -7,7 +7,10 @@ import { AuthService } from '@manaratak/application';
 describe('WP1-E.1.1 DI Container & Auth Wiring Smoke Test', () => {
   it('successfully boots the API container and resolves the real PrismaCredentialVerifier', async () => {
     // 1. Trigger the real Express API bootstrap
-    const app = await createApiApp();
+    const app = await createApiApp({
+      connectExternalServices: false,
+      databaseClient: { $queryRaw: vi.fn().mockRejectedValue(new Error('database intentionally unavailable in source-only test')) },
+    });
     expect(app).toBeDefined();
 
     // 2. Resolve credentials verifier and auth service from the Awilix DI container

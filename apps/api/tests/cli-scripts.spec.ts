@@ -10,9 +10,9 @@ describe('CLI Scripts', () => {
     };
 
     const origResolve = container.resolve.bind(container);
-    vi.spyOn(container, 'resolve').mockImplementation((key: string) => {
-      if (key === 'prisma') return mockPrisma;
-      return origResolve(key);
+    vi.spyOn(container, 'resolve').mockImplementation((name, resolveOptions) => {
+      if (name === 'prisma') return mockPrisma;
+      return origResolve(name, resolveOptions);
     });
 
     process.exitCode = undefined;

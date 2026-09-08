@@ -67,6 +67,13 @@ const contexts = [
   ]],
   ['tsconfig.json', ['apps/admin/vite.config.ts', 'apps/web/vite.config.ts']],
 ];
+// Vercel can trace test sources outside tsconfig's src-only include. Discover
+// the entire API test tree, including helpers and future tests, for type checking
+// only; runtime/database test exclusions must not hide compiler diagnostics.
+const apiTestFiles = ts.sys.readDirectory(resolve(root, 'apps/api/tests'),
+  ['.ts', '.tsx', '.mts', '.cts'], ['**/node_modules/**', '**/dist/**']);
+assert.ok(apiTestFiles.length > 0, 'API test discovery must not silently become empty');
+console.log(`API_TEST_TYPESCRIPT_FILES=${apiTestFiles.length}`);
 let failures = 0;
 assert.equal(
   ts.findConfigFile(resolve(root, 'apps/api/src/server.ts'), ts.sys.fileExists),
@@ -101,7 +108,8 @@ for (const [configName, entrypoints] of contexts) {
   }
   // Like Vercel's language service, resolve workspace source imports without
   // project-reference redirection and report semantic/syntactic diagnostics.
-  const program = ts.createProgram([...new Set([...config.fileNames, ...entrypoints.map(p => resolve(root, p))])], options);
+  const tracedTests = configName === 'apps/api/tsconfig.json' ? apiTestFiles : [];
+  const program = ts.createProgram([...new Set([...config.fileNames, ...entrypoints.map(p => resolve(root, p)), ...tracedTests])], options);
   // These are the loader's built-in exclusions, not project workarounds:
   // traced sources can live outside rootDir; solution configs can have no inputs.
   const loaderIgnoredCodes = [6059, 18002, 18003];
