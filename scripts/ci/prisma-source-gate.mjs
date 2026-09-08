@@ -11,7 +11,7 @@ const require = createRequire(path.join(root, 'package.json'));
 const sourceDatabaseUrl = 'postgresql://127.0.0.1:5432/manaratak_source_gate?schema=public';
 if (!fs.existsSync(schema)) { console.error('PRISMA_SOURCE_GATE=FAIL reason=schema-missing'); process.exit(2); }
 if (!fs.existsSync(prismaBin)) { console.error('PRISMA_SOURCE_GATE=FAIL reason=prisma-cli-not-installed'); console.error('Run npm ci first. The source gate never downloads tools implicitly.'); process.exit(2); }
-const env = { ...process.env, DATABASE_URL: sourceDatabaseUrl, DATABASE_MUTATIONS_ALLOWED: 'false', RUN_DATABASE_INTEGRATION_TESTS: 'false' };
+const env = { ...process.env, DATABASE_URL: sourceDatabaseUrl, DIRECT_URL: sourceDatabaseUrl, DATABASE_MUTATIONS_ALLOWED: 'false', RUN_DATABASE_INTEGRATION_TESTS: 'false' };
 const prismaCli = require.resolve('prisma/build/index.js');
 for (const command of ['validate', 'generate']) {
   const result = spawnSync(process.execPath, [prismaCli, command, `--schema=${schema}`], { cwd: root, env, stdio: 'inherit' });
