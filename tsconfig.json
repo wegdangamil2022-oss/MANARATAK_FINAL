@@ -1,4 +1,11 @@
 {
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": false
+  },
   "files": [],
   "references": [
     { "path": "./packages/core" },

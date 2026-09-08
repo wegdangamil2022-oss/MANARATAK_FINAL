@@ -56,6 +56,7 @@
     "db:remediation:deploy": "tsx scripts/db-remediation-gate.ts deploy",
     "verify:local": "npm run quality:source && npm run typecheck && npm run lint && npm run build && npm run test && npm run e2e",
     "typecheck": "tsc -b",
+    "vercel:typecheck": "node scripts/verify-vercel-typescript-context.mjs",
     "git:validate:commit": "node scripts/git/validate-commit-message.mjs",
     "git:validate:branch": "node scripts/git/validate-branch-name.mjs",
     "e2e": "playwright test --config=apps/web/playwright.config.ts",

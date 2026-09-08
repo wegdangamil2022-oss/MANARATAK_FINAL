@@ -55,6 +55,8 @@ jobs:
         run: npm run db:source:verify
       - name: Typecheck all referenced workspaces
         run: npm run typecheck
+      - name: Verify Vercel TypeScript configuration and compilation
+        run: npm run vercel:typecheck
       - name: Lint source
         run: npm run lint
       - name: Build all required applications and packages
