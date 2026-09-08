@@ -21,11 +21,18 @@ const files = {
 
 const ordered = (source, first, second) => source.indexOf(first) >= 0 && source.indexOf(first) < source.indexOf(second);
 const mapToDto = files.repository.slice(files.repository.indexOf('private mapToDto'));
+const reservedKeysDeclaration = files.repository.slice(
+  files.repository.indexOf('INTERNATIONAL_TEST_OPTIONAL_FIELDS_RESERVED_KEYS'),
+  files.repository.indexOf(']);', files.repository.indexOf('INTERNATIONAL_TEST_OPTIONAL_FIELDS_RESERVED_KEYS')),
+);
+const hasReservedKey = (key) => reservedKeysDeclaration.includes(`'${key}'`);
+const createsRelationship = (relationship) => new RegExp(`${relationship}:\\s*\\{\\s*create:`).test(files.repository);
 
 const checks = [
   ['P9-PUB-001',
     files.repository.includes('INTERNATIONAL_TEST_OPTIONAL_FIELDS_RESERVED_KEYS') &&
-    files.repository.includes("'status', 'completenessStatus'") &&
+    hasReservedKey('status') &&
+    hasReservedKey('completenessStatus') &&
     ordered(mapToDto, '...safeOptionalFields,', '...rest,') &&
     files.repoContract.includes('findPublishedBySlug') &&
     files.repository.includes('status: InternationalTestStatus.PUBLISHED') &&
@@ -46,10 +53,10 @@ const checks = [
     files.reconciliation.includes('PENDING_GOOGLE_STUDIO')],
   ['P9-REL-003',
     files.useCases.includes('this.canonicalRelationshipService.canonicalize(data)') &&
-    files.repository.includes('countryRelationships: { create:') &&
-    files.repository.includes('languageRelationships: { create:') &&
-    files.repository.includes('academicTaxonomyRelationships: { create:') &&
-    files.repository.includes('degreeRelationships: { create:') &&
+    createsRelationship('countryRelationships') &&
+    createsRelationship('languageRelationships') &&
+    createsRelationship('academicTaxonomyRelationships') &&
+    createsRelationship('degreeRelationships') &&
     files.repository.includes('deleteMany: {}')],
   ['P9-IMP-004',
     files.promotion.includes('this.canonicalRelationshipService.canonicalize') &&

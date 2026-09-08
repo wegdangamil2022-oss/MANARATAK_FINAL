@@ -30,10 +30,7 @@ function isMutation(method?: string): boolean {
 }
 
 async function adminRequest<T>(endpoint: string, options: AdminRequestOptions = {}): Promise<T> {
-  assertLocalReadOnlyRequestAllowed(
-    options.method,
-    import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true',
-  );
+  assertLocalReadOnlyRequestAllowed(options.method, import.meta.env.VITE_LOCAL_ADMIN_READ_ONLY === 'true');
   const url = `${API_BASE_URL}${endpoint}`;
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
