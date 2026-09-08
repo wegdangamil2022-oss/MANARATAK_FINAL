@@ -1,19 +1,20 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { 
+import {
   Role,
   Policy,
-  PermissionReference, 
-  RoleAssignment, 
-  AuthorizationEvaluatorService, 
-  AccessDecision 
+  PermissionReference,
+  RoleAssignment,
+  AuthorizationEvaluatorService,
+  AccessDecision,
 } from '@manaratak/domain';
-import { 
-  InMemoryRoleRepository, 
-  InMemoryPolicyRepository, 
+import {
+  InMemoryRoleRepository,
+  InMemoryPolicyRepository,
   InMemoryRoleAssignmentRepository,
-  DefaultPolicyEvaluator 
+  DefaultPolicyEvaluator,
 } from '@manaratak/infrastructure';
 import { SecurityMiddlewareFactory } from '../../../src/presentation/security/SecurityMiddlewareFactory';
+import { getResponseErrorCode } from '../../support/responsePayload';
 
 function createResponse() {
   return {
@@ -52,7 +53,7 @@ describe('Runtime RBAC Authority & Permission Evaluation', () => {
       roleRepo,
       policyRepo,
       assignmentRepo,
-      policyEvaluator
+      policyEvaluator,
     );
   });
 
@@ -76,7 +77,10 @@ describe('Runtime RBAC Authority & Permission Evaluation', () => {
     await assignmentRepo.save(assignment);
 
     // 2. Guard evaluation for admin:assets:manage
-    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard('admin:assets:manage', evaluatorService);
+    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard(
+      'admin:assets:manage',
+      evaluatorService,
+    );
     const req = { authUserId: 'admin-root-id', headers: {} } as any;
     const res = createResponse();
     const next = vi.fn();
@@ -106,7 +110,10 @@ describe('Runtime RBAC Authority & Permission Evaluation', () => {
     });
     await assignmentRepo.save(assignment);
 
-    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard('admin:assets:manage', evaluatorService);
+    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard(
+      'admin:assets:manage',
+      evaluatorService,
+    );
     const req = { authUserId: 'student-id-100', headers: {} } as any;
     const res = createResponse();
     const next = vi.fn();
@@ -128,7 +135,10 @@ describe('Runtime RBAC Authority & Permission Evaluation', () => {
   });
 
   it('DENIES access when user has NO role assignment in database', async () => {
-    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard('admin:imports:manage', evaluatorService);
+    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard(
+      'admin:imports:manage',
+      evaluatorService,
+    );
     const req = { authUserId: 'unassigned-user-id', headers: {} } as any;
     const res = createResponse();
     const next = vi.fn();
@@ -137,7 +147,7 @@ describe('Runtime RBAC Authority & Permission Evaluation', () => {
 
     expect(next).not.toHaveBeenCalled();
     expect(res.statusCode).toBe(403);
-    expect(res.payload.error.code).toBe('ADMIN_PERMISSION_DENIED');
+    expect(getResponseErrorCode(res.payload)).toBe('ADMIN_PERMISSION_DENIED');
   });
 
   it('DENIES access immediately when role assignment is revoked (deleted)', async () => {
@@ -159,7 +169,10 @@ describe('Runtime RBAC Authority & Permission Evaluation', () => {
     });
     await assignmentRepo.save(assignment);
 
-    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard('admin:imports:manage', evaluatorService);
+    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard(
+      'admin:imports:manage',
+      evaluatorService,
+    );
 
     // Initial check: ALLOW
     const req1 = { authUserId: 'temp-user-id', headers: {} } as any;
@@ -179,11 +192,14 @@ describe('Runtime RBAC Authority & Permission Evaluation', () => {
 
     expect(next2).not.toHaveBeenCalled();
     expect(res2.statusCode).toBe(403);
-    expect(res2.payload.error.code).toBe('ADMIN_PERMISSION_DENIED');
+    expect(getResponseErrorCode(res2.payload)).toBe('ADMIN_PERMISSION_DENIED');
   });
 
   it('IGNORES fake client headers trying to claim admin permissions', async () => {
-    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard('admin:universities:manage', evaluatorService);
+    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard(
+      'admin:universities:manage',
+      evaluatorService,
+    );
 
     // Client passes spoofed headers
     const req = {
@@ -191,7 +207,7 @@ describe('Runtime RBAC Authority & Permission Evaluation', () => {
       headers: {
         'x-admin-role': 'DEMO_SUPER_ADMIN',
         'x-admin-permissions': 'admin:*',
-        'manaratak_demo_role': 'administrator',
+        manaratak_demo_role: 'administrator',
       },
     } as any;
     const res = createResponse();
@@ -201,11 +217,14 @@ describe('Runtime RBAC Authority & Permission Evaluation', () => {
 
     expect(next).not.toHaveBeenCalled();
     expect(res.statusCode).toBe(403);
-    expect(res.payload.error.code).toBe('ADMIN_PERMISSION_DENIED');
+    expect(getResponseErrorCode(res.payload)).toBe('ADMIN_PERMISSION_DENIED');
   });
 
   it('REJECTS unauthenticated requests with HTTP 401', async () => {
-    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard('admin:majors:manage', evaluatorService);
+    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard(
+      'admin:majors:manage',
+      evaluatorService,
+    );
 
     const req = { headers: {} } as any; // No authUserId
     const res = createResponse();
@@ -215,7 +234,7 @@ describe('Runtime RBAC Authority & Permission Evaluation', () => {
 
     expect(next).not.toHaveBeenCalled();
     expect(res.statusCode).toBe(401);
-    expect(res.payload.error.code).toBe('ADMIN_AUTH_REQUIRED');
+    expect(getResponseErrorCode(res.payload)).toBe('ADMIN_AUTH_REQUIRED');
   });
 
   it('ENFORCES permission evaluation across all 11 active Phase 2-10 admin domains', async () => {
@@ -234,7 +253,10 @@ describe('Runtime RBAC Authority & Permission Evaluation', () => {
     ];
 
     for (const permission of domains) {
-      const guard = SecurityMiddlewareFactory.createAdminPermissionGuard(permission, evaluatorService);
+      const guard = SecurityMiddlewareFactory.createAdminPermissionGuard(
+        permission,
+        evaluatorService,
+      );
       const req = { authUserId: 'unauthorized-user', headers: {} } as any;
       const res = createResponse();
       const next = vi.fn();
@@ -243,18 +265,21 @@ describe('Runtime RBAC Authority & Permission Evaluation', () => {
 
       expect(next).not.toHaveBeenCalled();
       expect(res.statusCode).toBe(403);
-      expect(res.payload.error.code).toBe('ADMIN_PERMISSION_DENIED');
+      expect(getResponseErrorCode(res.payload)).toBe('ADMIN_PERMISSION_DENIED');
     }
   });
 
   it('BEARER SAFETY: Static bearer token identifies principal but DOES NOT bypass persisted RBAC evaluation', async () => {
     // Principal identified via bearer, but has no DB role assignments
-    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard('admin:settings:manage', evaluatorService);
+    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard(
+      'admin:settings:manage',
+      evaluatorService,
+    );
     const req = {
       authUserId: 'admin-root',
       headers: {
-        authorization: 'Bearer static-valid-admin-token'
-      }
+        authorization: 'Bearer static-valid-admin-token',
+      },
     } as any;
     const res = createResponse();
     const next = vi.fn();
@@ -264,25 +289,37 @@ describe('Runtime RBAC Authority & Permission Evaluation', () => {
     // DENIED because no persisted role assignment exists in DB for 'admin-root'
     expect(next).not.toHaveBeenCalled();
     expect(res.statusCode).toBe(403);
-    expect(res.payload.error.code).toBe('ADMIN_PERMISSION_DENIED');
+    expect(getResponseErrorCode(res.payload)).toBe('ADMIN_PERMISSION_DENIED');
   });
   it('fails closed when a role references a policy that no longer exists', async () => {
-    await roleRepo.save(new Role({
-      id: 'dangling-policy-admin',
-      name: 'Dangling Policy Admin',
-      description: 'Must not receive access when the referenced policy cannot be loaded',
-      permissions: [new PermissionReference('admin:settings:manage')],
-      policyIds: ['missing-policy'],
-    }));
-    await assignmentRepo.save(new RoleAssignment({
-      id: 'assign-dangling-policy-admin',
-      identityId: 'dangling-policy-user',
-      roleId: 'dangling-policy-admin',
-      assignedAt: new Date(),
-    }));
+    await roleRepo.save(
+      new Role({
+        id: 'dangling-policy-admin',
+        name: 'Dangling Policy Admin',
+        description: 'Must not receive access when the referenced policy cannot be loaded',
+        permissions: [new PermissionReference('admin:settings:manage')],
+        policyIds: ['missing-policy'],
+      }),
+    );
+    await assignmentRepo.save(
+      new RoleAssignment({
+        id: 'assign-dangling-policy-admin',
+        identityId: 'dangling-policy-user',
+        roleId: 'dangling-policy-admin',
+        assignedAt: new Date(),
+      }),
+    );
 
-    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard('admin:settings:manage', evaluatorService);
-    const req = { authUserId: 'dangling-policy-user', headers: {}, ip: '203.0.113.10', socket: {} } as any;
+    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard(
+      'admin:settings:manage',
+      evaluatorService,
+    );
+    const req = {
+      authUserId: 'dangling-policy-user',
+      headers: {},
+      ip: '203.0.113.10',
+      socket: {},
+    } as any;
     const res = createResponse();
     const next = vi.fn();
 
@@ -293,41 +330,59 @@ describe('Runtime RBAC Authority & Permission Evaluation', () => {
   });
 
   it('enforces attached IP policy through the real permission middleware context', async () => {
-    await policyRepo.save(new Policy({
-      id: 'policy-office-ip',
-      name: 'Office IP',
-      description: 'Restrict admin access to a trusted address',
-      ruleType: 'IP',
-      ruleConfiguration: '203.0.113.10',
-    }));
-    await roleRepo.save(new Role({
-      id: 'conditional-admin',
-      name: 'Conditional Admin',
-      description: 'Admin access restricted by policy',
-      permissions: [new PermissionReference('admin:settings:manage')],
-      policyIds: ['policy-office-ip'],
-    }));
-    await assignmentRepo.save(new RoleAssignment({
-      id: 'assign-conditional-admin',
-      identityId: 'conditional-user',
-      roleId: 'conditional-admin',
-      assignedAt: new Date(),
-    }));
+    await policyRepo.save(
+      new Policy({
+        id: 'policy-office-ip',
+        name: 'Office IP',
+        description: 'Restrict admin access to a trusted address',
+        ruleType: 'IP',
+        ruleConfiguration: '203.0.113.10',
+      }),
+    );
+    await roleRepo.save(
+      new Role({
+        id: 'conditional-admin',
+        name: 'Conditional Admin',
+        description: 'Admin access restricted by policy',
+        permissions: [new PermissionReference('admin:settings:manage')],
+        policyIds: ['policy-office-ip'],
+      }),
+    );
+    await assignmentRepo.save(
+      new RoleAssignment({
+        id: 'assign-conditional-admin',
+        identityId: 'conditional-user',
+        roleId: 'conditional-admin',
+        assignedAt: new Date(),
+      }),
+    );
 
-    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard('admin:settings:manage', evaluatorService);
+    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard(
+      'admin:settings:manage',
+      evaluatorService,
+    );
 
-    const allowedReq = { authUserId: 'conditional-user', headers: {}, ip: '203.0.113.10', socket: {} } as any;
+    const allowedReq = {
+      authUserId: 'conditional-user',
+      headers: {},
+      ip: '203.0.113.10',
+      socket: {},
+    } as any;
     const allowedRes = createResponse();
     const allowedNext = vi.fn();
     await guard(allowedReq, allowedRes as any, allowedNext);
     expect(allowedNext).toHaveBeenCalledOnce();
 
-    const deniedReq = { authUserId: 'conditional-user', headers: {}, ip: '203.0.113.99', socket: {} } as any;
+    const deniedReq = {
+      authUserId: 'conditional-user',
+      headers: {},
+      ip: '203.0.113.99',
+      socket: {},
+    } as any;
     const deniedRes = createResponse();
     const deniedNext = vi.fn();
     await guard(deniedReq, deniedRes as any, deniedNext);
     expect(deniedNext).not.toHaveBeenCalled();
     expect(deniedRes.statusCode).toBe(403);
   });
-
 });

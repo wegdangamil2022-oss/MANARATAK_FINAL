@@ -1,6 +1,11 @@
 import { PrismaClient } from '@prisma/client';
 import type { AtomicPersistenceContext } from '@manaratak/domain';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  toNullablePrismaJson,
+  toOptionalPrismaJson,
+  toRequiredPrismaJson,
+} from '../prisma/PrismaJsonValue';
 
 export class PrismaImportRepository {
   public readonly persistenceClassification: 'DURABLE' | 'DEVELOPMENT_ONLY';
@@ -9,7 +14,7 @@ export class PrismaImportRepository {
 
   constructor(
     private readonly prisma?: PrismaClient,
-    mode: 'DURABLE' | 'DEVELOPMENT_ONLY' = 'DURABLE'
+    mode: 'DURABLE' | 'DEVELOPMENT_ONLY' = 'DURABLE',
   ) {
     if (mode === 'DURABLE' && !prisma) {
       throw new Error('Durable import persistence is unavailable: PrismaClient is required.');
@@ -21,7 +26,9 @@ export class PrismaImportRepository {
   }
 
   withTransaction(context: AtomicPersistenceContext): PrismaImportRepository {
-    const transactionClient = (context as AtomicPersistenceContext & { transactionClient?: PrismaClient }).transactionClient;
+    const transactionClient = (
+      context as AtomicPersistenceContext & { transactionClient?: PrismaClient }
+    ).transactionClient;
     if (!context.boundaryId || !transactionClient) {
       throw new Error('IMPORT_ATOMIC_TRANSACTION_CONTEXT_REQUIRED');
     }
@@ -98,7 +105,7 @@ export class PrismaImportRepository {
 
     let list = Array.from(this.inMemoryBatches.values());
     if (filters?.dataType) {
-      list = list.filter(b => b.dataType === filters.dataType);
+      list = list.filter((b) => b.dataType === filters.dataType);
     }
     return list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
@@ -134,13 +141,33 @@ export class PrismaImportRepository {
       ] = await Promise.all([
         this.prisma.importBatch.count({ where: batchWhere }),
         this.prisma.importRecord.count({ where: recordWhere }),
-        this.prisma.importBatch.count({ where: { ...batchWhere, batchStatus: { in: activeBatchStatuses } } }),
-        this.prisma.importRecord.count({ where: { ...recordWhere, status: { in: recordReviewStatuses } } }),
-        this.prisma.importRecord.count({ where: { ...recordWhere, status: { in: recordFailedStatuses } } }),
-        this.prisma.importRecord.count({ where: { ...recordWhere, status: { in: recordTransferredStatuses } } }),
-        this.prisma.importRecord.groupBy({ by: ['status'], where: recordWhere, _count: { _all: true } }),
-        this.prisma.importBatch.groupBy({ by: ['batchStatus'], where: batchWhere, _count: { _all: true } }),
-        this.prisma.importBatch.groupBy({ by: ['dataType'], where: batchWhere, _count: { _all: true } }),
+        this.prisma.importBatch.count({
+          where: { ...batchWhere, batchStatus: { in: activeBatchStatuses } },
+        }),
+        this.prisma.importRecord.count({
+          where: { ...recordWhere, status: { in: recordReviewStatuses } },
+        }),
+        this.prisma.importRecord.count({
+          where: { ...recordWhere, status: { in: recordFailedStatuses } },
+        }),
+        this.prisma.importRecord.count({
+          where: { ...recordWhere, status: { in: recordTransferredStatuses } },
+        }),
+        this.prisma.importRecord.groupBy({
+          by: ['status'],
+          where: recordWhere,
+          _count: { _all: true },
+        }),
+        this.prisma.importBatch.groupBy({
+          by: ['batchStatus'],
+          where: batchWhere,
+          _count: { _all: true },
+        }),
+        this.prisma.importBatch.groupBy({
+          by: ['dataType'],
+          where: batchWhere,
+          _count: { _all: true },
+        }),
         this.prisma.importBatch.findFirst({ where: batchWhere, orderBy: { createdAt: 'desc' } }),
       ]);
 
@@ -157,21 +184,38 @@ export class PrismaImportRepository {
           const domainRecordWhere = { batch: { dataType } };
           const [records, active, review, failed, transferred, statusGroups] = await Promise.all([
             this.prisma!.importRecord.count({ where: domainRecordWhere }),
-            this.prisma!.importBatch.count({ where: { dataType, batchStatus: { in: activeBatchStatuses } } }),
-            this.prisma!.importRecord.count({ where: { ...domainRecordWhere, status: { in: recordReviewStatuses } } }),
-            this.prisma!.importRecord.count({ where: { ...domainRecordWhere, status: { in: recordFailedStatuses } } }),
-            this.prisma!.importRecord.count({ where: { ...domainRecordWhere, status: { in: recordTransferredStatuses } } }),
-            this.prisma!.importRecord.groupBy({ by: ['status'], where: domainRecordWhere, _count: { _all: true } }),
+            this.prisma!.importBatch.count({
+              where: { dataType, batchStatus: { in: activeBatchStatuses } },
+            }),
+            this.prisma!.importRecord.count({
+              where: { ...domainRecordWhere, status: { in: recordReviewStatuses } },
+            }),
+            this.prisma!.importRecord.count({
+              where: { ...domainRecordWhere, status: { in: recordFailedStatuses } },
+            }),
+            this.prisma!.importRecord.count({
+              where: { ...domainRecordWhere, status: { in: recordTransferredStatuses } },
+            }),
+            this.prisma!.importRecord.groupBy({
+              by: ['status'],
+              where: domainRecordWhere,
+              _count: { _all: true },
+            }),
           ]);
-          return [dataType, {
-            batches: row._count._all,
-            records,
-            activeBatches: active,
-            needsReview: review,
-            failedRecords: failed,
-            transferredRecords: transferred,
-            recordStatusCounts: Object.fromEntries(statusGroups.map((statusRow: any) => [statusRow.status, statusRow._count._all])),
-          }];
+          return [
+            dataType,
+            {
+              batches: row._count._all,
+              records,
+              activeBatches: active,
+              needsReview: review,
+              failedRecords: failed,
+              transferredRecords: transferred,
+              recordStatusCounts: Object.fromEntries(
+                statusGroups.map((statusRow: any) => [statusRow.status, statusRow._count._all]),
+              ),
+            },
+          ];
         }),
       );
 
@@ -193,37 +237,60 @@ export class PrismaImportRepository {
     let batches = Array.from(this.inMemoryBatches.values());
     if (filters?.dataType) batches = batches.filter((batch) => batch.dataType === filters.dataType);
     const allowedBatchIds = new Set(batches.map((batch) => batch.id));
-    let records = Array.from(this.inMemoryRecords.values()).filter((record) => allowedBatchIds.has(record.batchId));
+    let records = Array.from(this.inMemoryRecords.values()).filter((record) =>
+      allowedBatchIds.has(record.batchId),
+    );
 
-    const countBy = (items: any[], key: string) => items.reduce<Record<string, number>>((acc, item) => {
-      const value = String(item[key] ?? 'UNKNOWN');
-      acc[value] = (acc[value] ?? 0) + 1;
-      return acc;
-    }, {});
+    const countBy = (items: any[], key: string) =>
+      items.reduce<Record<string, number>>((acc, item) => {
+        const value = String(item[key] ?? 'UNKNOWN');
+        acc[value] = (acc[value] ?? 0) + 1;
+        return acc;
+      }, {});
     const domainKeys = Array.from(new Set(batches.map((batch) => String(batch.dataType))));
-    const byDomain = Object.fromEntries(domainKeys.map((dataType) => {
-      const domainBatches = batches.filter((batch) => batch.dataType === dataType);
-      const ids = new Set(domainBatches.map((batch) => batch.id));
-      const domainRecords = records.filter((record) => ids.has(record.batchId));
-      return [dataType, {
-        batches: domainBatches.length,
-        records: domainRecords.length,
-        activeBatches: domainBatches.filter((batch) => activeBatchStatuses.includes(batch.batchStatus)).length,
-        needsReview: domainRecords.filter((record) => recordReviewStatuses.includes(record.status)).length,
-        failedRecords: domainRecords.filter((record) => recordFailedStatuses.includes(record.status)).length,
-        transferredRecords: domainRecords.filter((record) => recordTransferredStatuses.includes(record.status)).length,
-        recordStatusCounts: countBy(domainRecords, 'status'),
-      }];
-    }));
+    const byDomain = Object.fromEntries(
+      domainKeys.map((dataType) => {
+        const domainBatches = batches.filter((batch) => batch.dataType === dataType);
+        const ids = new Set(domainBatches.map((batch) => batch.id));
+        const domainRecords = records.filter((record) => ids.has(record.batchId));
+        return [
+          dataType,
+          {
+            batches: domainBatches.length,
+            records: domainRecords.length,
+            activeBatches: domainBatches.filter((batch) =>
+              activeBatchStatuses.includes(batch.batchStatus),
+            ).length,
+            needsReview: domainRecords.filter((record) =>
+              recordReviewStatuses.includes(record.status),
+            ).length,
+            failedRecords: domainRecords.filter((record) =>
+              recordFailedStatuses.includes(record.status),
+            ).length,
+            transferredRecords: domainRecords.filter((record) =>
+              recordTransferredStatuses.includes(record.status),
+            ).length,
+            recordStatusCounts: countBy(domainRecords, 'status'),
+          },
+        ];
+      }),
+    );
 
-    const latestBatch = [...batches].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] ?? null;
+    const latestBatch =
+      [...batches].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )[0] ?? null;
     return {
       totalBatches: batches.length,
       totalRecords: records.length,
-      activeBatches: batches.filter((batch) => activeBatchStatuses.includes(batch.batchStatus)).length,
+      activeBatches: batches.filter((batch) => activeBatchStatuses.includes(batch.batchStatus))
+        .length,
       needsReview: records.filter((record) => recordReviewStatuses.includes(record.status)).length,
-      failedRecords: records.filter((record) => recordFailedStatuses.includes(record.status)).length,
-      transferredRecords: records.filter((record) => recordTransferredStatuses.includes(record.status)).length,
+      failedRecords: records.filter((record) => recordFailedStatuses.includes(record.status))
+        .length,
+      transferredRecords: records.filter((record) =>
+        recordTransferredStatuses.includes(record.status),
+      ).length,
       recordStatusCounts: countBy(records, 'status'),
       batchStatusCounts: countBy(batches, 'batchStatus'),
       byDomain,
@@ -232,9 +299,16 @@ export class PrismaImportRepository {
     };
   }
 
-
   async getOperationalInsights(filters?: { dataType?: string }): Promise<any> {
-    const activeStatuses = ['CREATED', 'QUEUED', 'RUNNING', 'PAUSED', 'RESUMING', 'CANCELLING', 'PROCESSING'];
+    const activeStatuses = [
+      'CREATED',
+      'QUEUED',
+      'RUNNING',
+      'PAUSED',
+      'RESUMING',
+      'CANCELLING',
+      'PROCESSING',
+    ];
     const staleBefore = new Date(Date.now() - 15 * 60 * 1000);
     const whereDomain: any = filters?.dataType ? { dataType: filters.dataType } : {};
 
@@ -256,9 +330,13 @@ export class PrismaImportRepository {
             updatedAt: { lt: staleBefore },
           },
         }),
-        this.prisma.importBatch.count({ where: { ...whereDomain, batchStatus: 'FAILED_RETRYABLE' } }),
+        this.prisma.importBatch.count({
+          where: { ...whereDomain, batchStatus: 'FAILED_RETRYABLE' },
+        }),
         this.prisma.importBatch.count({ where: { ...whereDomain, batchStatus: 'PAUSED' } }),
-        this.prisma.importBatch.count({ where: { ...whereDomain, batchStatus: { in: ['CREATED', 'QUEUED', 'RESUMING'] } } }),
+        this.prisma.importBatch.count({
+          where: { ...whereDomain, batchStatus: { in: ['CREATED', 'QUEUED', 'RESUMING'] } },
+        }),
         this.prisma.importBatch.count({ where: { ...whereDomain, batchStatus: 'DLQ' } }),
         this.prisma.importBatch.findFirst({
           where: { ...whereDomain, batchStatus: { in: activeStatuses } },
@@ -296,17 +374,33 @@ export class PrismaImportRepository {
 
       const highFailureIds = new Set(
         failureCandidates
-          .filter((batch: any) => Number(batch.totalRecords ?? 0) > 0 && Number(batch.failedRecords ?? 0) / Number(batch.totalRecords) > 0.10)
+          .filter(
+            (batch: any) =>
+              Number(batch.totalRecords ?? 0) > 0 &&
+              Number(batch.failedRecords ?? 0) / Number(batch.totalRecords) > 0.1,
+          )
           .map((batch: any) => batch.id),
       );
       const recentProblemBatches = recentProblemCandidates
         .map((batch: any) => ({
           ...batch,
-          stuck: ['RUNNING', 'PROCESSING'].includes(String(batch.batchStatus)) && new Date(batch.updatedAt).getTime() < staleBefore.getTime(),
+          stuck:
+            ['RUNNING', 'PROCESSING'].includes(String(batch.batchStatus)) &&
+            new Date(batch.updatedAt).getTime() < staleBefore.getTime(),
           highFailureRate: highFailureIds.has(batch.id),
-          failureRate: Number(batch.totalRecords ?? 0) > 0 ? Number(batch.failedRecords ?? 0) / Number(batch.totalRecords) : 0,
+          failureRate:
+            Number(batch.totalRecords ?? 0) > 0
+              ? Number(batch.failedRecords ?? 0) / Number(batch.totalRecords)
+              : 0,
         }))
-        .filter((batch: any) => batch.stuck || batch.highFailureRate || ['FAILED_RETRYABLE', 'FAILED_PERMANENT', 'DLQ', 'PAUSED'].includes(String(batch.batchStatus)))
+        .filter(
+          (batch: any) =>
+            batch.stuck ||
+            batch.highFailureRate ||
+            ['FAILED_RETRYABLE', 'FAILED_PERMANENT', 'DLQ', 'PAUSED'].includes(
+              String(batch.batchStatus),
+            ),
+        )
         .slice(0, 8);
 
       return {
@@ -318,32 +412,55 @@ export class PrismaImportRepository {
         dlqBatches,
         oldestActiveBatch,
         recentProblemBatches,
-        thresholds: { stuckAfterMinutes: 15, highFailureRate: 0.10 },
+        thresholds: { stuckAfterMinutes: 15, highFailureRate: 0.1 },
         generatedAt: new Date(),
       };
     }
 
     let batches = Array.from(this.inMemoryBatches.values());
     if (filters?.dataType) batches = batches.filter((batch) => batch.dataType === filters.dataType);
-    const highFailure = batches.filter((batch) => Number(batch.totalRecords ?? 0) > 0 && Number(batch.failedRecords ?? 0) / Number(batch.totalRecords) > 0.10);
-    const stuck = batches.filter((batch) => ['RUNNING', 'PROCESSING'].includes(String(batch.batchStatus)) && new Date(batch.updatedAt ?? batch.createdAt).getTime() < staleBefore.getTime());
+    const highFailure = batches.filter(
+      (batch) =>
+        Number(batch.totalRecords ?? 0) > 0 &&
+        Number(batch.failedRecords ?? 0) / Number(batch.totalRecords) > 0.1,
+    );
+    const stuck = batches.filter(
+      (batch) =>
+        ['RUNNING', 'PROCESSING'].includes(String(batch.batchStatus)) &&
+        new Date(batch.updatedAt ?? batch.createdAt).getTime() < staleBefore.getTime(),
+    );
     return {
       stuckBatches: stuck.length,
       highFailureBatches: highFailure.length,
       retryableBatches: batches.filter((batch) => batch.batchStatus === 'FAILED_RETRYABLE').length,
       pausedBatches: batches.filter((batch) => batch.batchStatus === 'PAUSED').length,
-      queuedBatches: batches.filter((batch) => ['CREATED', 'QUEUED', 'RESUMING'].includes(String(batch.batchStatus))).length,
+      queuedBatches: batches.filter((batch) =>
+        ['CREATED', 'QUEUED', 'RESUMING'].includes(String(batch.batchStatus)),
+      ).length,
       dlqBatches: batches.filter((batch) => batch.batchStatus === 'DLQ').length,
-      oldestActiveBatch: batches.filter((batch) => activeStatuses.includes(String(batch.batchStatus))).sort((a, b) => new Date(a.updatedAt ?? a.createdAt).getTime() - new Date(b.updatedAt ?? b.createdAt).getTime())[0] ?? null,
+      oldestActiveBatch:
+        batches
+          .filter((batch) => activeStatuses.includes(String(batch.batchStatus)))
+          .sort(
+            (a, b) =>
+              new Date(a.updatedAt ?? a.createdAt).getTime() -
+              new Date(b.updatedAt ?? b.createdAt).getTime(),
+          )[0] ?? null,
       recentProblemBatches: [...stuck, ...highFailure]
-        .filter((batch, index, all) => all.findIndex((candidate) => candidate.id === batch.id) === index)
+        .filter(
+          (batch, index, all) => all.findIndex((candidate) => candidate.id === batch.id) === index,
+        )
         .slice(0, 8),
-      thresholds: { stuckAfterMinutes: 15, highFailureRate: 0.10 },
+      thresholds: { stuckAfterMinutes: 15, highFailureRate: 0.1 },
       generatedAt: new Date(),
     };
   }
 
-  async getErrorReport(filters?: { dataType?: string; batchId?: string; limit?: number }): Promise<any> {
+  async getErrorReport(filters?: {
+    dataType?: string;
+    batchId?: string;
+    limit?: number;
+  }): Promise<any> {
     const limit = Math.min(1000, Math.max(1, Number(filters?.limit ?? 500)));
     if (this.prisma) {
       const where: any = { status: { in: ['FAILED', 'DLQ'] } };
@@ -371,22 +488,35 @@ export class PrismaImportRepository {
       };
     }
 
-    let rows = Array.from(this.inMemoryRecords.values())
-      .filter((record) => ['FAILED', 'DLQ'].includes(String(record.status)));
+    let rows = Array.from(this.inMemoryRecords.values()).filter((record) =>
+      ['FAILED', 'DLQ'].includes(String(record.status)),
+    );
     if (filters?.batchId) rows = rows.filter((record) => record.batchId === filters.batchId);
-    if (filters?.dataType) rows = rows.filter((record) => this.inMemoryBatches.get(record.batchId)?.dataType === filters.dataType);
+    if (filters?.dataType)
+      rows = rows.filter(
+        (record) => this.inMemoryBatches.get(record.batchId)?.dataType === filters.dataType,
+      );
     rows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     const failed = rows.filter((record) => record.status === 'FAILED').length;
     const dlq = rows.filter((record) => record.status === 'DLQ').length;
-    const data = rows.slice(0, limit).map((record) => ({ ...record, batch: this.inMemoryBatches.get(record.batchId) ?? null }));
-    return { total: rows.length, failed, dlq, rows: data, truncated: rows.length > data.length, generatedAt: new Date() };
+    const data = rows
+      .slice(0, limit)
+      .map((record) => ({ ...record, batch: this.inMemoryBatches.get(record.batchId) ?? null }));
+    return {
+      total: rows.length,
+      failed,
+      dlq,
+      rows: data,
+      truncated: rows.length > data.length,
+      generatedAt: new Date(),
+    };
   }
 
   async createRecord(data: {
     batchId: string;
     status: string;
-    rawPayload: any;
-    validationErrors?: any;
+    rawPayload: unknown;
+    validationErrors?: unknown;
     processingNotes?: string;
     sourceDedupKey?: string;
     promotedEntityId?: string;
@@ -410,8 +540,8 @@ export class PrismaImportRepository {
           id: record.id,
           batchId: record.batchId,
           status: record.status,
-          rawPayload: record.rawPayload,
-          validationErrors: record.validationErrors,
+          rawPayload: toRequiredPrismaJson(record.rawPayload),
+          validationErrors: toNullablePrismaJson(record.validationErrors),
           processingNotes: record.processingNotes,
           sourceDedupKey: record.sourceDedupKey,
           promotedEntityId: record.promotedEntityId,
@@ -424,34 +554,35 @@ export class PrismaImportRepository {
     return record;
   }
 
-  async bulkCreateRecords(records: Array<{
-    batchId: string;
-    status: string;
-    rawPayload: any;
-    validationErrors?: any;
-    processingNotes?: string;
-    sourceDedupKey?: string;
-    promotedEntityId?: string;
-    chunkIndex?: number;
-    recordOffset?: number;
-    sourceRowNumber?: number;
-    retentionExpiresAt?: Date;
-    id?: string;
-  }>): Promise<{ count: number }> {
-    for (const r of records) {
-      if (!r.id) {
-        (r as any).id = `rec-${uuidv4().substring(0, 8)}`;
-      }
-    }
+  async bulkCreateRecords(
+    records: Array<{
+      batchId: string;
+      status: string;
+      rawPayload: unknown;
+      validationErrors?: unknown;
+      processingNotes?: string;
+      sourceDedupKey?: string;
+      promotedEntityId?: string;
+      chunkIndex?: number;
+      recordOffset?: number;
+      sourceRowNumber?: number;
+      retentionExpiresAt?: Date;
+      id?: string;
+    }>,
+  ): Promise<{ count: number }> {
+    const recordsWithIds = records.map((record) => ({
+      ...record,
+      id: record.id ?? `rec-${uuidv4().substring(0, 8)}`,
+    }));
 
     if (this.prisma) {
       const created = await this.prisma.importRecord.createMany({
-        data: records.map(r => ({
-          id: r.id!,
+        data: recordsWithIds.map((r) => ({
+          id: r.id,
           batchId: r.batchId,
           status: r.status,
-          rawPayload: r.rawPayload,
-          validationErrors: r.validationErrors || null,
+          rawPayload: toRequiredPrismaJson(r.rawPayload),
+          validationErrors: toNullablePrismaJson(r.validationErrors),
           processingNotes: r.processingNotes || null,
           sourceDedupKey: r.sourceDedupKey || null,
           promotedEntityId: r.promotedEntityId || null,
@@ -464,7 +595,7 @@ export class PrismaImportRepository {
       return { count: created.count };
     }
 
-    for (const r of records) {
+    for (const r of recordsWithIds) {
       const id = r.id!;
       this.inMemoryRecords.set(id, {
         id,
@@ -528,13 +659,13 @@ export class PrismaImportRepository {
 
     let records = Array.from(this.inMemoryRecords.values());
     if (filters?.batchId) {
-      records = records.filter(r => r.batchId === filters.batchId);
+      records = records.filter((r) => r.batchId === filters.batchId);
     }
     if (filters?.status) {
-      records = records.filter(r => r.status === filters.status);
+      records = records.filter((r) => r.status === filters.status);
     }
     if (filters?.dataType) {
-      records = records.filter(r => {
+      records = records.filter((r) => {
         const batch = this.inMemoryBatches.get(r.batchId);
         return batch && batch.dataType === filters.dataType;
       });
@@ -542,9 +673,9 @@ export class PrismaImportRepository {
 
     const total = records.length;
     const rawData = records.slice((page - 1) * pageSize, page * pageSize);
-    const data = rawData.map(r => ({
+    const data = rawData.map((r) => ({
       ...r,
-      batch: this.inMemoryBatches.get(r.batchId) || null
+      batch: this.inMemoryBatches.get(r.batchId) || null,
     }));
 
     return { data, total, page, pageSize };
@@ -573,7 +704,8 @@ export class PrismaImportRepository {
     const requested = new Set(keys);
     const found = new Set<string>();
     for (const record of this.inMemoryRecords.values()) {
-      if (record.sourceDedupKey && requested.has(record.sourceDedupKey)) found.add(record.sourceDedupKey);
+      if (record.sourceDedupKey && requested.has(record.sourceDedupKey))
+        found.add(record.sourceDedupKey);
     }
     return Array.from(found);
   }
@@ -599,22 +731,25 @@ export class PrismaImportRepository {
     return null;
   }
 
-  async updateRecord(id: string, updates: {
-    status?: string;
-    validationErrors?: any;
-    promotedEntityId?: string;
-    processingNotes?: string;
-    rawPayload?: any;
-  }): Promise<any> {
+  async updateRecord(
+    id: string,
+    updates: {
+      status?: string;
+      validationErrors?: unknown;
+      promotedEntityId?: string;
+      processingNotes?: string;
+      rawPayload?: unknown;
+    },
+  ): Promise<any> {
     if (this.prisma) {
       const record = await this.prisma.importRecord.update({
         where: { id },
         data: {
           status: updates.status,
-          validationErrors: updates.validationErrors,
+          validationErrors: toOptionalPrismaJson(updates.validationErrors),
           promotedEntityId: updates.promotedEntityId,
           processingNotes: updates.processingNotes,
-          rawPayload: updates.rawPayload,
+          rawPayload: toOptionalPrismaJson(updates.rawPayload),
         },
       });
       return record;
@@ -633,12 +768,15 @@ export class PrismaImportRepository {
     return null;
   }
 
-  async updateBatchStats(batchId: string, stats: {
-    totalRecords?: number;
-    processedRecords?: number;
-    failedRecords?: number;
-    batchStatus?: string;
-  }): Promise<any> {
+  async updateBatchStats(
+    batchId: string,
+    stats: {
+      totalRecords?: number;
+      processedRecords?: number;
+      failedRecords?: number;
+      batchStatus?: string;
+    },
+  ): Promise<any> {
     if (this.prisma) {
       const batch = await this.prisma.importBatch.update({
         where: { id: batchId },

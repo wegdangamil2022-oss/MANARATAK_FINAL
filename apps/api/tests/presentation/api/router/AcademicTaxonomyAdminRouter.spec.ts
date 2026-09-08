@@ -38,6 +38,7 @@ describe('AcademicTaxonomyAdminRouter', () => {
     aliasId: 'alias_001',
     nodeId: 'node_001',
     alias: 'CS',
+    normalizedAlias: 'cs',
     createdAt: new Date(),
   };
 
@@ -73,14 +74,17 @@ describe('AcademicTaxonomyAdminRouter', () => {
       listByTaxonomyNode: vi.fn().mockResolvedValue([]),
     };
     app.use(express.json());
-    app.use((req, _res, next) => { (req as any).authUserId = 'admin-taxonomy-1'; next(); });
+    app.use((req, _res, next) => {
+      (req as any).authUserId = 'admin-taxonomy-1';
+      next();
+    });
     app.use(
       '/admin/academic-taxonomy',
       AcademicTaxonomyAdminRouter.create({
         adminAcademicTaxonomyUseCases: useCases as any,
         adminMajorUseCases: adminMajorUseCases as any,
         degreeLevelUseCases: degreeLevelUseCases as any,
-      })
+      }),
     );
     return app;
   };
@@ -89,14 +93,19 @@ describe('AcademicTaxonomyAdminRouter', () => {
     const useCases = createUseCases();
     const degreeLevelUseCases = { list: vi.fn(), getById: vi.fn(), update: vi.fn() };
     const adminMajorUseCases = {
-      listByTaxonomyNode: vi.fn().mockResolvedValue([{ id: 'mapping-1', relationshipType: 'PRIMARY' }]),
+      listByTaxonomyNode: vi
+        .fn()
+        .mockResolvedValue([{ id: 'mapping-1', relationshipType: 'PRIMARY' }]),
     };
     const app = express();
-    app.use('/admin/academic-taxonomy', AcademicTaxonomyAdminRouter.create({
-      adminAcademicTaxonomyUseCases: useCases as any,
-      adminMajorUseCases: adminMajorUseCases as any,
-      degreeLevelUseCases: degreeLevelUseCases as any,
-    }));
+    app.use(
+      '/admin/academic-taxonomy',
+      AcademicTaxonomyAdminRouter.create({
+        adminAcademicTaxonomyUseCases: useCases as any,
+        adminMajorUseCases: adminMajorUseCases as any,
+        degreeLevelUseCases: degreeLevelUseCases as any,
+      }),
+    );
 
     const res = await request(app).get('/admin/academic-taxonomy/nodes/taxonomy-1/mapped-majors');
 
@@ -122,9 +131,7 @@ describe('AcademicTaxonomyAdminRouter', () => {
       standardCode: 'STD001',
     };
 
-    const res = await request(app)
-      .post('/admin/academic-taxonomy/nodes/validate')
-      .send(input);
+    const res = await request(app).post('/admin/academic-taxonomy/nodes/validate').send(input);
 
     expect(res.status).toBe(200);
     expect(res.body.completenessScore).toBe(100);
@@ -203,9 +210,7 @@ describe('AcademicTaxonomyAdminRouter', () => {
       alias: 'CS',
     };
 
-    const res = await request(app)
-      .post('/admin/academic-taxonomy/aliases')
-      .send(input);
+    const res = await request(app).post('/admin/academic-taxonomy/aliases').send(input);
 
     expect(res.status).toBe(200);
     expect(res.body.aliasId).toBe('alias_001');
@@ -225,9 +230,7 @@ describe('AcademicTaxonomyAdminRouter', () => {
       strength: AcademicMappingStrength.EXACT,
     };
 
-    const res = await request(app)
-      .post('/admin/academic-taxonomy/mappings')
-      .send(input);
+    const res = await request(app).post('/admin/academic-taxonomy/mappings').send(input);
 
     expect(res.status).toBe(200);
     expect(res.body.mappingId).toBe('mapping_001');
@@ -251,9 +254,7 @@ describe('AcademicTaxonomyAdminRouter', () => {
       records: [],
     };
 
-    const res = await request(app)
-      .post('/admin/academic-taxonomy/import-handoff')
-      .send(input);
+    const res = await request(app).post('/admin/academic-taxonomy/import-handoff').send(input);
 
     expect(res.status).toBe(200);
     expect(res.body.seedBatchId).toBe('b_001');

@@ -1,8 +1,28 @@
 import express from 'express';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
-import { StudentSavedItemType, StudentWorkspaceStatus } from '@manaratak/domain';
+import {
+  type IAssetRecordRepository,
+  StudentSavedItemType,
+  StudentWorkspaceStatus,
+} from '@manaratak/domain';
+import type { IPrincipalAccessValidator, ISessionManager, ITokenProvider } from '@manaratak/core';
+import {
+  FinancePlatformUseCases,
+  FinanceStudentUseCases,
+  ProcessAssetLifecycleUseCase,
+  StudentApplicationTrackerUseCases,
+  StudentDashboardHydrationService,
+  StudentSavedItemHydrationService,
+  StudentServiceRequestUseCases,
+  StudentWorkspaceUseCases,
+} from '@manaratak/application';
+import { PrismaApiIdempotencyStore } from '@manaratak/infrastructure';
 import { StudentWorkspaceRouter } from '../../../../src/presentation/api/router/StudentWorkspaceRouter';
+
+function classDouble<T extends object>(prototype: T, overrides: Partial<T> = {}): T {
+  return Object.assign(Object.create(prototype) as T, overrides);
+}
 
 describe('StudentWorkspaceRouter', () => {
   const createUseCases = () => ({
@@ -17,23 +37,62 @@ describe('StudentWorkspaceRouter', () => {
   });
 
   const createApp = (useCases: ReturnType<typeof createUseCases>) => {
+    const workspaceUseCases = classDouble(StudentWorkspaceUseCases.prototype, useCases);
+    const tokenProvider: ITokenProvider = {
+      generateTokens: vi.fn(),
+      generateAccessToken: vi.fn(),
+      generateRefreshToken: vi.fn(),
+      verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'student-1', sessionId: 'session-1' }),
+      validateRefreshToken: vi.fn(),
+    };
+    const sessionManager: ISessionManager = {
+      createSession: vi.fn(),
+      revokeSession: vi.fn(),
+      revokeAllSessions: vi.fn(),
+      findRefreshSession: vi.fn(),
+      consumeAndRotateRefreshSession: vi.fn(),
+      isSessionActive: vi.fn().mockResolvedValue(true),
+    };
+    const principalAccessValidator: IPrincipalAccessValidator = {
+      isAuthenticationAllowed: vi.fn().mockResolvedValue(true),
+    };
+    const apiIdempotencyStore = classDouble(PrismaApiIdempotencyStore.prototype, {
+      begin: vi
+        .fn()
+        .mockResolvedValue({ kind: 'STARTED', scopeHash: 'scope-1', leaseToken: 'lease-1' }),
+      complete: vi.fn().mockResolvedValue(undefined),
+    });
+    const assetRecordRepository: IAssetRecordRepository & {
+      queryAdmin(
+        input: unknown,
+      ): Promise<{ items: unknown[]; nextCursor: string | null; hasMore: boolean }>;
+    } = {
+      save: vi.fn(),
+      findById: vi.fn(),
+      findByReference: vi.fn(),
+      findByOwner: vi.fn(),
+      queryAdmin: vi.fn().mockResolvedValue({ items: [], nextCursor: null, hasMore: false }),
+    };
     const app = express();
     app.use(express.json());
     app.use(
       '/student',
       StudentWorkspaceRouter.create({
-        studentWorkspaceUseCases: useCases as any,
-        studentDashboardHydrationService: { getDashboard: useCases.getDashboard } as any,
-        financeStudentUseCases: {} as any,
-        tokenProvider: {
-          verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'student-1', sessionId: 'session-1' }),
-        } as any,
-        sessionManager: { isSessionActive: vi.fn().mockResolvedValue(true), revokeAllSessions: vi.fn() } as any,
-        principalAccessValidator: { isAuthenticationAllowed: vi.fn().mockResolvedValue(true) } as any,
-        apiIdempotencyStore: {
-          begin: vi.fn().mockResolvedValue({ kind: 'NEW', scopeHash: 'scope-1', leaseToken: 'lease-1' }),
-          complete: vi.fn().mockResolvedValue(undefined),
-        } as any,
+        studentWorkspaceUseCases: workspaceUseCases,
+        studentApplicationTrackerUseCases: classDouble(StudentApplicationTrackerUseCases.prototype),
+        financeStudentUseCases: classDouble(FinanceStudentUseCases.prototype),
+        financePlatformUseCases: classDouble(FinancePlatformUseCases.prototype),
+        studentSavedItemHydrationService: classDouble(StudentSavedItemHydrationService.prototype),
+        studentDashboardHydrationService: classDouble(StudentDashboardHydrationService.prototype, {
+          getDashboard: useCases.getDashboard,
+        }),
+        studentServiceRequestUseCases: classDouble(StudentServiceRequestUseCases.prototype),
+        tokenProvider,
+        sessionManager,
+        principalAccessValidator,
+        apiIdempotencyStore,
+        assetRecordRepository,
+        processAssetLifecycleUseCase: classDouble(ProcessAssetLifecycleUseCase.prototype),
       }),
     );
     return app;
@@ -120,17 +179,33 @@ describe('StudentWorkspaceRouter', () => {
   it('routes privacy toggles through the consent command with authenticated actor evidence', async () => {
     const useCases = createUseCases();
     useCases.updatePrivacyConsent.mockResolvedValue({ id: 'decision-1', workspaceVersion: 3 });
-    const preferences = { retainSearchHistory: false, allowPersonalization: true, allowProductAnalytics: true, publicProfileEnabled: false };
-    const res = await request(createApp(useCases)).put('/student/privacy-consent').set('Authorization', 'Bearer valid-student-token')
+    const preferences = {
+      retainSearchHistory: false,
+      allowPersonalization: true,
+      allowProductAnalytics: true,
+      publicProfileEnabled: false,
+    };
+    const res = await request(createApp(useCases))
+      .put('/student/privacy-consent')
+      .set('Authorization', 'Bearer valid-student-token')
       .set('Idempotency-Key', 'student-privacy-1')
       .send({ expectedVersion: 2, purpose: 'student settings', privacyPreferences: preferences });
     expect(res.status).toBe(200);
-    expect(useCases.updatePrivacyConsent).toHaveBeenCalledWith(expect.objectContaining({ studentReferenceId: 'student-1', actorId: 'student-1', expectedVersion: 2, privacyPreferences: preferences }));
+    expect(useCases.updatePrivacyConsent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        studentReferenceId: 'student-1',
+        actorId: 'student-1',
+        expectedVersion: 2,
+        privacyPreferences: preferences,
+      }),
+    );
   });
 
   it('rejects privacy fields on generic workspace updates instead of stripping them', async () => {
     const useCases = createUseCases();
-    const res = await request(createApp(useCases)).put('/student/workspace').set('Authorization', 'Bearer valid-student-token')
+    const res = await request(createApp(useCases))
+      .put('/student/workspace')
+      .set('Authorization', 'Bearer valid-student-token')
       .set('Idempotency-Key', 'student-workspace-1')
       .send({ expectedVersion: 1, privacyPreferences: { retainSearchHistory: false } });
     expect(res.status).toBe(400);
@@ -139,7 +214,9 @@ describe('StudentWorkspaceRouter', () => {
 
   it.each(['FAVORITES', 'SMART'])('rejects public collection type spoofing: %s', async (type) => {
     const useCases = createUseCases();
-    const res = await request(createApp(useCases)).post('/student/collections').set('Authorization', 'Bearer valid-student-token')
+    const res = await request(createApp(useCases))
+      .post('/student/collections')
+      .set('Authorization', 'Bearer valid-student-token')
       .set('Idempotency-Key', `student-collection-${type.toLowerCase()}`)
       .send({ name: 'قائمتي', type });
     expect(res.status).toBe(400);

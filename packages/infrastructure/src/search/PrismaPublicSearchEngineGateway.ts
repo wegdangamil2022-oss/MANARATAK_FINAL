@@ -1,22 +1,11 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { SearchRequest, SearchResult, type SearchMatch } from '@manaratak/domain';
-import type { ISearchEngineGateway } from '@manaratak/application';
-
-export type PublicSearchKind = 'scholarships' | 'universities' | 'majors' | 'countries' | 'courses' | 'exams' | 'articles' | 'services' | 'tools' | 'jobs';
-
-export interface PublicSearchCursorPage {
-  items: SearchMatch[];
-  hasMore: boolean;
-  nextCursor: string | null;
-}
-
-export interface PublicSearchInput {
-  query: string;
-  locale: 'ar' | 'en';
-  limit: number;
-  cursor?: string;
-  kinds?: PublicSearchKind[];
-}
+import type {
+  IPublicSearchGateway,
+  PublicSearchCursorPage,
+  PublicSearchInput,
+  PublicSearchKind,
+} from '@manaratak/application';
 
 type SearchRow = {
   kind: PublicSearchKind;
@@ -31,7 +20,18 @@ type SearchRow = {
 
 type CursorShape = { score: number; title: string; kind: PublicSearchKind; id: string };
 
-const ALL_KINDS: readonly PublicSearchKind[] = ['scholarships','universities','majors','countries','courses','exams','articles','services','tools','jobs'];
+const ALL_KINDS: readonly PublicSearchKind[] = [
+  'scholarships',
+  'universities',
+  'majors',
+  'countries',
+  'courses',
+  'exams',
+  'articles',
+  'services',
+  'tools',
+  'jobs',
+];
 
 function encodeCursor(value: CursorShape): string {
   return Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
@@ -39,21 +39,39 @@ function encodeCursor(value: CursorShape): string {
 function decodeCursor(value?: string): CursorShape | null {
   if (!value) return null;
   try {
-    const raw = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as Partial<CursorShape>;
-    if (!Number.isFinite(raw.score) || typeof raw.title !== 'string' || typeof raw.id !== 'string' || !ALL_KINDS.includes(raw.kind as PublicSearchKind)) return null;
+    const raw = JSON.parse(
+      Buffer.from(value, 'base64url').toString('utf8'),
+    ) as Partial<CursorShape>;
+    if (
+      !Number.isFinite(raw.score) ||
+      typeof raw.title !== 'string' ||
+      typeof raw.id !== 'string' ||
+      !ALL_KINDS.includes(raw.kind as PublicSearchKind)
+    )
+      return null;
     return raw as CursorShape;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
-export class PrismaPublicSearchEngineGateway implements ISearchEngineGateway {
+export class PrismaPublicSearchEngineGateway implements IPublicSearchGateway {
   public constructor(private readonly prisma: PrismaClient) {}
 
   public async execute(request: SearchRequest): Promise<SearchResult> {
     if (request.scope.getValue() !== 'PUBLIC_CATALOG') throw new Error('SEARCH_SCOPE_UNSUPPORTED');
     if (request.pagination.page !== 1) throw new Error('PUBLIC_SEARCH_REQUIRES_CURSOR_PAGINATION');
     const startedAt = Date.now();
-    const page = await this.searchPublic({ query: request.criteria.query, locale: 'ar', limit: request.pagination.limit });
-    return new SearchResult(page.items.length + (page.hasMore ? 1 : 0), Date.now() - startedAt, page.items);
+    const page = await this.searchPublic({
+      query: request.criteria.query,
+      locale: 'ar',
+      limit: request.pagination.limit,
+    });
+    return new SearchResult(
+      page.items.length + (page.hasMore ? 1 : 0),
+      Date.now() - startedAt,
+      page.items,
+    );
   }
 
   public async searchPublic(input: PublicSearchInput): Promise<PublicSearchCursorPage> {
@@ -62,28 +80,38 @@ export class PrismaPublicSearchEngineGateway implements ISearchEngineGateway {
     const limit = Math.max(1, Math.min(input.limit, 50));
     const cursor = decodeCursor(input.cursor);
     if (input.cursor && !cursor) throw new Error('SEARCH_CURSOR_INVALID');
-    const kinds = (input.kinds?.length ? input.kinds : [...ALL_KINDS]).filter((kind, index, values) => ALL_KINDS.includes(kind) && values.indexOf(kind) === index);
+    const kinds = (input.kinds?.length ? input.kinds : [...ALL_KINDS]).filter(
+      (kind, index, values) => ALL_KINDS.includes(kind) && values.indexOf(kind) === index,
+    );
     if (!kinds.length) return { items: [], hasMore: false, nextCursor: null };
 
-    const titleCourse = input.locale === 'en' ? Prisma.sql`c."canonicalName"` : Prisma.sql`c."displayName"`;
-    const titleUniversity = input.locale === 'en' ? Prisma.sql`u."canonicalName"` : Prisma.sql`u."displayName"`;
-    const titleScholarship = input.locale === 'en' ? Prisma.sql`s."canonicalName"` : Prisma.sql`s."displayName"`;
-    const titleMajor = input.locale === 'en'
-      ? Prisma.sql`COALESCE(m."localizedNameEn", m."canonicalName")`
-      : Prisma.sql`COALESCE(m."localizedNameAr", m."displayName")`;
-    const titleExam = input.locale === 'en'
-      ? Prisma.sql`COALESCE(t."localizedNameEn", t."canonicalName")`
-      : Prisma.sql`COALESCE(t."localizedNameAr", t."displayName")`;
-    const titleCountry = input.locale === 'en' ? Prisma.sql`co."name"` : Prisma.sql`COALESCE(co."nameAr", co."name")`;
+    const titleCourse =
+      input.locale === 'en' ? Prisma.sql`c."canonicalName"` : Prisma.sql`c."displayName"`;
+    const titleUniversity =
+      input.locale === 'en' ? Prisma.sql`u."canonicalName"` : Prisma.sql`u."displayName"`;
+    const titleScholarship =
+      input.locale === 'en' ? Prisma.sql`s."canonicalName"` : Prisma.sql`s."displayName"`;
+    const titleMajor =
+      input.locale === 'en'
+        ? Prisma.sql`COALESCE(m."localizedNameEn", m."canonicalName")`
+        : Prisma.sql`COALESCE(m."localizedNameAr", m."displayName")`;
+    const titleExam =
+      input.locale === 'en'
+        ? Prisma.sql`COALESCE(t."localizedNameEn", t."canonicalName")`
+        : Prisma.sql`COALESCE(t."localizedNameAr", t."displayName")`;
+    const titleCountry =
+      input.locale === 'en' ? Prisma.sql`co."name"` : Prisma.sql`COALESCE(co."nameAr", co."name")`;
     const titleTool = input.locale === 'en' ? Prisma.sql`st."nameEn"` : Prisma.sql`st."nameAr"`;
 
-    const cursorClause = cursor ? Prisma.sql`
+    const cursorClause = cursor
+      ? Prisma.sql`
       AND (
         r.score < ${cursor.score}
         OR (r.score = ${cursor.score} AND lower(r.title) > lower(${cursor.title}))
         OR (r.score = ${cursor.score} AND lower(r.title) = lower(${cursor.title}) AND r.kind > ${cursor.kind})
         OR (r.score = ${cursor.score} AND lower(r.title) = lower(${cursor.title}) AND r.kind = ${cursor.kind} AND r.id > ${cursor.id})
-      )` : Prisma.empty;
+      )`
+      : Prisma.empty;
     const kindClause = Prisma.sql`AND r.kind IN (${Prisma.join(kinds)})`;
 
     const rows = await this.prisma.$queryRaw<SearchRow[]>(Prisma.sql`
@@ -172,14 +200,30 @@ export class PrismaPublicSearchEngineGateway implements ISearchEngineGateway {
     return {
       items,
       hasMore: rows.length > limit,
-      nextCursor: rows.length > limit && last ? encodeCursor({ score: Number(last.score), title: last.title, kind: last.kind, id: last.id }) : null,
+      nextCursor:
+        rows.length > limit && last
+          ? encodeCursor({
+              score: Number(last.score),
+              title: last.title,
+              kind: last.kind,
+              id: last.id,
+            })
+          : null,
     };
   }
 
   private routeSegment(kind: PublicSearchKind): string {
     const map: Record<PublicSearchKind, string> = {
-      scholarships: 'scholarships', universities: 'universities', majors: 'majors', countries: 'countries', courses: 'courses', exams: 'tests',
-      articles: 'content', services: 'services', tools: 'tools', jobs: 'careers',
+      scholarships: 'scholarships',
+      universities: 'universities',
+      majors: 'majors',
+      countries: 'countries',
+      courses: 'courses',
+      exams: 'tests',
+      articles: 'content',
+      services: 'services',
+      tools: 'tools',
+      jobs: 'careers',
     };
     return map[kind];
   }

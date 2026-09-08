@@ -3,6 +3,7 @@ import express from 'express';
 import request from 'supertest';
 import { SecurityMiddlewareFactory } from '../../../src/presentation/security/SecurityMiddlewareFactory';
 import { DefaultRateLimiter, SecurityService } from '@manaratak/infrastructure';
+import { getResponseErrorCode } from '../../support/responsePayload';
 
 function createResponse() {
   return {
@@ -75,9 +76,11 @@ describe('SecurityMiddlewareFactory admin guard', () => {
     await guard({ headers: {} } as any, response as any, vi.fn());
 
     expect(response.status).toHaveBeenCalledWith(401);
-    expect(response.payload).toEqual(expect.objectContaining({
-      error: expect.objectContaining({ code: 'ADMIN_AUTH_REQUIRED' }),
-    }));
+    expect(response.payload).toEqual(
+      expect.objectContaining({
+        error: expect.objectContaining({ code: 'ADMIN_AUTH_REQUIRED' }),
+      }),
+    );
   });
 
   it('allows strict mode with a valid access token identity', async () => {
@@ -85,7 +88,9 @@ describe('SecurityMiddlewareFactory admin guard', () => {
     const guard = SecurityMiddlewareFactory.createAdminGuard({
       mode: 'strict',
       tokenProvider: {
-        verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'owner-01', sessionId: 'session-01' }),
+        verifyAccessToken: vi
+          .fn()
+          .mockResolvedValue({ userId: 'owner-01', sessionId: 'session-01' }),
       } as any,
       sessionManager: activeSessionManager,
       principalAccessValidator: activePrincipalAccessValidator,
@@ -99,23 +104,35 @@ describe('SecurityMiddlewareFactory admin guard', () => {
     expect(next).toHaveBeenCalled();
     expect(response.headers['X-Admin-Auth-Mode']).toBe('strict');
     expect(req.authUserId).toBe('owner-01');
-    expect(response.locals.adminContext).toEqual(expect.objectContaining({
-      authMode: 'strict',
-      principalId: 'owner-01',
-    }));
+    expect(response.locals.adminContext).toEqual(
+      expect.objectContaining({
+        authMode: 'strict',
+        principalId: 'owner-01',
+      }),
+    );
   });
 
   it('rejects a valid token when the current administrator account is suspended', async () => {
     const guard = SecurityMiddlewareFactory.createAdminGuard({
       mode: 'strict',
-      tokenProvider: { verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'owner-01', sessionId: 'session-01' }) } as any,
+      tokenProvider: {
+        verifyAccessToken: vi
+          .fn()
+          .mockResolvedValue({ userId: 'owner-01', sessionId: 'session-01' }),
+      } as any,
       sessionManager: activeSessionManager,
-      principalAccessValidator: { isAuthenticationAllowed: vi.fn().mockResolvedValue(false) } as any,
+      principalAccessValidator: {
+        isAuthenticationAllowed: vi.fn().mockResolvedValue(false),
+      } as any,
     });
     const response = createResponse();
     const next = vi.fn();
 
-    await guard({ headers: { authorization: 'Bearer signed-token' } } as any, response as any, next);
+    await guard(
+      { headers: { authorization: 'Bearer signed-token' } } as any,
+      response as any,
+      next,
+    );
 
     expect(next).not.toHaveBeenCalled();
     expect(response.statusCode).toBe(401);
@@ -126,7 +143,10 @@ describe('SecurityMiddlewareFactory admin guard', () => {
     const mockEvaluator = {
       evaluatePermission: vi.fn().mockResolvedValue(AccessDecision.granted('Granted')),
     } as any;
-    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard('admin:scholarships:manage', mockEvaluator);
+    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard(
+      'admin:scholarships:manage',
+      mockEvaluator,
+    );
     const response = createResponse();
     const req = { authUserId: 'admin-root', headers: {} } as any;
     const next = vi.fn();
@@ -144,33 +164,44 @@ describe('SecurityMiddlewareFactory admin guard', () => {
     await guard({ headers: {} } as any, response as any, vi.fn());
 
     expect(response.status).toHaveBeenCalledWith(401);
-    expect(response.payload).toEqual(expect.objectContaining({
-      error: expect.objectContaining({ code: 'ADMIN_AUTH_REQUIRED' }),
-    }));
+    expect(response.payload).toEqual(
+      expect.objectContaining({
+        error: expect.objectContaining({ code: 'ADMIN_AUTH_REQUIRED' }),
+      }),
+    );
   });
 
   it('rejects admin permission guard when permission is denied by evaluator', async () => {
     const mockEvaluator = {
-      evaluatePermission: vi.fn().mockResolvedValue(AccessDecision.denied('Insufficient permissions')),
+      evaluatePermission: vi
+        .fn()
+        .mockResolvedValue(AccessDecision.denied('Insufficient permissions')),
     } as any;
-    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard('admin:finance:manage', mockEvaluator);
+    const guard = SecurityMiddlewareFactory.createAdminPermissionGuard(
+      'admin:finance:manage',
+      mockEvaluator,
+    );
     const response = createResponse();
     const req = { authUserId: 'user-123', headers: {} } as any;
 
     await guard(req, response as any, vi.fn());
 
     expect(response.status).toHaveBeenCalledWith(403);
-    expect(response.payload).toEqual(expect.objectContaining({
-      error: expect.objectContaining({ code: 'ADMIN_PERMISSION_DENIED' }),
-    }));
+    expect(response.payload).toEqual(
+      expect.objectContaining({
+        error: expect.objectContaining({ code: 'ADMIN_PERMISSION_DENIED' }),
+      }),
+    );
   });
 });
 
 describe('SecurityMiddlewareFactory resolveAdminAuthMode', () => {
   it('defaults to strict mode when ADMIN_AUTH_MODE is missing', () => {
-    expect(SecurityMiddlewareFactory.resolveAdminAuthMode({
-      NODE_ENV: 'production',
-    })).toBe('strict');
+    expect(
+      SecurityMiddlewareFactory.resolveAdminAuthMode({
+        NODE_ENV: 'production',
+      }),
+    ).toBe('strict');
   });
 
   it('throws configuration error when production uses ADMIN_AUTH_MODE=demo', () => {
@@ -178,7 +209,7 @@ describe('SecurityMiddlewareFactory resolveAdminAuthMode', () => {
       SecurityMiddlewareFactory.resolveAdminAuthMode({
         NODE_ENV: 'production',
         ADMIN_AUTH_MODE: 'demo',
-      })
+      }),
     ).toThrowError(/Only persisted-RBAC strict mode is supported/);
   });
 
@@ -198,10 +229,12 @@ describe('SecurityMiddlewareFactory resolveAdminAuthMode', () => {
   });
 
   it('rejects legacy bearer mode', () => {
-    expect(() => SecurityMiddlewareFactory.resolveAdminAuthMode({
-      NODE_ENV: 'production',
-      ADMIN_AUTH_MODE: 'bearer',
-    })).toThrowError(/Only persisted-RBAC strict mode is supported/);
+    expect(() =>
+      SecurityMiddlewareFactory.resolveAdminAuthMode({
+        NODE_ENV: 'production',
+        ADMIN_AUTH_MODE: 'bearer',
+      }),
+    ).toThrowError(/Only persisted-RBAC strict mode is supported/);
   });
 });
 
@@ -323,7 +356,9 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
   }
 
   it('allows safe methods (GET, HEAD, OPTIONS) without a CSRF token', async () => {
-    const securityService = new SecurityService(undefined, { signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters' });
+    const securityService = new SecurityService(undefined, {
+      signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters',
+    });
     const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService);
 
     for (const method of ['GET', 'HEAD', 'OPTIONS']) {
@@ -339,7 +374,9 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
   });
 
   it('rejects cookie-authenticated mutations when the CSRF header is missing', async () => {
-    const securityService = new SecurityService(undefined, { signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters' });
+    const securityService = new SecurityService(undefined, {
+      signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters',
+    });
     const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService);
 
     for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
@@ -364,7 +401,9 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
   });
 
   it('rejects state-mutating requests with invalid, malformed, or tampered CSRF tokens with HTTP 403', async () => {
-    const securityService = new SecurityService(undefined, { signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters' });
+    const securityService = new SecurityService(undefined, {
+      signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters',
+    });
     const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService);
 
     const invalidTokens = [
@@ -386,12 +425,14 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
 
       expect(next).not.toHaveBeenCalled();
       expect(res.statusCode).toBe(403);
-      expect(res.payload.error.code).toBe('CSRF_TOKEN_INVALID');
+      expect(getResponseErrorCode(res.payload)).toBe('CSRF_TOKEN_INVALID');
     }
   });
 
   it('allows state-mutating requests when a valid CSRF token is provided in X-CSRF-Token header', async () => {
-    const securityService = new SecurityService(undefined, { signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters' });
+    const securityService = new SecurityService(undefined, {
+      signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters',
+    });
     const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService);
 
     const validToken = securityService.generateCsrfToken(sessionSecret);
@@ -412,7 +453,9 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
   });
 
   it('allows state-mutating requests when path is explicitly in exemptPaths', async () => {
-    const securityService = new SecurityService(undefined, { signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters' });
+    const securityService = new SecurityService(undefined, {
+      signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters',
+    });
     const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService, {
       exemptPaths: ['/api/v1/public/webhook'],
     });
@@ -435,10 +478,16 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
   });
 
   it('does not accept CSRF tokens from request bodies or query strings', async () => {
-    const securityService = new SecurityService(undefined, { signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters' });
+    const securityService = new SecurityService(undefined, {
+      signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters',
+    });
     const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService);
     const validToken = securityService.generateCsrfToken(sessionSecret);
-    const req = createMockRequest('POST', { Cookie: `manaratak_refresh=${sessionSecret}` }, { _csrf: validToken });
+    const req = createMockRequest(
+      'POST',
+      { Cookie: `manaratak_refresh=${sessionSecret}` },
+      { _csrf: validToken },
+    );
     req.query = { _csrf: validToken };
     const res = createResponse();
     const next = vi.fn();
@@ -450,7 +499,9 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
   });
 
   it('allows state-mutating requests with Authorization Bearer header when exemptBearerAuth is true', async () => {
-    const securityService = new SecurityService(undefined, { signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters' });
+    const securityService = new SecurityService(undefined, {
+      signingSecret: 'test-csrf-signing-secret-with-at-least-32-characters',
+    });
     const middleware = SecurityMiddlewareFactory.createCsrfGuard(securityService, {
       exemptBearerAuth: true,
     });
@@ -459,7 +510,8 @@ describe('SecurityMiddlewareFactory CSRF guard middleware', () => {
       method: 'POST',
       path: '/api/v1/admin/action',
       headers: { authorization: 'Bearer test-bearer-token-val' },
-      get: (h: string) => h.toLowerCase() === 'authorization' ? 'Bearer test-bearer-token-val' : undefined,
+      get: (h: string) =>
+        h.toLowerCase() === 'authorization' ? 'Bearer test-bearer-token-val' : undefined,
       body: {},
       query: {},
     } as any;
