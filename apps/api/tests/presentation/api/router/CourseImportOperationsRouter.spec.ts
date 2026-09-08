@@ -1,6 +1,12 @@
 import express from 'express';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
+import { ImportAdminUseCases } from '@manaratak/application';
+import type {
+  IImportedCourseLinkChecker,
+  IImportedCourseOperationsRepository,
+} from '@manaratak/domain';
+import { PrismaImportRepository } from '@manaratak/infrastructure';
 import { CourseImportOperationsRouter } from '../../../../src/presentation/api/router/CourseImportOperationsRouter';
 
 function fixture() {
@@ -9,7 +15,9 @@ function fixture() {
     listBatches: vi.fn().mockResolvedValue([{ id: 'batch-1', dataType: 'COURSES' }]),
     getBatch: vi.fn().mockResolvedValue({ id: 'batch-1', dataType: 'COURSES' }),
     listBatchRecords: vi.fn().mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 50 }),
-    reviewQueue: vi.fn().mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 }),
+    reviewQueue: vi
+      .fn()
+      .mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 }),
     analyzeBatch: vi.fn().mockResolvedValue({ batchId: 'batch-1', analyzed: 2 }),
     transferBatch: vi.fn().mockResolvedValue({ batchId: 'batch-1', attempted: 1, transferred: 1 }),
   };
@@ -22,21 +30,47 @@ function fixture() {
     }),
   };
   const providers = {
-    list: vi.fn().mockResolvedValue([{ id: 'provider-1', displayName: 'Provider', status: 'APPROVED' }]),
+    list: vi
+      .fn()
+      .mockResolvedValue([{ id: 'provider-1', displayName: 'Provider', status: 'APPROVED' }]),
     findById: vi.fn().mockResolvedValue({ id: 'provider-1' }),
     findByPublicId: vi.fn(),
   };
+  const importedCourseOperationsRepository: IImportedCourseOperationsRepository = {
+    listImportedCourses: vi.fn(),
+    getImportedCourseById: vi.fn(),
+    getOverview: vi.fn(),
+    getVerificationContext: vi.fn(),
+    recordLinkCheck: vi.fn(),
+    getImportOperationsOverview: vi.fn(),
+    listCourseBatches: vi.fn(),
+    listProviderCourseBatches: vi.fn(),
+    getCourseBatchById: vi.fn(),
+    listReviewQueue: vi.fn(),
+    listProviderReviewQueue: vi.fn(),
+    getProviderReviewSummary: vi.fn(),
+  };
+  const importedCourseLinkChecker: IImportedCourseLinkChecker = { check: vi.fn() };
+  const importAdminUseCases = new ImportAdminUseCases(
+    new PrismaImportRepository(undefined, 'DEVELOPMENT_ONLY'),
+  );
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
     req.authUserId = 'admin-1';
     next();
   });
-  app.use('/admin/imports/courses', CourseImportOperationsRouter.create({
-    courseImportOperationsUseCases: operations as any,
-    courseImportArtifactUseCase: artifact as any,
-    externalCourseProviderRepository: providers as any,
-  }));
+  app.use(
+    '/admin/imports/courses',
+    CourseImportOperationsRouter.create({
+      courseImportOperationsUseCases: operations as any,
+      courseImportArtifactUseCase: artifact as any,
+      externalCourseProviderRepository: providers as any,
+      importedCourseOperationsRepository,
+      importedCourseLinkChecker,
+      importAdminUseCases,
+    }),
+  );
   return { app, operations, artifact, providers };
 }
 
@@ -54,7 +88,9 @@ describe('CourseImportOperationsRouter', () => {
   it('preflights and stages via the existing artifact flow, then runs WP-IC-04 analysis', async () => {
     const f = fixture();
     const body = { assetId: 'asset-1' };
-    expect((await request(f.app).post('/admin/imports/courses/preflight').send(body)).status).toBe(200);
+    expect((await request(f.app).post('/admin/imports/courses/preflight').send(body)).status).toBe(
+      200,
+    );
 
     const staged = await request(f.app).post('/admin/imports/courses/batches').send(body);
     expect(staged.status).toBe(201);
@@ -75,10 +111,12 @@ describe('CourseImportOperationsRouter', () => {
       .post('/admin/imports/courses/batches/batch-1/transfer')
       .send({ limit: 50 });
     expect(res.status).toBe(200);
-    expect(f.operations.transferBatch).toHaveBeenCalledWith(expect.objectContaining({
-      batchId: 'batch-1',
-      actorId: 'admin-1',
-      limit: 50,
-    }));
+    expect(f.operations.transferBatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-1',
+        actorId: 'admin-1',
+        limit: 50,
+      }),
+    );
   });
 });

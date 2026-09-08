@@ -2,7 +2,9 @@ import { PrismaClient } from '@prisma/client';
 
 const url = process.env.DATABASE_URL;
 if (!url || url.includes('postgres-host') || url.includes('placeholder')) {
-  console.error('CRITICAL: DATABASE_URL is not set or contains a placeholder. Please configure a valid DATABASE_URL environment variable.');
+  console.error(
+    'CRITICAL: DATABASE_URL is not set or contains a placeholder. Please configure a valid DATABASE_URL environment variable.',
+  );
   process.exitCode = 1;
 } else {
   const prisma = new PrismaClient({ datasources: { db: { url } } });
@@ -13,12 +15,12 @@ if (!url || url.includes('postgres-host') || url.includes('placeholder')) {
         versions: {
           include: {
             contentBlocks: {
-              orderBy: { blockKey: 'asc' }
-            }
-          }
-        }
+              orderBy: { blockKey: 'asc' },
+            },
+          },
+        },
       },
-      orderBy: { testCategory: 'asc' }
+      orderBy: { testCategory: 'asc' },
     });
 
     console.log('--- Unified Import Verification (16 Categories) ---');
@@ -27,15 +29,17 @@ if (!url || url.includes('postgres-host') || url.includes('placeholder')) {
       console.log(`[${t.testCategory}] ${t.displayName}`);
       if (version) {
         for (const block of version.contentBlocks) {
-          console.log(`  - ${block.title} (Order: ${block.displayOrder})`);
+          console.log(`  - ${block.title} (Key: ${block.blockKey})`);
         }
       }
       console.log('-----------------------------------');
     }
   }
 
-  main().catch(e => {
-    console.error('VERIFICATION ERROR:', e);
-    process.exitCode = 1;
-  }).finally(() => prisma.$disconnect());
+  main()
+    .catch((e) => {
+      console.error('VERIFICATION ERROR:', e);
+      process.exitCode = 1;
+    })
+    .finally(() => prisma.$disconnect());
 }

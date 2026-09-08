@@ -1,7 +1,7 @@
 export interface SearchFilterDto {
   field: string;
   operator: string;
-  value: any;
+  value: unknown;
 }
 
 export interface SearchCriteriaDto {
@@ -35,7 +35,7 @@ export interface SearchTargetReferenceDto {
 export interface SearchMatchDto {
   target: SearchTargetReferenceDto;
   score: number;
-  payload: Record<string, any>;
+  payload: Record<string, unknown>;
 }
 
 export interface SearchResultDto {

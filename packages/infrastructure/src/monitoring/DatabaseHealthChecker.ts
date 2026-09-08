@@ -1,6 +1,8 @@
-import { HealthStatus, HealthCheckResult } from '@manaratak/core';
+import { HealthStatus, HealthCheckResult, IHealthIndicator } from '@manaratak/core';
 
-export class DatabaseHealthChecker {
+export class DatabaseHealthChecker implements IHealthIndicator {
+  public readonly name = 'database';
+
   constructor(private client?: any) {}
 
   async checkHealth(): Promise<HealthCheckResult> {
@@ -12,7 +14,7 @@ export class DatabaseHealthChecker {
         status: HealthStatus.DOWN,
         timestamp: checkedAt,
         error: 'Database connection instance not initialized',
-        details: { database: 'disconnected' }
+        details: { database: 'disconnected' },
       };
     }
 
@@ -47,7 +49,7 @@ export class DatabaseHealthChecker {
       return {
         status: HealthStatus.UP,
         timestamp: checkedAt,
-        details: { database: 'connected', latencyMs }
+        details: { database: 'connected', latencyMs },
       };
     } catch (err: any) {
       const latencyMs = Date.now() - start;
@@ -56,7 +58,7 @@ export class DatabaseHealthChecker {
         status: HealthStatus.DOWN,
         timestamp: checkedAt,
         error: safeError,
-        details: { database: 'disconnected', capabilityStatus: 'UNAVAILABLE', latencyMs }
+        details: { database: 'disconnected', capabilityStatus: 'UNAVAILABLE', latencyMs },
       };
     }
   }
