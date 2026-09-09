@@ -1,4 +1,5 @@
 import * as awilix from 'awilix';
+import { createVercelHttpHandler } from './infrastructure/runtime/VercelHttpHandler.js';
 import express, { Router, Express, Request, Response } from 'express';
 import * as path from 'path';
 import { container, registerDependencies } from './infrastructure/di/container.js';
@@ -67,6 +68,8 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
   }
 
   bootstrapPromise = (async () => {
+    let failedResources: RuntimeResourceRegistry | undefined;
+    let failedMonitoring: OtlpHttpMonitoringProvider | undefined;
     try {
       const currentEnv: Record<string, string | undefined> = { ...(options?.env ?? process.env) };
 
@@ -98,6 +101,10 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
       const isProductionOrStaging = nodeEnv === 'production' || nodeEnv === 'staging';
       const databaseRequired = isDatabaseRequiredForRuntime(currentEnv);
 
+      if (databaseRequired && !currentEnv.DATABASE_URL) {
+        throw new Error('DATABASE_URL is required for this runtime mode');
+      }
+
       if (isProductionOrStaging && (!productionReadinessReport.ready || productionReadinessReport.blockerCount > 0)) {
         const blockerDetails = productionReadinessReport.findings
           .filter(f => f.severity === 'BLOCKER')
@@ -123,6 +130,7 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
         options?.connectExternalServices !== false,
         options?.databaseClient,
       );
+      failedResources = runtimeResources;
 
       const requestLogger = new RequestLogger(logger, logContext);
       const errorLogger = new ErrorLogger(logger, logContext);
@@ -141,9 +149,11 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
             serviceName: currentEnv.OTEL_SERVICE_NAME || 'manaratak-api',
             environment: currentEnv.NODE_ENV || 'development',
             exportIntervalMs: Number(currentEnv.OTEL_EXPORT_INTERVAL_MS || 10_000),
+            periodicExport: currentEnv.VERCEL !== '1',
             traceSampleRatio: Number(currentEnv.OTEL_TRACES_SAMPLER_RATIO ?? 1),
           })
         : undefined;
+      failedMonitoring = monitoringProvider;
       const monitoringService = options?.monitoringService || new AppMonitoringService(monitoringProvider);
 
       // Bootstrap Security. Production rate limiting reuses the process-owned Redis client.
@@ -244,9 +254,6 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     assertImportRawSnapshotStoreForRuntime(currentEnv, container.resolve<any>('importRawSnapshotStore'));
 
     // Establish Database Connection if available
-    if (databaseRequired && !currentEnv.DATABASE_URL) {
-      throw new Error('DATABASE_URL is required for this runtime mode');
-    }
     const databaseUrl = config.getOptional<string>('DATABASE_URL') || currentEnv.DATABASE_URL;
     if (databaseUrl || options?.databaseClient) {
       try {
@@ -854,6 +861,10 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
     appInstance = app;
     return app;
     } catch (err) {
+      // A failed cold start can be retried on a warm Function instance.
+      // Release partially initialized pools/timers before allowing that retry.
+      try { await failedMonitoring?.shutdown(); } catch { /* preserve bootstrap error */ }
+      try { await failedResources?.closeAll(); } catch { /* preserve bootstrap error */ }
       bootstrapPromise = null;
       throw err;
     }
@@ -861,3 +872,6 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
 
   return bootstrapPromise;
 }
+
+// Vercel discovers src/app.ts. Traditional server.ts continues to use the factory.
+export default createVercelHttpHandler(() => createApiApp());

@@ -6,6 +6,7 @@ export interface OtlpHttpMonitoringOptions {
   serviceName: string;
   environment: string;
   exportIntervalMs?: number;
+  periodicExport?: boolean;
   traceSampleRatio?: number;
   headers?: Record<string, string>;
 }
@@ -35,15 +36,17 @@ export class OtlpHttpMonitoringProvider implements IMonitoringProvider, IMetrics
   private readonly indicators = new Map<string, IHealthIndicator>();
   private readonly metrics: TelemetryPoint[] = [];
   private readonly spans: SpanPoint[] = [];
-  private readonly timer: NodeJS.Timeout;
+  private readonly timer?: NodeJS.Timeout;
   private lastExportError: string | null = null;
   private exporting: Promise<void> | null = null;
 
   public constructor(private readonly options: OtlpHttpMonitoringOptions) {
     if (!/^https?:\/\//i.test(options.endpoint)) throw new Error('OTEL_EXPORTER_OTLP_ENDPOINT_INVALID');
     const interval = Math.max(1_000, options.exportIntervalMs ?? 10_000);
-    this.timer = setInterval(() => { void this.forceFlush().catch(() => undefined); }, interval);
-    this.timer.unref?.();
+    if (options.periodicExport !== false) {
+      this.timer = setInterval(() => { void this.forceFlush().catch(() => undefined); }, interval);
+      this.timer.unref?.();
+    }
   }
 
   public getMetrics(): IMetrics { return this; }

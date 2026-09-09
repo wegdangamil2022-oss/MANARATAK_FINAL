@@ -33,3 +33,30 @@ A feature module must not construct a Prisma or Redis client directly. A future 
 6. A 15-second terminal timeout force-closes remaining HTTP connections and proceeds to resource cleanup instead of leaving shutdown blocked indefinitely.
 
 Repeated signals/callbacks do not close shared infrastructure more than once.
+
+## Vercel HTTP runtime
+
+Vercel's Express project uses `apps/api` as its root and discovers `src/app.ts`.
+Its default export is a request adapter around `createApiApp()`, not the traditional
+`src/server.ts` process. Concurrent requests share initialization; failed startup
+closes partially initialized resources and returns a sanitized 503. Security and
+production-readiness gates remain fail-closed. Liveness reports the HTTP process,
+not dependency readiness; readiness must not be inferred from liveness or a Ready deployment.
+
+`server.ts` remains the persistent host for polling workers, recurring-job registration,
+port ownership and signal-driven shutdown. Do not import it into a Function. Worker
+enablement flags do not cause the Vercel adapter to start these workers. Provision
+their persistent host separately; HTTP readiness is not proof of worker availability.
+
+On Vercel, telemetry has no periodic export timer: the adapter awaits a bounded
+export after the response. Pools are reused within the warm instance, not closed
+after each request. The traditional process keeps its periodic export and shutdown.
+
+Run `npm run build -w @manaratak/api` then `npm run runtime:verify -w @manaratak/api`
+to exercise the emitted Node ESM entrypoint, export contract, concurrent bootstrap,
+real local HTTP requests, workspace/Prisma loading and failure handling without
+external connections or SQL. This is not a replacement for deployment runtime tests.
+
+The administrative catalog/dossier import routes still require explicit workspace
+files on a persistent host (`process.cwd()/workspace/...`). They are not part of
+HTTP bootstrap and must not be assumed available in a traced Function bundle.
