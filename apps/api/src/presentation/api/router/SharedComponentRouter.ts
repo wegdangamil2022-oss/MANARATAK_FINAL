@@ -5,7 +5,7 @@ import {
   sharedComponentCreateSchema,
   sharedComponentVersionSchema,
   sharedRefParamSchema,
-} from '../../validation/StrictControlPlaneSchemas';
+} from '../../validation/StrictControlPlaneSchemas.js';
 
 export class SharedComponentRouter {
   public static create({ manageSharedComponentsUseCase }: { manageSharedComponentsUseCase: ManageSharedComponentsUseCase }): Router {

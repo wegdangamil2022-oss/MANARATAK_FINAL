@@ -1,9 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { ManageSettingsUseCase } from '@manaratak/application';
-import { ResponseFormatter } from '../response/ResponseFormatter';
+import { ResponseFormatter } from '../response/ResponseFormatter.js';
 import { z } from 'zod';
 import { ValueType, ScopeLevel, IAuditRecordRepository } from '@manaratak/domain';
-import { AuditHelper } from '../../audit/AuditHelper';
+import { AuditHelper } from '../../audit/AuditHelper.js';
 
 export class SettingsAdminRouter {
   public static create({ manageSettingsUseCase, auditRecordRepo }: { manageSettingsUseCase: ManageSettingsUseCase, auditRecordRepo?: IAuditRecordRepository }): Router {

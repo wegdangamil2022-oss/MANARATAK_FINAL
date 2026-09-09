@@ -2,11 +2,11 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { ManageRolesUseCase, AssignRoleUseCase, ManageEmergencyAccessUseCase } from '@manaratak/application';
 import { IAuditRecordRepository, Role } from '@manaratak/domain';
-import { ResponseFormatter } from '../response/ResponseFormatter';
-import { AuditHelper } from '../../audit/AuditHelper';
+import { ResponseFormatter } from '../response/ResponseFormatter.js';
+import { AuditHelper } from '../../audit/AuditHelper.js';
 import type { AdminBootstrapVerifier } from '@manaratak/infrastructure';
-import { requireAuthenticatedPrincipal } from '../../security/AuthenticatedPrincipal';
-import { authorizationRoleAssignmentSchema, authorizationRoleCreateSchema, parseStrict } from '../../validation/StrictControlPlaneSchemas';
+import { requireAuthenticatedPrincipal } from '../../security/AuthenticatedPrincipal.js';
+import { authorizationRoleAssignmentSchema, authorizationRoleCreateSchema, parseStrict } from '../../validation/StrictControlPlaneSchemas.js';
 
 const KNOWN_ADMIN_PERMISSIONS = [
   'admin:identities:manage', 'admin:authorization:manage', 'admin:audit:manage', 'admin:assets:manage',

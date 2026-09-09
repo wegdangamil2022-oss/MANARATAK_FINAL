@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/server.ts",
-    "typecheck": "tsc -b && node ../../scripts/resolve-api-workspace-esm.mjs",
+    "typecheck": "node ../../scripts/verify-api-native-esm-specifiers.mjs && tsc -b && node ../../scripts/resolve-api-workspace-esm.mjs",
     "build": "npm run typecheck && esbuild src/server.ts --bundle --platform=node --format=cjs --external:uuid --external:@prisma/client --external:bcrypt --external:jsonwebtoken --external:awilix --external:cors --external:express --external:helmet --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",

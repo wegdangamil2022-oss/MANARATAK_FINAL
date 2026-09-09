@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { IAuditRecordRepository } from '@manaratak/domain';
-import { AuditHelper } from './AuditHelper';
+import { AuditHelper } from './AuditHelper.js';
 
 export type MutationAuditClassification =
   | 'CRITICAL_AUDIT_REQUIRED'

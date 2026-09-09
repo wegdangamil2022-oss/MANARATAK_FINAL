@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { CourseAccessType, CourseOriginType } from '@manaratak/domain';
 import { CourseRelationshipQueryService, PublicCourseUseCases } from '@manaratak/application';
-import { parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract';
+import { parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract.js';
 
 export class CoursePublicRouter {
   public static create(cradle: { publicCourseUseCases: PublicCourseUseCases; courseRelationshipQueryService: CourseRelationshipQueryService }): Router {

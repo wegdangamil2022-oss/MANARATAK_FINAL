@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { IAuthService, IPrincipalAccessValidator, ISecurityService, ISessionManager, ITokenProvider } from '@manaratak/core';
 import type { ICredentialVerifier } from '@manaratak/application';
 import { IIdentityRepository, IRoleAssignmentRepository, IRoleRepository } from '@manaratak/domain';
-import { ResponseFormatter } from '../response/ResponseFormatter';
-import { clearAuthCookies, readAccessCookie, readRefreshCookie, setAuthCookies } from '../../security/HttpOnlyAuthCookies';
+import { ResponseFormatter } from '../response/ResponseFormatter.js';
+import { clearAuthCookies, readAccessCookie, readRefreshCookie, setAuthCookies } from '../../security/HttpOnlyAuthCookies.js';
 import { createHash } from 'node:crypto';
 
 export class AuthRouter {

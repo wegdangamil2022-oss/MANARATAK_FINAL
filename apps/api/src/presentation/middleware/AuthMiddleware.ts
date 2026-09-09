@@ -5,7 +5,7 @@ import {
   ITokenProvider,
   UnauthorizedException,
 } from '@manaratak/core';
-import { readAccessCookie } from '../security/HttpOnlyAuthCookies';
+import { readAccessCookie } from '../security/HttpOnlyAuthCookies.js';
 
 // Extend Express Request
 declare global {

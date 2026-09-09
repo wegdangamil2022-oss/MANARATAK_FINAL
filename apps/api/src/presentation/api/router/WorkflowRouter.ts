@@ -5,7 +5,7 @@ import {
   referenceParamSchema,
   workflowCreateSchema,
   workflowTransitionSchema,
-} from '../../validation/StrictControlPlaneSchemas';
+} from '../../validation/StrictControlPlaneSchemas.js';
 
 export class WorkflowRouter {
   public static create({ manageWorkflowsUseCase }: { manageWorkflowsUseCase: ManageWorkflowsUseCase }): Router {

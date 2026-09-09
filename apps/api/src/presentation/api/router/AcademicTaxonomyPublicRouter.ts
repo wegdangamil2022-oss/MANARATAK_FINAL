@@ -6,7 +6,7 @@ import {
   AcademicStandardType,
   IAcademicTaxonomyRepository,
 } from '@manaratak/domain';
-import { localeQuerySchema, parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract';
+import { localeQuerySchema, parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract.js';
 
 export class AcademicTaxonomyPublicRouter {
   public static create(cradle: { academicTaxonomyRepository: IAcademicTaxonomyRepository }): Router {

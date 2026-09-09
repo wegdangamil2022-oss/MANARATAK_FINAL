@@ -9,7 +9,7 @@ import {
   DegreeLevelStatus,
   IAuditRecordRepository,
 } from '@manaratak/domain';
-import { AuditHelper } from '../../audit/AuditHelper';
+import { AuditHelper } from '../../audit/AuditHelper.js';
 
 export class AcademicTaxonomyAdminRouter {
   public static create(cradle: {

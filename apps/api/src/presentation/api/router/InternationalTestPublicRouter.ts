@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { LocalizedInternationalTestPublicUseCases } from '@manaratak/application';
 import { IInternationalTestRepository, InternationalTestCategory, InternationalTestCompletenessStatus } from '@manaratak/domain';
-import { localeQuerySchema, parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract';
+import { localeQuerySchema, parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract.js';
 
 export class InternationalTestPublicRouter {
   public static create(cradle: { internationalTestRepository: IInternationalTestRepository }): Router {

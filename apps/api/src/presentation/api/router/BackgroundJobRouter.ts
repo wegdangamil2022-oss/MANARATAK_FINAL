@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { ManageBackgroundJobsUseCase } from '@manaratak/application';
-import { backgroundJobEnqueueSchema, jobReferenceParamSchema, parseStrict } from '../../validation/StrictControlPlaneSchemas';
+import { backgroundJobEnqueueSchema, jobReferenceParamSchema, parseStrict } from '../../validation/StrictControlPlaneSchemas.js';
 
 /**
  * Operator control plane. Lifecycle start/complete/fail transitions are intentionally

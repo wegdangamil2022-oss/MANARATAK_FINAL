@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { EvaluateAccessUseCase } from '@manaratak/application';
-import { ResponseFormatter } from '../response/ResponseFormatter';
-import { authorizationEvaluateSchema, parseStrict } from '../../validation/StrictControlPlaneSchemas';
+import { ResponseFormatter } from '../response/ResponseFormatter.js';
+import { authorizationEvaluateSchema, parseStrict } from '../../validation/StrictControlPlaneSchemas.js';
 
 export class AuthorizationRuntimeRouter {
   public static create({ evaluateAccessUseCase  }: { evaluateAccessUseCase: EvaluateAccessUseCase }): Router {

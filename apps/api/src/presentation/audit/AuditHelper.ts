@@ -15,7 +15,7 @@ import {
   ContextMetadata,
   CorrelationReference
 } from '@manaratak/domain';
-import { getAuthenticatedPrincipal } from '../security/AuthenticatedPrincipal';
+import { getAuthenticatedPrincipal } from '../security/AuthenticatedPrincipal.js';
 
 export interface AuditRecordParams {
   action: string;

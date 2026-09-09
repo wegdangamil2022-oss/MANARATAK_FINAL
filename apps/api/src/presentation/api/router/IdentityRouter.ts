@@ -11,8 +11,8 @@ import {
   ListIdentitiesUseCase
 } from '@manaratak/application';
 import { IAuditRecordRepository } from '@manaratak/domain';
-import { ResponseFormatter } from '../response/ResponseFormatter';
-import { AuditHelper } from '../../audit/AuditHelper';
+import { ResponseFormatter } from '../response/ResponseFormatter.js';
+import { AuditHelper } from '../../audit/AuditHelper.js';
 import {
   emptyBodySchema,
   identityContactUpdateSchema,
@@ -22,7 +22,7 @@ import {
   identityProfileUpdateSchema,
   identityProvisionSchema,
   parseStrict,
-} from '../../validation/StrictControlPlaneSchemas';
+} from '../../validation/StrictControlPlaneSchemas.js';
 
 export class IdentityRouter {
   public static create({ provisionIdentityUseCase, activateIdentityUseCase, suspendIdentityUseCase, archiveIdentityUseCase, purgeIdentityUseCase, updateProfileUseCase, updateContactUseCase, getIdentityUseCase, listIdentitiesUseCase, auditRecordRepo }: { provisionIdentityUseCase: ProvisionIdentityUseCase, activateIdentityUseCase: ActivateIdentityUseCase, suspendIdentityUseCase: SuspendIdentityUseCase, archiveIdentityUseCase: ArchiveIdentityUseCase, purgeIdentityUseCase: PurgeIdentityUseCase, updateProfileUseCase: UpdateProfileUseCase, updateContactUseCase: UpdateContactUseCase, getIdentityUseCase: GetIdentityUseCase, listIdentitiesUseCase: ListIdentitiesUseCase, auditRecordRepo?: IAuditRecordRepository }): Router {

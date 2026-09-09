@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { PublicScholarshipUseCases } from '@manaratak/application';
-import { parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract';
+import { parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract.js';
 
 export class ScholarshipPublicRouter {
   public static create(cradle: { publicScholarshipUseCases: PublicScholarshipUseCases }): Router {

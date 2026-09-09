@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { ManageCacheUseCase } from '@manaratak/application';
-import { cacheAllocateSchema, cacheKeyParamSchema, parseStrict } from '../../validation/StrictControlPlaneSchemas';
+import { cacheAllocateSchema, cacheKeyParamSchema, parseStrict } from '../../validation/StrictControlPlaneSchemas.js';
 
 export class CacheRouter {
   public static create({ manageCacheUseCase }: { manageCacheUseCase: ManageCacheUseCase }): Router {

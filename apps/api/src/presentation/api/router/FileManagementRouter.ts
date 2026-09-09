@@ -1,13 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { ManageFilesUseCase } from '@manaratak/application';
-import { ResponseFormatter } from '../response/ResponseFormatter';
+import { ResponseFormatter } from '../response/ResponseFormatter.js';
 import {
   fileActivateSchema,
   fileIdParamSchema,
   fileRegisterSchema,
   fileUploadLocatorSchema,
   parseStrict,
-} from '../../validation/StrictControlPlaneSchemas';
+} from '../../validation/StrictControlPlaneSchemas.js';
 
 export class FileManagementRouter {
   public static create({ manageFilesUseCase }: { manageFilesUseCase: ManageFilesUseCase }): Router {

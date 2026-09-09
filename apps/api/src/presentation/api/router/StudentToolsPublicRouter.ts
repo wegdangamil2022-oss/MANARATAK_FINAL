@@ -6,7 +6,7 @@ import {
   StudentToolRegistryUseCases,
 } from '@manaratak/application';
 import type { PrismaApiIdempotencyStore } from '@manaratak/infrastructure';
-import { createCanonicalIdempotencyMiddleware } from '../../middleware/CanonicalIdempotencyMiddleware';
+import { createCanonicalIdempotencyMiddleware } from '../../middleware/CanonicalIdempotencyMiddleware.js';
 
 export class StudentToolsPublicRouter {
   static create(cradle: {

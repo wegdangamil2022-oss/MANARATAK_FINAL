@@ -2,7 +2,7 @@ import { Router, type Request } from 'express';
 import { z } from 'zod';
 import { StudentWorkspaceStatus, type IAuditRecordRepository, type AuthorizationEvaluatorService } from '@manaratak/domain';
 import { StudentWorkspaceUseCases } from '@manaratak/application';
-import { AuditHelper } from '../../audit/AuditHelper';
+import { AuditHelper } from '../../audit/AuditHelper.js';
 
 export class StudentSupportAdminRouter {
   public static create({ studentWorkspaceUseCases, auditRecordRepo, authEvaluatorService }: { studentWorkspaceUseCases: StudentWorkspaceUseCases; auditRecordRepo?: IAuditRecordRepository; authEvaluatorService: AuthorizationEvaluatorService }): Router {

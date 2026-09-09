@@ -5,7 +5,7 @@ import {
   type ITokenProvider,
   UnauthorizedException,
 } from '@manaratak/core';
-import { readAccessCookie } from '../security/HttpOnlyAuthCookies';
+import { readAccessCookie } from '../security/HttpOnlyAuthCookies.js';
 
 /**
  * Canonical optional-auth boundary for public journeys that can operate both

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { ManageNotificationTemplatesUseCase, ManageNotificationIntentsUseCase } from '@manaratak/application';
-import { notificationIntentSchema, notificationTemplateSchema, parseStrict } from '../../validation/StrictControlPlaneSchemas';
+import { notificationIntentSchema, notificationTemplateSchema, parseStrict } from '../../validation/StrictControlPlaneSchemas.js';
 
 export class NotificationRouter {
   public static create({ templatesUseCase, intentsUseCase }: {

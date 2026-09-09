@@ -11,7 +11,7 @@ import {
   RequestAssetUploadLocatorDto,
   RegisterQuarantinedAssetDto
 } from '@manaratak/application';
-import { AuditHelper } from '../../audit/AuditHelper';
+import { AuditHelper } from '../../audit/AuditHelper.js';
 
 export interface AssetPlatformRouterCradle {
   ingestAssetUseCase: IngestAssetUseCase;

@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { LocalizedPublicUniversityUseCases, LocalizedReferenceDataQueries, ReferenceDataNotFoundError } from '@manaratak/application';
 import { IReferenceDataRepository, IUniversityRepository } from '@manaratak/domain';
-import { localeQuerySchema, parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract';
+import { localeQuerySchema, parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract.js';
 
 export class ReferenceDataPublicRouter {
   public static create(cradle: { referenceDataRepository: IReferenceDataRepository; universityRepository: IUniversityRepository }): Router {

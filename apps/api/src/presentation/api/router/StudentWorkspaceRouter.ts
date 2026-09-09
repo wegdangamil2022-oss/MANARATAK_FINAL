@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { IPrincipalAccessValidator, ISessionManager, ITokenProvider } from '@manaratak/core';
 import { FinancePlatformUseCases, FinanceStudentUseCases, StudentWorkspaceUseCases, StudentApplicationTrackerUseCases, StudentSavedItemHydrationService, StudentDashboardHydrationService, StudentServiceRequestUseCases, ProcessAssetLifecycleUseCase } from '@manaratak/application';
 import { AssetId, AssetLifecycleState, IAssetRecordRepository, ServiceRequestStatus, StudentSavedItemType } from '@manaratak/domain';
-import { AuthMiddleware } from '../../middleware/AuthMiddleware';
-import { createCanonicalIdempotencyMiddleware } from '../../middleware/CanonicalIdempotencyMiddleware';
+import { AuthMiddleware } from '../../middleware/AuthMiddleware.js';
+import { createCanonicalIdempotencyMiddleware } from '../../middleware/CanonicalIdempotencyMiddleware.js';
 import type { PrismaApiIdempotencyStore } from '@manaratak/infrastructure';
 
 export class StudentWorkspaceRouter {

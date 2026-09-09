@@ -6,7 +6,7 @@ import {
   apiServicePublishVersionSchema,
   parseStrict,
   referenceParamSchema,
-} from '../../validation/StrictControlPlaneSchemas';
+} from '../../validation/StrictControlPlaneSchemas.js';
 
 export class ApiFoundationRouter {
   public static create({ manageApiServicesUseCase }: { manageApiServicesUseCase: ManageApiServicesUseCase }): Router {

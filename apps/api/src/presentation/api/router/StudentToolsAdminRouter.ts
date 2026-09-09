@@ -11,7 +11,7 @@ import {
   studentToolLifecycleParamSchema,
   studentToolMetadataPatchSchema,
   toolKeyParamSchema,
-} from '../../validation/StrictControlPlaneSchemas';
+} from '../../validation/StrictControlPlaneSchemas.js';
 export class StudentToolsAdminRouter {
   static create(cradle: {
     studentToolRegistryUseCases: StudentToolRegistryUseCases;

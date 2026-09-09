@@ -1,2 +1,2 @@
-export { ApiFoundationRouter } from './ApiFoundationRouter';
-export { SharedComponentRouter } from './SharedComponentRouter';
+export { ApiFoundationRouter } from './ApiFoundationRouter.js';
+export { SharedComponentRouter } from './SharedComponentRouter.js';

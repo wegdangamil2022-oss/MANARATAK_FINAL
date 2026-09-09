@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ILogger, ILogContext, IErrorSerializer } from '@manaratak/core';
-import { PresentationErrorTranslator } from '../errors/PresentationErrorTranslator';
+import { PresentationErrorTranslator } from '../errors/PresentationErrorTranslator.js';
 import { problemDetails } from '../http/ProblemDetails.js';
 
 export class GlobalExceptionHandler {

@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { LocalizedPublicUniversityUseCases } from '@manaratak/application';
 import { IReferenceDataRepository, IUniversityRepository, PublicUniversityFilters } from '@manaratak/domain';
-import { localeQuerySchema, parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract';
+import { localeQuerySchema, parseRequestLocale, toApiValidationErrorPayload } from '../locale/LocaleQueryContract.js';
 
 export class UniversityPublicRouter {
   public static create(cradle: { universityRepository: IUniversityRepository; referenceDataRepository: IReferenceDataRepository }): Router {
