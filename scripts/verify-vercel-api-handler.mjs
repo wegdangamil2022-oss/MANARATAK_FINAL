@@ -105,6 +105,22 @@ assert.equal((await request(previewEntry.default, '/api/v1/monitoring/health/liv
 const previewReadiness = await request(previewEntry.default, '/api/v1/monitoring/health/readiness');
 assert.equal(previewReadiness.status, 503);
 assert.equal(JSON.parse(previewReadiness.body).error, 'PREVIEW_PROVISIONING_INCOMPLETE');
+for (const [path, source] of [
+  ['/api/v1/monitoring/health/database', 'DATABASE_URL'],
+  ['/api/v1/monitoring/health/database/direct', 'DIRECT_URL'],
+  ['/api/v1/monitoring/health/database/schema', 'DATABASE_URL'],
+]) {
+  delete process.env.MANARATAK_PREVIEW_DATABASE_PROBE;
+  const disabled = await request(previewEntry.default, path);
+  assert.equal(disabled.status, 503);
+  assert.equal(JSON.parse(disabled.body).error, 'PREVIEW_DATABASE_PROBE_DISABLED');
+  process.env.MANARATAK_PREVIEW_DATABASE_PROBE = 'true';
+  const missing = await request(previewEntry.default, path);
+  assert.equal(missing.status, 503);
+  assert.equal(JSON.parse(missing.body).error, source + '_MISSING');
+}
+delete process.env.MANARATAK_PREVIEW_DATABASE_PROBE;
+console.log('PASS: compiled Preview database routes gated; correct datasource required; no connections');
 for (const url of ['/api/v1/admin/assets', '/api/v1/auth/login', '/api/v1/public/scholarships']) {
   for (const method of ['GET', 'POST', 'PUT', 'DELETE']) {
     const response = await request(previewEntry.default, url, method);
