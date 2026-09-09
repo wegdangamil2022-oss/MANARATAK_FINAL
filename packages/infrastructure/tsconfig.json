@@ -7,6 +7,11 @@
     "declaration": true,
     "declarationMap": true
   },
+  "references": [
+    { "path": "../application" },
+    { "path": "../core" },
+    { "path": "../domain" }
+  ],
   "include": [
     "src"
   ]
