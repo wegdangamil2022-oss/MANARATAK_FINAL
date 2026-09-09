@@ -30,6 +30,14 @@ net.Server.prototype.listen = () => { throw new Error('IMPORT_MUST_NOT_LISTEN');
 syncBuiltinESMExports();
 const signals = ['SIGINT', 'SIGTERM'].map((signal) => process.listenerCount(signal));
 const entry = await import(pathToFileURL(path.join(root, 'apps/api/dist/app.js')).href);
+const { bootstrapDiagnostics } = await import(pathToFileURL(path.join(root, 'apps/api/dist/infrastructure/runtime/BootstrapDiagnostics.js')).href);
+const privateValue = 'private-test-credential-never-log';
+const diagnostic = bootstrapDiagnostics(new Error('Configuration validation failed:\nREDIS_URL: invalid rediss://user:' + privateValue + '@host.invalid\nCSRF_SECRET: invalid ' + privateValue));
+assert.deepEqual(diagnostic.configurationFields, ['REDIS_URL', 'CSRF_SECRET']);
+assert.equal(diagnostic.category, 'CONFIGURATION_VALIDATION_FAILED');
+assert.ok(!JSON.stringify(diagnostic).includes(privateValue));
+assert.ok(!JSON.stringify(diagnostic).includes('host.invalid'));
+assert.equal(bootstrapDiagnostics(new Error(privateValue)).category, 'API_BOOTSTRAP_FAILED');
 assert.equal(typeof entry.default, 'function', 'Vercel requires a callable default export');
 assert.deepEqual(['SIGINT', 'SIGTERM'].map((s) => process.listenerCount(s)), signals);
 for (const name of ['config', 'core', 'domain', 'shared', 'application', 'infrastructure']) {

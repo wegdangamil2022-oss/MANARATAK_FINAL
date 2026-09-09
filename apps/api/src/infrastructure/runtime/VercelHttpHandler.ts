@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from 'express';
+import { bootstrapDiagnostics } from './BootstrapDiagnostics.js';
 
 /** Request-scoped adapter. Never imports server.ts or owns listeners/workers. */
 export function createVercelHttpHandler(bootstrap: () => Promise<Express>) {
@@ -17,9 +18,9 @@ export function createVercelHttpHandler(bootstrap: () => Promise<Express>) {
       app = await pending;
     } catch (error: unknown) {
       // Never log raw provider errors: they can include credentials and URLs.
-      const category = error instanceof Error && error.message.startsWith('Production readiness')
-        ? 'PRODUCTION_READINESS_BLOCKED' : 'API_BOOTSTRAP_FAILED';
-      console.error(`[Bootstrap] ${category}`);
+      const diagnostics = bootstrapDiagnostics(error);
+      const { category } = diagnostics;
+      console.error('[Bootstrap]', JSON.stringify(diagnostics));
       if (category === 'PRODUCTION_READINESS_BLOCKED' && error instanceof Error) {
         // Only canonical finding IDs, never free-form provider/config messages.
         const ids = error.message.match(/\[[A-Z][A-Z0-9_-]{2,80}\]/g) ?? [];
