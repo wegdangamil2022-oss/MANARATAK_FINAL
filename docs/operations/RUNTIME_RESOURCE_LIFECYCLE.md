@@ -36,6 +36,19 @@ Repeated signals/callbacks do not close shared infrastructure more than once.
 
 ## Vercel HTTP runtime
 
+### Provisioning Preview boundary
+
+While services are being provisioned, `VERCEL=1` AND `VERCEL_ENV=preview` selects
+an isolated Express availability surface. `/` reports the provisioning mode,
+liveness is UP, and readiness/health return 503 DOWN. Every business route and
+every mutation method returns 503. There is no database connection, SQL, worker,
+demo authentication or local-storage fallback. No configuration values are exposed.
+This is NOT a functioning business API and must not be promoted as production-ready.
+Production, staging outside Vercel Preview and traditional server.ts retain their
+existing strict configuration/security/DI lifecycle. Replacing this provisioning
+surface with authenticated business routes requires a separate, tested enablement
+change after credentials/services are configured; setting values alone does not enable it.
+
 Vercel's Express project uses `apps/api` as its root and discovers `src/app.ts`.
 Its default export is a request adapter around `createApiApp()`, not the traditional
 `src/server.ts` process. Concurrent requests share initialization; failed startup

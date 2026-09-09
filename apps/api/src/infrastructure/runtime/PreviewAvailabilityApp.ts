@@ -1,0 +1,34 @@
+import express from 'express';
+import helmet from 'helmet';
+
+export function isProvisioningPreview(env: Readonly<Record<string, string | undefined>>): boolean {
+  return env.VERCEL === '1' && env.VERCEL_ENV === 'preview';
+}
+
+/** Provisioning surface only. No business routes, authentication fallback or DI. */
+export function createPreviewAvailabilityApp() {
+  const app = express();
+  app.disable('x-powered-by');
+  app.use(helmet());
+  app.use((_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
+  app.get('/', (_req, res) => {
+    res.json({ service: 'manaratak-api', mode: 'preview-provisioning', ready: false,
+      message: 'HTTP runtime available; business API disabled pending secure service provisioning.' });
+  });
+  app.get('/api/v1/monitoring/health/liveness', (_req, res) => {
+    res.json({ status: 'UP', timestamp: new Date().toISOString() });
+  });
+  const readiness: express.RequestHandler = (_req, res) => {
+    res.status(503).json({ status: 'DOWN', mode: 'preview-provisioning',
+      timestamp: new Date().toISOString(), error: 'PREVIEW_PROVISIONING_INCOMPLETE',
+      details: { businessApiEnabled: false, externalServicesProbed: false,
+        pendingCapabilities: ['database', 'authentication', 'redis', 'assets', 'finance', 'notifications', 'workers'] } });
+  };
+  app.get('/api/v1/monitoring/health/readiness', readiness);
+  app.get('/api/v1/monitoring/health', readiness);
+  // Including auth/admin/mutation routes: fail closed, never substitute demo providers.
+  app.use((_req, res) => {
+    res.status(503).json({ error: 'PREVIEW_CAPABILITY_UNAVAILABLE', mode: 'preview-provisioning' });
+  });
+  return app;
+}

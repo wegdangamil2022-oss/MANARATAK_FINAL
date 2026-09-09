@@ -1,5 +1,6 @@
 import * as awilix from 'awilix';
 import { createVercelHttpHandler } from './infrastructure/runtime/VercelHttpHandler.js';
+import { createPreviewAvailabilityApp, isProvisioningPreview } from './infrastructure/runtime/PreviewAvailabilityApp.js';
 import express, { Router, Express, Request, Response } from 'express';
 import * as path from 'path';
 import { container, registerDependencies } from './infrastructure/di/container.js';
@@ -874,4 +875,6 @@ export async function createApiApp(options?: CreateApiAppOptions): Promise<Expre
 }
 
 // Vercel discovers src/app.ts. Traditional server.ts continues to use the factory.
-export default createVercelHttpHandler(() => createApiApp());
+export default createVercelHttpHandler(async () => isProvisioningPreview(process.env)
+  ? createPreviewAvailabilityApp()
+  : createApiApp());

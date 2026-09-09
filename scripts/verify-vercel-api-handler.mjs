@@ -58,17 +58,18 @@ const app = await entry.createApiApp({ env: { NODE_ENV: 'development', VERCEL: '
 assert.equal(typeof app, 'function');
 net.Server.prototype.listen = originalListen;
 
-async function request(handler, url) {
+async function request(handler, url, method = 'GET') {
   const server = http.createServer(handler);
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   try {
     return await new Promise((resolve, reject) => {
-      http.get({ host: '127.0.0.1', port: server.address().port, path: url }, (res) => {
+      const call = http.request({ host: '127.0.0.1', port: server.address().port, path: url, method }, (res) => {
         let body = '';
         res.on('data', (chunk) => { body += chunk; });
         res.on('end', () => resolve({ status: res.statusCode, body }));
       }).on('error', reject);
+      call.end();
     });
   } finally { await new Promise((resolve) => server.close(resolve)); }
 }
@@ -86,4 +87,30 @@ assert.ok(!result.body.includes('postgres'));
 assert.equal((await request(blocked, '/api/v1/monitoring/health/liveness')).status, 200);
 assert.equal((await request(blocked, '/api/v1/monitoring/health/readiness')).status, 503);
 await app.locals.runtimeResourceRegistry.closeAll();
+// Exercise the actual deployment entrypoint with Preview + production NODE_ENV,
+// deliberately malformed provider values, and all worker flags enabled.
+Object.assign(process.env, { VERCEL_ENV: 'preview', NODE_ENV: 'production',
+  LOG_LEVEL: '', MANARATAK_ASSET_PROVIDER_BASE_URL: '',
+  BACKGROUND_WORKER_ENABLED: 'true', CERTIFICATE_COMPLETION_WORKER_ENABLED: 'true',
+  STUDENT_WORKSPACE_OUTBOX_WORKER_ENABLED: 'true', OWNER_DOMAIN_OUTBOX_WORKER_ENABLED: 'true' });
+const previewEntry = await import(pathToFileURL(path.join(root, 'apps/api/dist/app.js')).href + '?preview-contract');
+const { isProvisioningPreview } = await import(pathToFileURL(path.join(root, 'apps/api/dist/infrastructure/runtime/PreviewAvailabilityApp.js')).href);
+assert.equal(isProvisioningPreview({ VERCEL: '1', VERCEL_ENV: 'production' }), false);
+assert.equal(isProvisioningPreview({ VERCEL_ENV: 'preview' }), false);
+assert.equal(isProvisioningPreview({ NODE_ENV: 'development' }), false);
+const previewRoot = await request(previewEntry.default, '/');
+assert.equal(previewRoot.status, 200);
+assert.equal(JSON.parse(previewRoot.body).ready, false);
+assert.equal((await request(previewEntry.default, '/api/v1/monitoring/health/liveness')).status, 200);
+const previewReadiness = await request(previewEntry.default, '/api/v1/monitoring/health/readiness');
+assert.equal(previewReadiness.status, 503);
+assert.equal(JSON.parse(previewReadiness.body).error, 'PREVIEW_PROVISIONING_INCOMPLETE');
+for (const url of ['/api/v1/admin/assets', '/api/v1/auth/login', '/api/v1/public/scholarships']) {
+  for (const method of ['GET', 'POST', 'PUT', 'DELETE']) {
+    const response = await request(previewEntry.default, url, method);
+    assert.equal(response.status, 503);
+    assert.equal(JSON.parse(response.body).error, 'PREVIEW_CAPABILITY_UNAVAILABLE');
+  }
+}
+console.log('PASS: Preview HTTP 200, liveness 200, readiness 503; business/auth/mutations closed; production selection unchanged');
 console.log('PASS: native entrypoint/export, real Express bootstrap/HTTP, workspace/Prisma loading, fail-closed bootstrap; no SQL or external connections');
