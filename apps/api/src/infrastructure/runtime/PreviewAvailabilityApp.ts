@@ -1,5 +1,6 @@
 import express from 'express';
 import helmet from 'helmet';
+import { isPreviewDatabaseProbeEnabled, probePreviewDatabase } from './PreviewDatabaseProbe.js';
 
 export function isProvisioningPreview(env: Readonly<Record<string, string | undefined>>): boolean {
   return env.VERCEL === '1' && env.VERCEL_ENV === 'preview';
@@ -26,6 +27,15 @@ export function createPreviewAvailabilityApp() {
   };
   app.get('/api/v1/monitoring/health/readiness', readiness);
   app.get('/api/v1/monitoring/health', readiness);
+  app.get('/api/v1/monitoring/health/database', async (req, res) => {
+    // Express also matches HEAD to GET; only explicit GET may contact the database.
+    if (req.method !== 'GET' || !isPreviewDatabaseProbeEnabled(process.env)) {
+      res.status(503).json({ status: 'DOWN', error: 'PREVIEW_DATABASE_PROBE_DISABLED' });
+      return;
+    }
+    const result = await probePreviewDatabase();
+    res.status(result.status === 'UP' ? 200 : 503).json(result);
+  });
   // Including auth/admin/mutation routes: fail closed, never substitute demo providers.
   app.use((_req, res) => {
     res.status(503).json({ error: 'PREVIEW_CAPABILITY_UNAVAILABLE', mode: 'preview-provisioning' });
