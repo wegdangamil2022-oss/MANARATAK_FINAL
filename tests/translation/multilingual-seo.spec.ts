@@ -19,6 +19,34 @@ describe('multilingual SEO contract', () => {
     );
   });
 
+  it.each([
+    'https://',
+    'https://manaratak.example?campaign=1',
+    'https://manaratak.example/#section',
+    'https://user:password@manaratak.example',
+    'https://manaratak.example:invalid',
+  ])('rejects invalid or contaminated SEO base URL %s', (baseUrl) => {
+    expect(() => normalizePublicBaseUrl(baseUrl)).toThrow(
+      'Public SEO base URL must be an absolute http(s) URL.',
+    );
+  });
+
+  it('keeps valid base URLs with a deployment path', () => {
+    expect(normalizePublicBaseUrl(' https://manaratak.example/portal/ ')).toBe(
+      'https://manaratak.example/portal',
+    );
+  });
+
+  it('prevents query parameters in generated canonical links', () => {
+    expect(() =>
+      buildLocalizedSeoLinks({
+        baseUrl: 'https://manaratak.example?preview=1',
+        pathname: '/en/universities/example-university',
+        locale: 'en',
+      }),
+    ).toThrow('Public SEO base URL must be an absolute http(s) URL.');
+  });
+
   it('builds canonical and alternate URLs for the same entity path', () => {
     expect(
       buildLocalizedSeoLinks({
