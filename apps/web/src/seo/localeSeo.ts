@@ -15,8 +15,22 @@ export interface LocalizedSeoLinks {
 
 export function normalizePublicBaseUrl(baseUrl: string): string {
   const normalized = baseUrl.trim().replace(/\/+$/, '');
+  let parsed: URL;
 
-  if (!/^https?:\/\//i.test(normalized)) {
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    throw new Error('Public SEO base URL must be an absolute http(s) URL.');
+  }
+
+  if (
+    !['http:', 'https:'].includes(parsed.protocol) ||
+    !parsed.hostname ||
+    parsed.username ||
+    parsed.password ||
+    normalized.includes('?') ||
+    normalized.includes('#')
+  ) {
     throw new Error('Public SEO base URL must be an absolute http(s) URL.');
   }
 
